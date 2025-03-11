@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { TelebirrPayment } from '@/server/telebirr';
+import { TelebirrPayment } from '@/utils/telebirr-payment';
 
 export async function POST(request: Request) {
   try {
@@ -10,17 +10,17 @@ export async function POST(request: Request) {
 
     // Initialize Telebirr with the settings
     const telebirr = new TelebirrPayment({
-      fabricAppId: settings.fabric_app_id,
-      appSecret: settings.app_secret,
-      merchantAppId: settings.merchant_app_id,
-      shortCode: settings.short_code,
-      privateKey: settings.private_key,
-      notifyUrl: settings.notify_url,
-      redirectUrl: settings.redirect_url
+      merchant_code: settings.short_code,
+      app_id: settings.fabric_app_id,
+      app_key: settings.app_secret,
+      public_key: settings.public_key,
+      private_key: settings.private_key,
+      notify_url: settings.notify_url,
+      redirect_url: settings.redirect_url
     });
 
     // Try to get a token - this will validate the basic credentials
-    const token = await telebirr.getFabricToken();
+    const token = await telebirr.getToken();
 
     // If we got here, the credentials work
     return NextResponse.json({ 

@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { AuthChangeEvent } from '@supabase/supabase-js';
 
 export default function DashboardLayout({
   children,
@@ -73,10 +74,10 @@ export default function DashboardLayout({
     checkAccess();
     
     // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session) => {
       console.log('Auth state changed:', event);
       
-      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+      if (event === 'SIGNED_OUT') {
         // Redirect to login if user signs out
         router.push('/login?message=You+have+been+signed+out');
       } else if (event === 'TOKEN_REFRESHED' && !session) {

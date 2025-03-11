@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { TelebirrPayment } from '@/lib/telebirr';
+import { TelebirrPayment } from '@/utils/telebirr-payment';
 
 export async function POST(request: Request) {
   try {
@@ -20,15 +20,17 @@ export async function POST(request: Request) {
 
     // Initialize Telebirr with admin credentials
     const telebirr = new TelebirrPayment({
-      appId: adminSettings.merchant_app_id,
-      appSecret: adminSettings.app_secret,
-      shortCode: adminSettings.short_code,
-      publicKey: adminSettings.public_key,
-      privateKey: adminSettings.private_key,
+      merchant_code: adminSettings.merchant_app_id,
+      app_id: adminSettings.app_id,
+      app_key: adminSettings.app_key,
+      public_key: adminSettings.public_key,
+      private_key: adminSettings.private_key,
+      notify_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/telebirr/notify`,
+      redirect_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
     });
 
     // Verify the notification
-    const isValid = telebirr.verifyNotification(body);
+    const isValid = await telebirr.verifyNotification(body);
     if (!isValid) {
       throw new Error('Invalid notification signature');
     }

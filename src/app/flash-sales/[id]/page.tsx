@@ -8,9 +8,40 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import CountdownTimer from '@/components/CountdownTimer';
 
+interface FlashSaleProduct {
+  id: string;
+  product_id: string;
+  special_price: number;
+  products: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    product_images: {
+      id: string;
+      image_url: string;
+      is_model_picture: boolean;
+    }[];
+    users: {
+      id: string;
+      full_name: string;
+      store_settings: any;
+    };
+  };
+}
+
+interface FlashSale {
+  id: string;
+  title: string;
+  description: string;
+  start_time: string;
+  end_time: string;
+  flash_sale_products: FlashSaleProduct[];
+}
+
 export default function FlashSalePage() {
   const params = useParams();
-  const [flashSale, setFlashSale] = useState<any>(null);
+  const [flashSale, setFlashSale] = useState<FlashSale | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponent();
@@ -19,6 +50,13 @@ export default function FlashSalePage() {
     const fetchFlashSale = async () => {
       try {
         setLoading(true);
+        
+        // Check if we have a valid ID
+        const saleId = params?.id;
+        if (!saleId) {
+          throw new Error('Flash sale ID is required');
+        }
+
         const { data, error } = await supabase
           .from('flash_sales')
           .select(`
@@ -42,7 +80,7 @@ export default function FlashSalePage() {
               )
             )
           `)
-          .eq('id', params.id)
+          .eq('id', saleId)
           .single();
 
         if (error) throw error;
@@ -55,10 +93,10 @@ export default function FlashSalePage() {
       }
     };
 
-    if (params.id) {
+    if (params?.id) {
       fetchFlashSale();
     }
-  }, [params.id]);
+  }, [params?.id]);
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;

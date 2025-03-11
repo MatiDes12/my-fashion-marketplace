@@ -14,6 +14,7 @@ import ProductImage from '@/components/ProductImage';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import CountdownTimer from '@/components/CountdownTimer';
+import { cleanImageUrl } from '@/utils/url';
 
 // Update the interface for featured sellers
 interface FeaturedSeller {
@@ -62,6 +63,27 @@ interface PopularProduct {
   };
 }
 
+interface FlashSaleProduct {
+  id: string;
+  product_id: string;
+  special_price: number;
+  product: {
+    id: string;
+    title: string;
+    price: number;
+    description: string;
+    product_images: {
+      id: string;
+      image_url: string;
+    }[];
+    owner?: {
+      store_settings?: {
+        name?: string;
+      };
+    };
+  };
+}
+
 interface FlashSale {
   id: string;
   title: string;
@@ -69,23 +91,10 @@ interface FlashSale {
   discount_percentage: number;
   start_time: string;
   end_time: string;
-  created_by: string;
   store_id: string;
   store_name: string;
-  flash_sale_products: {
-    id: string;
-    product_id: string;
-    special_price: number;
-    products: {
-      id: string;
-      title: string;
-      price: number;
-      product_images: Array<{
-        id: string;
-        image_url: string;
-      }>;
-    };
-  }[];
+  created_by: string;
+  products: FlashSaleProduct[];
 }
 
 export default function HomePage() {
@@ -281,9 +290,52 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchFlashSales = async () => {
-      const sales = await getAllActiveFlashSales();
-      setActiveFlashSales(sales);
+      try {
+        const { data: salesData, error } = await supabase
+          .from('flash_sales')
+          .select(`
+            *,
+            products:flash_sale_products(
+              id,
+              product_id,
+              special_price,
+              product:products(
+                id,
+                title,
+                price,
+                description,
+                product_images(id, image_url),
+                owner:users(store_settings)
+              )
+            )
+          `)
+          .eq('is_active', true)
+          .gte('end_time', new Date().toISOString())
+          .lte('start_time', new Date().toISOString());
+
+        if (error) throw error;
+
+        if (salesData) {
+          const processedSales: FlashSale[] = salesData.map(sale => ({
+            id: sale.id,
+            title: sale.title,
+            description: sale.description,
+            discount_percentage: sale.discount_percentage,
+            start_time: sale.start_time,
+            end_time: sale.end_time,
+            store_id: sale.store_id,
+            store_name: sale.store_name,
+            created_by: sale.created_by,
+            products: sale.products
+          }));
+          
+          setActiveFlashSales(processedSales);
+        }
+      } catch (error) {
+        console.error('Error fetching flash sales:', error);
+      }
     };
+
     fetchFlashSales();
   }, []);
 
@@ -391,14 +443,14 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">⚡ Flash Deals</h2>
-            <Link 
-              href="/flash-sales" 
+            <Link
+              href="/flash-sales"
               className="text-sm text-red-600 hover:text-red-700"
             >
               View All
             </Link>
-                </div>
-                
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeFlashSales.map((sale) => (
               <div key={sale.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -407,48 +459,67 @@ export default function HomePage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="text-lg font-semibold">{sale.title}</h3>
-                      <p className="text-red-100 text-sm mt-1">by {sale.store_name}</p>
+                      <p className="text-red-100 text-sm mt-1">
+                        {sale.store_name || 'Flash Sale'}
+                      </p>
                     </div>
                     <CountdownTimer endTime={sale.end_time} />
                   </div>
                 </div>
-                
+
                 {/* Products Grid */}
                 <div className="p-4">
                   <div className="grid grid-cols-2 gap-4">
-                    {sale.flash_sale_products.slice(0, 4).map((flashProduct) => (
-                <Link
-                        key={flashProduct.product_id}
-                        href={`/products/${flashProduct.product_id}?flash_sale=${sale.id}`}
-                        className="group block"
-                      >
-                        <div className="relative aspect-square overflow-hidden rounded-lg mb-2">
-                          <img
-                            src={flashProduct.products?.product_images[0]?.image_url}
-                            alt={flashProduct.products?.title}
-                            className="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-200"
-                          />
-                          <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                            {Math.round(((flashProduct.products.price - flashProduct.special_price) / flashProduct.products.price) * 100)}% OFF
+                    {sale.products.slice(0, 4).map((flashProduct) => (
+                      <div key={flashProduct.id} className="group relative">
+                        <Link
+                          href={`/products/${flashProduct.product.id}`}
+                          className="block"
+                        >
+                          <div className="relative w-[150px] h-[150px] mx-auto overflow-hidden rounded-lg mb-2">
+                            {flashProduct.product.product_images?.[0]?.image_url ? (
+                              <Image
+                                src={cleanImageUrl(flashProduct.product.product_images[0].image_url)}
+                                alt={flashProduct.product.title}
+                                width={150}
+                                height={150}
+                                className="object-cover object-center transform group-hover:scale-105 transition-transform duration-200"
+                                style={{ width: '150px', height: '150px' }}
+                              />
+                            ) : (
+                              <div className="w-[150px] h-[150px] bg-gray-200 flex items-center justify-center">
+                                <span className="text-gray-400">No image</span>
+                              </div>
+                            )}
+                            <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                              {sale.discount_percentage}% OFF
+                            </div>
                           </div>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
-                            {flashProduct.products?.title}
-                          </h4>
-                          <div className="mt-1 flex items-baseline gap-2">
-                            <span className="text-lg font-bold text-red-600">
-                              ${flashProduct.special_price.toFixed(2)}
-                            </span>
-                            <span className="text-sm text-gray-400 line-through">
-                              ${flashProduct.products?.price.toFixed(2)}
-                            </span>
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                              {flashProduct.product.title}
+                            </h4>
+                            <div className="mt-1 flex items-baseline gap-2">
+                              <span className="text-lg font-bold text-red-600">
+                                ETB {flashProduct.special_price}
+                              </span>
+                              <span className="text-sm text-gray-400 line-through">
+                                ETB {flashProduct.product.price}
+                              </span>
+                            </div>
                           </div>
-                  </div>
-                </Link>
+                        </Link>
+                        {/* Buy Now Button */}
+                        <Link
+                          href={`/products/${flashProduct.product.id}?action=buy`}
+                          className="mt-2 block w-full text-center py-2 px-4 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors duration-200"
+                        >
+                          Buy Now
+                        </Link>
+                      </div>
                     ))}
-              </div>
-            </div>
+                  </div>
+                </div>
 
                 {/* View More Footer */}
                 <div className="border-t border-gray-100 p-4">
@@ -460,8 +531,8 @@ export default function HomePage() {
                   </Link>
                 </div>
               </div>
-        ))}
-      </div>
+            ))}
+          </div>
         </div>
       </section>
     );

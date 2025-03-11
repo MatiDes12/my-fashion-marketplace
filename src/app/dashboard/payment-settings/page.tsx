@@ -551,16 +551,17 @@ export default function PaymentSettingsPage() {
                   id="shortCode"
                   label="Short Code"
                   value={settings.shortCode}
-                  onChange={(e) => setSettings({ ...settings, shortCode: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                    setSettings({ ...settings, shortCode: e.target.value })}
                   placeholder="Enter your short code"
-                  helpText="Your Telebirr merchant short code"
+                  helpText="Your Telebirr short code"
                 />
 
                 <SettingsField
                   id="merchantAppId"
                   label="Merchant App ID"
                   value={settings.merchantAppId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
                     setSettings({ ...settings, merchantAppId: e.target.value })}
                   placeholder="Enter your merchant application ID"
                   helpText="Your Telebirr merchant application ID"
@@ -570,7 +571,7 @@ export default function PaymentSettingsPage() {
                   id="fabricAppId"
                   label="Fabric App ID"
                   value={settings.fabricAppId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
                     setSettings({ ...settings, fabricAppId: e.target.value })}
                   placeholder="Enter your fabric application ID"
                   helpText="Your Telebirr fabric application ID"
@@ -580,7 +581,7 @@ export default function PaymentSettingsPage() {
                   id="appSecret"
                   label="App Secret"
                   value={settings.appSecret}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
                     setSettings({ ...settings, appSecret: e.target.value })}
                   placeholder="Enter your application secret"
                   helpText="Your Telebirr application secret"

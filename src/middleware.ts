@@ -129,5 +129,6 @@ export const config = {
     '/admin/revenue',
     '/admin/withdrawals',
     '/admin/withdrawals/manage',
+    '/admin/:path*'
   ]
 }; 

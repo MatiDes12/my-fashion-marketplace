@@ -1,22 +1,28 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { toast } from 'react-hot-toast';
+import LoadingPage from '@/components/LoadingPage';
 
-export default function MockTelebirrPage() {
+function MockTelebirrContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClientComponentClient();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const amount = searchParams.get('amount');
-  const orderId = searchParams.get('orderId');
-  const title = searchParams.get('title');
+  const amount = searchParams?.get('amount') || '';
+  const orderId = searchParams?.get('orderId') || '';
+  const title = searchParams?.get('title') || '';
 
   const handlePayment = async (status: 'success' | 'failed') => {
     try {
+      if (!amount || !orderId) {
+        throw new Error('Invalid payment parameters');
+      }
+
       setIsProcessing(true);
 
       // Get current user
@@ -96,9 +102,9 @@ export default function MockTelebirrPage() {
         <div className="mt-8 space-y-6">
           <div className="rounded-md shadow-sm -space-y-px">
             <div className="bg-white p-6 rounded-lg shadow">
-              <p className="font-medium">Order: {title}</p>
-              <p className="text-2xl font-bold mt-2">ETB {amount}</p>
-              <p className="text-sm text-gray-500 mt-1">Order ID: {orderId}</p>
+              <p className="font-medium">Order: {title || 'Unknown'}</p>
+              <p className="text-2xl font-bold mt-2">ETB {amount || '0'}</p>
+              <p className="text-sm text-gray-500 mt-1">Order ID: {orderId || 'Unknown'}</p>
             </div>
           </div>
 
@@ -121,5 +127,13 @@ export default function MockTelebirrPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MockTelebirrPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <MockTelebirrContent />
+    </Suspense>
   );
 } 

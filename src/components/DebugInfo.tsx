@@ -3,9 +3,23 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+interface UserInfo {
+  id?: string;
+  email?: string;
+  user_metadata?: Record<string, any>;
+  dbRole?: string;
+  [key: string]: any;  // Allow for other properties
+}
+
+interface SessionInfo {
+  access_token?: string;
+  user?: UserInfo;
+  [key: string]: any;  // Allow for other properties
+}
+
 export default function DebugInfo() {
-  const [sessionInfo, setSessionInfo] = useState<any>(null);
-  const [userInfo, setUserInfo] = useState<any>(null);
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [showDebug, setShowDebug] = useState(false);
 
   useEffect(() => {
@@ -25,7 +39,7 @@ export default function DebugInfo() {
           .single();
           
         if (data) {
-          setUserInfo(prev => ({ ...prev, dbRole: data.role }));
+          setUserInfo((prev: UserInfo | null) => prev ? { ...prev, dbRole: data.role } : null);
         }
       }
     };

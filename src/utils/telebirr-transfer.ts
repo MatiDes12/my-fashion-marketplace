@@ -9,7 +9,17 @@ export async function transferToSeller(
 ) {
   const supabase = createClientComponent();
   
-  // Get seller's payment settings
+  // Get admin's payment settings (we use admin's credentials to send money)
+  const { data: adminSettings } = await supabase
+    .from('admin_payment_settings')
+    .select('*')
+    .single();
+
+  if (!adminSettings) {
+    throw new Error('Admin payment settings not configured');
+  }
+
+  // Get seller's Telebirr number to send to
   const { data: sellerSettings } = await supabase
     .from('payment_settings')
     .select('telebirr_settings')
@@ -20,29 +30,39 @@ export async function transferToSeller(
     throw new Error('Seller payment settings not configured');
   }
 
-  // Transfer to seller
+  // Initialize Telebirr with admin credentials
   const telebirr = new TelebirrPayment({
-    // Use admin credentials for transfer
-    appId: process.env.TELEBIRR_APP_ID,
-    appSecret: process.env.TELEBIRR_APP_SECRET,
-    // ... other configs
+    merchantAppId: adminSettings.merchant_app_id,
+    fabricAppId: adminSettings.fabric_app_id,
+    appSecret: adminSettings.app_secret,
+    privateKey: adminSettings.private_key,
+    shortCode: adminSettings.short_code,
+    notifyUrl: adminSettings.notify_url,
+    redirectUrl: adminSettings.redirect_url
   });
 
-  await telebirr.transfer({
+  // Transfer to seller using admin's account
+  const result = await telebirr.createTransfer({
     amount,
     recipientNumber: sellerSettings.telebirr_settings.telebirr_number,
     recipientName: sellerSettings.telebirr_settings.telebirr_name,
-    description: `Payout for transaction ${transactionId}`
+    description: `Payout for transaction ${transactionId}`,
+    merchantOrderId: `PAYOUT-${transactionId}`
   });
 
   // Update transaction status
   await supabase
     .from('transactions')
-    .update({ seller_payout_status: 'completed' })
+    .update({ 
+      seller_payout_status: 'completed',
+      seller_payout_reference: result.transactionId
+    })
     .eq('id', transactionId);
+
+  return result;
 }
 
-// Transfer to admin
+// Transfer platform fees to admin account
 export async function transferToAdmin(
   amount: number,
   transactionId: string
@@ -59,24 +79,34 @@ export async function transferToAdmin(
     throw new Error('Admin payment settings not configured');
   }
 
-  // Transfer platform revenue
+  // Initialize Telebirr with admin credentials
   const telebirr = new TelebirrPayment({
-    // Use admin credentials
-    appId: process.env.TELEBIRR_APP_ID,
-    appSecret: process.env.TELEBIRR_APP_SECRET,
-    // ... other configs
+    merchantAppId: adminSettings.merchant_app_id,
+    fabricAppId: adminSettings.fabric_app_id,
+    appSecret: adminSettings.app_secret,
+    privateKey: adminSettings.private_key,
+    shortCode: adminSettings.short_code,
+    notifyUrl: adminSettings.notify_url,
+    redirectUrl: adminSettings.redirect_url
   });
 
-  await telebirr.transfer({
+  // Transfer platform revenue to admin's Telebirr
+  const result = await telebirr.createTransfer({
     amount,
     recipientNumber: adminSettings.telebirr_number,
     recipientName: adminSettings.telebirr_name,
-    description: `Platform revenue for transaction ${transactionId}`
+    description: `Platform revenue for transaction ${transactionId}`,
+    merchantOrderId: `REVENUE-${transactionId}`
   });
 
   // Update transaction status
   await supabase
     .from('transactions')
-    .update({ platform_payout_status: 'completed' })
+    .update({ 
+      platform_payout_status: 'completed',
+      platform_payout_reference: result.transactionId
+    })
     .eq('id', transactionId);
+
+  return result;
 } 

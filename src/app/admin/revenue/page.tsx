@@ -4,8 +4,17 @@ import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { formatCurrency } from '@/utils/currency';
 
+// Define the Transaction interface
+interface Transaction {
+  id: string;
+  platform_revenue: number;
+  platform_payout_status: 'pending' | 'completed';
+  created_at: string;
+  // Add other transaction fields as needed
+}
+
 export default function RevenuePage() {
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState({
     totalRevenue: 0,
     pendingPayouts: 0,
@@ -25,10 +34,10 @@ export default function RevenuePage() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setTransactions(data);
+      setTransactions(data as Transaction[]);
       
       // Calculate stats
-      const stats = data.reduce((acc, trans) => ({
+      const stats = data.reduce((acc, trans: Transaction) => ({
         totalRevenue: acc.totalRevenue + trans.platform_revenue,
         pendingPayouts: acc.pendingPayouts + (trans.platform_payout_status === 'pending' ? trans.platform_revenue : 0),
         completedPayouts: acc.completedPayouts + (trans.platform_payout_status === 'completed' ? trans.platform_revenue : 0)

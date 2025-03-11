@@ -1,17 +1,23 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import LoadingPage from '@/components/LoadingPage';
 
-export default function AuthCallbackPage() {
+function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
+        if (!searchParams) {
+          throw new Error('No search parameters found');
+        }
+
         const code = searchParams.get('code');
         if (code) {
           await supabase.auth.exchangeCodeForSession(code);
@@ -22,6 +28,8 @@ export default function AuthCallbackPage() {
           } else {
             router.push('/products');
           }
+        } else {
+          throw new Error('No verification code found');
         }
       } catch (error) {
         console.error('Error during email confirmation:', error);
@@ -40,5 +48,13 @@ export default function AuthCallbackPage() {
         <p className="mt-2 text-gray-600">Please wait while we confirm your email address.</p>
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <CallbackContent />
+    </Suspense>
   );
 } 

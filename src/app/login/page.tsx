@@ -6,8 +6,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import { Suspense } from 'react';
+import LoadingPage from '@/components/LoadingPage';
 
-export default function LoginPage() {
+function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -17,11 +19,11 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
   const { setUser } = useAuth();
-  const returnUrl = searchParams.get('returnUrl');
+  const returnUrl = searchParams?.get('returnUrl') || null;
 
   useEffect(() => {
     // Check for message in URL
-    const urlMessage = searchParams.get('message');
+    const urlMessage = searchParams?.get('message');
     if (urlMessage) {
       setMessage(urlMessage);
     }
@@ -216,5 +218,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <LoginContent />
+    </Suspense>
   );
 } 

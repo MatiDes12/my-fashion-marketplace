@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
+import { CartItem, SellerOrder } from '@/types/cart';
 
 interface PaymentMethod {
   id: string;
@@ -32,19 +33,6 @@ const paymentMethods: PaymentMethod[] = [
     isAvailable: false
   }
 ];
-
-interface SellerOrder {
-  id: string;
-  name: string;
-  hasPaymentSettings: boolean;
-  subtotal: number;
-  platformFee: number;
-  serviceFee: number;
-  ethiopiaTax: number;
-  deliveryFee: number;
-  total: number;
-  items: CartItem[];
-}
 
 interface PaymentMethodModalProps {
   isOpen: boolean;

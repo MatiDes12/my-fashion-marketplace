@@ -1,6 +1,6 @@
 import { signRequestObject, createNonceStr, createTimeStamp } from '@/utils/telebirr-utils';
 import { telebirrConfig } from '@/config/telebirr';
-import request from 'request';
+import request, { CoreOptions, RequiredUriUrl } from 'request';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { Agent } from 'http';
 
@@ -13,6 +13,17 @@ interface TelebirrConfig {
   notifyUrl: string;
   redirectUrl: string;
 }
+
+type RequestOptions = RequiredUriUrl & CoreOptions & {
+  method: string;
+  url: string;
+  headers: {
+    'Content-Type': string;
+    'X-APP-Key': string;
+    'Authorization'?: string;
+  };
+  body: string;
+};
 
 export class TelebirrPayment {
   private config: TelebirrConfig;
@@ -41,7 +52,7 @@ export class TelebirrPayment {
 
   private async getFabricToken(): Promise<string> {
     return new Promise((resolve, reject) => {
-      const options = {
+      const options: RequestOptions = {
         method: 'POST',
         url: `${telebirrConfig.baseUrl}${telebirrConfig.endpoints.token}`,
         headers: {
@@ -49,8 +60,7 @@ export class TelebirrPayment {
           'X-APP-Key': this.config.fabricAppId,
         },
         rejectUnauthorized: false,
-        requestCert: false,
-        agent: false,
+        agent: undefined,
         body: JSON.stringify({
           appSecret: this.config.appSecret,
         }),
@@ -80,7 +90,7 @@ export class TelebirrPayment {
 
   private async makeRequest(requestObject: any, token: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      const options = {
+      const options: RequestOptions = {
         method: 'POST',
         url: `${telebirrConfig.baseUrl}${telebirrConfig.endpoints.preOrder}`,
         headers: {
@@ -89,7 +99,7 @@ export class TelebirrPayment {
           'Authorization': `Bearer ${token}`
         },
         rejectUnauthorized: false,
-        agent: undefined as Agent | undefined,
+        agent: undefined,
         body: JSON.stringify(requestObject)
       };
 

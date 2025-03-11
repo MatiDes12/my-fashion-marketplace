@@ -1,18 +1,57 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFlashSalePrices } from '@/utils/flashSales';
 
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  flash_sale_price?: number;
+}
+
 export default function OrderPage() {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { id } = useParams();
+  const [product, setProduct] = useState<Product | null>(null);
+  const params = useParams();
+  const productId = params?.id as string;
   const { user } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    async function fetchProduct() {
+      if (!productId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', productId)
+          .single();
+
+        if (error) throw error;
+
+        // Check for flash sale price
+        const flashSalePrices = await getFlashSalePrices([productId]);
+        const productWithFlashSale = {
+          ...data,
+          flash_sale_price: flashSalePrices[productId]
+        };
+
+        setProduct(productWithFlashSale);
+      } catch (err) {
+        console.error('Error fetching product:', err);
+        setError('Failed to load product details');
+      }
+    }
+
+    fetchProduct();
+  }, [productId]);
 
   async function handleOrder(e: React.FormEvent) {
     e.preventDefault();
@@ -21,20 +60,14 @@ export default function OrderPage() {
       return;
     }
 
+    if (!productId || !product) {
+      setError('Invalid product ID');
+      return;
+    }
+
     setLoading(true);
     try {
-      // First get the product details to calculate total price
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('price')
-        .eq('id', id)
-        .single();
-
-      if (productError) throw productError;
-
-      // Check for flash sale price
-      const flashSalePrices = await getFlashSalePrices([id as string]);
-      const finalPrice = flashSalePrices[id as string] || product.price;
+      const finalPrice = product.flash_sale_price || product.price;
       const totalPrice = finalPrice * quantity;
 
       // Create the order
@@ -43,7 +76,7 @@ export default function OrderPage() {
         .insert([
           {
             user_id: user.id,
-            product_id: id,
+            product_id: productId,
             quantity,
             total_price: totalPrice,
             original_price: product.price,
@@ -87,7 +120,7 @@ export default function OrderPage() {
             </div>
           ) : (
             <p className="text-2xl font-bold text-gray-900">
-              ${product?.price.toFixed(2)}
+              ${product?.price?.toFixed(2) || '0.00'}
             </p>
           )}
         </div>

@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import Navigation from "@/components/Navigation";
+import ClientNavigation from "@/components/ClientNavigation";
 import DebugInfo from '@/components/DebugInfo';
 import PageWrapper from '@/components/PageWrapper';
 import { Toaster } from 'react-hot-toast';
@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <LanguageProvider>
-            <Navigation />
+            <ClientNavigation />
             <PageWrapper>
               {children}
             </PageWrapper>

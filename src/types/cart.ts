@@ -1,29 +1,42 @@
 export interface CartItem {
   id: string;
+  user_id: string;
   product_id: string;
   quantity: number;
   price: number;
-  delivery_fee: number | null;
-  product: {
+  delivery_fee?: number;
+  product?: {
     id: string;
     title: string;
     description: string;
     price: number;
-    owner: {
+    owner?: {
       id: string;
       full_name: string;
+      store_settings?: {
+        name?: string;
+      };
       payment_settings?: {
         telebirr_settings?: {
           is_active: boolean;
-          app_secret: string;
-          notify_url: string;
-          short_code: string;
-          private_key: string;
-          redirect_url: string;
-          fabric_app_id: string;
-          merchant_app_id: string;
         };
       };
     };
+    images?: {
+      image_url: string;
+    }[];
   };
+}
+
+export interface SellerOrder {
+  id: string;
+  name: string;
+  hasPaymentSettings: boolean;
+  subtotal: number;
+  platformFee: number;
+  serviceFee: number;
+  ethiopiaTax: number;
+  deliveryFee: number;
+  total: number;
+  items: CartItem[];
 } 

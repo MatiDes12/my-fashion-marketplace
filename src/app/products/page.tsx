@@ -11,6 +11,8 @@ import { toast } from 'react-hot-toast';
 import { cleanImageUrl } from '@/utils/url';
 import Link from 'next/link';
 import { getFlashSalePrices } from '@/utils/flashSales';
+import { Suspense } from 'react';
+import LoadingPage from '@/components/LoadingPage';
 
 interface ProductOwner {
   id: string;
@@ -24,6 +26,12 @@ interface ProductOwner {
   };
 }
 
+interface ProductImage {
+  id: string;
+  image_url: string;
+  is_model_picture: boolean;
+}
+
 interface Product {
   id: string;
   title: string;
@@ -32,13 +40,13 @@ interface Product {
   category: string;
   owner_id: string;
   delivery_fee: number | null;
-  product_images: Array<{ id: string; image_url: string }>;
+  product_images: ProductImage[];
   owner: ProductOwner;
   like_count: number;
   flash_sale_price?: number;
 }
 
-export default function ProductsPage() {
+function ProductsContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,9 +57,9 @@ export default function ProductsPage() {
   const [likedProducts, setLikedProducts] = useState<Set<string>>(new Set());
   const [isLikeLoading, setIsLikeLoading] = useState<Record<string, boolean>>({});
   const searchParams = useSearchParams();
-  const searchQuery = searchParams.get('search') || '';
+  const searchQuery = searchParams?.get('search') || '';
   const router = useRouter();
-  const categoryParam = searchParams.get('category');
+  const categoryParam = searchParams?.get('category');
   
   const supabase = createClientComponent();
 
@@ -105,9 +113,10 @@ export default function ProductsPage() {
           ...product,
           flash_sale_price: flashSalePrices[product.id],
           like_count: product.likes?.[0]?.count || 0,
-          product_images: product.product_images?.map(img => ({
+          product_images: product.product_images?.map((img: { id: string; image_url: string; is_model_picture?: boolean }) => ({
             ...img,
-            image_url: img.image_url
+            image_url: img.image_url,
+            is_model_picture: img.is_model_picture || false
           }))
         })) || [];
         
@@ -257,13 +266,15 @@ export default function ProductsPage() {
                   onChange={(e) => {
                     setSelectedCategory(e.target.value);
                     // Optionally update the URL when category changes
-                    const newParams = new URLSearchParams(searchParams);
-                    if (e.target.value === 'all') {
-                      newParams.delete('category');
-                    } else {
-                      newParams.set('category', e.target.value);
+                    if (searchParams) {
+                      const newParams = new URLSearchParams(searchParams);
+                      if (e.target.value === 'all') {
+                        newParams.delete('category');
+                      } else {
+                        newParams.set('category', e.target.value);
+                      }
+                      router.push(`/products?${newParams.toString()}`);
                     }
-                    router.push(`/products?${newParams.toString()}`);
                   }}
                   className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md"
                 >
@@ -438,5 +449,13 @@ export default function ProductsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <ProductsContent />
+    </Suspense>
   );
 } 

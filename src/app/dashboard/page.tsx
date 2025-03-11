@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClientComponent } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import Image from 'next/image';
@@ -11,23 +11,7 @@ import Link from 'next/link';
 import { CreditCardIcon } from '@heroicons/react/24/outline';
 import { classNames } from '@/utils/classNames';
 
-type DashboardStats = {
-  totalProducts: number;
-  activeProducts: number;
-  totalSales: number;
-  monthlyRevenue: number;
-  recentOrders: Order[];
-  topProducts: Product[];
-};
-
-type ProductImage = {
-  id: string;
-  product_id: string;
-  image_url: string;
-  is_model_picture: boolean;
-};
-
-type Product = {
+interface Product {
   id: string;
   title: string;
   description: string;
@@ -38,25 +22,55 @@ type Product = {
   created_at: string;
   owner_id: string;
   product_images: ProductImage[];
-  orders?: any[];
+  orders?: Order[];
   total_sales?: number;
-};
+}
 
-type Order = {
+interface Order {
   id: string;
   created_at: string;
   quantity: number;
   total_price: number;
   order_status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  product?: {
-    title: string;
-    owner_id: string;
-  };
-  user?: {
+  user_id: string;
+  product_id: string;
+  user: {
+    id: string;
     full_name: string;
     email: string;
   };
+  product?: {
+    title: string;
+    price: number;
+  };
+}
+
+interface DashboardStats {
+  totalProducts: number;
+  activeProducts: number;
+  totalSales: number;
+  monthlyRevenue: number;
+  recentOrders: Order[];
+  topProducts: Product[];
+}
+
+type ProductImage = {
+  id: string;
+  product_id: string;
+  image_url: string;
+  is_model_picture: boolean;
 };
+
+interface ProductWithRelations extends Product {
+  orders: (Order & {
+    user: {
+      id: string;
+      full_name: string;
+      email: string;
+    };
+  })[];
+  product_images: ProductImage[];
+}
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -64,6 +78,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClientComponent();
 
   useEffect(() => {
@@ -116,13 +131,14 @@ export default function DashboardPage() {
         .select(`
           *,
           product_images (*),
-          orders(
+          orders (
             id,
             quantity,
             total_price,
             order_status,
             created_at,
-            user:users(
+            user_id,
+            user:users (
               id,
               full_name,
               email
@@ -130,19 +146,20 @@ export default function DashboardPage() {
           )
         `)
         .eq('owner_id', ownerId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .returns<ProductWithRelations[]>();
 
       console.log('Fetched products:', products); // Debug log
 
       if (productsError) throw productsError;
 
-      // Get all orders for this owner's products
-      const allOrders = products.flatMap(product => 
-        product.orders?.map(order => ({
+      // Transform the data to include product info in orders
+      const allOrders: Order[] = products.flatMap(product => 
+        product.orders?.map((order: Order) => ({
           ...order,
-          product: {
+          product: {  // Add product info to each order
             title: product.title,
-            owner_id: product.owner_id
+            price: product.price
           }
         })) || []
       );
@@ -166,14 +183,21 @@ export default function DashboardPage() {
       // Calculate stats
       const activeProducts = products.filter(p => p.is_active).length;
       const totalSales = allOrders.length;
-      const monthlyRevenue = allOrders.reduce((sum, order) => sum + (order.total_price || 0), 0);
+      const monthlyRevenue = allOrders
+        .filter(order => {
+          const orderDate = new Date(order.created_at);
+          const now = new Date();
+          return orderDate.getMonth() === now.getMonth() &&
+                 orderDate.getFullYear() === now.getFullYear();
+        })
+        .reduce((sum, order) => sum + order.total_price, 0);
 
       setStats({
         totalProducts: products.length,
         activeProducts,
         totalSales,
         monthlyRevenue,
-        recentOrders,
+        recentOrders,  // These orders now include product info
         topProducts: productSales
       });
 
@@ -215,32 +239,6 @@ export default function DashboardPage() {
     if (!url) return '';
     // Remove @ symbol if it exists at the beginning of the URL
     return url.startsWith('@') ? url.substring(1) : url;
-  };
-
-  // Update the fetchTopProducts function
-  const fetchTopProducts = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      // Use the same query structure as the products page
-      const { data: products, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          product_images (*),
-          orders (count)
-        `)
-        .eq('owner_id', session.user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      console.log('Fetched products with images:', products); // Debug log
-      setTopProducts(products || []);
-    } catch (error) {
-      console.error('Error fetching top products:', error);
-    }
   };
 
   return (
@@ -288,7 +286,7 @@ export default function DashboardPage() {
               <Link
                 href="/dashboard/payment-settings"
                 className={classNames(
-                  router.pathname === '/dashboard/payment-settings'
+                  pathname === '/dashboard/payment-settings'
                     ? 'bg-gray-100 text-gray-900'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
                   'inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium'
@@ -296,7 +294,7 @@ export default function DashboardPage() {
               >
                 <CreditCardIcon
                   className={classNames(
-                    router.pathname === '/dashboard/payment-settings'
+                    pathname === '/dashboard/payment-settings'
                       ? 'text-gray-500'
                       : 'text-gray-400 group-hover:text-gray-500',
                     '-ml-1 mr-2 h-5 w-5'
@@ -492,23 +490,17 @@ export default function DashboardPage() {
                           <li key={product.id} className="py-4 flex items-center">
                             <div className="flex-shrink-0 h-12 w-12 relative">
                               {product.product_images && product.product_images.length > 0 ? (
-                                <>
-                                  {console.log('Product images:', product.product_images)}
+                                <div>
                                   <Image
                                     src={cleanImageUrl(product.product_images[0].image_url)}
                                     alt={product.title}
-                                    width={48}
-                                    height={48}
-                                    className="h-12 w-12 rounded-md object-cover"
-                                    onError={(e) => {
-                                      console.error('Image load error:', e);
-                                      e.currentTarget.src = ''; // Clear the src on error
-                                    }}
+                                    fill
+                                    className="object-cover rounded-lg"
                                   />
-                                </>
+                                </div>
                               ) : (
-                                <div className="h-12 w-12 rounded-md bg-gray-200 flex items-center justify-center">
-                                  <span className="text-xs text-gray-500">No img</span>
+                                <div className="h-12 w-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                                  <span className="text-gray-400">No image</span>
                                 </div>
                               )}
                             </div>

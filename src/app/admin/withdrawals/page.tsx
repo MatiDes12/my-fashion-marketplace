@@ -6,12 +6,16 @@ import { formatCurrency } from '@/utils/currency';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
-interface WithdrawalFormData {
-  amount: string;
+// Define the Withdrawal interface
+interface Withdrawal {
+  id: string;
+  amount: number;
   withdrawal_method: 'bank' | 'telebirr';
-  bank_name: string;
-  account_number: string;
-  account_holder: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  bank_name?: string;
+  account_number?: string;
+  account_holder?: string;
   telebirr_number?: string;
   telebirr_name?: string;
 }
@@ -25,12 +29,12 @@ interface PlatformStats {
 
 export default function WithdrawalsPage() {
   const [availableBalance, setAvailableBalance] = useState(0);
-  const [withdrawals, setWithdrawals] = useState([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState<WithdrawalFormData>({
+  const [formData, setFormData] = useState({
     amount: '',
-    withdrawal_method: 'bank',
+    withdrawal_method: 'bank' as 'bank' | 'telebirr',
     bank_name: '',
     account_number: '',
     account_holder: '',
@@ -77,7 +81,7 @@ export default function WithdrawalsPage() {
           w.status === 'completed' ? sum + (w.amount || 0) : sum, 0) || 0;
         
         setAvailableBalance(stats.total_revenue - totalWithdrawn);
-        setWithdrawals(withdrawalsData || []);
+        setWithdrawals(withdrawalsData as Withdrawal[]);
       }
 
     } catch (error) {

@@ -12,7 +12,15 @@ import { config } from '@/config/env';
 import { getFlashSalePrices } from '@/utils/flashSales';
 import { createTelebirrOrder } from '@/lib/telebirr-client';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
-import type { CartItem } from '@/types/cart';
+import { CartItem, SellerOrder } from '@/types/cart';
+
+interface Seller {
+  id: string;
+  name: string;
+  hasPaymentSettings: boolean;
+  total: number;
+  items: CartItem[];
+}
 
 export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -191,7 +199,7 @@ export default function CheckoutPage() {
           if (!items?.length) throw new Error('Cart is empty');
 
           // Group items by seller with type safety
-          const sellers = Object.values(items.reduce((acc, item) => {
+          const sellersMap = items.reduce((acc, item) => {
             // Check if owner exists before accessing
             if (!item.product?.owner) return acc;
             
@@ -210,15 +218,14 @@ export default function CheckoutPage() {
             acc[sellerId].items.push(item);
             acc[sellerId].total += item.quantity * item.product.price;
             return acc;
-          }, {} as Record<string, {
-            id: string;
-            name: string;
-            hasPaymentSettings: boolean;
-            total: number;
-            items: CartItem[];
-          }>));
+          }, {} as Record<string, Seller>);
+
+          // Explicitly type the sellers array
+          const sellers: Seller[] = Object.values(sellersMap);
 
           // Create orders for each seller
+          let firstSellerCheckoutUrl: string | null = null;  // Store first seller's checkout URL
+
           for (const seller of sellers) {
             if (!seller.hasPaymentSettings) {
               throw new Error(`Seller ${seller.name} hasn't set up Telebirr payments`);
@@ -229,6 +236,11 @@ export default function CheckoutPage() {
               amount: seller.total,
               sellerId: seller.id
             });
+
+            // Store the first seller's checkout URL
+            if (!firstSellerCheckoutUrl) {
+              firstSellerCheckoutUrl = checkoutUrl;
+            }
 
             // Create orders
             const { error: orderError } = await supabase
@@ -247,9 +259,8 @@ export default function CheckoutPage() {
           }
 
           // Redirect to first seller's payment
-          if (sellers.length > 0) {
-            const firstSeller = sellers[0];
-            window.location.href = firstSeller.items[0].payment_url;
+          if (firstSellerCheckoutUrl) {
+            window.location.href = firstSellerCheckoutUrl;
           }
           break;
 
@@ -287,6 +298,47 @@ export default function CheckoutPage() {
 
   const fees = calculateFees(cartItems);
 
+  const sellers = Object.values(cartItems.reduce<Record<string, SellerOrder>>((acc, item) => {
+    if (!item.product?.owner) return acc;
+    
+    const sellerId = item.product.owner.id;
+    const sellerName = item.product.owner.store_settings?.name || item.product.owner.full_name || 'Unknown Seller';
+    
+    if (!acc[sellerId]) {
+      acc[sellerId] = {
+        id: sellerId,
+        name: sellerName,
+        hasPaymentSettings: Boolean(
+          item.product.owner.payment_settings?.telebirr_settings?.is_active
+        ),
+        subtotal: 0,
+        platformFee: 0,
+        serviceFee: 0,
+        ethiopiaTax: 0,
+        deliveryFee: 0,
+        total: 0,
+        items: []
+      };
+    }
+    
+    const itemSubtotal = item.quantity * item.price;
+    acc[sellerId].items.push(item);
+    acc[sellerId].subtotal += itemSubtotal;
+    acc[sellerId].platformFee += itemSubtotal * 0.05;
+    acc[sellerId].serviceFee += itemSubtotal * 0.02;
+    acc[sellerId].ethiopiaTax += itemSubtotal * 0.15;
+    acc[sellerId].deliveryFee += item.delivery_fee || 0;
+    acc[sellerId].total = (
+      acc[sellerId].subtotal + 
+      acc[sellerId].platformFee + 
+      acc[sellerId].serviceFee + 
+      acc[sellerId].ethiopiaTax + 
+      acc[sellerId].deliveryFee
+    );
+    
+    return acc;
+  }, {}));
+
   return (
     <div className="min-h-screen bg-gray-50 pt-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -300,17 +352,21 @@ export default function CheckoutPage() {
               {cartItems.map((item) => (
                 <div key={item.id} className="flex justify-between py-4">
                   <div>
-                    <h3 className="text-sm font-medium">{item.product.title}</h3>
-                    <p className="mt-1 text-sm text-gray-500">Quantity: {item.quantity}</p>
+                    <h3 className="text-sm font-medium">
+                      {item.product?.title || 'Product Not Found'}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Quantity: {item.quantity}
+                    </p>
                   </div>
                   <div className="text-right">
-                    {item.price !== item.original_price && (
+                    {item.price !== item.product?.price && (
                       <p className="text-sm text-gray-500 line-through">
-                        ${item.original_price.toFixed(2)}
+                        ${item.product?.price?.toFixed(2) || '0.00'}
                       </p>
                     )}
                     <p className={`text-sm font-medium ${
-                      item.price !== item.original_price ? 'text-red-600' : 'text-gray-900'
+                      item.price !== item.product?.price ? 'text-red-600' : 'text-gray-900'
                     }`}>
                       ${item.price.toFixed(2)}
                     </p>
@@ -355,44 +411,7 @@ export default function CheckoutPage() {
         onClose={() => setIsPaymentModalOpen(false)}
         onSelectMethod={handlePaymentMethodSelect}
         isProcessing={isProcessing}
-        sellers={Object.values(cartItems.reduce((acc, item) => {
-          if (!item.product?.owner) return acc;
-          
-          const sellerId = item.product.owner.id;
-          if (!acc[sellerId]) {
-            const subtotal = item.quantity * item.price;
-            acc[sellerId] = {
-              id: sellerId,
-              name: item.product.owner.full_name,
-              hasPaymentSettings: Boolean(
-                item.product.owner.payment_settings?.telebirr_settings?.is_active
-              ),
-              subtotal: 0,
-              platformFee: 0,
-              serviceFee: 0,
-              ethiopiaTax: 0,
-              deliveryFee: item.delivery_fee || 0,
-              total: 0,
-              items: []
-            };
-          }
-          
-          const itemSubtotal = item.quantity * item.price;
-          acc[sellerId].items.push(item);
-          acc[sellerId].subtotal += itemSubtotal;
-          acc[sellerId].platformFee += itemSubtotal * 0.05;
-          acc[sellerId].serviceFee += itemSubtotal * 0.02;
-          acc[sellerId].ethiopiaTax += itemSubtotal * 0.15;
-          acc[sellerId].total = (
-            acc[sellerId].subtotal + 
-            acc[sellerId].platformFee + 
-            acc[sellerId].serviceFee + 
-            acc[sellerId].ethiopiaTax + 
-            acc[sellerId].deliveryFee
-          );
-          
-          return acc;
-        }, {} as Record<string, SellerOrder>))}
+        sellers={sellers}
       />
     </div>
   );

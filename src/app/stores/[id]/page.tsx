@@ -10,9 +10,32 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { motion } from 'framer-motion';
 import { getFlashSalePrices } from '@/utils/flashSales';
 
+// Add interfaces for store settings
+interface PaymentMethods {
+  cash: boolean;
+  [key: string]: boolean;
+}
+
+interface DeliveryOptions {
+  pickup: boolean;
+  [key: string]: boolean;
+}
+
+interface StoreSettings {
+  name: string;
+  description: string;
+  logo_url: string;
+  banner_url: string;
+  email: string;
+  phone: string;
+  address: string;
+  payment_methods: PaymentMethods;
+  delivery_options: DeliveryOptions;
+}
+
 export default function StorePage() {
   const params = useParams();
-  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const id = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
   const router = useRouter();
   const [owner, setOwner] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -219,7 +242,7 @@ export default function StorePage() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Payment Methods</h3>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {Object.entries(storeSettings.payment_methods).map(([method, isAvailable]) => (
+                      {(Object.entries(storeSettings.payment_methods) as [string, boolean][]).map(([method, isAvailable]) => (
                         isAvailable && (
                           <span key={method} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
                             {method.charAt(0).toUpperCase() + method.slice(1)}
@@ -234,7 +257,7 @@ export default function StorePage() {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Delivery Options</h3>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {Object.entries(storeSettings.delivery_options).map(([option, isAvailable]) => (
+                      {(Object.entries(storeSettings.delivery_options) as [string, boolean][]).map(([option, isAvailable]) => (
                         isAvailable && (
                           <span key={option} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
                             {option.charAt(0).toUpperCase() + option.slice(1)}

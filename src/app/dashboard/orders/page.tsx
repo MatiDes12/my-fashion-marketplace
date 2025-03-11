@@ -56,6 +56,7 @@ export default function OrdersPage() {
           .select(`
             id,
             title,
+            price,
             orders (
               id,
               created_at,
@@ -77,18 +78,27 @@ export default function OrdersPage() {
           throw productsError;
         }
 
-        console.log('Products with orders:', products);
-
-        // Transform the data structure
-        const allOrders = products.flatMap(product => 
+        // Transform the data structure to match Order type
+        const allOrders: Order[] = products.flatMap(product => 
           product.orders?.map(order => ({
-            ...order,
+            id: order.id,
+            created_at: order.created_at,
+            user_id: order.user_id,
+            product_id: product.id, // Add product_id from the parent product
+            quantity: order.quantity,
+            total_price: order.total_price,
+            order_status: order.order_status,
             product: {
               id: product.id,
               title: product.title,
+              price: product.price,
               owner_id: session.user.id
             },
-            user: order.users // This will contain the customer information
+            user: order.users[0] || { // Take first user from users array
+              id: order.user_id,
+              full_name: 'Unknown',
+              email: 'unknown@example.com'
+            }
           })) || []
         );
 

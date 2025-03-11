@@ -1,6 +1,7 @@
 import { signRequestObject, createNonceStr, createTimeStamp } from '@/utils/telebirr-utils';
 import { telebirrConfig } from '@/config/telebirr';
-import request from 'request';
+import request, { CoreOptions, RequiredUriUrl } from 'request';
+import { config } from '@/config/env';
 
 interface TelebirrConfig {
   fabricAppId: string;
@@ -15,6 +16,25 @@ interface TelebirrConfig {
 interface TelebirrError extends Error {
   code?: string;
   details?: string;
+}
+
+type RequestOptions = RequiredUriUrl & CoreOptions & {
+  method: string;
+  url: string;
+  headers: {
+    'Content-Type': string;
+    'X-APP-Key': string;
+    'Authorization'?: string;
+  };
+  body: string;
+};
+
+interface TransferParams {
+  amount: number;
+  recipientNumber: string;
+  recipientName: string;
+  description: string;
+  merchantOrderId: string;
 }
 
 export class TelebirrPayment {
@@ -44,7 +64,7 @@ export class TelebirrPayment {
 
   private async getFabricToken(): Promise<string> {
     return new Promise((resolve, reject) => {
-      const options = {
+      const options: RequestOptions = {
         method: 'POST',
         url: `${telebirrConfig.baseUrl}${telebirrConfig.endpoints.token}`,
         headers: {
@@ -52,8 +72,7 @@ export class TelebirrPayment {
           'X-APP-Key': this.config.fabricAppId,
         },
         rejectUnauthorized: false,
-        requestCert: false,
-        agent: false,
+        agent: undefined,
         body: JSON.stringify({
           appSecret: this.config.appSecret,
         }),
@@ -83,7 +102,7 @@ export class TelebirrPayment {
 
   private async makeRequest(requestObject: any, token: string): Promise<any> {
     return new Promise((resolve, reject) => {
-      const options = {
+      const options: RequestOptions = {
         method: 'POST',
         url: `${telebirrConfig.baseUrl}${telebirrConfig.endpoints.preOrder}`,
         headers: {
@@ -92,8 +111,7 @@ export class TelebirrPayment {
           'Authorization': token
         },
         rejectUnauthorized: false,
-        requestCert: false,
-        agent: false,
+        agent: undefined,
         body: JSON.stringify(requestObject),
       };
 
@@ -205,5 +223,99 @@ export class TelebirrPayment {
       return error;
     }
     return new Error(typeof error === 'string' ? error : 'An unknown error occurred');
+  }
+
+  async createTransfer(params: TransferParams) {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const nonce = Math.random().toString(36).substring(2, 15);
+
+    const requestBody = {
+      appId: this.config.merchantAppId,
+      timestamp,
+      nonce,
+      outTradeNo: params.merchantOrderId,
+      subject: params.description,
+      totalAmount: params.amount.toString(),
+      shortCode: this.config.shortCode,
+      notifyUrl: this.config.notifyUrl,
+      returnUrl: this.config.redirectUrl,
+      receiverInfo: {
+        telebirrNumber: params.recipientNumber,
+        receiverName: params.recipientName
+      }
+    };
+
+    // Sign the request
+    const signature = signRequestObject(requestBody, this.config.privateKey);
+
+    const response = await fetch(`${config.telebirr.baseUrl}/transfer/v1/transfer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': this.config.fabricAppId,
+      },
+      body: JSON.stringify({
+        ...requestBody,
+        sign: signature,
+        sign_type: 'SHA256withRSA'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Transfer failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.code !== '0') {
+      throw new Error(`Transfer failed: ${data.message}`);
+    }
+
+    return {
+      transactionId: data.transactionId,
+      status: data.status,
+      message: data.message
+    };
+  }
+
+  // Add method to verify transfer status
+  async verifyTransfer(merchantOrderId: string) {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const nonce = Math.random().toString(36).substring(2, 15);
+
+    const requestBody = {
+      appId: this.config.merchantAppId,
+      timestamp,
+      nonce,
+      outTradeNo: merchantOrderId,
+      shortCode: this.config.shortCode
+    };
+
+    const signature = signRequestObject(requestBody, this.config.privateKey);
+
+    const response = await fetch(`${config.telebirr.baseUrl}/transfer/v1/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': this.config.fabricAppId,
+      },
+      body: JSON.stringify({
+        ...requestBody,
+        sign: signature,
+        sign_type: 'SHA256withRSA'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Transfer verification failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    return {
+      status: data.status,
+      transactionId: data.transactionId,
+      message: data.message
+    };
   }
 } 

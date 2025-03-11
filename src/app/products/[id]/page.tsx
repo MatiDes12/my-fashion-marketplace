@@ -22,13 +22,14 @@ type Product = {
   owner_id: string;
   owner_full_name: string;
   owner_email: string;
+  details?: string;
   product_images: Array<{
     id: string;
     image_url: string;
     is_model_picture: boolean;
   }>;
   like_count: number;
-  store_settings: {
+  store_settings?: {
     name?: string;
     description?: string;
     logo_url?: string;
@@ -48,11 +49,11 @@ type Product = {
   delivery_fee: number | null;
   original_price: number | null;
   flash_sale_price?: number;
-  users: {
+  users?: {
     id: string;
     full_name: string;
     email: string;
-    store_settings: {
+    store_settings?: {
       name?: string;
       description?: string;
       logo_url?: string;
@@ -106,14 +107,18 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
-  const productId = params.id as string;
-  const actionParam = searchParams.get('action');
+  const productId = params?.id as string;
+  const actionParam = searchParams?.get('action');
   
   useEffect(() => {
+    if (!productId) {
+      setError('Product ID is required');
+      setLoading(false);
+      return;
+    }
+
     const fetchProduct = async () => {
       try {
-        if (!productId) return;
-
         const { data: product, error } = await supabase
           .from('products')
           .select(`
@@ -144,7 +149,7 @@ export default function ProductDetailPage() {
           flash_sale_price: flashSalePrices[productId],
           like_count: product.likes?.[0]?.count || 0,
           users: product.owner, // Map owner to users for compatibility
-          product_images: product.product_images?.map(img => ({
+          product_images: product.product_images?.map((img: { image_url: string }) => ({
             ...img,
             image_url: img.image_url // URL is already in correct format
           }))
@@ -184,7 +189,7 @@ export default function ProductDetailPage() {
     if (productId) {
       fetchProduct();
     }
-  }, [productId, actionParam]);
+  }, [productId]);
   
   const handleQuantityChange = (value: number) => {
     if (value >= 1 && value <= availableQuantity) {
@@ -213,10 +218,13 @@ export default function ProductDetailPage() {
           .eq('product_id', productId);
           
         setIsLiked(false);
-        setProduct(prev => ({
-          ...prev,
-          like_count: Math.max(0, prev.like_count - 1)
-        }));
+        setProduct(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            like_count: Math.max(0, prev.like_count - 1)
+          };
+        });
         
         toast.success('Removed from favorites');
       } else {
@@ -229,10 +237,13 @@ export default function ProductDetailPage() {
           });
           
         setIsLiked(true);
-        setProduct(prev => ({
-          ...prev,
-          like_count: prev.like_count + 1
-        }));
+        setProduct(prev => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            like_count: prev.like_count + 1
+          };
+        });
         
         toast.success('Added to favorites');
       }
@@ -245,45 +256,46 @@ export default function ProductDetailPage() {
   };
   
   const addToCart = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      toast.error('Please sign in to add items to cart');
+      router.push('/login');
+      return;
+    }
+
+    if (!product) {
+      toast.error('Product not found');
+      return;
+    }
+
+    setIsAddingToCart(true);
+
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast.error('Please sign in to add items to cart');
-        router.push('/login');
-        return;
-      }
-      
-      setIsAddingToCart(true);
-      
       // Check if item already exists in cart
-      const { data: existingCartItem, error: fetchError } = await supabase
+      const { data: existingCartItem, error: cartError } = await supabase
         .from('cart_items')
         .select('*')
         .eq('user_id', session.user.id)
         .eq('product_id', productId)
-        .maybeSingle(); // Use maybeSingle() instead of single()
-      
-      if (fetchError) {
-        console.error('Error checking cart:', fetchError);
-        throw new Error('Failed to check cart');
+        .single();
+
+      if (cartError && cartError.code !== 'PGRST116') {
+        throw cartError;
       }
-      
+
       if (existingCartItem) {
-        // Update quantity if already in cart
+        // Update quantity of existing item
         const { error: updateError } = await supabase
           .from('cart_items')
-          .update({ 
+          .update({
             quantity: existingCartItem.quantity + quantity,
-            price: product.price, // Ensure price is updated
+            price: product.price, // Now product is guaranteed to exist
             updated_at: new Date().toISOString()
           })
           .eq('id', existingCartItem.id);
-        
-        if (updateError) {
-          console.error('Error updating cart:', updateError);
-          throw new Error('Failed to update cart');
-        }
+
+        if (updateError) throw updateError;
       } else {
         // Add new item to cart
         const { error: insertError } = await supabase
@@ -292,23 +304,18 @@ export default function ProductDetailPage() {
             user_id: session.user.id,
             product_id: productId,
             quantity: quantity,
-            price: product.price // Make sure to include the price
+            price: product.price,
+            delivery_fee: product.delivery_fee || 0
           });
-        
-        if (insertError) {
-          console.error('Error adding to cart:', insertError);
-          throw new Error('Failed to add to cart');
-        }
+
+        if (insertError) throw insertError;
       }
-      
+
       toast.success('Added to cart');
-      
-      // Trigger cart count update in the header
-      window.dispatchEvent(new CustomEvent('cart-updated'));
-      
+      router.push('/cart');
     } catch (error) {
       console.error('Error adding to cart:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add item to cart');
+      toast.error('Failed to add to cart');
     } finally {
       setIsAddingToCart(false);
     }
@@ -557,8 +564,8 @@ export default function ProductDetailPage() {
                 <p>{product.description}</p>
               </div>
             </div>
-            
-            {/* Product details like size, color, etc. if available */}
+
+            {/* Product details section */}
             {product.details && (
               <div className="mt-6">
                 <h2 className="text-lg font-medium text-gray-900">Details</h2>

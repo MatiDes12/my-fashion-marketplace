@@ -1,14 +1,16 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import LoadingPage from '@/components/LoadingPage';
 
-export default function PaymentCompletePage() {
+function PaymentCompleteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const status = searchParams.get('status');
-  const orderId = searchParams.get('orderId');
+  const status = searchParams?.get('status') || null;
+  const orderId = searchParams?.get('orderId') || null;
 
   useEffect(() => {
     // After 5 seconds, redirect to orders page
@@ -28,7 +30,7 @@ export default function PaymentCompletePage() {
               Payment Successful!
             </h2>
             <p className="mt-2 text-gray-600">
-              Your order #{orderId} has been confirmed.
+              Your order {orderId ? `#${orderId}` : ''} has been confirmed.
             </p>
           </>
         ) : (
@@ -46,5 +48,13 @@ export default function PaymentCompletePage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function PaymentCompletePage() {
+  return (
+    <Suspense fallback={<LoadingPage />}>
+      <PaymentCompleteContent />
+    </Suspense>
   );
 } 

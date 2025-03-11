@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -12,27 +12,64 @@ import { useOwnerCheck } from '@/hooks/useOwnerCheck';
 import CartIcon from './CartIcon';
 import { getActiveFlashSale, getAllActiveFlashSales } from '@/utils/flashSales';
 import CountdownTimer from './CountdownTimer';
+import { UserDetails } from '@/hooks/useUserDetails';
+import { cleanImageUrl } from '@/utils/url';
+
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  description: string;
+  product_images: {
+    image_url: string;
+  }[];
+}
+
+interface FlashSaleProduct {
+  id: string;
+  product: {
+    id: string;
+    title: string;
+    price: number;
+    description: string;
+    product_images: {
+      image_url: string;
+    }[];
+    owner?: {
+      store_settings?: {
+        name?: string;
+      };
+    };
+  };
+  special_price: number;
+}
 
 interface FlashSale {
+  id: string;
   title: string;
   description: string;
   discount_percentage: number;
-  min_order_amount: number;
-  free_shipping: boolean;
+  start_time: string;
   end_time: string;
-  id: string;
+  products?: FlashSaleProduct[];
 }
 
-export default function Navigation() {
+interface NavigationProps {
+  userDetails: UserDetails | null;
+}
+
+export default function Navigation({ userDetails }: NavigationProps) {
   const { user, setUser } = useAuth();
   const { isOwner } = useOwnerCheck();
   const pathname = usePathname();
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { t } = useLanguage();
   const supabase = createClientComponent();
   const [activeFlashSales, setActiveFlashSales] = useState<FlashSale[]>([]);
   const [currentFlashSaleIndex, setCurrentFlashSaleIndex] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
 
   // Check auth status on component mount and when pathname changes
   useEffect(() => {
@@ -75,17 +112,91 @@ export default function Navigation() {
   }, [pathname, setUser]);
 
   useEffect(() => {
-    const fetchFlashSales = async () => {
-      const sales = await getAllActiveFlashSales();
-      setActiveFlashSales(sales || []);
-    };
-    
-    fetchFlashSales();
-    
-    // Refresh flash sales every minute
-    const interval = setInterval(fetchFlashSales, 60000);
+    fetchFlashDeals();
+    const interval = setInterval(fetchFlashDeals, 60000); // Refresh every minute
     return () => clearInterval(interval);
-  }, []);
+  }, []); // Empty dependency array since we want to fetch on mount
+
+  useEffect(() => {
+    if (user) {
+      fetchCartCount();
+    }
+  }, [user]);
+
+  const fetchCartCount = async () => {
+    try {
+      const { count } = await supabase
+        .from('cart_items')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user?.id);
+      
+      setCartCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching cart count:', error);
+    }
+  };
+
+  const fetchFlashDeals = async () => {
+    try {
+      setIsLoading(true);
+      const { data: flashSalesData, error } = await supabase
+        .from('flash_sales')
+        .select(`
+          *,
+          products:flash_sale_products(
+            id,
+            special_price,
+            product:products(
+              id,
+              title,
+              price,
+              description,
+              product_images(image_url),
+              owner:users(
+                store_settings
+              )
+            )
+          )
+        `)
+        .eq('is_active', true)
+        .gte('end_time', new Date().toISOString())
+        .lte('start_time', new Date().toISOString())
+        .order('start_time', { ascending: true })
+        .limit(5);
+
+      if (error) throw error;
+
+      if (flashSalesData && flashSalesData.length > 0) {
+        const processedSales = flashSalesData.map(sale => ({
+          id: String(sale.id),
+          title: sale.title,
+          description: sale.description,
+          discount_percentage: Number(sale.discount_percentage),
+          start_time: sale.start_time,
+          end_time: sale.end_time,
+          products: sale.products?.map((p: FlashSaleProduct) => ({
+            id: String(p.id),
+            product: {
+              id: String(p.product.id),
+              title: p.product.title,
+              price: Number(p.product.price),
+              description: p.product.description,
+              product_images: p.product.product_images || [],
+              owner: p.product.owner
+            },
+            special_price: Number(p.special_price)
+          }))
+        }));
+
+        console.log('Processed flash sales:', processedSales);
+        setActiveFlashSales(processedSales);
+      }
+    } catch (error) {
+      console.error('Error fetching flash sales:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (activeFlashSales.length <= 1) return;
@@ -111,9 +222,9 @@ export default function Navigation() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
-      {/* Top banner */}
-      {activeFlashSales.length > 0 && (
-        <div className="bg-red-600 text-white py-1 relative overflow-hidden">
+      {/* Flash Sales Banner */}
+      {activeFlashSales.length > 0 && !isLoading && (
+        <div className="bg-red-600 text-white py-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {activeFlashSales.map((sale, index) => (
               <div
@@ -126,12 +237,25 @@ export default function Navigation() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1 text-center">
-                    <p className="text-sm animate-pulse">
-                      🌟 {sale.title}! Up to {sale.discount_percentage}% OFF
-                      {sale.free_shipping && ' + Free International Shipping'}
-                      {sale.min_order_amount > 0 && 
-                        ` on Orders Over $${sale.min_order_amount}`}
-                    </p>
+                    {sale.products?.[0] && (
+                      <Link 
+                        href={`/products/${sale.products[0].product.id}`}
+                        className="hover:text-red-100"
+                      >
+                        <p className="text-sm font-semibold">
+                          ⚡ Flash Sale: {sale.products[0].product.owner?.store_settings?.name || 'Store'} - {sale.products[0].product.title} 
+                          <span className="mx-1">
+                            ({sale.discount_percentage}% OFF)
+                          </span>
+                          <span className="line-through text-red-200">
+                            {sale.products[0].product.price} ETB
+                          </span>
+                          <span className="ml-1">
+                            now only {sale.products[0].special_price} ETB!
+                          </span>
+                        </p>
+                      </Link>
+                    )}
                   </div>
                   <div className="hidden sm:block">
                     <CountdownTimer endTime={sale.end_time} />
@@ -140,22 +264,6 @@ export default function Navigation() {
               </div>
             ))}
           </div>
-          
-          {/* Dots indicator for multiple sales */}
-          {activeFlashSales.length > 1 && (
-            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 flex space-x-1 pb-1">
-              {activeFlashSales.map((_, index) => (
-                <div
-                  key={index}
-                  className={`h-1 w-1 rounded-full ${
-                    index === currentFlashSaleIndex 
-                      ? 'bg-white' 
-                      : 'bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
 

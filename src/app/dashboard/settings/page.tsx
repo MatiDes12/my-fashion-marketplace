@@ -172,62 +172,57 @@ export default function StoreSettingsPage() {
         updated_at: new Date().toISOString()
       };
 
-      // Try to upload images if provided
-      if (storeData.logo || storeData.bannerImage) {
+      // Handle logo upload if there's a new file
+      if (storeData.logo) {
         try {
-          // Upload logo if changed
-          if (storeData.logo) {
-            const fileExt = storeData.logo.name.split('.').pop();
-            const fileName = `store-logos/${session.user.id}/logo-${Date.now()}.${fileExt}`;
-            
-            const { error: uploadError } = await supabase.storage
-              .from('stores')
-              .upload(fileName, storeData.logo);
-              
-            if (uploadError) {
-              if (uploadError.statusCode === '404' && uploadError.error === 'Bucket not found') {
-                throw new Error('Storage bucket "stores" not found. Please run the SQL migration to create it.');
-              }
-              throw uploadError;
+          const { error: uploadError } = await supabase.storage
+            .from('stores')
+            .upload(`${session.user.id}/logo`, storeData.logo);
+
+          if (uploadError) {
+            // Check if the error message indicates a missing bucket
+            if (uploadError.message?.includes('bucket') || uploadError.message?.includes('404')) {
+              throw new Error('Storage bucket "stores" not found. Please run the SQL migration to create it.');
             }
-            
-            const { data: publicUrlData } = supabase.storage
-              .from('stores')
-              .getPublicUrl(fileName);
-              
-            settingsData.logo_url = publicUrlData.publicUrl;
+            throw uploadError;
           }
 
-          // Upload banner if changed
-          if (storeData.bannerImage) {
-            const fileExt = storeData.bannerImage.name.split('.').pop();
-            const fileName = `store-banners/${session.user.id}/banner-${Date.now()}.${fileExt}`;
-            
-            const { error: uploadError } = await supabase.storage
-              .from('stores')
-              .upload(fileName, storeData.bannerImage);
-              
-            if (uploadError) {
-              if (uploadError.statusCode === '404' && uploadError.error === 'Bucket not found') {
-                throw new Error('Storage bucket "stores" not found. Please run the SQL migration to create it.');
-              }
-              throw uploadError;
+          // Get the public URL for the uploaded logo
+          const { data: { publicUrl } } = supabase.storage
+            .from('stores')
+            .getPublicUrl(`${session.user.id}/logo`);
+
+          settingsData.logo_url = publicUrl;
+        } catch (error) {
+          console.error('Logo upload error:', error);
+          throw error;
+        }
+      }
+
+      // Handle banner upload if there's a new file
+      if (storeData.bannerImage) {
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from('stores')
+            .upload(`${session.user.id}/banner`, storeData.bannerImage);
+
+          if (uploadError) {
+            // Check if the error message indicates a missing bucket
+            if (uploadError.message?.includes('bucket') || uploadError.message?.includes('404')) {
+              throw new Error('Storage bucket "stores" not found. Please run the SQL migration to create it.');
             }
-            
-            const { data: publicUrlData } = supabase.storage
-              .from('stores')
-              .getPublicUrl(fileName);
-              
-            settingsData.banner_url = publicUrlData.publicUrl;
+            throw uploadError;
           }
-        } catch (uploadError: any) {
-          if (uploadError.message?.includes('Bucket not found')) {
-            setError('Storage bucket "stores" not found. Please run the SQL migration below to create it.');
-            setBucketMissing(true);
-            setSaving(false);
-            return;
-          }
-          throw uploadError;
+
+          // Get the public URL for the uploaded banner
+          const { data: { publicUrl } } = supabase.storage
+            .from('stores')
+            .getPublicUrl(`${session.user.id}/banner`);
+
+          settingsData.banner_url = publicUrl;
+        } catch (error) {
+          console.error('Banner upload error:', error);
+          throw error;
         }
       }
 
@@ -257,8 +252,8 @@ export default function StoreSettingsPage() {
         bannerImage: null
       });
     } catch (error) {
-      console.error('Error saving store settings:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      console.error('Settings save error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save settings');
     } finally {
       setSaving(false);
     }

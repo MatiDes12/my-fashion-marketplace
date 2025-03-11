@@ -5,6 +5,8 @@ import { createClientComponent } from '@/lib/supabase';
 import { formatCurrency } from '@/utils/currency';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
+import { TelebirrPayment } from '@/utils/telebirr-payment';
+import { siteConfig } from '@/config/site';
 
 interface Withdrawal {
   id: string;
@@ -160,13 +162,13 @@ export default function ManageWithdrawalsPage() {
       app_key: process.env.NEXT_PUBLIC_TELEBIRR_APP_KEY!,
       public_key: process.env.NEXT_PUBLIC_TELEBIRR_PUBLIC_KEY!,
       private_key: process.env.NEXT_PUBLIC_TELEBIRR_PRIVATE_KEY!,
-      notify_url: `${config.siteUrl}/api/telebirr/withdrawal-notify`,
-      redirect_url: `${config.siteUrl}/admin/withdrawals/manage`
+      notify_url: `${siteConfig.url}/api/telebirr/withdrawal-notify`,
+      redirect_url: `${siteConfig.url}/admin/withdrawals/manage`
     });
 
     const transferResult = await telebirr.transfer({
       amount: withdrawal.amount,
-      recipient: withdrawal.telebirr_number,
+      recipient: withdrawal.telebirr_number!,
       description: `Platform withdrawal #${withdrawal.id}`
     });
 

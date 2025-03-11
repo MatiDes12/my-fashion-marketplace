@@ -2,9 +2,14 @@
 
 import { useUserDetails } from '@/hooks/useUserDetails';
 import Navigation from './Navigation';
+import LoadingSpinner from './LoadingSpinner';
 
 export default function ClientNavigation() {
-  const { userDetails } = useUserDetails();
+  const { userDetails, loading } = useUserDetails();
+  
+  if (loading) {
+    return <LoadingSpinner />;
+  }
   
   return <Navigation userDetails={userDetails} />;
 } 
