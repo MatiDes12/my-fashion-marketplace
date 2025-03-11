@@ -290,7 +290,7 @@ export default function ProductDetailPage() {
           .from('cart_items')
           .update({
             quantity: existingCartItem.quantity + quantity,
-            price: product.price, // Now product is guaranteed to exist
+            price: product.flash_sale_price || product.price, // Use flash sale price if available
             updated_at: new Date().toISOString()
           })
           .eq('id', existingCartItem.id);
@@ -304,7 +304,7 @@ export default function ProductDetailPage() {
             user_id: session.user.id,
             product_id: productId,
             quantity: quantity,
-            price: product.price,
+            price: product.flash_sale_price || product.price, // Use flash sale price if available
             delivery_fee: product.delivery_fee || 0
           });
 

@@ -123,13 +123,25 @@ export default function Navigation({ userDetails }: NavigationProps) {
     }
   }, [user]);
 
+  useEffect(() => {
+    fetchCartCount();
+    
+    // Listen for cart updates
+    window.addEventListener('cart-updated', fetchCartCount);
+    return () => window.removeEventListener('cart-updated', fetchCartCount);
+  }, []);
+
   const fetchCartCount = async () => {
     try {
-      const { count } = await supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { count, error } = await supabase
         .from('cart_items')
         .select('*', { count: 'exact' })
-        .eq('user_id', user?.id);
-      
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
       setCartCount(count || 0);
     } catch (error) {
       console.error('Error fetching cart count:', error);
@@ -389,7 +401,30 @@ export default function Navigation({ userDetails }: NavigationProps) {
               </>
             )}
 
-            <CartIcon />
+            <Link 
+              href="/cart" 
+              className="relative p-2 text-gray-600 hover:text-gray-900"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-6 w-6" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" 
+                />
+              </svg>
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
             <LanguageSwitcher />
           </div>
         </div>
@@ -472,7 +507,30 @@ export default function Navigation({ userDetails }: NavigationProps) {
             )}
 
             <div className="px-3 py-2">
-              <CartIcon />
+              <Link 
+                href="/cart" 
+                className="relative p-2 text-gray-600 hover:text-gray-900"
+              >
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className="h-6 w-6" 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" 
+                  />
+                </svg>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
             </div>
 
             {!isLoading && (
