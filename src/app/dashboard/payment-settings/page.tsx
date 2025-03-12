@@ -6,6 +6,10 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { config } from '@/config/env';
+import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import Image from 'next/image';
+import ethLogo from '@/public/images/logo-ethiopia.png';
 
 interface TelebirrSettings {
   shortCode: string;      // 476204
@@ -245,6 +249,8 @@ export default function PaymentSettingsPage() {
 
   const supabase = createClientComponent();
 
+  const isMockMode = process.env.NEXT_PUBLIC_MOCK_TELEBIRR === 'true';
+
   useEffect(() => {
     // Check if we have required environment variables
     if (!config.supabase.url || !config.supabase.anonKey) {
@@ -379,7 +385,18 @@ export default function PaymentSettingsPage() {
         throw new Error('Failed to save settings. Please try again.');
       }
 
-      toast.success('Telebirr settings saved successfully');
+      toast.success(
+        <div>
+          <p>Payment settings saved successfully!</p>
+          <Link 
+            href="/dashboard/products" 
+            className="text-green-600 hover:text-green-500 mt-2 block"
+          >
+            Add your first product →
+          </Link>
+        </div>,
+        { duration: 5000 }
+      );
     } catch (err) {
       console.error('Error saving payment settings:', err);
       setError(err instanceof Error ? err.message : 'Failed to save settings');
@@ -471,18 +488,29 @@ export default function PaymentSettingsPage() {
   const testCredentials = async () => {
     try {
       setIsTestingCredentials(true);
-      
-      const response = await fetch('/api/telebirr/test-credentials', {
+      setError(null);
+
+      // First validate that all required fields are present
+      if (!settings.shortCode || !settings.merchantAppId || 
+          !settings.fabricAppId || !settings.appSecret || !settings.privateKey) {
+        throw new Error('All Telebirr credentials are required');
+      }
+
+      // Get the base URL from environment variables
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+
+      // Make the test request
+      const response = await fetch(`${baseUrl}/api/telebirr/test-credentials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           settings: {
+            short_code: settings.shortCode,
+            merchant_app_id: settings.merchantAppId,
             fabric_app_id: settings.fabricAppId,
             app_secret: settings.appSecret,
-            merchant_app_id: settings.merchantAppId,
-            short_code: settings.shortCode,
             private_key: settings.privateKey,
             notify_url: settings.notifyUrl,
             redirect_url: settings.redirectUrl
@@ -493,14 +521,19 @@ export default function PaymentSettingsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to test credentials');
+        throw new Error(data.error || 'Failed to validate credentials');
       }
 
-      toast.success('Credentials validated successfully!');
-      
+      if (data.success) {
+        toast.success('Credentials validated successfully!');
+      } else {
+        throw new Error(data.message || 'Failed to validate credentials');
+      }
+
     } catch (error) {
       console.error('Test credentials error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to test credentials');
+      setError(error instanceof Error ? error.message : 'Failed to test credentials');
     } finally {
       setIsTestingCredentials(false);
     }
@@ -528,11 +561,43 @@ export default function PaymentSettingsPage() {
       
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Telebirr Payment Settings</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Telebirr Payment Settings
+            </h1>
+            {isMockMode && (
+              <Badge variant="warning" className="text-sm">
+                Mock Mode
+              </Badge>
+            )}
+          </div>
           <p className="mt-1 text-sm text-gray-500">
             Configure your Telebirr merchant account to receive payments from customers
           </p>
         </div>
+
+        {isMockMode && (
+          <div className="rounded-md bg-blue-50 p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">
+                  Mock Mode Active
+                </h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>
+                    Running in mock mode. No real API calls will be made to Telebirr.
+                    This is useful for testing the interface without real credentials.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
           <div className="md:grid md:grid-cols-3 md:gap-6">

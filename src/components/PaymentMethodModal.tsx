@@ -130,16 +130,7 @@ export default function PaymentMethodModal({
                     {paymentMethods.map((method) => (
                       <button
                         key={method.id}
-                        onClick={() => {
-                          const sellersWithoutSettings = sellers.filter(s => !s.hasPaymentSettings);
-                          if (sellersWithoutSettings.length > 0) {
-                            toast.error(`Some sellers haven't set up ${method.name} payments yet: ${
-                              sellersWithoutSettings.map(s => s.name).join(', ')
-                            }`);
-                            return;
-                          }
-                          onSelectMethod(method.id, sellers[0].id);
-                        }}
+                        onClick={() => onSelectMethod(method.id, sellers[0].id)}
                         disabled={!method.isAvailable || isProcessing}
                         className={`w-full flex items-center justify-between p-4 rounded-lg border ${
                           method.isAvailable 

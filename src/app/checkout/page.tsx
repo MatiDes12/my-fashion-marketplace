@@ -163,81 +163,27 @@ export default function CheckoutPage() {
     }
   };
 
-  const handlePaymentMethodSelect = async (methodId: string) => {
+  const handlePaymentMethodSelect = async (methodId: string, sellerId: string) => {
     try {
       setIsProcessing(true);
-      setIsPaymentModalOpen(false);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Please login to complete checkout');
+      }
+
+      let firstSellerCheckoutUrl: string | null = null;
 
       switch (methodId) {
         case 'telebirr':
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (!session) {
-            throw new Error('Please login to complete checkout');
-          }
-
-          // Get cart items with owner and payment settings
-          const { data: items, error: cartError } = await supabase
-            .from('cart_items')
-            .select(`
-              *,
-              product:products(
-                id,
-                title,
-                description,
-                price,
-                owner:users(
-                  id,
-                  full_name,
-                  payment_settings(telebirr_settings)
-                )
-              )
-            `)
-            .eq('user_id', session.user.id);
-
-          if (cartError) throw cartError;
-          if (!items?.length) throw new Error('Cart is empty');
-
-          // Group items by seller with type safety
-          const sellersMap = items.reduce((acc, item) => {
-            // Check if owner exists before accessing
-            if (!item.product?.owner) return acc;
-            
-            const sellerId = item.product.owner.id;
-            if (!acc[sellerId]) {
-              acc[sellerId] = {
-                id: sellerId,
-                name: item.product.owner.full_name,
-                hasPaymentSettings: Boolean(
-                  item.product.owner.payment_settings?.telebirr_settings?.is_active
-                ),
-                total: 0,
-                items: []
-              };
-            }
-            acc[sellerId].items.push(item);
-            acc[sellerId].total += item.quantity * item.product.price;
-            return acc;
-          }, {} as Record<string, Seller>);
-
-          // Explicitly type the sellers array
-          const sellers: Seller[] = Object.values(sellersMap);
-
-          // Create orders for each seller
-          let firstSellerCheckoutUrl: string | null = null;  // Store first seller's checkout URL
-
+          // Process each seller's items
           for (const seller of sellers) {
-            if (!seller.hasPaymentSettings) {
-              throw new Error(`Seller ${seller.name} hasn't set up Telebirr payments`);
-            }
-
             const checkoutUrl = await createTelebirrOrder({
               title: `Order #${Date.now()}-${seller.id.substring(0, 4)}`,
               amount: seller.total,
               sellerId: seller.id
             });
 
-            // Store the first seller's checkout URL
             if (!firstSellerCheckoutUrl) {
               firstSellerCheckoutUrl = checkoutUrl;
             }

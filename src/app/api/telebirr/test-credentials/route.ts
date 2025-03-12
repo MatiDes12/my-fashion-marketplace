@@ -1,61 +1,69 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { TelebirrPayment } from '@/utils/telebirr-payment';
+import https from 'https';
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
     const { settings } = await request.json();
 
-    // Initialize Telebirr with the settings
-    const telebirr = new TelebirrPayment({
-      merchant_code: settings.short_code,
-      app_id: settings.fabric_app_id,
-      app_key: settings.app_secret,
-      public_key: settings.public_key,
-      private_key: settings.private_key,
-      notify_url: settings.notify_url,
-      redirect_url: settings.redirect_url
+    // Production implementation
+    const tokenUrl = 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway/payment/v1/token';
+
+    const httpsAgent = new https.Agent({
+      rejectUnauthorized: false, // Required for Telebirr's SSL
+      timeout: 30000,
     });
 
-    // Try to get a token - this will validate the basic credentials
-    const token = await telebirr.getToken();
+    const fetchOptions: RequestInit & { agent?: https.Agent } = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-APP-Key': settings.fabric_app_id,
+      },
+      body: JSON.stringify({
+        appSecret: settings.app_secret,
+      }),
+      agent: httpsAgent
+    };
 
-    // If we got here, the credentials work
+    const tokenResponse = await fetch(tokenUrl, fetchOptions);
+
+    if (!tokenResponse.ok) {
+      throw new Error('Invalid credentials');
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    if (tokenData.code !== '0') {
+      throw new Error(tokenData.message || 'Failed to validate credentials');
+    }
+
     return NextResponse.json({ 
       success: true,
-      message: 'Credentials validated successfully',
-      token: token // Only for debugging
+      message: 'Credentials validated successfully'
     });
 
   } catch (error) {
     console.error('Credential test error:', error);
     
-    // Enhanced error handling
     let errorMessage = 'Failed to validate credentials';
     let statusCode = 500;
 
     if (error instanceof Error) {
-      // Handle specific error types
-      if (error.message.includes('ETIMEDOUT')) {
-        errorMessage = 'Connection timed out. Please ensure you are using an Ethiopian VPN or proxy.';
+      if (error.message.includes('ETIMEDOUT') || error.message.includes('Connect Timeout Error')) {
+        errorMessage = 'Connection timed out. Please check your network connection.';
         statusCode = 408;
       } else if (error.message.includes('ECONNREFUSED')) {
-        errorMessage = 'Connection refused. Please check if the API URL is correct.';
+        errorMessage = 'Connection refused. Please contact support.';
         statusCode = 502;
-      } else if (error.message.includes('Invalid token response')) {
+      } else if (error.message.includes('Invalid credentials')) {
         errorMessage = 'Invalid credentials. Please check your App ID and Secret.';
         statusCode = 401;
-      } else if (error.message.includes('Missing required configuration')) {
-        errorMessage = error.message;
-        statusCode = 400;
       }
     }
 
     return NextResponse.json({ 
       success: false, 
-      error: errorMessage 
+      error: errorMessage
     }, { 
       status: statusCode 
     });

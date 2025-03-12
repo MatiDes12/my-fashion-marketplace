@@ -1,25 +1,26 @@
 export const config = {
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL!,
   telebirr: {
-    // Base URLs
     baseUrl: {
-      development: 'https://196.188.120.3:38443/apiaccess/payment/gateway', // Test environment
-      production: process.env.NEXT_PUBLIC_TELEBIRR_PROD_URL || 'https://196.188.120.3:38443/apiaccess/payment/gateway', // Replace with actual prod URL
+      development: 'https://portal.ethiomobilemoney.et:5118/payment',
+      production: 'https://portal.ethiomobilemoney.et:5118/payment',
     },
-    // API endpoints
+    webBaseUrl: {
+      development: 'https://portal.ethiomobilemoney.et:5118/payment',
+      production: 'https://portal.ethiomobilemoney.et:5118/payment',
+    },
     endpoints: {
       token: '/payment/v1/token',
       preOrder: '/payment/v1/merchant/preOrder',
     },
-    // Connection settings
-    timeout: 30000, // 30 seconds
+    timeout: 30000,
     retries: 3,
     proxyUrl: process.env.ETHIOPIAN_PROXY_URL,
     useProxy: process.env.NODE_ENV === 'production',
   },
   supabase: {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   }
 } as const;
 
@@ -34,7 +35,7 @@ export const validateTelebirrUrl = (url: string): boolean => {
     return (
       parsedUrl.protocol === 'https:' && 
       (parsedUrl.hostname === '196.188.120.3' || // Test environment
-       parsedUrl.hostname.endsWith('.telebirr.com')) // Production domain (example)
+       parsedUrl.hostname.endsWith('.ethiotelecom.et')) // Correct production domain
     );
   } catch {
     return false;

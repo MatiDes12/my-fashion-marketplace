@@ -8,6 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/currency';
+import { toast } from 'react-hot-toast';
 
 type Product = {
   id: string;
@@ -38,55 +39,99 @@ export default function ProductsManagementPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [hasPaymentSettings, setHasPaymentSettings] = useState(false);
   const router = useRouter();
   const supabase = createClientComponent();
 
+  // Define fetchProducts outside useEffect so it can be reused
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login?message=Please login to access the dashboard');
+        return;
+      }
+
+      // Fetch products with their images
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          product_images (*)
+        `)
+        .eq('owner_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (productsError) throw productsError;
+
+      // Group products by category
+      const groups: CategoryGroup = {};
+      productsData?.forEach((product: any) => {
+        const category = product.category || 'Uncategorized';
+        if (!groups[category]) {
+          groups[category] = [];
+        }
+        groups[category].push(product);
+      });
+
+      setProducts(productsData || []);
+      setCategoryGroups(groups);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      setError('Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProducts = async () => {
+    const checkPaymentSettings = async () => {
       try {
-        setLoading(true);
-        
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          router.push('/login?message=Please login to access the dashboard');
+          router.push('/login');
           return;
         }
 
-        // Fetch products with their images
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select(`
-            *,
-            product_images (*)
-          `)
-          .eq('owner_id', session.user.id)
-          .order('created_at', { ascending: false });
+        // Check if user has payment settings
+        const { data: settings, error } = await supabase
+          .from('payment_settings')
+          .select('telebirr_settings')
+          .eq('user_id', session.user.id)
+          .single();
 
-        if (productsError) throw productsError;
+        if (error) {
+          console.error('Error checking payment settings:', error);
+          return;
+        }
 
-        // Group products by category
-        const groups: CategoryGroup = {};
-        productsData?.forEach((product: any) => {
-          const category = product.category || 'Uncategorized';
-          if (!groups[category]) {
-            groups[category] = [];
-          }
-          groups[category].push(product);
-        });
+        const hasSettings = settings?.telebirr_settings?.is_active || false;
+        setHasPaymentSettings(hasSettings);
 
-        setProducts(productsData || []);
-        setCategoryGroups(groups);
+        if (!hasSettings) {
+          toast.error(
+            <div>
+              <p>Please set up your payment settings before adding products.</p>
+              <Link 
+                href="/dashboard/payment-settings" 
+                className="text-green-600 hover:text-green-500 mt-2 block"
+              >
+                Set up payment settings →
+              </Link>
+            </div>,
+            { duration: 5000 }
+          );
+        }
       } catch (error) {
-        console.error('Error fetching products:', error);
-        setError('Failed to load products');
-      } finally {
-        setLoading(false);
+        console.error('Error:', error);
       }
     };
 
+    checkPaymentSettings();
     fetchProducts();
-  }, [router]);
+  }, []);
 
   // Clean image URL helper
   const cleanImageUrl = (url: string | undefined): string => {
@@ -103,13 +148,45 @@ export default function ProductsManagementPage() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Products by Category</h1>
-          <Link
-            href="/dashboard/products/new"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-          >
-            Add New Product
-          </Link>
+          {hasPaymentSettings ? (
+            <Link
+              href="/dashboard/products/new"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+            >
+              Add New Product
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/payment-settings"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
+            >
+              Set Up Payment Settings
+            </Link>
+          )}
         </div>
+
+        {!hasPaymentSettings && (
+          <div className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  You need to set up your payment settings before you can add products.
+                  <Link 
+                    href="/dashboard/payment-settings"
+                    className="font-medium text-yellow-700 underline ml-2"
+                  >
+                    Set up now
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Category Navigation */}
         <div className="mb-8">

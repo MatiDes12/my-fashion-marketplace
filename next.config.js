@@ -15,11 +15,13 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: '**.ethiotelebirr.et',
+        pathname: '/**',
       },
     ],
   },
   experimental: {
+    // Remove allowDynamicRoutes as it's not needed
   },
 };
 

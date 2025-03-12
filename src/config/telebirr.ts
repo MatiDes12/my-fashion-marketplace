@@ -1,6 +1,6 @@
 export const telebirrConfig = {
-  baseUrl: process.env.NEXT_PUBLIC_TELEBIRR_API_URL || 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway',
-  webBaseUrl: process.env.NEXT_PUBLIC_TELEBIRR_WEB_URL || 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway/ammwebfront',
+  baseUrl: 'https://portal.ethiomobilemoney.et:5118/payment',
+  webBaseUrl: 'https://portal.ethiomobilemoney.et:5118/payment',
   endpoints: {
     token: '/payment/v1/token',
     preOrder: '/payment/v1/merchant/preOrder',

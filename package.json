@@ -18,7 +18,9 @@
     "@types/jsrsasign": "^10.5.15",
     "@types/request": "^2.48.12",
     "axios": "^1.8.2",
+    "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",
+    "clsx": "^2.1.1",
     "framer-motion": "^12.4.10",
     "https-proxy-agent": "^7.0.6",
     "jsrsasign": "^11.1.0",
@@ -27,7 +29,9 @@
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.5.2",
     "react-material-ui-carousel": "^3.4.2",
-    "request": "^2.88.2"
+    "request": "^2.88.2",
+    "tailwind-merge": "^3.0.2",
+    "util": "^0.12.5"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -1,0 +1,12 @@
+{
+  "routes": [
+    {
+      "src": "/api/telebirr/return",
+      "dest": "/api/telebirr/return",
+      "methods": ["GET"],
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
+    }
+  ]
+} 
