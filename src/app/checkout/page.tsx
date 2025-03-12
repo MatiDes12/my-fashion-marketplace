@@ -13,6 +13,7 @@ import { getFlashSalePrices } from '@/utils/flashSales';
 import { createTelebirrOrder } from '@/lib/telebirr-client';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
 import { CartItem, SellerOrder } from '@/types/cart';
+import { PaymentInstructions } from '@/components/PaymentInstructions';
 
 interface Seller {
   id: string;
@@ -289,6 +290,8 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-gray-50 pt-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+
+        <PaymentInstructions />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Cart Items */}

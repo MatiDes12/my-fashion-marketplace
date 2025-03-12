@@ -8,8 +8,6 @@ import { toast } from 'react-hot-toast';
 import { config } from '@/config/env';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
-import ethLogo from '@/public/images/logo-ethiopia.png';
 
 interface TelebirrSettings {
   shortCode: string;      // 476204

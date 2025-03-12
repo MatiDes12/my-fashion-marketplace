@@ -1,13 +1,14 @@
 export const config = {
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL!,
   telebirr: {
+    // Base URLs
     baseUrl: {
-      development: 'https://portal.ethiomobilemoney.et:5118/payment',
-      production: 'https://portal.ethiomobilemoney.et:5118/payment',
+      development: 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway', // Test environment
+      production: 'https://api.ethiomobilemoney.et:2121', // Production environment
     },
     webBaseUrl: {
-      development: 'https://portal.ethiomobilemoney.et:5118/payment',
-      production: 'https://portal.ethiomobilemoney.et:5118/payment',
+      development: 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate',
+      production: 'https://app.ethiomobilemoney.et:2121/ammwebpay',
     },
     endpoints: {
       token: '/payment/v1/token',

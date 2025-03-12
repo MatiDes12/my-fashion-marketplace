@@ -1,6 +1,10 @@
 export const telebirrConfig = {
-  baseUrl: 'https://portal.ethiomobilemoney.et:5118/payment',
-  webBaseUrl: 'https://portal.ethiomobilemoney.et:5118/payment',
+  // API Base URL for token and preOrder endpoints
+  baseUrl: 'https://api.ethiomobilemoney.et:2121',
+  
+  // Web URL for checkout page (where users enter their PIN)
+  webBaseUrl: 'https://app.ethiomobilemoney.et:2121/ammwebpay',
+  
   endpoints: {
     token: '/payment/v1/token',
     preOrder: '/payment/v1/merchant/preOrder',

@@ -21,15 +21,20 @@
     "class-variance-authority": "^0.7.1",
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
     "framer-motion": "^12.4.10",
+    "http-proxy-middleware": "^3.0.3",
     "https-proxy-agent": "^7.0.6",
     "jsrsasign": "^11.1.0",
     "next": "^14.2.24",
+    "node-fetch": "^3.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.5.2",
     "react-material-ui-carousel": "^3.4.2",
     "request": "^2.88.2",
+    "socks-proxy-agent": "^8.0.5",
     "tailwind-merge": "^3.0.2",
     "util": "^0.12.5"
   },
@@ -43,5 +48,10 @@
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
-  }
+  },
+  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).",
+  "main": "next.config.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
