@@ -4,11 +4,11 @@ export const config = {
     // Base URLs
     baseUrl: {
       development: 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway', // Test environment
-      production: 'https://api.ethiomobilemoney.et:2121', // Production environment
+      production: 'https://portal.ethiomobilemoney.et:5118/payment/', // Production environment
     },
     webBaseUrl: {
       development: 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate',
-      production: 'https://app.ethiomobilemoney.et:2121/ammwebpay',
+      production: 'https://portal.ethiomobilemoney.et:5118/payment/',
     },
     endpoints: {
       token: '/payment/v1/token',
