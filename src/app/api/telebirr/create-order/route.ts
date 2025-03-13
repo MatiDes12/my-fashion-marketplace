@@ -2,9 +2,17 @@ import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { TelebirrPayment } from '@/server/telebirr';
+import { rateLimit } from '@/utils/rate-limit';
+
+const limiter = rateLimit({
+  interval: 60 * 1000, // 1 minute
+  uniqueTokenPerInterval: 500
+});
 
 export async function POST(request: Request) {
   try {
+    await limiter.check(request, 10); // 10 requests per minute per IP
+    
     const supabase = createRouteHandlerClient({ cookies });
     const { title, amount, sellerId } = await request.json();
 
@@ -52,7 +60,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: checkoutUrl });
 
-  } catch (error) {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message === 'Rate limit exceeded') {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
     console.error('Create order error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create order' },

@@ -29,25 +29,8 @@ export class TelebirrPayment {
   private config: TelebirrConfig;
 
   constructor(config: TelebirrConfig) {
-    this.validateConfig(config);
+    telebirrConfig.validateConfig(config);
     this.config = config;
-  }
-
-  private validateConfig(config: TelebirrConfig) {
-    const requiredFields: (keyof TelebirrConfig)[] = [
-      'fabricAppId',
-      'appSecret',
-      'merchantAppId',
-      'shortCode',
-      'privateKey',
-      'notifyUrl',
-      'redirectUrl'
-    ];
-
-    const missingFields = requiredFields.filter(field => !config[field]);
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required configuration fields: ${missingFields.join(', ')}`);
-    }
   }
 
   private async getFabricToken(): Promise<string> {

@@ -16,8 +16,31 @@ export const telebirrConfig = {
     business_type: 'BuyGoods',
     payee_identifier_type: '04',
     payee_type: '5000',
+  },
+  
+  // Update validation to only check merchant-specific fields
+  validateConfig(config: any) {
+    const required = [
+      'fabricAppId',
+      'appSecret',
+      'merchantAppId',
+      'shortCode',
+      'privateKey',
+      'notifyUrl',
+      'redirectUrl'
+    ];
+    
+    const missing = required.filter(key => !config[key]);
+    
+    if (missing.length > 0) {
+      throw new Error(`Missing required merchant config: ${missing.join(', ')}`);
+    }
+    return true;
   }
 };
+
+// Remove the auto-validation
+// telebirrConfig.validate();
 
 export interface TelebirrOrderParams {
   title: string;

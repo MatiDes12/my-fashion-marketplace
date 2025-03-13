@@ -58,4 +58,22 @@ export function createNonceStr(): string {
     result += chars[Math.floor(Math.random() * chars.length)];
   }
   return result;
-} 
+}
+
+// Add this function to verify signatures from Telebirr
+export function verifyTelebirrSignature(params: any, signature: string, publicKey: string): boolean {
+  const fields = Object.keys(params).sort().filter(key => 
+    key !== 'sign' && key !== 'sign_type'
+  );
+  
+  const signStr = fields.map(key => `${key}=${params[key]}`).join('&');
+  
+  const sha256withrsa = new pmlib.rs.KJUR.crypto.Signature({
+    alg: "SHA256withRSAandMGF1",
+  });
+  
+  sha256withrsa.init(publicKey);
+  sha256withrsa.updateString(signStr);
+  
+  return sha256withrsa.verify(signature);
+}
