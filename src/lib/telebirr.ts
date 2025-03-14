@@ -2,6 +2,7 @@ import { signRequestObject, createNonceStr, createTimeStamp } from '@/utils/tele
 import { telebirrConfig } from '@/config/telebirr';
 import { config, getTelebirrBaseUrl } from '@/config/env';
 import { createClientComponent } from '@/lib/supabase';
+import axios from 'axios';
 
 interface TelebirrConfig {
   merchantAppId: string;
@@ -62,34 +63,45 @@ interface TelebirrPaymentResponse {
 export class TelebirrPayment {
   private config: TelebirrConfig;
   private baseUrl: string;
+  private maxRetries: number = 3;
+  private timeout: number = 30000; // 30 seconds
 
   constructor(config: TelebirrConfig) {
     this.config = config;
     this.baseUrl = getTelebirrBaseUrl();
   }
 
-  private async makeRequest(endpoint: string, data: any): Promise<any> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'App-Id': this.config.fabricAppId,
-        'App-Key': this.config.appSecret,
-      },
-      body: JSON.stringify(data),
-    });
+  private async makeRequest(endpoint: string, data: any, retryCount = 0): Promise<any> {
+    try {
+      const response = await axios({
+        method: 'POST',
+        url: `${this.baseUrl}${endpoint}`,
+        headers: {
+          'Content-Type': 'application/json',
+          'App-Id': this.config.fabricAppId,
+          'App-Key': this.config.appSecret,
+        },
+        data,
+        timeout: this.timeout,
+      });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      return response.data;
+    } catch (error) {
+      if (retryCount < this.maxRetries) {
+        // Exponential backoff
+        const delay = Math.pow(2, retryCount) * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.makeRequest(endpoint, data, retryCount + 1);
+      }
+
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+          throw new Error('Telebirr service is temporarily unavailable. Please try again later.');
+        }
+        throw new Error(error.response?.data?.message || 'Failed to connect to Telebirr service');
+      }
+      throw error;
     }
-
-    const responseData = await response.json();
-
-    if (responseData.code !== '0') {
-      throw new Error(responseData.message || 'API request failed');
-    }
-
-    return responseData;
   }
 
   private async getFabricToken(): Promise<string> {

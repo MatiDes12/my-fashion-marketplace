@@ -107,7 +107,16 @@ export default function PaymentMethodModal({
           orderId: `ORD-${Date.now()}`,
           description: `Order payment for ${sellers.length} seller(s)`,
         }),
+        signal: AbortSignal.timeout(30000),
       });
+
+      if (!response.ok) {
+        if (response.status === 504) {
+          throw new Error('Telebirr service is temporarily unavailable. Please try again later.');
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to process payment');
+      }
 
       const data = await response.json();
 
@@ -115,14 +124,24 @@ export default function PaymentMethodModal({
         throw new Error(data.error || 'Failed to send OTP');
       }
 
-      // Store OTP reference and move to OTP input step
       setOtpReference(data.otpReference);
       setStep('otp');
       toast.success('OTP sent to your phone');
 
     } catch (error) {
       console.error('Payment error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to send OTP');
+      let errorMessage = 'Failed to send OTP';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout') || error.message.includes('unavailable')) {
+          errorMessage = 'Telebirr service is temporarily unavailable. Please try again later.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLocalProcessing(false);
     }
