@@ -1,8 +1,9 @@
-import { signRequestObject, createNonceStr, createTimeStamp } from '@/utils/telebirr-utils';
+import { signRequestObject, createNonceStr, createTimeStamp, generateTelebirrSignature } from '@/utils/telebirr-utils';
 import { telebirrConfig } from '@/config/telebirr';
 import { config, getTelebirrBaseUrl } from '@/config/env';
 import { createClientComponent } from '@/lib/supabase';
 import axios from 'axios';
+import crypto from 'crypto';
 
 interface TelebirrConfig {
   merchantAppId: string;
@@ -73,6 +74,19 @@ export class TelebirrPayment {
 
   private async makeRequest(endpoint: string, data: any, retryCount = 0): Promise<any> {
     try {
+      // Add nonce and timestamp
+      const nonce = crypto.randomBytes(16).toString('hex');
+      const timestamp = Date.now().toString();
+
+      const requestData = {
+        ...data,
+        nonce,
+        timestamp,
+      };
+
+      // Generate signature
+      const signature = generateTelebirrSignature(requestData, this.config.appSecret);
+
       const response = await axios({
         method: 'POST',
         url: `${this.baseUrl}${endpoint}`,
@@ -80,8 +94,11 @@ export class TelebirrPayment {
           'Content-Type': 'application/json',
           'App-Id': this.config.fabricAppId,
           'App-Key': this.config.appSecret,
+          'X-Telebirr-Signature': signature,
+          'X-Telebirr-Nonce': nonce,
+          'X-Telebirr-Timestamp': timestamp,
         },
-        data,
+        data: requestData,
         timeout: this.timeout,
       });
 

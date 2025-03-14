@@ -61,9 +61,13 @@ export default function AdminSettingsPage() {
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const webhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/telebirr/webhook`;
       const { error } = await supabase
         .from('admin_payment_settings')
-        .upsert(paymentSettings);
+        .upsert({
+          ...paymentSettings,
+          notify_url: webhookUrl
+        });
 
       if (error) throw error;
       toast.success('Payment settings updated successfully');

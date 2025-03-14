@@ -8,6 +8,11 @@ export async function middleware(req: NextRequest) {
   // Create a response object that we'll modify and return
   const res = NextResponse.next();
   
+  // Skip auth for webhook
+  if (req.nextUrl.pathname === '/api/telebirr/webhook') {
+    return res;
+  }
+  
   // Create a Supabase client specifically for the middleware
   const supabase = createMiddlewareClient({ req, res });
   
@@ -129,6 +134,7 @@ export const config = {
     '/admin/revenue',
     '/admin/withdrawals',
     '/admin/withdrawals/manage',
-    '/admin/:path*'
+    '/admin/:path*',
+    '/api/telebirr/webhook'
   ]
 }; 

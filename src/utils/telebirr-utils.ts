@@ -72,41 +72,34 @@ export function createNonceStr(): string {
 
 // Add this function to verify signatures from Telebirr
 export function verifyTelebirrSignature(
-  params: any,
+  payload: any,
   signature: string,
-  publicKey: string
+  appSecret: string
 ): boolean {
-  try {
-    // Format public key
-    if (!publicKey.includes('-----BEGIN PUBLIC KEY-----')) {
-      publicKey = `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`;
-    }
-    publicKey = publicKey.replace(/\\n/g, '\n');
+  // Sort parameters alphabetically
+  const sortedParams = Object.keys(payload)
+    .sort()
+    .reduce((acc: Record<string, any>, key) => {
+      acc[key] = payload[key];
+      return acc;
+    }, {});
 
-    // Sort fields alphabetically
-    const fields = Object.keys(params).sort().filter(key => 
-      key !== 'sign' && key !== 'sign_type'
-    );
-    
-    // Create string to verify
-    const signStr = fields.map(key => `${key}=${params[key]}`).join('&');
-    
-    // Create verifier with SHA256 and RSA-PSS padding
-    const verifier = crypto.createVerify('RSA-SHA256');
-    verifier.update(signStr);
-    
-    return verifier.verify(
-      {
-        key: publicKey,
-        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
-        saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
-      },
-      Buffer.from(signature, 'base64')
-    );
-  } catch (error) {
-    console.error('Signature verification error:', error);
-    return false;
-  }
+  // Create string to sign
+  const stringToSign = Object.entries(sortedParams)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&');
+
+  // Add app secret
+  const signString = `${stringToSign}&key=${appSecret}`;
+
+  // Generate signature
+  const calculatedSignature = crypto
+    .createHash('md5')
+    .update(signString)
+    .digest('hex')
+    .toUpperCase();
+
+  return calculatedSignature === signature;
 }
 
 export function verifyWebhookSignature(
@@ -148,4 +141,32 @@ export function verifyWebhookSignature(
     console.error('Signature verification error:', error);
     return false;
   }
+}
+
+export function generateTelebirrSignature(
+  params: Record<string, any>,
+  appSecret: string
+): string {
+  // Sort parameters alphabetically
+  const sortedParams = Object.keys(params)
+    .sort()
+    .reduce((acc: Record<string, any>, key) => {
+      acc[key] = params[key];
+      return acc;
+    }, {});
+
+  // Create string to sign
+  const stringToSign = Object.entries(sortedParams)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('&');
+
+  // Add app secret
+  const signString = `${stringToSign}&key=${appSecret}`;
+
+  // Generate signature
+  return crypto
+    .createHash('md5')
+    .update(signString)
+    .digest('hex')
+    .toUpperCase();
 }
