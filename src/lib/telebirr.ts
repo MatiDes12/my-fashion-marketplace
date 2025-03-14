@@ -1,14 +1,14 @@
 import { signRequestObject, createNonceStr, createTimeStamp } from '@/utils/telebirr-utils';
 import { telebirrConfig } from '@/config/telebirr';
-import request, { CoreOptions, RequiredUriUrl } from 'request';
-import { config } from '@/config/env';
+import { config, getTelebirrBaseUrl } from '@/config/env';
+import { createClientComponent } from '@/lib/supabase';
 
 interface TelebirrConfig {
+  merchantAppId: string;
   fabricAppId: string;
   appSecret: string;
-  merchantAppId: string;
-  shortCode: string;
   privateKey: string;
+  shortCode: string;
   notifyUrl: string;
   redirectUrl: string;
 }
@@ -18,16 +18,14 @@ interface TelebirrError extends Error {
   details?: string;
 }
 
-type RequestOptions = RequiredUriUrl & CoreOptions & {
+interface RequestOptions {
   method: string;
   url: string;
-  headers: {
-    'Content-Type': string;
-    'X-APP-Key': string;
-    'Authorization'?: string;
-  };
+  headers: Record<string, string>;
   body: string;
-};
+  rejectUnauthorized?: boolean;
+  agent?: any;
+}
 
 interface TransferParams {
   amount: number;
@@ -37,104 +35,144 @@ interface TransferParams {
   merchantOrderId: string;
 }
 
+interface OTPRequest {
+  phoneNumber: string;
+  amount: number;
+  orderId: string;
+  description: string;
+  shortCode: string;
+}
+
+interface OTPVerification {
+  phoneNumber: string;
+  otpCode: string;
+  otpReference: string;
+  amount: number;
+  orderId: string;
+}
+
+interface TelebirrPaymentResponse {
+  success: boolean;
+  message?: string;
+  otpReference?: string;
+  paymentUrl?: string;
+  error?: string;
+}
+
 export class TelebirrPayment {
   private config: TelebirrConfig;
+  private baseUrl: string;
 
   constructor(config: TelebirrConfig) {
-    this.validateConfig(config);
     this.config = config;
+    this.baseUrl = getTelebirrBaseUrl();
   }
 
-  private validateConfig(config: TelebirrConfig) {
-    const requiredFields: (keyof TelebirrConfig)[] = [
-      'fabricAppId',
-      'appSecret',
-      'merchantAppId',
-      'shortCode',
-      'privateKey',
-      'notifyUrl',
-      'redirectUrl'
-    ];
+  private async makeRequest(endpoint: string, data: any): Promise<any> {
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'App-Id': this.config.fabricAppId,
+        'App-Key': this.config.appSecret,
+      },
+      body: JSON.stringify(data),
+    });
 
-    const missingFields = requiredFields.filter(field => !config[field]);
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required configuration fields: ${missingFields.join(', ')}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const responseData = await response.json();
+
+    if (responseData.code !== '0') {
+      throw new Error(responseData.message || 'API request failed');
+    }
+
+    return responseData;
   }
 
   private async getFabricToken(): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const options: RequestOptions = {
-        method: 'POST',
-        url: `${telebirrConfig.baseUrl}${telebirrConfig.endpoints.token}`,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-APP-Key': this.config.fabricAppId,
-        },
-        rejectUnauthorized: false,
-        agent: undefined,
-        body: JSON.stringify({
-          appSecret: this.config.appSecret,
-        }),
-      };
+    const response = await this.makeRequest(
+      `${telebirrConfig.endpoints.token}`,
+      { appSecret: this.config.appSecret }
+    );
 
-      request(options, function (error, response) {
-        if (error) {
-          console.error('Token request error:', error);
-          reject(error);
-          return;
-        }
+    if (!response.token) {
+      throw new Error('Invalid token response');
+    }
 
-        try {
-          const result = JSON.parse(response.body);
-          if (!result.token) {
-            reject(new Error('Invalid token response'));
-            return;
-          }
-          resolve(result.token);
-        } catch (parseError) {
-          console.error('Token parse error:', parseError);
-          reject(parseError);
-        }
-      });
-    });
+    return response.token;
   }
 
-  private async makeRequest(requestObject: any, token: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const options: RequestOptions = {
-        method: 'POST',
-        url: `${telebirrConfig.baseUrl}${telebirrConfig.endpoints.preOrder}`,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-APP-Key': this.config.fabricAppId,
-          'Authorization': token
-        },
-        rejectUnauthorized: false,
-        agent: undefined,
-        body: JSON.stringify(requestObject),
+  async requestPaymentOTP(params: {
+    phoneNumber: string;
+    amount: number;
+    orderId: string;
+    description: string;
+  }): Promise<TelebirrPaymentResponse> {
+    try {
+      const payload = {
+        outTradeNo: params.orderId,
+        subject: params.description,
+        totalAmount: params.amount.toString(),
+        shortCode: this.config.shortCode,
+        notifyUrl: this.config.notifyUrl,
+        returnUrl: this.config.redirectUrl,
+        receiveName: 'Merchant Name',
+        timeoutExpress: '30',
+        nonce: Math.random().toString(36).substring(7),
+        timestamp: Date.now().toString(),
       };
 
-      request(options, function (error, response) {
-        if (error) {
-          console.error('Order request error:', error);
-          reject(error);
-          return;
-        }
+      const response = await this.makeRequest(
+        '/payment/create',
+        payload
+      );
 
-        try {
-          const result = JSON.parse(response.body);
-          if (result.code !== '0') {
-            reject(new Error(result.msg || 'Failed to create order'));
-            return;
-          }
-          resolve(result);
-        } catch (parseError) {
-          console.error('Order response parse error:', parseError);
-          reject(parseError);
-        }
-      });
-    });
+      return {
+        success: true,
+        otpReference: response.data.otpReference,
+      };
+    } catch (error) {
+      console.error('Telebirr payment error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create payment',
+      };
+    }
+  }
+
+  async verifyPaymentOTP(params: {
+    phoneNumber: string;
+    otpCode: string;
+    otpReference: string;
+    amount: number;
+    orderId: string;
+  }): Promise<TelebirrPaymentResponse> {
+    try {
+      const payload = {
+        outTradeNo: params.orderId,
+        otpCode: params.otpCode,
+        otpReference: params.otpReference,
+      };
+
+      const response = await this.makeRequest(
+        '/payment/verify',
+        payload
+      );
+
+      return {
+        success: true,
+        message: 'Payment successful',
+      };
+    } catch (error) {
+      console.error('Telebirr verification error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Payment verification failed',
+      };
+    }
   }
 
   public async createOrder(params: {
@@ -144,10 +182,8 @@ export class TelebirrPayment {
     callback_info?: string;
   }) {
     try {
-      // Get token first
       const fabricToken = await this.getFabricToken();
       
-      // Create request object exactly like the demo
       const reqObject = {
         timestamp: createTimeStamp(),
         nonce_str: createNonceStr(),
@@ -155,7 +191,7 @@ export class TelebirrPayment {
         version: '1.0',
         biz_content: {
           notify_url: this.config.notifyUrl,
-          appid: this.config.merchantAppId,
+          appid: this.config.fabricAppId,
           merch_code: this.config.shortCode,
           merch_order_id: params.merch_order_id,
           trade_type: 'Checkout',
@@ -172,7 +208,6 @@ export class TelebirrPayment {
         }
       };
 
-      // Sign the request
       const signature = signRequestObject(reqObject, this.config.privateKey);
       const finalRequest = {
         ...reqObject,
@@ -180,10 +215,11 @@ export class TelebirrPayment {
         sign_type: 'SHA256WithRSA'
       };
 
-      // Make the request using the same format as demo
-      const result = await this.makeRequest(finalRequest, fabricToken);
+      const result = await this.makeRequest(
+        '/payment/preorder',
+        finalRequest
+      );
       
-      // Create and return the checkout URL
       return this.createCheckoutUrl(result.biz_content.prepay_id);
 
     } catch (error) {
@@ -194,7 +230,7 @@ export class TelebirrPayment {
 
   private createCheckoutUrl(prepayId: string): string {
     const params = {
-      appid: this.config.merchantAppId,
+      appid: this.config.fabricAppId,
       merch_code: this.config.shortCode,
       nonce_str: createNonceStr(),
       prepay_id: prepayId,
@@ -230,7 +266,7 @@ export class TelebirrPayment {
     const nonce = Math.random().toString(36).substring(2, 15);
 
     const requestBody = {
-      appId: this.config.merchantAppId,
+      appId: this.config.fabricAppId,
       timestamp,
       nonce,
       outTradeNo: params.merchantOrderId,
@@ -245,10 +281,9 @@ export class TelebirrPayment {
       }
     };
 
-    // Sign the request
     const signature = signRequestObject(requestBody, this.config.privateKey);
 
-    const response = await fetch(`${config.telebirr.baseUrl}/transfer/v1/transfer`, {
+    const response = await fetch(`${this.baseUrl}/transfer/v1/transfer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -278,13 +313,12 @@ export class TelebirrPayment {
     };
   }
 
-  // Add method to verify transfer status
   async verifyTransfer(merchantOrderId: string) {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const nonce = Math.random().toString(36).substring(2, 15);
 
     const requestBody = {
-      appId: this.config.merchantAppId,
+      appId: this.config.fabricAppId,
       timestamp,
       nonce,
       outTradeNo: merchantOrderId,
@@ -293,7 +327,7 @@ export class TelebirrPayment {
 
     const signature = signRequestObject(requestBody, this.config.privateKey);
 
-    const response = await fetch(`${config.telebirr.baseUrl}/transfer/v1/query`, {
+    const response = await fetch(`${this.baseUrl}/transfer/v1/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -318,4 +352,57 @@ export class TelebirrPayment {
       message: data.message
     };
   }
-} 
+}
+
+export async function getTelebirrConfig(sellerId?: string): Promise<TelebirrConfig> {
+  const supabase = createClientComponent();
+
+  try {
+    if (sellerId) {
+      const { data: sellerSettings, error: sellerError } = await supabase
+        .from('payment_settings')
+        .select('telebirr_settings')
+        .eq('user_id', sellerId)
+        .single();
+
+      if (sellerError || !sellerSettings?.telebirr_settings?.is_active) {
+        throw new Error('Seller payment settings not found or inactive');
+      }
+
+      return {
+        merchantAppId: sellerSettings.telebirr_settings.merchant_app_id,
+        fabricAppId: sellerSettings.telebirr_settings.fabric_app_id,
+        appSecret: sellerSettings.telebirr_settings.app_secret,
+        privateKey: sellerSettings.telebirr_settings.private_key,
+        shortCode: sellerSettings.telebirr_settings.short_code,
+        notifyUrl: sellerSettings.telebirr_settings.notify_url,
+        redirectUrl: sellerSettings.telebirr_settings.redirect_url,
+      };
+    } else {
+      const { data: adminSettings, error: adminError } = await supabase
+        .from('admin_payment_settings')
+        .select('*')
+        .eq('is_active', true)
+        .single();
+
+      if (adminError || !adminSettings) {
+        throw new Error('Admin payment settings not found');
+      }
+
+      return {
+        merchantAppId: adminSettings.merchant_app_id,
+        fabricAppId: adminSettings.fabric_app_id,
+        appSecret: adminSettings.app_secret,
+        privateKey: adminSettings.private_key,
+        shortCode: adminSettings.short_code,
+        notifyUrl: adminSettings.notify_url,
+        redirectUrl: adminSettings.redirect_url,
+      };
+    }
+  } catch (error) {
+    console.error('Error getting Telebirr config:', error);
+    throw error;
+  }
+}
+
+export type { TelebirrConfig, TelebirrPaymentResponse }; 

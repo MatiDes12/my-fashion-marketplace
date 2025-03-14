@@ -5,6 +5,11 @@ import { Dialog, Transition } from '@headlessui/react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import { CartItem, SellerOrder } from '@/types/cart';
+import PaymentMethodSelector from './PaymentMethodSelector';
+import { PAYMENT_METHODS } from '@/utils/constants';
+import { verifyTelebirrPayment } from '@/lib/telebirr-client';
+
+type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
 interface PaymentMethod {
   id: string;
@@ -37,7 +42,7 @@ const paymentMethods: PaymentMethod[] = [
 interface PaymentMethodModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectMethod: (methodId: string, sellerId: string) => void;
+  onSelectMethod: (methodId: PaymentMethodType, phoneNumber?: string) => Promise<void>;
   isProcessing: boolean;
   sellers: SellerOrder[];
 }
@@ -49,6 +54,115 @@ export default function PaymentMethodModal({
   isProcessing,
   sellers
 }: PaymentMethodModalProps) {
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpReference, setOtpReference] = useState<string | null>(null);
+  const [step, setStep] = useState<'method' | 'phone' | 'otp'>('method');
+  const [error, setError] = useState('');
+  const [localProcessing, setLocalProcessing] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!selectedMethod) {
+      setError('Please select a payment method');
+      return;
+    }
+
+    if (selectedMethod === 'TELEBIRR') {
+      setStep('phone');
+    } else {
+      try {
+        await onSelectMethod(selectedMethod, phoneNumber);
+        onClose();
+      } catch (error) {
+        console.error('Payment error:', error);
+        setError(error instanceof Error ? error.message : 'Payment failed');
+      }
+    }
+  };
+
+  const handlePhoneSubmit = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (!phoneNumber) {
+      setError('Please enter your phone number');
+      return;
+    }
+
+    if (!phoneNumber.match(/^((\+251)|(251)|(0))[9][0-9]{8}$/)) {
+      setError('Please enter a valid Ethiopian phone number');
+      return;
+    }
+
+    try {
+      setLocalProcessing(true);
+      setError('');
+      
+      const response = await fetch('/api/telebirr/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber,
+          amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
+          orderId: `ORD-${Date.now()}`,
+          description: `Order payment for ${sellers.length} seller(s)`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+
+      // Store OTP reference and move to OTP input step
+      setOtpReference(data.otpReference);
+      setStep('otp');
+      toast.success('OTP sent to your phone');
+
+    } catch (error) {
+      console.error('Payment error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to send OTP');
+    } finally {
+      setLocalProcessing(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (!otpCode) {
+      setError('Please enter the OTP code');
+      return;
+    }
+
+    try {
+      setLocalProcessing(true);
+      setError('');
+
+      const response = await verifyTelebirrPayment(
+        phoneNumber,
+        otpCode,
+        otpReference!,
+        sellers.reduce((sum, seller) => sum + seller.total, 0),
+        `ORD-${Date.now()}`,
+        sellers[0].id // Assuming single seller for now
+      );
+
+      if (!response.success) {
+        throw new Error(response.error || 'Payment verification failed');
+      }
+
+      onClose();
+      toast.success('Payment successful!');
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to verify OTP');
+    } finally {
+      setLocalProcessing(false);
+    }
+  };
+
   return (
     <Transition.Root show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -78,7 +192,8 @@ export default function PaymentMethodModal({
               <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
                 <div>
                   <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900 mb-4">
-                    Select Payment Method
+                    {step === 'method' ? 'Select Payment Method' : 
+                     step === 'phone' ? 'Enter Phone Number' : 'Enter OTP Code'}
                   </Dialog.Title>
 
                   <div className="mb-6">
@@ -126,35 +241,107 @@ export default function PaymentMethodModal({
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    {paymentMethods.map((method) => (
-                      <button
-                        key={method.id}
-                        onClick={() => onSelectMethod(method.id, sellers[0].id)}
-                        disabled={!method.isAvailable || isProcessing}
-                        className={`w-full flex items-center justify-between p-4 rounded-lg border ${
-                          method.isAvailable 
-                            ? 'hover:bg-gray-50 border-gray-200' 
-                            : 'opacity-50 cursor-not-allowed bg-gray-50 border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 relative">
-                            <Image
-                              src={method.logo}
-                              alt={method.name}
-                              fill
-                              className="object-contain"
-                            />
-                          </div>
-                          <span className="font-medium text-gray-900">{method.name}</span>
+                  {step === 'method' ? (
+                    <>
+                      <PaymentMethodSelector
+                        onSelect={(method) => {
+                          setSelectedMethod(method);
+                          setError('');
+                        }}
+                        selected={selectedMethod}
+                      />
+                      {error && (
+                        <div className="mt-4 text-red-500">
+                          {error}
                         </div>
-                        {!method.isAvailable && (
-                          <span className="text-sm text-gray-500">Coming Soon</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
+                      )}
+                      <div className="mt-6">
+                        <button
+                          onClick={handleSubmit}
+                          disabled={!selectedMethod || isProcessing}
+                          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {isProcessing ? 'Processing...' : 'Continue'}
+                        </button>
+                      </div>
+                    </>
+                  ) : step === 'phone' ? (
+                    <div className="space-y-4">
+                      <div>
+                        <input
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => {
+                            setPhoneNumber(e.target.value);
+                            setError('');
+                          }}
+                          placeholder="e.g., 0911234567"
+                          className="w-full px-4 py-2 border rounded-md focus:ring-green-500 focus:border-green-500"
+                        />
+                        <p className="mt-1 text-sm text-gray-500">
+                          Enter your Telebirr registered phone number
+                        </p>
+                      </div>
+                      {error && (
+                        <div className="text-red-500">{error}</div>
+                      )}
+                      <div className="flex space-x-3">
+                        <button
+                          type="button"
+                          onClick={() => setStep('method')}
+                          className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handlePhoneSubmit}
+                          disabled={!phoneNumber || isProcessing || localProcessing}
+                          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {isProcessing || localProcessing ? 'Sending OTP...' : 'Send OTP'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <input
+                          type="text"
+                          value={otpCode}
+                          onChange={(e) => {
+                            setOtpCode(e.target.value);
+                            setError('');
+                          }}
+                          placeholder="Enter OTP code"
+                          className="w-full px-4 py-2 border rounded-md focus:ring-green-500 focus:border-green-500"
+                        />
+                        <p className="mt-1 text-sm text-gray-500">
+                          Enter the OTP code sent to {phoneNumber}
+                        </p>
+                      </div>
+                      {error && (
+                        <div className="text-red-500">{error}</div>
+                      )}
+                      <div className="flex space-x-3">
+                        <button
+                          type="button"
+                          onClick={() => setStep('phone')}
+                          className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleOtpSubmit}
+                          disabled={!otpCode || isProcessing || localProcessing}
+                          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {isProcessing || localProcessing ? 'Verifying...' : 'Verify OTP'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Dialog.Panel>
             </Transition.Child>

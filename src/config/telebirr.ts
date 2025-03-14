@@ -1,6 +1,6 @@
 export const telebirrConfig = {
   // API Base URL for token and preOrder endpoints
-  baseUrl: 'https://portal.ethiomobilemoney.et:5118/payment/',
+  baseUrl: process.env.NEXT_PUBLIC_TELEBIRR_BASE_URL || 'https://portal.ethiomobilemoney.et:5118/payment/',
   
   // Web URL for checkout page (where users enter their PIN)
   webBaseUrl: 'https://portal.ethiomobilemoney.et:5118/payment/',
@@ -8,6 +8,9 @@ export const telebirrConfig = {
   endpoints: {
     token: '/payment/v1/token',
     preOrder: '/payment/v1/merchant/preOrder',
+    requestOtp: '/payment/v1/request-otp',
+    verifyOtp: '/payment/v1/verify-otp',
+    notify: '/payment/v1/notify'
   },
   // These will come from the seller's settings in database
   defaultConfig: {
@@ -49,3 +52,15 @@ export interface TelebirrOrderParams {
   notifyUrl: string;
   redirectUrl: string;
 }
+
+export const config = {
+  baseUrl: process.env.NEXT_PUBLIC_TELEBIRR_API_URL,
+  mockMode: process.env.NEXT_PUBLIC_MOCK_TELEBIRR === 'true',
+  phoneRegex: /^((\+251)|(251)|(0))[9][0-9]{8}$/,
+  testOtpCode: '123456',
+  fees: {
+    platform: 0.05, // 5%
+    service: 0.02, // 2%
+    vat: 0.15, // 15%
+  }
+};

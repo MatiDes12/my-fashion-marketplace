@@ -14,6 +14,10 @@ import { createTelebirrOrder } from '@/lib/telebirr-client';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
 import { CartItem, SellerOrder } from '@/types/cart';
 import { PaymentInstructions } from '@/components/PaymentInstructions';
+import { PAYMENT_METHODS } from '@/utils/constants';
+
+// Import or define PaymentMethodType
+type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
 interface Seller {
   id: string;
@@ -164,66 +168,42 @@ export default function CheckoutPage() {
     }
   };
 
-  const handlePaymentMethodSelect = async (methodId: string, sellerId: string) => {
+  const handlePaymentMethodSelect = async (methodId: PaymentMethodType, phoneNumber?: string) => {
     try {
-      setIsProcessing(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Please login to complete checkout');
-      }
+      if (methodId === 'TELEBIRR') {
+        if (!phoneNumber) {
+          throw new Error('Phone number is required for Telebirr payment');
+        }
 
-      let firstSellerCheckoutUrl: string | null = null;
+        // Process each seller's items
+        for (const seller of sellers) {
+          const response = await createTelebirrOrder({
+            title: `Order #${Date.now()}-${seller.id.substring(0, 4)}`,
+            amount: seller.total,
+            sellerId: seller.id,
+            phoneNumber,
+          });
 
-      switch (methodId) {
-        case 'telebirr':
-          // Process each seller's items
-          for (const seller of sellers) {
-            const checkoutUrl = await createTelebirrOrder({
-              title: `Order #${Date.now()}-${seller.id.substring(0, 4)}`,
-              amount: seller.total,
-              sellerId: seller.id
-            });
-
-            if (!firstSellerCheckoutUrl) {
-              firstSellerCheckoutUrl = checkoutUrl;
-            }
-
-            // Create orders
-            const { error: orderError } = await supabase
-              .from('orders')
-              .insert(seller.items.map(item => ({
-                user_id: session.user.id,
-                product_id: item.product_id,
-                seller_id: seller.id,
-                quantity: item.quantity,
-                total_price: item.quantity * item.price,
-                order_status: 'pending',
-                payment_url: checkoutUrl
-              })));
-
-            if (orderError) throw orderError;
+          if (!response.success) {
+            throw new Error(response.error || 'Failed to create order');
           }
 
-          // Redirect to first seller's payment
-          if (firstSellerCheckoutUrl) {
-            window.location.href = firstSellerCheckoutUrl;
+          // Check if we have either paymentUrl or otpReference
+          if (response.paymentUrl) {
+            window.location.href = response.paymentUrl;
+            return;
+          } else if (response.otpReference) {
+            // Handle OTP flow
+            setIsPaymentModalOpen(true);
+            return;
           }
-          break;
 
-        case 'cbe':
-        case 'paypal':
-          toast.error('This payment method is not available yet');
-          break;
-
-        default:
-          throw new Error('Invalid payment method');
+          throw new Error('No payment URL or OTP reference received');
+        }
       }
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to process payment');
-    } finally {
-      setIsProcessing(false);
+      toast.error(error instanceof Error ? error.message : 'Payment failed');
     }
   };
 

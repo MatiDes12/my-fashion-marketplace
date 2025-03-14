@@ -1,24 +1,16 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
 import { PAYMENT_METHODS } from '@/utils/constants';
 
-type PaymentMethod = typeof PAYMENT_METHODS[keyof typeof PAYMENT_METHODS];
+type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
 interface PaymentMethodSelectorProps {
-  onSelect: (method: PaymentMethod) => void;
-  selected?: PaymentMethod;
+  onSelect: (method: PaymentMethodType) => void;
+  selected: PaymentMethodType | null;
 }
 
 export default function PaymentMethodSelector({ onSelect, selected }: PaymentMethodSelectorProps) {
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>(selected || PAYMENT_METHODS.TELEBIRR);
-
-  const handleSelect = (method: PaymentMethod) => {
-    setSelectedMethod(method);
-    onSelect(method);
-  };
-
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium text-gray-900">የክፍያ መንገድ ይምረጡ / Select Payment Method</h3>
@@ -26,9 +18,9 @@ export default function PaymentMethodSelector({ onSelect, selected }: PaymentMet
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Telebirr */}
         <button
-          onClick={() => handleSelect(PAYMENT_METHODS.TELEBIRR)}
+          onClick={() => onSelect('TELEBIRR')}
           className={`relative p-4 rounded-lg border ${
-            selectedMethod === PAYMENT_METHODS.TELEBIRR
+            selected === 'TELEBIRR'
               ? 'border-indigo-600 bg-indigo-50'
               : 'border-gray-300'
           }`}
@@ -47,9 +39,9 @@ export default function PaymentMethodSelector({ onSelect, selected }: PaymentMet
 
         {/* CBE */}
         <button
-          onClick={() => handleSelect(PAYMENT_METHODS.CBE)}
+          onClick={() => onSelect('CBE')}
           className={`relative p-4 rounded-lg border ${
-            selectedMethod === PAYMENT_METHODS.CBE
+            selected === 'CBE'
               ? 'border-indigo-600 bg-indigo-50'
               : 'border-gray-300'
           }`}
@@ -68,9 +60,9 @@ export default function PaymentMethodSelector({ onSelect, selected }: PaymentMet
 
         {/* Amole */}
         <button
-          onClick={() => handleSelect(PAYMENT_METHODS.AMOLE)}
+          onClick={() => onSelect('AMOLE')}
           className={`relative p-4 rounded-lg border ${
-            selectedMethod === PAYMENT_METHODS.AMOLE
+            selected === 'AMOLE'
               ? 'border-indigo-600 bg-indigo-50'
               : 'border-gray-300'
           }`}
@@ -89,9 +81,9 @@ export default function PaymentMethodSelector({ onSelect, selected }: PaymentMet
 
         {/* Cash on Delivery */}
         <button
-          onClick={() => handleSelect(PAYMENT_METHODS.CASH_ON_DELIVERY)}
+          onClick={() => onSelect('CASH_ON_DELIVERY')}
           className={`relative p-4 rounded-lg border ${
-            selectedMethod === PAYMENT_METHODS.CASH_ON_DELIVERY
+            selected === 'CASH_ON_DELIVERY'
               ? 'border-indigo-600 bg-indigo-50'
               : 'border-gray-300'
           }`}

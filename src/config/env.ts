@@ -1,14 +1,16 @@
 export const config = {
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL!,
+  // Base URLs for Telebirr based on environment
   telebirr: {
-    // Base URLs
-    baseUrl: {
-      development: 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway', // Test environment
-      production: 'https://portal.ethiomobilemoney.et:5118/payment/', // Production environment
-    },
-    webBaseUrl: {
-      development: 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate',
-      production: 'https://portal.ethiomobilemoney.et:5118/payment/',
+    urls: {
+      development: {
+        api: 'https://developerportal.ethiotelebirr.et:38443/apiaccess/payment/gateway',
+        web: 'https://developerportal.ethiotelebirr.et:38443/payment/web/paygate',
+      },
+      production: {
+        api: 'https://portal.ethiomobilemoney.et:5118/payment/',
+        web: 'https://portal.ethiomobilemoney.et:5118/payment/',
+      }
     },
     endpoints: {
       token: '/payment/v1/token',
@@ -16,8 +18,6 @@ export const config = {
     },
     timeout: 30000,
     retries: 3,
-    proxyUrl: process.env.ETHIOPIAN_PROXY_URL,
-    useProxy: process.env.NODE_ENV === 'production',
   },
   supabase: {
     url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,30 +25,37 @@ export const config = {
   }
 } as const;
 
-export const getTelebirrUrl = () => {
+// Helper function to get the correct base URL based on environment
+export const getTelebirrBaseUrl = () => {
   const env = process.env.NODE_ENV || 'development';
-  return config.telebirr.baseUrl[env as keyof typeof config.telebirr.baseUrl];
+  return config.telebirr.urls[env as keyof typeof config.telebirr.urls].api;
 };
 
+// Helper function to get the web payment URL
+export const getTelebirrWebUrl = () => {
+  const env = process.env.NODE_ENV || 'development';
+  return config.telebirr.urls[env as keyof typeof config.telebirr.urls].web;
+};
+
+// URL validation helper
 export const validateTelebirrUrl = (url: string): boolean => {
   try {
     const parsedUrl = new URL(url);
     return (
       parsedUrl.protocol === 'https:' && 
       (parsedUrl.hostname === '196.188.120.3' || // Test environment
-       parsedUrl.hostname.endsWith('.ethiotelecom.et')) // Correct production domain
+       parsedUrl.hostname.endsWith('.ethiotelecom.et')) // Production domain
     );
   } catch {
     return false;
   }
 };
 
-// Only validate in development and server-side
+// Environment variable validation
 if (process.env.NODE_ENV === 'development' && typeof window === 'undefined') {
   const requiredEnvVars = [
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-    'NEXT_PUBLIC_TELEBIRR_API_URL'
   ];
 
   for (const envVar of requiredEnvVars) {

@@ -15,11 +15,13 @@ export const ETHIOPIAN_CATEGORIES = [
 ];
 
 export const PAYMENT_METHODS = {
-  TELEBIRR: 'telebirr',
-  CBE: 'cbe',
-  AMOLE: 'amole',
-  CASH_ON_DELIVERY: 'cash_on_delivery',
+  TELEBIRR: 'TELEBIRR',
+  CBE: 'CBE',
+  AMOLE: 'AMOLE',
+  CASH_ON_DELIVERY: 'CASH_ON_DELIVERY',
 } as const;
+
+export type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
 export const REGIONS = [
   'አዲስ አበባ', // Addis Ababa

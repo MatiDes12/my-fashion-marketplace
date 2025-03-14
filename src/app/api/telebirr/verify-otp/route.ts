@@ -3,12 +3,12 @@ import { TelebirrPayment, getTelebirrConfig } from '@/lib/telebirr';
 
 export async function POST(request: Request) {
   try {
-    const { phoneNumber, amount, orderId, description, sellerId } = await request.json();
+    const { phoneNumber, otpCode, otpReference, amount, orderId, sellerId } = await request.json();
 
-    // Validate phone number
-    if (!phoneNumber?.match(/^((\+251)|(251)|(0))[9][0-9]{8}$/)) {
+    // Validate required fields
+    if (!phoneNumber || !otpCode || !otpReference || !amount || !orderId) {
       return NextResponse.json(
-        { error: 'Invalid phone number format' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -19,19 +19,21 @@ export async function POST(request: Request) {
     // Initialize Telebirr with config
     const telebirr = new TelebirrPayment(config);
 
-    const response = await telebirr.requestPaymentOTP({
+    // Verify OTP with Telebirr
+    const response = await telebirr.verifyPaymentOTP({
       phoneNumber,
+      otpCode,
+      otpReference,
       amount,
       orderId,
-      description,
     });
 
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('Create order error:', error);
+    console.error('Verify OTP error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create order' },
+      { error: error instanceof Error ? error.message : 'Failed to verify OTP' },
       { status: 500 }
     );
   }

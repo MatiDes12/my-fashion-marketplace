@@ -1,31 +1,72 @@
-export async function createTelebirrOrder(params: {
+import { TelebirrPayment, getTelebirrConfig, type TelebirrPaymentResponse } from './telebirr';
+import { getTelebirrBaseUrl, getTelebirrWebUrl } from '@/config/env';
+
+interface TelebirrOrderParams {
   title: string;
   amount: number;
   sellerId: string;
-}) {
+  phoneNumber: string;
+}
+
+export async function createTelebirrOrder(params: TelebirrOrderParams): Promise<TelebirrPaymentResponse> {
   try {
-    const response = await fetch('/api/telebirr/create-order', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(params),
+    const orderId = `ORD-${Date.now()}`;
+    
+    // Get config and initialize Telebirr
+    const config = await getTelebirrConfig(params.sellerId);
+    const telebirr = new TelebirrPayment(config);
+    
+    const response = await telebirr.requestPaymentOTP({
+      phoneNumber: params.phoneNumber,
+      amount: params.amount,
+      orderId,
+      description: params.title,
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    if (response.success && response.otpReference) {
+      return {
+        ...response,
+        paymentUrl: `${getTelebirrWebUrl()}/payment?ref=${response.otpReference}`,
+      };
     }
 
-    const data = await response.json();
-    
-    if (!data.url) {
-      throw new Error('Invalid response: missing payment URL');
-    }
-
-    return data.url;
+    return response;
   } catch (error) {
-    console.error('Telebirr payment error:', error);
-    throw new Error(error instanceof Error ? error.message : 'Failed to create order');
+    console.error('Create Telebirr order error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to create order',
+    };
+  }
+}
+
+export async function verifyTelebirrPayment(
+  phoneNumber: string,
+  otpCode: string,
+  otpReference: string,
+  amount: number,
+  orderId: string,
+  sellerId: string
+): Promise<TelebirrPaymentResponse> {
+  try {
+    // Get config and initialize Telebirr
+    const config = await getTelebirrConfig(sellerId);
+    const telebirr = new TelebirrPayment(config);
+
+    const response = await telebirr.verifyPaymentOTP({
+      phoneNumber,
+      otpCode,
+      otpReference,
+      amount,
+      orderId,
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Verify payment error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Payment verification failed',
+    };
   }
 } 

@@ -1,4 +1,5 @@
 import { pmlib } from './sign-util-lib';
+import crypto from 'crypto';
 
 // Fields not participating in signature
 const excludeFields = [
@@ -11,40 +12,49 @@ const excludeFields = [
   'biz_content',
 ];
 
+function formatPrivateKey(key: string): string {
+  // Add PEM format if not present
+  if (!key.includes('-----BEGIN PRIVATE KEY-----')) {
+    key = `-----BEGIN PRIVATE KEY-----\n${key}\n-----END PRIVATE KEY-----`;
+  }
+  return key.replace(/\\n/g, '\n');
+}
+
 export function signRequestObject(requestObject: any, privateKey: string): string {
-  let fields: string[] = [];
-  let fieldMap: Record<string, any> = {};
+  try {
+    // Format private key
+    const formattedKey = formatPrivateKey(privateKey);
 
-  // Add main fields
-  for (let key in requestObject) {
-    if (excludeFields.includes(key)) continue;
-    fields.push(key);
-    fieldMap[key] = requestObject[key];
-  }
+    // Sort fields alphabetically
+    const fields = Object.keys(requestObject).sort().filter(key => 
+      !excludeFields.includes(key)
+    );
 
-  // Add biz_content fields
-  if (requestObject.biz_content) {
-    for (let key in requestObject.biz_content) {
-      if (excludeFields.includes(key)) continue;
-      fields.push(key);
-      fieldMap[key] = requestObject.biz_content[key];
+    // Create string to sign
+    const signStr = fields.map(key => `${key}=${requestObject[key]}`).join('&');
+    console.log('String to sign:', signStr); // For debugging
+
+    // Create signer with SHA256 and RSA-PSS padding
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(signStr);
+    
+    // Sign and encode
+    const signature = signer.sign({
+      key: formattedKey,
+      padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+      saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
+    }, 'base64');
+    
+    return signature;
+
+  } catch (error) {
+    console.error('Signing error:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
     }
+    throw new Error('Failed to sign request');
   }
-
-  // Sort fields by ASCII
-  fields.sort();
-
-  // Create signature string
-  const signStrList = fields.map(key => `${key}=${fieldMap[key]}`);
-  const signOriginStr = signStrList.join('&');
-
-  // Sign using SHA256withRSA
-  const sha256withrsa = new pmlib.rs.KJUR.crypto.Signature({
-    alg: "SHA256withRSAandMGF1",
-  });
-  sha256withrsa.init(privateKey);
-  sha256withrsa.updateString(signOriginStr);
-  return pmlib.rs.hextob64(sha256withrsa.sign());
 }
 
 export function createTimeStamp(): string {
@@ -61,19 +71,81 @@ export function createNonceStr(): string {
 }
 
 // Add this function to verify signatures from Telebirr
-export function verifyTelebirrSignature(params: any, signature: string, publicKey: string): boolean {
-  const fields = Object.keys(params).sort().filter(key => 
-    key !== 'sign' && key !== 'sign_type'
-  );
-  
-  const signStr = fields.map(key => `${key}=${params[key]}`).join('&');
-  
-  const sha256withrsa = new pmlib.rs.KJUR.crypto.Signature({
-    alg: "SHA256withRSAandMGF1",
-  });
-  
-  sha256withrsa.init(publicKey);
-  sha256withrsa.updateString(signStr);
-  
-  return sha256withrsa.verify(signature);
+export function verifyTelebirrSignature(
+  params: any,
+  signature: string,
+  publicKey: string
+): boolean {
+  try {
+    // Format public key
+    if (!publicKey.includes('-----BEGIN PUBLIC KEY-----')) {
+      publicKey = `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`;
+    }
+    publicKey = publicKey.replace(/\\n/g, '\n');
+
+    // Sort fields alphabetically
+    const fields = Object.keys(params).sort().filter(key => 
+      key !== 'sign' && key !== 'sign_type'
+    );
+    
+    // Create string to verify
+    const signStr = fields.map(key => `${key}=${params[key]}`).join('&');
+    
+    // Create verifier with SHA256 and RSA-PSS padding
+    const verifier = crypto.createVerify('RSA-SHA256');
+    verifier.update(signStr);
+    
+    return verifier.verify(
+      {
+        key: publicKey,
+        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
+      },
+      Buffer.from(signature, 'base64')
+    );
+  } catch (error) {
+    console.error('Signature verification error:', error);
+    return false;
+  }
+}
+
+export function verifyWebhookSignature(
+  payload: any,
+  signature: string,
+  publicKey: string
+): boolean {
+  try {
+    // Format public key
+    if (!publicKey.includes('-----BEGIN PUBLIC KEY-----')) {
+      publicKey = `-----BEGIN PUBLIC KEY-----\n${publicKey}\n-----END PUBLIC KEY-----`;
+    }
+    publicKey = publicKey.replace(/\\n/g, '\n');
+
+    // Sort payload keys alphabetically
+    const sortedPayload = Object.keys(payload)
+      .sort()
+      .reduce((obj: any, key) => {
+        obj[key] = payload[key];
+        return obj;
+      }, {});
+
+    // Create string to verify
+    const dataToVerify = JSON.stringify(sortedPayload);
+
+    // Create verifier with SHA256 and RSA-PSS padding
+    const verifier = crypto.createVerify('RSA-SHA256');
+    verifier.update(dataToVerify);
+    
+    return verifier.verify(
+      {
+        key: publicKey,
+        padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+        saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST
+      },
+      Buffer.from(signature, 'base64')
+    );
+  } catch (error) {
+    console.error('Signature verification error:', error);
+    return false;
+  }
 }
