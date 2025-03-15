@@ -9,6 +9,8 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { cleanImageUrl } from '@/utils/url';
 import { getFlashSalePrices } from '@/utils/flashSales';
+import ProductRating from '@/components/ProductRating';
+import SimilarProducts from '@/components/SimilarProducts';
 
 type Product = {
   id: string;
@@ -71,6 +73,33 @@ type Product = {
       };
     };
   };
+  ratings?: Array<{
+    id: string;
+    rating: number;
+    comment: string;
+    created_at: string;
+    updated_at: string;
+    user: {
+      id: string;
+      full_name: string;
+    };
+  }>;
+  average_rating?: number;
+  user_rating?: {
+    id: string;
+    rating: number;
+    comment: string;
+  } | null;
+  comments?: Array<{
+    id: string;
+    comment_text: string;
+    created_at: string;
+    rating?: number;
+    users?: {
+      id: string;
+      full_name: string;
+    };
+  }>;
 };
 
 type StoreSettings = {
@@ -110,86 +139,124 @@ export default function ProductDetailPage() {
   const productId = params?.id as string;
   const actionParam = searchParams?.get('action');
   
-  useEffect(() => {
-    if (!productId) {
-      setError('Product ID is required');
-      setLoading(false);
-      return;
-    }
+  const fetchProduct = async () => {
+    try {
+      setLoading(true);
+      
+      // First get the current user's session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Fetch product with all related data - change ratings!inner to ratings!left
+      const { data: product, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          owner:users!products_owner_id_fkey (
+            id,
+            full_name,
+            email,
+            store_settings
+          ),
+          product_images (
+            id,
+            image_url,
+            is_model_picture
+          ),
+          likes:likes (count),
+          ratings (
+            id,
+            rating,
+            comment,
+            created_at,
+            updated_at,
+            users (
+              id,
+              full_name
+            )
+          )
+        `)
+        .eq('id', productId)
+        .single();
 
-    const fetchProduct = async () => {
-      try {
-        const { data: product, error } = await supabase
-          .from('products')
-          .select(`
-            *,
-            owner:users!products_owner_id_fkey (
-              id,
-              full_name,
-              email,
-              store_settings
-            ),
-            product_images (
-              id,
-              image_url,
-              is_model_picture
-            ),
-            likes:likes (count)
-          `)
-          .eq('id', productId)
+      if (error) throw error;
+
+      // Calculate average rating - handle case where ratings might be null
+      const ratings = product.ratings || [];
+      const averageRating = ratings.length > 0
+        ? ratings.reduce((acc: number, curr: any) => acc + curr.rating, 0) / ratings.length
+        : 0;
+
+      // Get user's rating if they're logged in
+      let userRating = null;
+      if (session?.user) {
+        const { data: userRatingData } = await supabase
+          .from('ratings')
+          .select('*')
+          .eq('product_id', productId)
+          .eq('user_id', session.user.id)
+          .single();
+        
+        userRating = userRatingData;
+      }
+
+      // Get flash sale price if available
+      const flashSalePrices = await getFlashSalePrices([productId]);
+      
+      const processedProduct = {
+        ...product,
+        flash_sale_price: flashSalePrices[productId],
+        like_count: product.likes?.[0]?.count || 0,
+        users: product.owner,
+        product_images: product.product_images?.map((img: { image_url: string }) => ({
+          ...img,
+          image_url: img.image_url
+        })),
+        average_rating: averageRating,
+        ratings: ratings.map((rating: any) => ({
+          id: rating.id,
+          rating: rating.rating,
+          comment: rating.comment,
+          created_at: rating.created_at,
+          updated_at: rating.updated_at,
+          user: rating.users
+        })),
+        user_rating: userRating
+      };
+
+      setProduct(processedProduct);
+      setAvailableQuantity(product.quantity);
+
+      // Check if the current user has liked this product
+      if (session?.user) {
+        const { data: userLikes } = await supabase
+          .from('likes')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('product_id', productId)
           .single();
 
-        if (error) throw error;
-
-        // Get flash sale price if available
-        const flashSalePrices = await getFlashSalePrices([productId]);
-        
-        const processedProduct = {
-          ...product,
-          flash_sale_price: flashSalePrices[productId],
-          like_count: product.likes?.[0]?.count || 0,
-          users: product.owner, // Map owner to users for compatibility
-          product_images: product.product_images?.map((img: { image_url: string }) => ({
-            ...img,
-            image_url: img.image_url // URL is already in correct format
-          }))
-        };
-
-        setProduct(processedProduct);
-        setAvailableQuantity(product.quantity);
-
-        // Check if the current user has liked this product
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          const { data: userLikes } = await supabase
-            .from('likes')
-            .select('id')
-            .eq('user_id', session.user.id)
-            .eq('product_id', productId)
-            .single();
-
-          setIsLiked(!!userLikes);
-        }
-        
-        // If action is 'buy', scroll to the buy section
-        if (actionParam === 'buy') {
-          setTimeout(() => {
-            document.getElementById('buy-section')?.scrollIntoView({ behavior: 'smooth' });
-          }, 500);
-        }
-        
-      } catch (error) {
-        console.error('Error fetching product:', error);
-        setError('Failed to load product');
-      } finally {
-        setLoading(false);
+        setIsLiked(!!userLikes);
       }
-    };
-    
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      setError('Failed to load product');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (productId) {
       fetchProduct();
     }
-  }, [productId]);
+    
+    // If action is 'buy', scroll to the buy section
+    if (actionParam === 'buy') {
+      setTimeout(() => {
+        document.getElementById('buy-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+    }
+  }, [productId, actionParam]);
   
   const handleQuantityChange = (value: number) => {
     if (value >= 1 && value <= availableQuantity) {
@@ -386,7 +453,7 @@ export default function ProductDetailPage() {
   console.log('Final store settings:', storeSettings);
   
   return (
-    <div className="bg-gray-50">
+    <div className="bg-gray-50 mt-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <nav className="flex mb-8" aria-label="Breadcrumb">
           <ol className="flex items-center space-x-2">
@@ -682,6 +749,161 @@ export default function ProductDetailPage() {
                 </svg>
                 Secure payment
               </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-8">
+            {/* Keep only the Rating Section */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900">Customer Reviews</h3>
+                <button
+                  onClick={() => document.getElementById('rating-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-colors"
+                >
+                  {product.user_rating ? 'Update Your Review' : 'Write a Review'}
+                </button>
+              </div>
+
+              {/* Rating Section */}
+              <ProductRating 
+                productId={product.id} 
+                initialRating={product.user_rating}
+                onRatingSubmit={fetchProduct}
+              />
+            </div>
+          </div>
+
+          {/* Similar Products */}
+          <div className="lg:col-span-1">
+            <SimilarProducts 
+              currentProductId={product.id}
+              category={product.category}
+            />
+          </div>
+        </div>
+
+        {/* Add this section after the Similar Products section */}
+        <div className="mt-16 col-span-full">
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <div className="max-w-7xl mx-auto">
+              {/* Reviews Header */}
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-gray-900">Customer Reviews</h2>
+                <button
+                  onClick={() => document.getElementById('rating-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-colors"
+                >
+                  {product.user_rating ? 'Update Your Review' : 'Write a Review'}
+                </button>
+              </div>
+
+              {/* Reviews Summary */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+                {/* Overall Rating */}
+                <div className="lg:col-span-4">
+                  <div className="text-center p-6 bg-gray-50 rounded-xl">
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <svg
+                        className="w-8 h-8 text-yellow-400"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      <span className="text-4xl font-bold text-gray-900">
+                        {product.average_rating?.toFixed(1) || '0.0'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      Based on {product.ratings?.length || 0} reviews
+                    </p>
+                  </div>
+                </div>
+
+                {/* Rating Distribution */}
+                <div className="lg:col-span-8">
+                  <div className="space-y-3">
+                    {[5, 4, 3, 2, 1].map((star) => {
+                      const count = product.ratings?.filter(
+                        (rating: any) => rating.rating === star
+                      ).length || 0;
+                      const percentage = product.ratings?.length
+                        ? (count / product.ratings.length) * 100
+                        : 0;
+
+                      return (
+                        <div key={star} className="flex items-center">
+                          <div className="w-24 text-sm text-gray-600">
+                            {star} stars
+                          </div>
+                          <div className="flex-1 h-4 mx-4 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-yellow-400 rounded-full"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <div className="w-16 text-sm text-gray-600">
+                            {count} ({percentage.toFixed(0)}%)
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Reviews List */}
+              <div className="space-y-8">
+                {product.ratings?.map((review: any) => (
+                  <div
+                    key={review.id}
+                    className="border-b border-gray-100 last:border-0 pb-8 last:pb-0"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 text-lg">
+                            {review.user.full_name[0]}
+                          </span>
+                        </div>
+                        <div className="ml-4">
+                          <h4 className="text-sm font-medium text-gray-900">
+                            {review.user.full_name}
+                          </h4>
+                          <div className="flex items-center mt-1">
+                            <div className="flex items-center">
+                              <svg
+                                className="w-5 h-5 text-yellow-400"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              <span className="ml-1 text-sm text-gray-500">
+                                {review.rating.toFixed(1)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {review.comment && (
+                      <div className="prose prose-sm max-w-none text-gray-500">
+                        <p>{review.comment}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {(!product.ratings || product.ratings.length === 0) && (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No reviews yet. Be the first to review this product!</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

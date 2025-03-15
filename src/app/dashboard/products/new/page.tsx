@@ -5,7 +5,7 @@ import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import { ETHIOPIAN_CATEGORIES } from '@/utils/constants';
+import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import Link from 'next/link';
 
 export default function NewProductPage() {
@@ -255,8 +255,8 @@ export default function NewProductPage() {
                             required={!showCustomCategory}
                           >
                             <option value="">Select a category</option>
-                            {ETHIOPIAN_CATEGORIES.map((cat) => (
-                              <option key={cat} value={cat}>{cat}</option>
+                            {PRODUCT_CATEGORIES.slice(1).map((cat) => (
+                              <option key={cat} value={cat.toLowerCase()}>{cat}</option>
                             ))}
                             <option value="custom">+ Add custom category</option>
                           </select>

@@ -43,4 +43,25 @@ export const PLACEHOLDER_IMAGES = [
   '/products/accessories-1.jpg',
   '/products/shoes-1.jpg',
   // Add more placeholder images for each category
+];
+
+export const PRODUCT_CATEGORIES = [
+  'All',
+  'Electronics',
+  'Fashion',
+  'Home & Living',
+  'Beauty & Health',
+  'Sports & Outdoors',
+  'Books & Media',
+  'Toys & Games',
+  'Jewelry & Watches',
+  'Automotive',
+  'Pet Supplies',
+  'Garden & Tools',
+  'Art & Crafts',
+  'Food & Beverages',
+  'Traditional Clothing',
+  'Musical Instruments',
+  'Office Supplies',
+  'Baby & Kids'
 ]; 

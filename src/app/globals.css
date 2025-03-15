@@ -35,3 +35,113 @@ body {
 ::placeholder {
   @apply text-gray-400;
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Add smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhance button hover effects */
+.btn-hover-effect {
+  @apply relative overflow-hidden transition-all duration-300;
+}
+
+.btn-hover-effect::after {
+  content: '';
+  @apply absolute inset-0 bg-white opacity-0 transition-opacity duration-300;
+}
+
+.btn-hover-effect:hover::after {
+  @apply opacity-20;
+}
+
+/* Add gradient text utility */
+.gradient-text {
+  @apply bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent;
+}
+
+/* Add card hover effects */
+.card-hover {
+  @apply transform transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
+}
+
+/* Add these animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-image-pulse {
+  animation: pulse 3s ease-in-out infinite;
+}
+
+/* Add hover effect for brand logos */
+.brand-logo-hover {
+  @apply transform transition-all duration-300 hover:scale-110;
+}
+
+/* Hide scrollbar but keep functionality */
+.overflow-x-hidden {
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+}
+
+.overflow-x-hidden::-webkit-scrollbar {
+  display: none;  /* WebKit */
+}
+
+/* Smooth transitions for category cards */
+.category-card {
+  transition: transform 0.3s ease-in-out;
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out forwards;
+}

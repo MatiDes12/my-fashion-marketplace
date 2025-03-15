@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function CountdownTimer({ endTime }: { endTime: string }) {
+export default function CountdownTimer({ endTime, className = '' }: { endTime: string; className?: string }) {
   const [timeLeft, setTimeLeft] = useState({
     hours: 0,
     minutes: 0,
@@ -8,6 +8,8 @@ export default function CountdownTimer({ endTime }: { endTime: string }) {
   });
 
   useEffect(() => {
+    if (!endTime) return;
+
     const timer = setInterval(() => {
       const now = new Date().getTime();
       const end = new Date(endTime).getTime();
@@ -28,23 +30,15 @@ export default function CountdownTimer({ endTime }: { endTime: string }) {
     return () => clearInterval(timer);
   }, [endTime]);
 
+  if (!endTime) return null;
+
   return (
-    <div className="flex gap-1">
-      <div className="bg-black/30 px-2 py-1 rounded">
-        <span className="font-mono font-bold">
-          {timeLeft.hours.toString().padStart(2, '0')}
-        </span>
-      </div>
-      <div className="bg-black/30 px-2 py-1 rounded">
-        <span className="font-mono font-bold">
-          {timeLeft.minutes.toString().padStart(2, '0')}
-        </span>
-      </div>
-      <div className="bg-black/30 px-2 py-1 rounded">
-        <span className="font-mono font-bold">
-          {timeLeft.seconds.toString().padStart(2, '0')}
-        </span>
-      </div>
+    <div className={`flex items-center gap-1 ${className}`}>
+      <span className="font-mono font-medium">
+        {timeLeft.hours.toString().padStart(2, '0')}:
+        {timeLeft.minutes.toString().padStart(2, '0')}:
+        {timeLeft.seconds.toString().padStart(2, '0')}
+      </span>
     </div>
   );
 } 

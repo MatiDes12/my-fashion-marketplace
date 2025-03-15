@@ -5,7 +5,7 @@ import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import { ETHIOPIAN_CATEGORIES } from '@/utils/constants';
+import { ETHIOPIAN_CATEGORIES, PRODUCT_CATEGORIES } from '@/utils/constants';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
@@ -355,8 +355,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                             required={!showCustomCategory}
                           >
                             <option value="">Select a category</option>
-                            {ETHIOPIAN_CATEGORIES.map((cat) => (
-                              <option key={cat} value={cat}>{cat}</option>
+                            {PRODUCT_CATEGORIES.slice(1).map((cat) => (
+                              <option 
+                                key={cat} 
+                                value={cat.toLowerCase()}
+                                selected={product?.category?.toLowerCase() === cat.toLowerCase()}
+                              >
+                                {cat}
+                              </option>
                             ))}
                             <option value="custom">+ Add custom category</option>
                           </select>

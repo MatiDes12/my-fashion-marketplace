@@ -34,6 +34,13 @@ interface FeaturedSeller {
   };
 }
 
+// Add this interface for product images
+interface ProductImage {
+  id: string;
+  image_url: string;
+  is_model_picture?: boolean;
+}
+
 // Update the PopularProduct interface
 interface PopularProduct {
   id: string;
@@ -43,13 +50,9 @@ interface PopularProduct {
   category: string;
   owner_id: string;
   created_at: string;
-  product_images: Array<{
-    id: string;
-    image_url: string;
-    is_model_picture: boolean;
-  }>;
+  product_images: ProductImage[];
   likes: Array<{ id: string }>;
-  like_count: number;
+  like_count?: number;
   flash_sale_price?: number;
   users: {
     id: string;
@@ -61,6 +64,11 @@ interface PopularProduct {
       description: string;
     };
   };
+  average_rating?: number;
+  ratings?: Array<{
+    rating: number;
+  }>;
+  combined_score?: number;
 }
 
 interface FlashSaleProduct {
@@ -97,6 +105,105 @@ interface FlashSale {
   products: FlashSaleProduct[];
 }
 
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3ELoading...%3C/text%3E%3C/svg%3E';
+
+const APP_PREVIEW_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="600" viewBox="0 0 300 600"%3E%3Crect width="300" height="600" fill="%23f3f4f6"/%3E%3Ctext x="150" y="300" font-family="Arial" font-size="14" fill="%239ca3af" text-anchor="middle"%3EAVRIO App Preview%3C/text%3E%3C/svg%3E';
+
+// Add this before the HomePage component
+const features = [
+  {
+    title: "Secure Payments",
+    description: "Safe and secure payments with Telebirr, CBE, and other Ethiopian banks",
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Fast Delivery",
+    description: "Quick delivery across Ethiopia with real-time tracking",
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Quality Products",
+    description: "Curated selection of authentic Ethiopian and international products",
+    icon: (
+      <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+      </svg>
+    ),
+  }
+];
+
+// Update the categories array
+const categories = [
+  {
+    name: 'Electronics',
+    description: 'Phones, Laptops, Gadgets & More',
+    image: '/images/categories/electronics.jpg',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+    )
+  },
+  {
+    name: 'Traditional Wear',
+    description: 'Habesha Kemis, Tilfi & Cultural Clothing',
+    image: '/images/categories/traditional.jpg',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21L3 16.5M13 21l-4-4.5M3 16.5l3.5-3.5M21 16.5L17.5 13M13 21l4-4.5M17.5 13l-3.5-3.5M3 7V5a2 2 0 012-2h14a2 2 0 012 2v2M3 7l4.5 4.5M21 7l-4.5 4.5" />
+      </svg>
+    )
+  },
+  {
+    name: 'Modern Fashion',
+    description: 'Contemporary Clothing & Accessories',
+    image: '/images/categories/fashion.jpg',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    )
+  },
+  {
+    name: 'Home & Living',
+    description: 'Furniture, Decor & Kitchen Items',
+    image: '/images/categories/home.jpg',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+    )
+  },
+  {
+    name: 'Beauty & Health',
+    description: 'Cosmetics, Personal Care & Wellness',
+    image: '/images/categories/beauty.jpg',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    )
+  },
+  {
+    name: 'Toys & Games',
+    description: 'Kids Toys, Board Games & Entertainment',
+    image: '/images/categories/toys.jpg',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  }
+];
+
 export default function HomePage() {
   const [popularProducts, setPopularProducts] = useState<PopularProduct[]>([]);
   const [featuredBrands, setFeaturedBrands] = useState<FeaturedSeller[]>([]);
@@ -105,6 +212,9 @@ export default function HomePage() {
   const supabase = createClientComponent();
   const router = useRouter();
   const [activeFlashSales, setActiveFlashSales] = useState<FlashSale[]>([]);
+  const [sellerImageLoading, setSellerImageLoading] = useState<{[key: string]: boolean}>({});
+  const [currentFlashSaleIndex, setCurrentFlashSaleIndex] = useState(0);
+  const [mostLikedProducts, setMostLikedProducts] = useState<PopularProduct[]>([]);
 
   const subscriptionTiers = [
     {
@@ -160,23 +270,14 @@ export default function HomePage() {
     }
   ];
 
-  const ethiopianCategories = [
-    {
-      name: 'Traditional Wear',
-      description: 'Habesha Kemis, Tilfi, and more',
-      image: '/traditional.jpg'
-    },
-    {
-      name: 'Modern Fashion',
-      description: 'Contemporary Ethiopian designs',
-      image: '/modern.jpg'
-    },
-    {
-      name: 'Accessories',
-      description: 'Ethiopian jewelry and accessories',
-      image: '/accessories.jpg'
-    }
-  ];
+  // First, add a loading state for each image category
+  const [loadingStates, setLoadingStates] = useState({
+    electronics: true,
+    fashion: true,
+    home: true,
+    beauty: true,
+    flashSale: true
+  });
 
   useEffect(() => {
     fetchData();
@@ -227,9 +328,70 @@ export default function HomePage() {
       })) || [];
 
       setFeaturedBrands(featuredSellers);
+      setSellerImageLoading(
+        featuredSellers.reduce((acc, seller) => ({
+          ...acc,
+          [seller.seller_id]: true
+        }), {})
+      );
 
       // Fetch popular products
       await fetchPopularProducts();
+
+      // Fetch most liked products
+      const { data: likedProducts, error: likedError } = await supabase
+        .from('products')
+        .select(`
+          id,
+          title,
+          description,
+          price,
+          category,
+          owner_id,
+          created_at,
+          product_images (
+            id,
+            image_url,
+            is_model_picture
+          ),
+          users (
+            id,
+            full_name,
+            email,
+            store_settings
+          ),
+          likes (
+            id
+          )
+        `)
+        .eq('is_active', true)
+        .gt('quantity', 0);
+
+      if (likedError) throw likedError;
+      // Sort products by like count in JavaScript
+      const processedLikedProducts = (likedProducts || [])
+        .map(product => ({
+          id: product.id,
+          title: product.title,
+          description: product.description,
+          price: product.price,
+          category: product.category,
+          owner_id: product.owner_id,
+          created_at: product.created_at,
+          product_images: product.product_images,
+          users: {
+            id: product.users[0]?.id || '',
+            full_name: product.users[0]?.full_name || '',
+            email: product.users[0]?.email || '',
+            store_settings: product.users[0]?.store_settings
+          },
+          likes: product.likes,
+          like_count: product.likes?.length || 0
+        }))
+        .sort((a, b) => b.like_count - a.like_count)
+        .slice(0, 10);
+
+      setMostLikedProducts(processedLikedProducts);
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -241,458 +403,510 @@ export default function HomePage() {
 
   const fetchPopularProducts = async () => {
     try {
-      // First get products with their like counts
-      const { data: productsData, error } = await supabase
+      const { data: products, error } = await supabase
         .from('products')
         .select(`
           *,
-          users (
-            id,
-            full_name,
-            email,
-            store_settings
-          ),
           product_images (
             id,
             image_url,
             is_model_picture
           ),
-          likes (
-            id
+          likes (count),
+          ratings (
+            rating
+          ),
+          users (
+            id,
+            full_name,
+            email,
+            store_settings
           )
         `)
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(8);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Get flash sale prices for all products
-      const productIds = productsData?.map(item => item.id) || [];
-      const flashSalePrices = await getFlashSalePrices(productIds);
+      // Process products and calculate combined score
+      const processedProducts = products?.map(product => {
+        const likeCount = product.likes?.[0]?.count || 0;
+        const ratings = product.ratings || [];
+        const averageRating = ratings.length > 0
+          ? ratings.reduce((acc: number, curr: any) => acc + curr.rating, 0) / ratings.length
+          : 0;
+        
+        const normalizedLikes = Math.min(likeCount / 20, 5);
+        const combinedScore = (normalizedLikes + averageRating) / 2;
 
-      // Process products to include like count and flash sale prices
-      const processedProducts = productsData?.map(product => ({
-        ...product,
-        like_count: product.likes?.length || 0,
-        flash_sale_price: flashSalePrices[product.id]
-      })) || [];
+        return {
+          ...product,
+          like_count: likeCount,
+          average_rating: averageRating,
+          combined_score: combinedScore,
+          product_images: product.product_images?.map((img: ProductImage) => ({
+            ...img,
+            image_url: cleanImageUrl(img.image_url)
+          }))
+        };
+      }) || [];
 
-      // Sort by like count
-      const sortedProducts = processedProducts.sort((a, b) => b.like_count - a.like_count);
-
-      setPopularProducts(sortedProducts);
-    } catch (err) {
-      console.error('Error fetching popular products:', err);
-      setError('Failed to load popular products');
+      const sortedProducts = processedProducts.sort((a, b) => 
+        (b.combined_score || 0) - (a.combined_score || 0)
+      );
+      
+      setPopularProducts(sortedProducts.slice(0, 6));
+    } catch (error) {
+      console.error('Error fetching popular products:', error);
     }
   };
 
   useEffect(() => {
     const fetchFlashSales = async () => {
       try {
-        const { data: salesData, error } = await supabase
+        const { data: flashSales, error } = await supabase
           .from('flash_sales')
           .select(`
             *,
-            products:flash_sale_products(
+            products:flash_sale_products (
               id,
               product_id,
               special_price,
-              product:products(
+              product:products (
                 id,
                 title,
                 price,
                 description,
-                product_images(id, image_url),
-                owner:users(store_settings)
+                product_images (
+                  id,
+                  image_url
+                )
               )
             )
           `)
           .eq('is_active', true)
           .gte('end_time', new Date().toISOString())
-          .lte('start_time', new Date().toISOString());
+          .lte('start_time', new Date().toISOString())
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
-
-        if (salesData) {
-          const processedSales: FlashSale[] = salesData.map(sale => ({
-            id: sale.id,
-            title: sale.title,
-            description: sale.description,
-            discount_percentage: sale.discount_percentage,
-            start_time: sale.start_time,
-            end_time: sale.end_time,
-            store_id: sale.store_id,
-            store_name: sale.store_name,
-            created_by: sale.created_by,
-            products: sale.products
-          }));
-          
-          setActiveFlashSales(processedSales);
-        }
-      } catch (error) {
-        console.error('Error fetching flash sales:', error);
+        setActiveFlashSales(flashSales || []);
+      } catch (err) {
+        console.error('Error fetching flash sales:', err);
       }
     };
 
     fetchFlashSales();
   }, []);
 
-  // Update the renderFeaturedSellers function
-  const renderFeaturedSellers = () => {
-    if (loading) {
-      return <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        {[...Array(4)].map((_, i) => (
-          <div key={i} className="animate-pulse flex flex-col items-center">
-            <div className="bg-gray-200 h-40 w-40 rounded-full mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            </div>
-          ))}
-      </div>;
-    }
-
-      return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        {featuredBrands.map((seller) => (
-          <Link 
-            key={seller.seller_id}
-            href={`/stores/${seller.seller_id}`}
-            className="group flex flex-col items-center"
-          >
-            {/* Large circular store logo/image */}
-            <div className="relative w-40 h-40 rounded-full overflow-hidden mb-6 
-                          border-4 border-white shadow-xl transform transition-transform 
-                          duration-300 group-hover:scale-105">
-                  <Image
-                src={seller.store_settings.logo_url || seller.top_product.images[0]?.image_url || '/placeholder.png'}
-                    alt={seller.store_settings.name}
-                    fill
-                    className="object-cover"
-                  />
-              </div>
-
-            {/* Store info with hover effect */}
-            <div className="text-center">
-              <h3 className="text-xl font-bold text-gray-900 mb-2 
-                           group-hover:text-indigo-600 transition-colors">
-                {seller.store_settings.name}
-                </h3>
-                
-              <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                    {seller.store_settings.description}
-                  </p>
-
-              {/* Stats/Badges */}
-              <div className="flex items-center justify-center space-x-4 text-sm">
-                <div className="flex items-center text-gray-500">
-                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  4.8
-                      </div>
-                <div className="flex items-center text-gray-500">
-                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
-                          </svg>
-                  {seller.top_product ? `${seller.top_product.like_count} likes` : 'New Seller'}
-                        </div>
-                      </div>
-
-              {/* View Store Button */}
-              <button className="mt-4 px-4 py-2 text-sm font-medium text-indigo-600 
-                             bg-indigo-50 rounded-full opacity-0 group-hover:opacity-100 
-                             transition-opacity duration-300 hover:bg-indigo-100">
-                View Store →
-              </button>
-              </div>
-            </Link>
-        ))}
-      </div>
-    );
+  // First, create a function to get all flash sale products
+  const getAllFlashSaleProducts = () => {
+    return activeFlashSales.reduce((allProducts, flashSale) => {
+      return [...allProducts, ...(flashSale.products || [])];
+    }, [] as FlashSaleProduct[]);
   };
 
-  // Update the renderPopularProducts function
-  const renderPopularProducts = () => {
-    if (loading) return <LoadingSpinner />;
-    if (error) return <ErrorMessage message={error} />;
-    if (!popularProducts.length) {
-      return (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No products found</p>
-        </div>
-      );
-    }
-
-      return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {popularProducts.map((product) => (
-          <ProductCard key={product.id} product={product} showOwner />
-        ))}
-        </div>
-      );
-  };
-
-  // Update the renderFlashSales function
+  // Then update the renderFlashSales function
   const renderFlashSales = () => {
     if (!activeFlashSales.length) return null;
 
+    const allFlashProducts = getAllFlashSaleProducts();
+
     return (
-      <section className="py-6 bg-gradient-to-b from-red-50 to-white">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">⚡ Flash Deals</h2>
-            <Link
-              href="/flash-sales"
-              className="text-sm text-red-600 hover:text-red-700"
-            >
-              View All
-            </Link>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <h2 className="text-2xl font-bold text-gray-900">Flash Deals</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-red-600 font-semibold">Limited Time Offers</span>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeFlashSales.map((sale) => (
-              <div key={sale.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-                {/* Sale Header */}
-                <div className="bg-red-600 text-white p-4">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-semibold">{sale.title}</h3>
-                      <p className="text-red-100 text-sm mt-1">
-                        {sale.store_name || 'Flash Sale'}
-                      </p>
-                    </div>
-                    <CountdownTimer endTime={sale.end_time} />
-                  </div>
-                </div>
+          <div className="relative">
+            {/* Navigation Buttons */}
+            <button 
+              onClick={() => scrollFlashSales('left')}
+              className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-all duration-300"
+            >
+              <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <button 
+              onClick={() => scrollFlashSales('right')}
+              className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-all duration-300"
+            >
+              <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
 
-                {/* Products Grid */}
-                <div className="p-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {sale.products.slice(0, 4).map((flashProduct) => (
-                      <div key={flashProduct.id} className="group relative">
-                        <Link
-                          href={`/products/${flashProduct.product.id}`}
-                          className="block"
-                        >
-                          <div className="relative w-[150px] h-[150px] mx-auto overflow-hidden rounded-lg mb-2">
-                            {flashProduct.product.product_images?.[0]?.image_url ? (
-                              <Image
-                                src={cleanImageUrl(flashProduct.product.product_images[0].image_url)}
-                                alt={flashProduct.product.title}
-                                width={150}
-                                height={150}
-                                className="object-cover object-center transform group-hover:scale-105 transition-transform duration-200"
-                                style={{ width: '150px', height: '150px' }}
-                              />
-                            ) : (
-                              <div className="w-[150px] h-[150px] bg-gray-200 flex items-center justify-center">
-                                <span className="text-gray-400">No image</span>
-                              </div>
-                            )}
-                            <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                              {sale.discount_percentage}% OFF
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {flashProduct.product.title}
-                            </h4>
-                            <div className="mt-1 flex items-baseline gap-2">
-                              <span className="text-lg font-bold text-red-600">
-                                ETB {flashProduct.special_price}
-                              </span>
-                              <span className="text-sm text-gray-400 line-through">
-                                ETB {flashProduct.product.price}
-                              </span>
-                            </div>
-                          </div>
-                        </Link>
-                        {/* Buy Now Button */}
-                        <Link
-                          href={`/products/${flashProduct.product.id}?action=buy`}
-                          className="mt-2 block w-full text-center py-2 px-4 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors duration-200"
-                        >
-                          Buy Now
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {/* Flash Sales Carousel */}
+            <div 
+              ref={flashSalesRef}
+              className="flex space-x-6 overflow-x-hidden scroll-smooth py-4"
+            >
+              {allFlashProducts.map((flashProduct) => {
+                // Find the parent flash sale for this product to get its end time
+                const parentFlashSale = activeFlashSales.find(sale => 
+                  sale.products.some(p => p.id === flashProduct.id)
+                );
 
-                {/* View More Footer */}
-                <div className="border-t border-gray-100 p-4">
-                  <Link
-                    href={`/flash-sales/${sale.id}`}
-                    className="block text-center text-sm text-red-600 hover:text-red-700 font-medium"
+                return (
+                  <motion.div
+                    key={flashProduct.id}
+                    className="flex-none w-72"
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300 }}
                   >
-                    View All Products →
-                  </Link>
-                </div>
-              </div>
-            ))}
+                    <Link
+                      href={`/products/${flashProduct.product.id}`}
+                      className="block relative bg-white rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg border border-gray-100"
+                    >
+                      {/* Countdown Timer */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <CountdownTimer 
+                          endTime={parentFlashSale?.end_time || ''} 
+                          className="text-xs bg-black/50 backdrop-blur-sm text-white px-2 py-1 rounded-full"
+                        />
+                      </div>
+
+                      {/* Discount Badge */}
+                      <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        -{Math.round(((flashProduct.product.price - flashProduct.special_price) / flashProduct.product.price) * 100)}%
+                      </div>
+
+                      <div className="aspect-w-1 aspect-h-1 relative bg-gray-100">
+                        <Image
+                          src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
+                          alt={flashProduct.product.title}
+                          fill
+                          className="object-cover transform group-hover:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+
+                      <div className="p-4">
+                        <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-red-600">
+                          {flashProduct.product.title}
+                        </h3>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <span className="text-lg font-bold text-red-600">
+                            ETB {flashProduct.special_price.toLocaleString()}
+                          </span>
+                          <span className="text-sm text-gray-500 line-through">
+                            ETB {flashProduct.product.price.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* Progress Indicator */}
+            <div className="flex justify-center mt-6 space-x-2">
+              {Array.from({ length: Math.ceil(allFlashProducts.length / 4) }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => scrollToFlashSalePage(index)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    currentFlashSalePage === index ? 'bg-red-600 w-4' : 'bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
     );
   };
 
+  // Add these state and refs for Flash Sales carousel
+  const flashSalesRef = useRef<HTMLDivElement>(null);
+  const [currentFlashSalePage, setCurrentFlashSalePage] = useState(0);
+
+  const scrollFlashSales = (direction: 'left' | 'right') => {
+    if (!flashSalesRef.current) return;
+    
+    const container = flashSalesRef.current;
+    const scrollAmount = container.clientWidth;
+    const totalProducts = getAllFlashSaleProducts().length;
+    
+    if (direction === 'left') {
+      container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      setCurrentFlashSalePage(prev => Math.max(0, prev - 1));
+    } else {
+      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      setCurrentFlashSalePage(prev => 
+        Math.min(Math.ceil(totalProducts / 4) - 1, prev + 1)
+      );
+    }
+  };
+
+  const scrollToFlashSalePage = (pageIndex: number) => {
+    if (!flashSalesRef.current) return;
+    
+    const container = flashSalesRef.current;
+    const scrollAmount = container.clientWidth * pageIndex;
+    
+    container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+    setCurrentFlashSalePage(pageIndex);
+  };
+
+  // Add these functions inside your HomePage component
+  const categoriesRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (!categoriesRef.current) return;
+    
+    const container = categoriesRef.current;
+    const scrollAmount = container.clientWidth;
+    
+    if (direction === 'left') {
+      container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      setCurrentPage(prev => Math.max(0, prev - 1));
+    } else {
+      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      setCurrentPage(prev => Math.min(Math.ceil(categories.length / 4) - 1, prev + 1));
+    }
+  };
+
+  const scrollToPage = (pageIndex: number) => {
+    if (!categoriesRef.current) return;
+    
+    const container = categoriesRef.current;
+    const scrollAmount = container.clientWidth * pageIndex;
+    
+    container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+    setCurrentPage(pageIndex);
+  };
+
   return (
     <div className="min-h-screen">
-      {/* Hero Section - Modern Design */}
-      <div className="relative bg-gradient-to-r from-gray-900 to-gray-800 overflow-hidden">
-        <div className="absolute inset-0 bg-pattern opacity-10"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-24">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="text-center lg:text-left">
-                <motion.h1 
-                className="text-4xl md:text-6xl font-bold text-white"
+      {/* Hero Section */}
+      <section className="relative bg-gradient-to-r from-gray-900 to-gray-800 text-white">
+        <div className="relative pt-16 md:pt-0">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center min-h-[calc(100vh-4rem)]">
+              <div className="py-12 md:py-24">
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
                 >
-                Your One-Stop
-                <span className="block text-red-500">Global Marketplace</span>
-                </motion.h1>
-                <motion.p 
-                className="mt-6 text-xl text-gray-300"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                >
-                Shop millions of products with amazing deals and worldwide shipping. Find everything you need, all in one place.
-                </motion.p>
-                  <motion.div
-                className="mt-8 flex flex-wrap gap-4 justify-center lg:justify-start"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                  >
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+                    Your One-Stop Shop for Everything in Ethiopia
+                  </h1>
+                  <p className="text-xl text-gray-300 mb-8">
+                    Discover authentic Ethiopian products and shop from verified local sellers
+                  </p>
+                  <div className="flex items-center gap-4">
                     <Link
                       href="/products"
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-red-600 text-white rounded-full font-medium hover:bg-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-base sm:text-lg"
-                >
-                  <span className="flex items-center">
-                    <svg 
-                      className="w-5 h-5 mr-2" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
+                      className="btn-hover-effect inline-flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
                     >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" 
-                      />
-                    </svg>
-                    Start Shopping
-                  </span>
-                </Link>
-                <Link
-                  href="/signup"
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-white text-gray-900 rounded-full font-medium hover:bg-gray-100 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl border-2 border-transparent hover:border-red-600 text-base sm:text-lg"
-                >
-                  <span className="flex items-center">
-                    <svg 
-                      className="w-5 h-5 mr-2" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={2} 
-                        d="M12 6v6m0 0v6m0-6h6m-6 0H6" 
-                      />
-                    </svg>
-                    Become a Seller
-                  </span>
+                      Start Shopping
+                      <svg className="w-5 h-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
                     </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="btn-hover-effect inline-flex items-center px-6 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100"
+                    >
+                      Become a Seller
+                    </Link>
+                  </div>
+                </motion.div>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 rounded-full filter blur-3xl opacity-20 animate-pulse"></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="relative h-64"
+                  >
+                    <Image
+                      src="/images/categories/electronics.jpg"
+                      alt="Electronics"
+                      fill
+                      className="object-cover rounded-lg shadow-lg transform hover:-translate-y-2 transition-transform duration-300"
+                    />
+                  </motion.div>
+                  <motion.div
+                    initial={{ y: -20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                    className="relative h-64 mt-16"
+                  >
+                    <Image
+                      src="/images/categories/modern.jpg"
+                      alt="Modern Fashion"
+                      fill
+                      className="object-cover rounded-lg shadow-lg transform hover:-translate-y-2 transition-transform duration-300"
+                    />
+                  </motion.div>
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                    className="relative h-64 -mt-16"
+                  >
+                    <Image
+                      src="/images/categories/accessories.jpg"
+                      alt="Accessories"
+                      fill
+                      className="object-cover rounded-lg shadow-lg transform hover:-translate-y-2 transition-transform duration-300"
+                    />
+                  </motion.div>
+                  <motion.div
+                    initial={{ y: -20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.8 }}
+                    className="relative h-64"
+                  >
+                    <Image
+                      src="/images/categories/beauty.jpg"
+                      alt="Beauty"
+                      fill
+                      className="object-cover rounded-lg shadow-lg transform hover:-translate-y-2 transition-transform duration-300"
+                    />
                   </motion.div>
                 </div>
-            <div className="relative">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className="grid grid-cols-2 gap-4"
-              >
-                {/* Featured Product Images */}
-                <div className="space-y-4">
-                  <div className="rounded-2xl overflow-hidden shadow-lg transform hover:scale-105 transition-transform">
-                    <Image
-                      src="/images/products/electronics.jpg"
-                      alt="Electronics"
-                      width={300}
-                      height={400}
-                      className="object-cover"
-                    />
               </div>
-                  <div className="rounded-2xl overflow-hidden shadow-lg transform hover:scale-105 transition-transform">
-                    <Image
-                      src="/images/products/fashion.jpg"
-                      alt="Fashion"
-                      width={300}
-                      height={400}
-                      className="object-cover"
-                    />
-          </div>
-        </div>
-                <div className="space-y-4 mt-8">
-                  <div className="rounded-2xl overflow-hidden shadow-lg transform hover:scale-105 transition-transform">
-          <Image
-                      src="/images/products/home.jpg"
-                      alt="Home"
-                      width={300}
-                      height={400}
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="rounded-2xl overflow-hidden shadow-lg transform hover:scale-105 transition-transform">
-                    <Image
-                      src="/images/products/beauty.jpg"
-                      alt="Beauty"
-                      width={300}
-                      height={400}
-                      className="object-cover"
-                    />
-                  </div>
-                </div>
-              </motion.div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Flash Sales Section */}
+      {/* Flash Sales Section - Moved up */}
       {renderFlashSales()}
 
-      {/* Categories Showcase */}
-      <section className="py-16 bg-white">
+      {/* Featured Categories */}
+      <section className="py-16 bg-gray-50 overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">Shop By Category</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {[
-              { name: 'Electronics', icon: '📱', color: 'bg-blue-500' },
-              { name: 'Fashion', icon: '👕', color: 'bg-pink-500' },
-              { name: 'Home & Living', icon: '🏠', color: 'bg-green-500' },
-              { name: 'Beauty & Health', icon: '💄', color: 'bg-purple-500' },
-              { name: 'Sports', icon: '⚽', color: 'bg-orange-500' },
-              { name: 'Toys & Games', icon: '🎮', color: 'bg-yellow-500' },
-              { name: 'Books', icon: '📚', color: 'bg-indigo-500' },
-              { name: 'Automotive', icon: '🚗', color: 'bg-red-500' },
-            ].map((category) => (
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+            Shop by Category
+          </h2>
+          
+          <div className="relative">
+            {/* Navigation Buttons */}
+            <button 
+              onClick={() => scrollCategories('left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-all duration-300"
+            >
+              <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <button 
+              onClick={() => scrollCategories('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-all duration-300"
+            >
+              <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+            {/* Categories Carousel */}
+            <div 
+              ref={categoriesRef}
+              className="flex space-x-6 overflow-x-hidden scroll-smooth py-4"
+            >
+              {categories.map((category) => (
+                <motion.div
+                  key={category.name}
+                  className="flex-none w-72"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <Link
+                    href={`/products?category=${category.name.toLowerCase()}`}
+                    className="block relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-xl transition-all duration-300"
+                  >
+                    <div className="aspect-w-16 aspect-h-9">
+                      <Image
+                        src={category.image}
+                        alt={category.name}
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent">
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <div className="flex items-center mb-2">
+                            <div className="w-8 h-8 bg-white/10 backdrop-blur rounded-full flex items-center justify-center text-white">
+                              {category.icon}
+                            </div>
+                          </div>
+                          <h3 className="text-lg font-bold text-white">{category.name}</h3>
+                          <p className="mt-1 text-sm text-gray-200 line-clamp-2">
+                            {category.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Progress Indicator */}
+            <div className="flex justify-center mt-6 space-x-2">
+              {Array.from({ length: Math.ceil(categories.length / 4) }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => scrollToPage(index)}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                    currentPage === index ? 'bg-red-600 w-4' : 'bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Brands */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+            Featured Brands
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {featuredBrands.map((brand) => (
               <Link
-                key={category.name}
-                href={`/products?category=${encodeURIComponent(category.name)}`}
-                className="group relative rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
+                key={brand.seller_id}
+                href={`/stores/${brand.seller_id}`}
+                className="group"
               >
-                <div className={`aspect-square ${category.color} bg-opacity-10 flex flex-col items-center justify-center p-6 group-hover:bg-opacity-20 transition-all`}>
-                  <span className="text-4xl mb-4">{category.icon}</span>
-                  <h3 className="text-lg font-medium text-gray-900">{category.name}</h3>
+                <div className="relative bg-white p-4 transition-all duration-300 hover:shadow-lg rounded-xl">
+                  <div className="aspect-w-1 aspect-h-1 mb-4 relative">
+                    <div className="absolute inset-0 rounded-full overflow-hidden border-4 border-gray-100">
+                      <Image
+                        src={brand.store_settings.logo_url || PLACEHOLDER_IMAGE}
+                        alt={brand.store_settings.name}
+                        fill
+                        className="object-cover transform group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-sm font-medium text-gray-900 group-hover:text-red-600 transition-colors">
+                      {brand.store_settings.name}
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {brand.store_settings.description}
+                    </p>
+                  </div>
                 </div>
               </Link>
             ))}
@@ -700,94 +914,118 @@ export default function HomePage() {
         </div>
       </section>
 
-
-      {/* Featured Sellers */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-4">
-            Featured Sellers
-          </h2>
-          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">
-            Discover Ethiopia's top fashion brands and their most popular designs
-          </p>
-          
-          {renderFeaturedSellers()}
-
-          <div className="text-center mt-12">
-            <Link
-              href="/stores"
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
-            >
-              View All Stores
-              <svg className="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Popular Products */}
+      {/* Most Liked Products */}
       <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-4">
-            Popular Products
-          </h2>
-          <p className="text-gray-600 text-center mb-12 max-w-2xl mx-auto">
-            Discover our most loved Ethiopian fashion pieces
-          </p>
-          
-          {renderPopularProducts()}
-
-          <div className="text-center mt-12">
+          <div className="flex items-center justify-between mb-12">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Most Loved Products
+            </h2>
             <Link
-              href="/products"
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full text-indigo-600 bg-indigo-50 hover:bg-indigo-100"
+              href="/products?sort=most-liked"
+              className="text-red-600 hover:text-red-700 font-medium flex items-center gap-2"
             >
-              View All Products
-              <svg className="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              View All
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
             </Link>
           </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+            {popularProducts.map((product) => (
+              <motion.div
+                key={product.id}
+                whileHover={{ y: -5 }}
+                transition={{ type: "spring", stiffness: 300 }}
+              >
+                <Link
+                  href={`/products/${product.id}`}
+                  className="group block relative bg-white rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg border border-gray-100"
+                >
+                  <div className="aspect-w-1 aspect-h-1 relative bg-gray-100">
+                    <Image
+                      src={cleanImageUrl(product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
+                      alt={product.title}
+                      fill
+                      className="object-cover transform group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                  
+                  <div className="p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-red-600 flex-1">
+                        {product.title}
+                      </h3>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* Rating Badge */}
+                        <div className="flex items-center bg-gray-100 px-1.5 py-0.5 rounded-full">
+                          <svg 
+                            className="w-3 h-3 text-yellow-400" 
+                            fill="currentColor" 
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          <span className="ml-0.5 text-xs font-medium text-gray-700">
+                            {product.average_rating?.toFixed(1) || '0.0'}
+                          </span>
+                        </div>
+                        {/* Likes Badge */}
+                        <div className="flex items-center bg-gray-100 px-1.5 py-0.5 rounded-full">
+                          <svg 
+                            className="w-3 h-3 text-red-500" 
+                            fill="currentColor" 
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
+                          </svg>
+                          <span className="ml-0.5 text-xs font-medium text-gray-700">
+                            {product.like_count}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-base font-bold text-gray-900">
+                        ETB {product.price.toLocaleString()}
+                      </span>
+                    </div>
+                    {product.users?.store_settings?.name && (
+                      <div className="mt-1">
+                        <span className="text-xs text-gray-500">
+                          {product.users.store_settings.name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
-
-    {/* Why Choose Us Section */}
-      <section className="py-16 bg-gray-50">
+      {/* Why Choose Us */}
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">Why Choose AVRIO?</h2>
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+            Why Choose AVRIO
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+            {features.map((feature) => (
+              <div key={feature.title} className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 text-red-600 mb-6">
+                  {feature.icon}
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600">
+                  {feature.description}
+                </p>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Best Prices</h3>
-              <p className="text-gray-600">Unbeatable deals and discounts on millions of products</p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Quality Guaranteed</h3>
-              <p className="text-gray-600">All products are verified and quality checked</p>
-            </div>
-            
-            <div className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition-shadow">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Global Shipping</h3>
-              <p className="text-gray-600">Fast and reliable worldwide delivery</p>
-          </div>
+            ))}
           </div>
         </div>
       </section>
@@ -802,195 +1040,62 @@ export default function HomePage() {
                 Download our mobile app for a better shopping experience
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="flex items-center justify-center px-6 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100">
+                <button className="btn-hover-effect flex items-center justify-center px-6 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100">
                   <svg className="w-6 h-6 mr-2" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.5 1.32-.82 2.67-2.53 4.08M13 3.5c.73-.83 2.07-1.46 3.15-1.5.17 1.37-.37 2.74-1.08 3.69-.73.87-1.96 1.5-3.07 1.45-.18-1.33.35-2.69 1-3.64z"/>
                   </svg>
                   App Store
                 </button>
-                <button className="flex items-center justify-center px-6 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100">
+                <button className="btn-hover-effect flex items-center justify-center px-6 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100">
                   <svg className="w-6 h-6 mr-2" viewBox="0 0 24 24">
                     <path fill="currentColor" d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.5,12.92 20.16,13.19L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
                   </svg>
                   Google Play
                 </button>
-          </div>
               </div>
-            <div className="relative h-96">
-                <Image
-                src="/images/app-preview.png"
-                alt="Mobile app preview"
-                fill
-                className="object-contain"
-                />
-              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute -inset-4 bg-gradient-to-r from-red-500 to-pink-500 opacity-20 blur-3xl rounded-full"></div>
+              <Image
+                src="/images/app/app-preview_1.jpg"
+                alt="AVRIO Mobile App Preview"
+                width={300}
+                height={600}
+                className="relative mx-auto transform hover:scale-105 transition-transform duration-300 rounded-3xl shadow-2xl"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-
-      {/* Pricing Section */}
-      <section className="py-20 bg-gray-50">
+      {/* Newsletter Section */}
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900">
-              Choose Your Plan
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              Stay Updated
             </h2>
-            <p className="mt-4 text-xl text-gray-600">
-              Start selling with the perfect plan for your business
+            <p className="text-gray-600 mb-8">
+              Subscribe to our newsletter for exclusive deals and updates
             </p>
-          </div>
-
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {subscriptionTiers.map((tier) => (
-              <div
-                key={tier.name}
-                className={`rounded-lg overflow-hidden ${
-                  tier.highlighted
-                    ? 'ring-2 ring-indigo-600 transform scale-105'
-                    : 'transform hover:scale-105'
-                } transition-all duration-200 bg-white shadow-xl`}
-              >
-                <div className="p-8">
-                  <h3 className="text-2xl font-bold text-gray-900">{tier.name}</h3>
-                  <p className="mt-4 text-gray-600">{tier.description}</p>
-                  <p className="mt-8">
-                    <span className="text-4xl font-bold text-gray-900">{tier.price}</span>
-                    <span className="text-gray-600">/{tier.period}</span>
-                  </p>
-
-                  <ul className="mt-8 space-y-4">
-                    {tier.features.map((feature) => (
-                      <li key={feature} className="flex items-center">
-                        <svg
-                          className="h-5 w-5 text-indigo-500"
-                          fill="none"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="ml-3 text-gray-600">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="mt-8">
-                    <Link
-                      href="/signup"
-                      className={`block w-full py-3 px-6 text-center rounded-md ${
-                        tier.highlighted
-                          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                          : 'bg-gray-800 text-white hover:bg-gray-900'
-                      } font-medium transition-colors`}
-                    >
-                      {tier.cta}
-                    </Link>
-                  </div>
-                </div>
+            <form className="max-w-md mx-auto">
+              <div className="flex gap-4">
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-full focus:outline-none focus:border-red-500"
+                />
+                <button
+                  type="submit"
+                  className="btn-hover-effect px-6 py-2 bg-red-600 text-white rounded-full hover:bg-red-700"
+                >
+                  Subscribe
+                </button>
               </div>
-            ))}
+            </form>
           </div>
         </div>
       </section>
-
-            {/* Features Section */}
-            <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <motion.div 
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="mx-auto h-12 w-12 text-indigo-600">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-          </div>
-              <h3 className="mt-6 text-lg font-medium text-gray-900">Authentic & Handcrafted</h3>
-              <p className="mt-2 text-base text-gray-500">Each piece is handmade by skilled Ethiopian artisans</p>
-            </motion.div>
-
-            <motion.div 
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <div className="mx-auto h-12 w-12 text-indigo-600">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="mt-6 text-lg font-medium text-gray-900">Fair Pricing</h3>
-              <p className="mt-2 text-base text-gray-500">Support local communities while getting exceptional value</p>
-            </motion.div>
-
-            <motion.div 
-              className="text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
-            >
-              <div className="mx-auto h-12 w-12 text-indigo-600">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-              </div>
-              <h3 className="mt-6 text-lg font-medium text-gray-900">Worldwide Shipping</h3>
-              <p className="mt-2 text-base text-gray-500">We deliver Ethiopian fashion globally</p>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer with Ethiopian context */}
-      <footer className="bg-gray-50">
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Company</h3>
-              <ul className="mt-4 space-y-4">
-                <li>
-                  <Link href="/about" className="text-base text-gray-500 hover:text-gray-900">
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="text-base text-gray-500 hover:text-gray-900">
-                    Contact
-                  </Link>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">Legal</h3>
-              <ul className="mt-4 space-y-4">
-                <li>
-                  <Link href="/privacy" className="text-base text-gray-500 hover:text-gray-900">
-                    Privacy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms" className="text-base text-gray-500 hover:text-gray-900">
-                    Terms
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-8 border-t border-gray-200 pt-8">
-            <p className="text-base text-gray-400 text-center">
-              © 2024 Fashion Marketplace. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
