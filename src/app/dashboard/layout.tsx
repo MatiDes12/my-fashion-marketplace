@@ -125,74 +125,80 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar */}
-      <div className="lg:hidden">
-        <div className="fixed inset-0 flex z-[60] lg:hidden" role="dialog" aria-modal="true">
-          <div
-            className={`fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity ease-linear duration-300 ${
-              isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}
-            aria-hidden="true"
-            onClick={() => setIsSidebarOpen(false)}
-          ></div>
+      {/* Mobile Sidebar */}
+      <div
+        className={`fixed inset-0 flex z-[70] lg:hidden ${
+          isSidebarOpen ? 'block' : 'hidden'
+        }`}
+      >
+        {/* Overlay */}
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
 
-          <div
-            className={`relative flex-1 flex flex-col max-w-xs w-full pt-5 pb-4 bg-white transition ease-in-out duration-300 transform z-[70] ${
-              isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-            }`}
-          >
-            <div className="absolute top-0 right-0 -mr-12 pt-2">
-              <button
-                type="button"
-                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                onClick={() => setIsSidebarOpen(false)}
+        {/* Sidebar */}
+        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+          <div className="absolute top-0 right-0 -mr-12 pt-4">
+            <button
+              type="button"
+              className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <span className="sr-only">Close sidebar</span>
+              <svg
+                className="h-6 w-6 text-white"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                <span className="sr-only">Close sidebar</span>
-                <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
 
-            <div className="flex-shrink-0 flex items-center px-4">
+          {/* Sidebar content with adjusted padding */}
+          <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
+            <div className="flex items-center flex-shrink-0 px-4">
               <Image
                 src="/logo-ethiopia.png"
                 alt="Habesha Fashion"
-                width={40}
-                height={40}
+                width={32}
+                height={32}
                 className="rounded-full"
               />
-              <span className="ml-2 text-xl font-bold">Habesha Fashion</span>
+              <span className="ml-2 text-lg font-bold">Habesha Fashion</span>
             </div>
-            <div className="mt-5 flex-1 h-0 overflow-y-auto">
-              <nav className="px-2 space-y-1">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
+            <nav className="mt-5 px-2 space-y-1">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`${
+                    pathname === item.href
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  <item.icon
                     className={`${
                       pathname === item.href
-                        ? 'bg-gray-100 text-gray-900'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
-                  >
-                    <item.icon
-                      className={`${
-                        pathname === item.href
-                          ? 'text-gray-500'
-                          : 'text-gray-400 group-hover:text-gray-500'
-                      } mr-4 flex-shrink-0 h-6 w-6`}
-                      aria-hidden="true"
-                    />
-                    {item.name}
-                  </Link>
-                ))}
-              </nav>
-            </div>
-          </div>
-
-          <div className="flex-shrink-0 w-14" aria-hidden="true">
-            {/* Dummy element to force sidebar to shrink to fit close icon */}
+                        ? 'text-gray-500'
+                        : 'text-gray-400 group-hover:text-gray-500'
+                    } mr-4 flex-shrink-0 h-6 w-6`}
+                    aria-hidden="true"
+                  />
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
           </div>
         </div>
       </div>
@@ -239,46 +245,67 @@ export default function DashboardLayout({
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64 flex flex-col">
-        <div className="h-20"></div>
-        
-        <div className="sticky top-0 z-10 flex-shrink-0 flex h-16 bg-white border-b border-gray-200 lg:hidden">
-          <button
-            type="button"
-            className="px-4 border-r border-gray-200 text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500 lg:hidden"
-            onClick={() => setIsSidebarOpen(true)}
-          >
-            <span className="sr-only">Open sidebar</span>
-            <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
-            </svg>
-          </button>
-          <div className="flex-1 flex justify-center px-4 lg:px-0">
-            <div className="flex-1 flex">
-              <div className="w-full flex items-center justify-between">
-                <div className="flex items-center">
-                  <Image
-                    src="/logo-ethiopia.png"
-                    alt="Habesha Fashion"
-                    width={32}
-                    height={32}
-                    className="rounded-full"
-                  />
-                  <span className="ml-2 text-lg font-bold">Habesha Fashion</span>
-                </div>
-                <Link
-                  href="/"
-                  className="ml-4 px-3 py-1 text-sm text-gray-700 hover:text-gray-900"
-                >
-                  View Store
-                </Link>
-              </div>
+      <div className="lg:pl-64 flex flex-col min-h-screen">
+        {/* Mobile header - adjusted z-index */}
+        <div className="sticky top-0 z-50 bg-white border-b border-gray-200 lg:hidden">
+          <div className="flex items-center justify-between px-4 py-2">
+            <button
+              type="button"
+              className="p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <span className="sr-only">Open sidebar</span>
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
+              </svg>
+            </button>
+            <div className="flex items-center">
+              <Image
+                src="/logo-ethiopia.png"
+                alt="Habesha Fashion"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
+              <span className="ml-2 text-lg font-bold">Habesha Fashion</span>
             </div>
+            <Link
+              href="/"
+              className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-md"
+            >
+              <span className="sr-only">View store</span>
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+            </Link>
           </div>
         </div>
 
-        <main className="flex-1 relative">
-          {children}
+        {/* Page content */}
+        <main className="flex-1 pb-8">
+          <div className="pt-4 lg:pt-0">
+            <div className="px-4 sm:px-6 lg:px-8 py-6">{children}</div>
+          </div>
         </main>
       </div>
     </div>
