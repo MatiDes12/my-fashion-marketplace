@@ -17,4 +17,20 @@ export const cleanImageUrl = (url: string): string => {
   }
   
   return url;
+};
+
+export const normalizeUrl = (baseUrl: string, path: string) => {
+  // Remove trailing slash from base URL
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  // Remove leading slash from path
+  const cleanPath = path.replace(/^\//, '');
+  return `${cleanBaseUrl}/${cleanPath}`;
+};
+
+export const getAppUrl = () => {
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!appUrl) {
+    throw new Error('NEXT_PUBLIC_SITE_URL environment variable is not set');
+  }
+  return appUrl;
 }; 

@@ -1,23 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponent } from '@/lib/supabase';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { config } from '@/config/env';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { normalizeUrl } from '@/utils/url';
 
 interface TelebirrSettings {
-  shortCode: string;      // 476204
-  merchantAppId: string;  // 1384483114342406
-  fabricAppId: string;    // c4182ef8-9249-458a-985e-06d191f4d505
-  appSecret: string;      // fad0f06383c6297f545876694b974599
-  privateKey: string;     // Your RSA private key
+  fabricAppId: string;
+  appSecret: string;
+  merchantAppId: string;
+  shortCode: string;
+  privateKey: string;
   notifyUrl: string;
   redirectUrl: string;
   isActive: boolean;
+  telebirrNumber?: string;
+  telebirrName?: string;
 }
 
 type ToastType = 'success' | 'error' | 'loading' | 'blank' | 'custom';
@@ -33,7 +36,7 @@ interface SettingsFieldProps {
 }
 
 const getBaseUrl = () => {
-  return config.siteUrl;
+  return config.baseUrl;
 };
 
 const isValidUrl = (url: string): boolean => {
@@ -59,94 +62,30 @@ const testUrl = async (url: string): Promise<boolean> => {
 
 const validateUrlPath = (url: string, expectedPath: string): boolean => {
   try {
-    const parsedUrl = new URL(url);
-    return parsedUrl.pathname === expectedPath;
+    const urlObj = new URL(url);
+    return urlObj.pathname === expectedPath;
   } catch {
     return false;
   }
 };
 
 const validatePrivateKey = (key: string): boolean => {
-  try {
-    // Basic validation for base64 string
-    const base64Regex = /^[A-Za-z0-9+/=]+$/;
-    const cleanKey = key.trim();
-    
-    // Remove any existing headers/footers
-    const keyWithoutHeaders = cleanKey
-      .replace(/-----BEGIN.*KEY-----/, '')
-      .replace(/-----END.*KEY-----/, '')
-      .replace(/[\s\r\n]+/g, '');
-
-    // Check if it's a valid base64 string
-    if (!base64Regex.test(keyWithoutHeaders)) {
-      return false;
-    }
-
-    // Check minimum length (typical RSA keys are at least 1024 bits)
-    if (keyWithoutHeaders.length < 128) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
+  return key.includes('BEGIN PRIVATE KEY') && key.includes('END PRIVATE KEY');
 };
 
-const validateUrls = (settings: TelebirrSettings) => {
+const validateUrls = (settings: TelebirrSettings): string[] => {
   const errors: string[] = [];
-  
-  // Check if URLs are provided
-  if (!settings.notifyUrl) {
-    errors.push('Notify URL is required');
+  try {
+    new URL(settings.notifyUrl);
+    new URL(settings.redirectUrl);
+  } catch {
+    errors.push('Invalid URL format');
   }
-  if (!settings.redirectUrl) {
-    errors.push('Redirect URL is required');
-  }
-
-  // Enhanced URL format validation
-  if (settings.notifyUrl) {
-    if (!isValidUrl(settings.notifyUrl)) {
-      errors.push('Invalid Notify URL format');
-    } else {
-      // Check if notify URL has the correct path
-      if (!validateUrlPath(settings.notifyUrl, '/api/telebirr/notify')) {
-        errors.push('Notify URL must end with /api/telebirr/notify');
-      }
-    }
-  }
-
-  if (settings.redirectUrl) {
-    if (!isValidUrl(settings.redirectUrl)) {
-      errors.push('Invalid Redirect URL format');
-    } else {
-      // Check if redirect URL has the correct path
-      if (!validateUrlPath(settings.redirectUrl, '/payment/complete')) {
-        errors.push('Redirect URL must end with /payment/complete');
-      }
-    }
-  }
-
-  // Check if URLs are HTTPS (for production)
-  if (process.env.NODE_ENV === 'production') {
-    if (settings.notifyUrl && !settings.notifyUrl.startsWith('https://')) {
-      errors.push('Notify URL must use HTTPS in production');
-    }
-    if (settings.redirectUrl && !settings.redirectUrl.startsWith('https://')) {
-      errors.push('Redirect URL must use HTTPS in production');
-    }
-  }
-
   return errors;
 };
 
 const formatKeyForStorage = (key: string): string => {
-  // Remove any existing headers/footers and whitespace
-  return key
-    .replace(/-----BEGIN.*KEY-----/, '')
-    .replace(/-----END.*KEY-----/, '')
-    .replace(/[\s\r\n]+/g, '');
+  return key.trim().replace(/\\n/g, '\n');
 };
 
 const SettingsField = ({ 
@@ -239,18 +178,17 @@ export default function PaymentSettingsPage() {
     merchantAppId: '',
     shortCode: '',
     privateKey: '',
-    notifyUrl: `${config.siteUrl}/api/telebirr/notify`,
-    redirectUrl: `${config.siteUrl}/payment/complete`,
+    notifyUrl: normalizeUrl(config.baseUrl, '/api/telebirr/notify'),
+    redirectUrl: normalizeUrl(config.baseUrl, '/payment/complete'),
     isActive: false
   });
   const [isTestingCredentials, setIsTestingCredentials] = useState(false);
 
-  const supabase = createClientComponent();
+  const supabase = createClientComponentClient();
 
   const isMockMode = process.env.NEXT_PUBLIC_MOCK_TELEBIRR === 'true';
 
   useEffect(() => {
-    // Check if we have required environment variables
     if (!config.supabase.url || !config.supabase.anonKey) {
       setError('Missing required configuration. Please check your environment variables.');
       setLoading(false);
@@ -262,51 +200,37 @@ export default function PaymentSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Please login to access payment settings');
-      }
-
       const { data, error } = await supabase
-        .from('payment_settings')
+        .from('admin_payment_settings')
         .select('*')
-        .eq('user_id', session.user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
+      if (error) throw error;
 
-      if (data?.telebirr_settings) {
+      if (data) {
         setSettings({
-          shortCode: data.telebirr_settings.short_code || '',
-          merchantAppId: data.telebirr_settings.merchant_app_id || '',
-          fabricAppId: data.telebirr_settings.fabric_app_id || '',
-          appSecret: data.telebirr_settings.app_secret || '',
-          privateKey: data.telebirr_settings.private_key || '',
-          notifyUrl: data.telebirr_settings.notify_url || `${config.siteUrl}/api/telebirr/notify`,
-          redirectUrl: data.telebirr_settings.redirect_url || `${config.siteUrl}/payment/complete`,
-          isActive: data.telebirr_settings.is_active || false
+          fabricAppId: data.fabric_app_id || '',
+          appSecret: data.app_secret || '',
+          merchantAppId: data.merchant_app_id || '',
+          shortCode: data.short_code || '',
+          privateKey: data.private_key || '',
+          notifyUrl: data.notify_url || normalizeUrl(config.baseUrl, '/api/telebirr/notify'),
+          redirectUrl: data.redirect_url || normalizeUrl(config.baseUrl, '/payment/complete'),
+          isActive: data.is_active || false,
+          telebirrNumber: data.telebirr_number || '',
+          telebirrName: data.telebirr_name || ''
         });
       } else {
-        // Set default values
+        // Set default URLs if no settings exist
         setSettings({
-          shortCode: '',
-          merchantAppId: '',
-          fabricAppId: '',
-          appSecret: '',
-          privateKey: '',
-          notifyUrl: `${config.siteUrl}/api/telebirr/notify`,
-          redirectUrl: `${config.siteUrl}/payment/complete`,
-          isActive: false
+          ...settings,
+          notifyUrl: normalizeUrl(config.baseUrl, '/api/telebirr/notify'),
+          redirectUrl: normalizeUrl(config.baseUrl, '/payment/complete')
         });
       }
-    } catch (err) {
-      console.error('Error fetching payment settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load payment settings');
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      setError('Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -713,7 +637,7 @@ export default function PaymentSettingsPage() {
                             onClick={() => {
                               setSettings({
                                 ...settings,
-                                notifyUrl: `${getBaseUrl()}/api/telebirr/notify`
+                                notifyUrl: normalizeUrl(config.baseUrl, '/api/telebirr/notify')
                               });
                               toast.success('Notify URL copied to form');
                             }}
@@ -763,7 +687,7 @@ export default function PaymentSettingsPage() {
                             onClick={() => {
                               setSettings({
                                 ...settings,
-                                redirectUrl: `${getBaseUrl()}/payment/complete`
+                                redirectUrl: normalizeUrl(config.baseUrl, '/payment/complete')
                               });
                               toast.success('Redirect URL copied to form');
                             }}
@@ -810,13 +734,13 @@ export default function PaymentSettingsPage() {
                           <p className="mb-1">
                             <strong>Default Notify URL:</strong>
                             <code className="ml-2 p-1 bg-blue-100 rounded">
-                              {`${getBaseUrl()}/api/telebirr/notify`}
+                              {`${normalizeUrl(config.baseUrl, '/api/telebirr/notify')}`}
                             </code>
                           </p>
                           <p>
                             <strong>Default Redirect URL:</strong>
                             <code className="ml-2 p-1 bg-blue-100 rounded">
-                              {`${getBaseUrl()}/payment/complete`}
+                              {`${normalizeUrl(config.baseUrl, '/payment/complete')}`}
                             </code>
                           </p>
                         </div>

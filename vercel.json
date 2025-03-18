@@ -8,5 +8,9 @@
         "cache-control": "no-cache, no-store, must-revalidate"
       }
     }
-  ]
+  ],
+  "env": {
+    "NEXT_PUBLIC_SITE_URL": "https://your-domain.com",
+    "NODE_ENV": "production"
+  }
 } 
