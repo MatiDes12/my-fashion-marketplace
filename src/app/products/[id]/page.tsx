@@ -139,9 +139,9 @@ export default function ProductDetailPage() {
   const productId = params?.id as string;
   const actionParam = searchParams?.get('action');
   
-  const fetchProduct = async () => {
-    try {
-      setLoading(true);
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
       
       // First get the current user's session
       const { data: { session } } = await supabase.auth.getSession();
@@ -288,7 +288,7 @@ export default function ProductDetailPage() {
         setProduct(prev => {
           if (!prev) return null;
           return {
-            ...prev,
+          ...prev,
             like_count: Math.max(0, prev.like_count - 1)
           };
         });
@@ -307,7 +307,7 @@ export default function ProductDetailPage() {
         setProduct(prev => {
           if (!prev) return null;
           return {
-            ...prev,
+          ...prev,
             like_count: prev.like_count + 1
           };
         });
@@ -323,21 +323,21 @@ export default function ProductDetailPage() {
   };
   
   const addToCart = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      toast.error('Please sign in to add items to cart');
-      router.push('/login');
-      return;
-    }
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Please sign in to add items to cart');
+        router.push('/login');
+        return;
+      }
 
     if (!product) {
       toast.error('Product not found');
       return;
     }
-
-    setIsAddingToCart(true);
-
+      
+      setIsAddingToCart(true);
+      
     try {
       // Check if item already exists in cart
       const { data: existingCartItem, error: cartError } = await supabase
@@ -346,22 +346,22 @@ export default function ProductDetailPage() {
         .eq('user_id', session.user.id)
         .eq('product_id', productId)
         .single();
-
+      
       if (cartError && cartError.code !== 'PGRST116') {
         throw cartError;
       }
-
+      
       if (existingCartItem) {
         // Update quantity of existing item
         const { error: updateError } = await supabase
           .from('cart_items')
-          .update({
+          .update({ 
             quantity: existingCartItem.quantity + quantity,
             price: product.flash_sale_price || product.price, // Use flash sale price if available
             updated_at: new Date().toISOString()
           })
           .eq('id', existingCartItem.id);
-
+        
         if (updateError) throw updateError;
       } else {
         // Add new item to cart
@@ -374,10 +374,10 @@ export default function ProductDetailPage() {
             price: product.flash_sale_price || product.price, // Use flash sale price if available
             delivery_fee: product.delivery_fee || 0
           });
-
+        
         if (insertError) throw insertError;
       }
-
+      
       toast.success('Added to cart');
       router.push('/cart');
     } catch (error) {
@@ -498,9 +498,9 @@ export default function ProductDetailPage() {
                   className="object-cover"
                   priority
                 />
-              </div>
+                </div>
             </div>
-
+            
             {/* Image selector */}
             {product.product_images?.length > 1 && (
               <div className="mt-4 grid grid-cols-4 gap-2">
@@ -525,7 +525,7 @@ export default function ProductDetailPage() {
               </div>
             )}
           </div>
-
+          
           {/* Product info */}
           <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0">
             <div className="flex items-center justify-between">
@@ -631,7 +631,7 @@ export default function ProductDetailPage() {
                 <p>{product.description}</p>
               </div>
             </div>
-
+            
             {/* Product details section */}
             {product.details && (
               <div className="mt-6">
@@ -663,13 +663,13 @@ export default function ProductDetailPage() {
                 <h2 className="text-lg font-medium text-gray-900">Quantity</h2>
                 <div className="ml-auto flex items-center">
                   <div className="flex items-center border border-gray-300 rounded-md">
-                    <button
-                      onClick={() => handleQuantityChange(quantity - 1)}
-                      disabled={quantity <= 1}
-                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      -
-                    </button>
+                  <button
+                    onClick={() => handleQuantityChange(quantity - 1)}
+                    disabled={quantity <= 1}
+                    className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    -
+                  </button>
                     <input
                       type="number"
                       min="1"
@@ -678,13 +678,13 @@ export default function ProductDetailPage() {
                       onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
                       className="w-16 text-center border-0 focus:ring-0"
                     />
-                    <button
-                      onClick={() => handleQuantityChange(quantity + 1)}
+                  <button
+                    onClick={() => handleQuantityChange(quantity + 1)}
                       disabled={quantity >= availableQuantity}
                       className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                    >
-                      +
-                    </button>
+                  >
+                    +
+                  </button>
                   </div>
                   {quantity === availableQuantity && (
                     <span className="ml-2 text-sm text-orange-600">
@@ -692,19 +692,19 @@ export default function ProductDetailPage() {
                     </span>
                   )}
                 </div>
+                </div>
               </div>
-            </div>
-            
+              
             {/* Update the buy/cart buttons */}
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <button
-                onClick={addToCart}
+              <div className="mt-6 grid grid-cols-2 gap-4">
+                <button
+                  onClick={addToCart}
                 disabled={isAddingToCart || availableQuantity === 0}
                 className={`flex-1 px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
                   (isAddingToCart || availableQuantity === 0) && 'opacity-50 cursor-not-allowed'
                 }`}
-              >
-                {isAddingToCart ? (
+                >
+                  {isAddingToCart ? (
                   <span className="flex items-center justify-center">
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -717,16 +717,16 @@ export default function ProductDetailPage() {
                 ) : (
                   'Add to Cart'
                 )}
-              </button>
+                </button>
 
-              <button
-                onClick={buyNow}
+                <button
+                  onClick={buyNow}
                 disabled={isBuying || availableQuantity === 0}
                 className={`flex-1 px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
                   (isBuying || availableQuantity === 0) && 'opacity-50 cursor-not-allowed'
                 }`}
-              >
-                {isBuying ? (
+                >
+                  {isBuying ? (
                   <span className="flex items-center justify-center">
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -739,16 +739,16 @@ export default function ProductDetailPage() {
                 ) : (
                   'Buy Now'
                 )}
-              </button>
-            </div>
-            
-            <div className="mt-4 text-sm text-gray-500">
-              <p className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Secure payment
-              </p>
+                </button>
+              </div>
+              
+              <div className="mt-4 text-sm text-gray-500">
+                <p className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Secure payment
+                </p>
             </div>
           </div>
         </div>
@@ -812,7 +812,7 @@ export default function ProductDetailPage() {
                         viewBox="0 0 20 20"
                       >
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
+                  </svg>
                       <span className="text-4xl font-bold text-gray-900">
                         {product.average_rating?.toFixed(1) || '0.0'}
                       </span>

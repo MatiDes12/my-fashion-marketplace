@@ -1,0 +1,249 @@
+/* Add these after your existing styles */
+
+.pattern-overlay {
+  @apply absolute inset-0 pointer-events-none mix-blend-soft-light opacity-30;
+}
+
+.glass-effect {
+  @apply relative backdrop-blur-[2px];
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.05)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.glass-effect::before {
+  content: '';
+  @apply absolute inset-0 bg-white/40 pointer-events-none;
+}
+
+.glass-effect > * {
+  @apply relative z-10;
+}
+
+.pattern-circuit {
+  background-image: url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 3h24v24H3z' fill='none' stroke='rgba(0,0,0,0.2)' stroke-width='0.5'/%3E%3C/svg%3E");
+}
+
+.pattern-grid {
+  background-image: url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h30v30H0z' fill='none' stroke='rgba(0,0,0,0.2)' stroke-width='0.5'/%3E%3C/svg%3E");
+}
+
+.pattern-dots {
+  background-image: url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='15' cy='15' r='1' fill='rgba(0,0,0,0.2)'/%3E%3C/svg%3E");
+}
+
+.pattern-squares {
+  background-image: url("data:image/svg+xml,%3Csvg width='30' height='30' viewBox='0 0 30 30' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='20' height='20' x='5' y='5' fill='none' stroke='rgba(0,0,0,0.2)' stroke-width='0.5'/%3E%3C/svg%3E");
+}
+
+/* Pattern styles with hover effects */
+.pattern-circuit,
+.pattern-grid,
+.pattern-dots,
+.pattern-squares {
+  @apply transition-opacity duration-500;
+  background-size: 30px 30px;
+  opacity: 0.08;
+}
+
+.group:hover .pattern-circuit,
+.group:hover .pattern-grid,
+.group:hover .pattern-dots,
+.group:hover .pattern-squares {
+  opacity: 0.12;
+}
+
+/* Add smooth transitions */
+section {
+  @apply transition-all duration-700;
+  position: relative;
+  overflow: hidden;
+}
+
+section::after {
+  content: '';
+  @apply absolute inset-0 pointer-events-none;
+  background: linear-gradient(
+    45deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shine 5s infinite;
+}
+
+@keyframes shine {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.group:hover .glass-effect::before {
+  @apply bg-white/50;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  animation: gradient 15s ease infinite;
+  background-size: 200% 200%;
+}
+
+/* Enhanced glass effect */
+.glass-container {
+  @apply relative overflow-hidden;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 8px 32px rgba(31, 38, 135, 0.1),
+    0 4px 8px rgba(31, 38, 135, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Enhanced container styles */
+.max-w-[90vw] {
+  max-width: 90vw;
+}
+
+/* Smooth transitions for container hover */
+.bg-white\/50 {
+  transition: all 0.3s ease-in-out;
+}
+
+.group:hover .bg-white\/50 {
+  background-color: rgba(255, 255, 255, 0.6);
+  transform: translateY(-2px);
+}
+
+/* Enhanced shadow effect */
+.shadow-lg {
+  box-shadow: 
+    0 10px 30px -5px rgba(0, 0, 0, 0.12),
+    0 4px 6px -2px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.group:hover .shadow-lg {
+  box-shadow: 
+    0 20px 60px -5px rgba(0, 0, 0, 0.12),
+    0 12px 24px -8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Update the shadow effects */
+.section-container {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.section-container:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 12px 48px rgba(0, 0, 0, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Add depth effect */
+.depth-effect {
+  position: relative;
+}
+
+.depth-effect::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.1)
+  );
+  border-radius: inherit;
+  transform: translateY(2px);
+  filter: blur(4px);
+}
+
+/* Add subtle shine effect */
+.shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-effect::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 30%,
+    rgba(255, 255, 255, 0.05) 40%,
+    transparent 50%
+  );
+  transform: rotate(30deg);
+  animation: shine 6s infinite;
+}
+
+@keyframes shine {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%) rotate(30deg);
+  }
+  20% {
+    opacity: 0.5;
+  }
+  30% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%) rotate(30deg);
+  }
+}
+
+/* Add depth to product cards */
+.product-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.product-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 24px rgba(0, 0, 0, 0.1),
+    0 4px 8px rgba(0, 0, 0, 0.05);
+} 

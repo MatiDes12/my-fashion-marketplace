@@ -5,9 +5,10 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export interface UserDetails {
   id: string;
-  full_name: string | null;
-  email: string | null;
-  role: 'owner' | 'customer';
+  full_name?: string;
+  email?: string;
+  avatar_url?: string;
+  role?: string;
   store_settings?: {
     name?: string;
     description?: string;

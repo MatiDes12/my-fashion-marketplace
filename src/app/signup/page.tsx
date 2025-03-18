@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 type Role = 'customer' | 'owner';
 
 export default function SignupPage() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -16,6 +17,13 @@ export default function SignupPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const roleParam = searchParams.get('role');
+    if (roleParam === 'owner') {
+      setRole('owner');
+    }
+  }, [searchParams]);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();

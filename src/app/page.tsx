@@ -15,6 +15,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import CountdownTimer from '@/components/CountdownTimer';
 import { cleanImageUrl } from '@/utils/url';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Update the interface for featured sellers
 interface FeaturedSeller {
@@ -204,7 +205,70 @@ const categories = [
   }
 ];
 
+// Add this component at the top of your sections
+const GlassBackground = ({ pattern }: { pattern: string }) => (
+  <>
+    <div className="absolute inset-0 bg-gradient-to-b from-white/80 to-white/40 backdrop-blur-xl transition-all duration-500 group-hover:backdrop-blur-2xl" />
+    <div className={`absolute inset-0 bg-[url('/patterns/${pattern}.svg')] opacity-5 transition-opacity duration-500 group-hover:opacity-10`} />
+  </>
+);
+
+// Update the PatternedSection component
+const PatternedSection = ({ 
+  pattern, 
+  children, 
+  className = "",
+  colorScheme = "default"
+}: { 
+  pattern: string; 
+  children: React.ReactNode; 
+  className?: string;
+  colorScheme?: "default" | "dark" | "warm" | "cool" | "accent";
+}) => {
+  // Define more subtle color schemes with higher transparency
+  const colorSchemes = {
+    default: "from-white/30 via-gray-50/20 to-white/30",
+    dark: "from-gray-50/30 via-white/20 to-gray-50/30",
+    warm: "from-rose-50/30 via-white/20 to-rose-50/30",
+    cool: "from-blue-50/30 via-white/20 to-blue-50/30",
+    accent: "from-purple-50/30 via-white/20 to-purple-50/30"
+  };
+
+  return (
+    <section className={`relative overflow-hidden group ${className}`}>
+      {/* Base background with higher transparency */}
+      <div className="absolute inset-0 bg-white/10" />
+      
+      {/* Gradient overlay with subtle effect */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${colorSchemes[colorScheme]} animate-gradient`} />
+      
+      {/* Pattern overlay with increased visibility */}
+      <div 
+        className={`absolute inset-0 pattern-${pattern} opacity-[0.15] mix-blend-overlay`} 
+        style={{ backgroundSize: '30px 30px' }}
+      />
+      
+      {/* Enhanced glass effect container */}
+      <div className="absolute inset-0 backdrop-blur-[2px]" />
+      
+      {/* Inner container with refined glass effect */}
+      <div className="relative z-10 max-w-[90vw] mx-auto">
+        <div className="bg-white/20 backdrop-blur-md rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] 
+          border border-white/30 p-8 
+          transition-all duration-300 
+          hover:bg-white/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.12)]
+          hover:border-white/40">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export default function HomePage() {
+  const { user } = useAuth();
   const [popularProducts, setPopularProducts] = useState<PopularProduct[]>([]);
   const [featuredBrands, setFeaturedBrands] = useState<FeaturedSeller[]>([]);
   const [loading, setLoading] = useState(true);
@@ -513,115 +577,108 @@ export default function HomePage() {
     const allFlashProducts = getAllFlashSaleProducts();
 
     return (
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold text-gray-900">Flash Deals</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-red-600 font-semibold">Limited Time Offers</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative">
-            {/* Navigation Buttons */}
-            <button 
-              onClick={() => scrollFlashSales('left')}
-              className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-all duration-300"
-            >
-              <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            
-            <button 
-              onClick={() => scrollFlashSales('right')}
-              className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 backdrop-blur-sm rounded-full p-3 shadow-lg hover:bg-white transition-all duration-300"
-            >
-              <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            {/* Flash Sales Carousel */}
-            <div 
-              ref={flashSalesRef}
-              className="flex space-x-6 overflow-x-hidden scroll-smooth py-4"
-            >
-              {allFlashProducts.map((flashProduct) => {
-                // Find the parent flash sale for this product to get its end time
-                const parentFlashSale = activeFlashSales.find(sale => 
-                  sale.products.some(p => p.id === flashProduct.id)
-                );
-
-                return (
-                  <motion.div
-                    key={flashProduct.id}
-                    className="flex-none w-72"
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    <Link
-                      href={`/products/${flashProduct.product.id}`}
-                      className="block relative bg-white rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg border border-gray-100"
-                    >
-                      {/* Countdown Timer */}
-                      <div className="absolute top-2 right-2 z-10">
-                        <CountdownTimer 
-                          endTime={parentFlashSale?.end_time || ''} 
-                          className="text-xs bg-black/50 backdrop-blur-sm text-white px-2 py-1 rounded-full"
-                        />
-                      </div>
-
-                      {/* Discount Badge */}
-                      <div className="absolute top-2 left-2 z-10 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                        -{Math.round(((flashProduct.product.price - flashProduct.special_price) / flashProduct.product.price) * 100)}%
-                      </div>
-
-                      <div className="aspect-w-1 aspect-h-1 relative bg-gray-100">
-                        <Image
-                          src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
-                          alt={flashProduct.product.title}
-                          fill
-                          className="object-cover transform group-hover:scale-105 transition-transform duration-500"
-                        />
-                      </div>
-
-                      <div className="p-4">
-                        <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-red-600">
-                          {flashProduct.product.title}
-                        </h3>
-                        <div className="mt-2 flex items-baseline gap-2">
-                          <span className="text-lg font-bold text-red-600">
-                            ETB {flashProduct.special_price.toLocaleString()}
-                          </span>
-                          <span className="text-sm text-gray-500 line-through">
-                            ETB {flashProduct.product.price.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            {/* Progress Indicator */}
-            <div className="flex justify-center mt-6 space-x-2">
-              {Array.from({ length: Math.ceil(allFlashProducts.length / 4) }).map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => scrollToFlashSalePage(index)}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                    currentFlashSalePage === index ? 'bg-red-600 w-4' : 'bg-gray-300'
-                  }`}
-                />
-              ))}
+      <PatternedSection pattern="circuit" className="py-16" colorScheme="dark">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+              Flash Deals
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="text-red-600 font-semibold animate-pulse">⚡ Limited Time Offers</span>
             </div>
           </div>
         </div>
-      </section>
+
+        {/* Navigation Buttons */}
+        <button 
+          onClick={() => scrollFlashSales('left')}
+          className="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-white/90 to-rose-50/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:from-white hover:to-white transition-all duration-300"
+        >
+          <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        
+        <button 
+          onClick={() => scrollFlashSales('right')}
+          className="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-rose-50/90 to-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:from-white hover:to-white transition-all duration-300"
+        >
+          <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        {/* Flash Sales Carousel */}
+        <div 
+          ref={flashSalesRef}
+          className="relative flex space-x-6 overflow-x-hidden scroll-smooth py-4"
+        >
+          {allFlashProducts.map((flashProduct) => (
+            <motion.div
+              key={flashProduct.id}
+              className="flex-none w-72"
+              whileHover={{ scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <Link
+                href={`/products/${flashProduct.product.id}`}
+                className="block relative bg-gradient-to-b from-white/60 to-rose-50/60 backdrop-blur-sm rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg border border-white/20 group"
+              >
+                {/* Countdown Timer */}
+                <div className="absolute top-2 right-2 z-10">
+                  <CountdownTimer 
+                    endTime={activeFlashSales[0]?.end_time || ''} 
+                    className="text-xs bg-black/50 backdrop-blur-sm text-white px-2 py-1 rounded-full"
+                  />
+                </div>
+
+                {/* Discount Badge */}
+                <div className="absolute top-2 left-2 z-10 bg-gradient-to-r from-red-600 to-pink-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  -{Math.round(((flashProduct.product.price - flashProduct.special_price) / flashProduct.product.price) * 100)}%
+                </div>
+
+                <div className="aspect-w-1 aspect-h-1 relative bg-gray-100">
+                  <Image
+                    src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
+                    alt={flashProduct.product.title}
+                    fill
+                    className="object-cover transform group-hover:scale-105 transition-transform duration-500"
+                  />
+                </div>
+
+                <div className="p-4 bg-gradient-to-b from-white/60 to-rose-50/60 backdrop-blur-sm">
+                  <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-red-600">
+                    {flashProduct.product.title}
+                  </h3>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-lg font-bold text-red-600">
+                      ETB {flashProduct.special_price.toLocaleString()}
+                    </span>
+                    <span className="text-sm text-gray-500 line-through">
+                      ETB {flashProduct.product.price.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Progress Indicator */}
+        <div className="flex justify-center mt-6 space-x-2">
+          {Array.from({ length: Math.ceil(allFlashProducts.length / 4) }).map((_, index) => (
+            <button
+              key={index}
+              onClick={() => scrollToFlashSalePage(index)}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                currentFlashSalePage === index 
+                  ? 'bg-gradient-to-r from-red-600 to-pink-600 w-4' 
+                  : 'bg-gray-300'
+              }`}
+            />
+          ))}
+        </div>
+      </PatternedSection>
     );
   };
 
@@ -686,6 +743,70 @@ export default function HomePage() {
     setCurrentPage(pageIndex);
   };
 
+  // Add this ref and state for Most Loved Products carousel
+  const lovedProductsRef = useRef<HTMLDivElement>(null);
+  const [currentLovedPage, setCurrentLovedPage] = useState(0);
+
+  // Add these scroll functions for Most Loved Products
+  const scrollLovedProducts = (direction: 'left' | 'right') => {
+    if (!lovedProductsRef.current) return;
+    
+    const container = lovedProductsRef.current;
+    const scrollAmount = container.clientWidth;
+    
+    if (direction === 'left') {
+      container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      setCurrentLovedPage(prev => Math.max(0, prev - 1));
+    } else {
+      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      setCurrentLovedPage(prev => 
+        Math.min(Math.ceil(popularProducts.length / 4) - 1, prev + 1)
+      );
+    }
+  };
+
+  const scrollToLovedPage = (pageIndex: number) => {
+    if (!lovedProductsRef.current) return;
+    
+    const container = lovedProductsRef.current;
+    const scrollAmount = container.clientWidth * pageIndex;
+    
+    container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+    setCurrentLovedPage(pageIndex);
+  };
+
+  // Add these refs and states at the top of your component
+  const brandsRef = useRef<HTMLDivElement>(null);
+  const [currentBrandsPage, setCurrentBrandsPage] = useState(0);
+
+  // Add these scroll functions for Featured Brands
+  const scrollBrands = (direction: 'left' | 'right') => {
+    if (!brandsRef.current) return;
+    
+    const container = brandsRef.current;
+    const scrollAmount = container.clientWidth;
+    
+    if (direction === 'left') {
+      container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+      setCurrentBrandsPage(prev => Math.max(0, prev - 1));
+    } else {
+      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      setCurrentBrandsPage(prev => 
+        Math.min(Math.ceil(featuredBrands.length / 4) - 1, prev + 1)
+      );
+    }
+  };
+
+  const scrollToBrandsPage = (pageIndex: number) => {
+    if (!brandsRef.current) return;
+    
+    const container = brandsRef.current;
+    const scrollAmount = container.clientWidth * pageIndex;
+    
+    container.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+    setCurrentBrandsPage(pageIndex);
+  };
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -715,12 +836,14 @@ export default function HomePage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
                     </Link>
-                    <Link
-                      href="/auth/signup"
-                      className="btn-hover-effect inline-flex items-center px-6 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100"
-                    >
-                      Become a Seller
-                    </Link>
+                    {(!user || (user?.user_metadata?.role !== 'owner')) && (
+                      <Link
+                        href="/signup?role=owner"
+                        className="btn-hover-effect inline-flex items-center px-6 py-3 bg-white text-gray-900 rounded-lg hover:bg-gray-100"
+                      >
+                        Become a Seller
+                      </Link>
+                    )}
                   </div>
                 </motion.div>
               </div>
@@ -787,11 +910,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Flash Sales Section - Moved up */}
+      {/* Flash Sales Section */}
       {renderFlashSales()}
 
       {/* Featured Categories */}
-      <section className="py-16 bg-gray-50 overflow-hidden">
+      <PatternedSection pattern="grid" className="py-16" colorScheme="default">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
             Shop by Category
@@ -873,75 +996,155 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
+      </PatternedSection>
 
       {/* Featured Brands */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
+      <PatternedSection pattern="dots" className="py-16" colorScheme="warm">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
             Featured Brands
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <Link
+            href="/stores"
+            className="text-red-600 hover:text-red-700 font-medium flex items-center gap-2"
+          >
+            View All
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </Link>
+        </div>
+
+        <div className="relative">
+          {/* Navigation Buttons */}
+          <button 
+            onClick={() => scrollBrands('left')}
+            className="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-white/90 to-gray-50/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:from-white hover:to-white transition-all duration-300"
+          >
+            <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <button 
+            onClick={() => scrollBrands('right')}
+            className="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-gray-50/90 to-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:from-white hover:to-white transition-all duration-300"
+          >
+            <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Brands Carousel */}
+          <div 
+            ref={brandsRef}
+            className="relative flex space-x-6 overflow-x-hidden scroll-smooth py-4"
+          >
             {featuredBrands.map((brand) => (
-              <Link
+              <motion.div
                 key={brand.seller_id}
-                href={`/stores/${brand.seller_id}`}
-                className="group"
+                className="flex-none w-72"
+                whileHover={{ scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 300 }}
               >
-                <div className="relative bg-white p-4 transition-all duration-300 hover:shadow-lg rounded-xl">
-                  <div className="aspect-w-1 aspect-h-1 mb-4 relative">
-                    <div className="absolute inset-0 rounded-full overflow-hidden border-4 border-gray-100">
-                      <Image
-                        src={brand.store_settings.logo_url || PLACEHOLDER_IMAGE}
-                        alt={brand.store_settings.name}
-                        fill
-                        className="object-cover transform group-hover:scale-110 transition-transform duration-300"
-                      />
+                <Link
+                  href={`/stores/${brand.seller_id}`}
+                  className="group"
+                >
+                  <div className="relative bg-white p-4 transition-all duration-300 hover:shadow-lg rounded-xl">
+                    <div className="aspect-w-1 aspect-h-1 mb-4 relative">
+                      <div className="absolute inset-0 rounded-full overflow-hidden border-4 border-gray-100">
+                        <Image
+                          src={brand.store_settings.logo_url || PLACEHOLDER_IMAGE}
+                          alt={brand.store_settings.name}
+                          fill
+                          className="object-cover transform group-hover:scale-110 transition-transform duration-300"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <h3 className="text-sm font-medium text-gray-900 group-hover:text-red-600 transition-colors">
+                        {brand.store_settings.name}
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {brand.store_settings.description}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-center">
-                    <h3 className="text-sm font-medium text-gray-900 group-hover:text-red-600 transition-colors">
-                      {brand.store_settings.name}
-                    </h3>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {brand.store_settings.description}
-                    </p>
-                  </div>
-                </div>
-              </Link>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Progress Indicator */}
+          <div className="flex justify-center mt-6 space-x-2">
+            {Array.from({ length: Math.ceil(featuredBrands.length / 4) }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => scrollToBrandsPage(index)}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  currentBrandsPage === index 
+                    ? 'bg-gradient-to-r from-gray-600 to-gray-800 w-4' 
+                    : 'bg-gray-300'
+                }`}
+              />
             ))}
           </div>
         </div>
-      </section>
+      </PatternedSection>
 
       {/* Most Liked Products */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">
-              Most Loved Products
-            </h2>
-            <Link
-              href="/products?sort=most-liked"
-              className="text-red-600 hover:text-red-700 font-medium flex items-center gap-2"
-            >
-              View All
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </Link>
-          </div>
+      <PatternedSection pattern="squares" className="py-16" colorScheme="cool">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+            Most Loved Products
+          </h2>
+          <Link
+            href="/products?sort=most-liked"
+            className="text-red-600 hover:text-red-700 font-medium flex items-center gap-2"
+          >
+            View All
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </Link>
+        </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+        <div className="relative">
+          {/* Navigation Buttons */}
+          <button 
+            onClick={() => scrollLovedProducts('left')}
+            className="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-white/90 to-gray-50/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:from-white hover:to-white transition-all duration-300"
+          >
+            <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <button 
+            onClick={() => scrollLovedProducts('right')}
+            className="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-r from-gray-50/90 to-white/90 backdrop-blur-sm rounded-full p-3 shadow-lg hover:from-white hover:to-white transition-all duration-300"
+          >
+            <svg className="w-6 h-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          {/* Products Carousel */}
+          <div 
+            ref={lovedProductsRef}
+            className="relative flex space-x-6 overflow-x-hidden scroll-smooth py-4"
+          >
             {popularProducts.map((product) => (
               <motion.div
                 key={product.id}
-                whileHover={{ y: -5 }}
+                className="flex-none w-72"
+                whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring", stiffness: 300 }}
               >
                 <Link
                   href={`/products/${product.id}`}
-                  className="group block relative bg-white rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg border border-gray-100"
+                  className="block relative bg-gradient-to-b from-white/60 to-gray-50/60 backdrop-blur-sm rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg border border-white/20 group"
                 >
                   <div className="aspect-w-1 aspect-h-1 relative bg-gray-100">
                     <Image
@@ -951,63 +1154,57 @@ export default function HomePage() {
                       className="object-cover transform group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  
-                  <div className="p-3">
-                    <div className="flex items-center justify-between gap-2">
+
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-4">
                       <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-red-600 flex-1">
                         {product.title}
                       </h3>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {/* Rating Badge */}
-                        <div className="flex items-center bg-gray-100 px-1.5 py-0.5 rounded-full">
-                          <svg 
-                            className="w-3 h-3 text-yellow-400" 
-                            fill="currentColor" 
-                            viewBox="0 0 20 20"
-                          >
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <div className="bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
-                          <span className="ml-0.5 text-xs font-medium text-gray-700">
-                            {product.average_rating?.toFixed(1) || '0.0'}
-                          </span>
+                          {product.average_rating?.toFixed(1) || '0.0'}
                         </div>
-                        {/* Likes Badge */}
-                        <div className="flex items-center bg-gray-100 px-1.5 py-0.5 rounded-full">
-                          <svg 
-                            className="w-3 h-3 text-red-500" 
-                            fill="currentColor" 
-                            viewBox="0 0 20 20"
-                          >
+                        <div className="bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
                           </svg>
-                          <span className="ml-0.5 text-xs font-medium text-gray-700">
-                            {product.like_count}
-                          </span>
+                          {product.like_count}
                         </div>
                       </div>
                     </div>
                     <div className="mt-2 flex items-center justify-between">
-                      <span className="text-base font-bold text-gray-900">
+                      <span className="text-sm font-bold text-gray-900">
                         ETB {product.price.toLocaleString()}
                       </span>
                     </div>
-                    {product.users?.store_settings?.name && (
-                      <div className="mt-1">
-                        <span className="text-xs text-gray-500">
-                          {product.users.store_settings.name}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </Link>
               </motion.div>
             ))}
           </div>
+
+          {/* Progress Indicator */}
+          <div className="flex justify-center mt-6 space-x-2">
+            {Array.from({ length: Math.ceil(popularProducts.length / 4) }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => scrollToLovedPage(index)}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  currentLovedPage === index 
+                    ? 'bg-gradient-to-r from-gray-600 to-gray-800 w-4' 
+                    : 'bg-gray-300'
+                }`}
+              />
+            ))}
+          </div>
         </div>
-      </section>
+      </PatternedSection>
 
       {/* Why Choose Us */}
-      <section className="py-16 bg-white">
+      <PatternedSection pattern="circuit" className="py-16" colorScheme="accent">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-12">
             Why Choose AVRIO
@@ -1028,7 +1225,7 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
+      </PatternedSection>
 
       {/* Download App Section */}
       <section className="py-16 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
@@ -1069,7 +1266,7 @@ export default function HomePage() {
       </section>
 
       {/* Newsletter Section */}
-      <section className="py-16 bg-gray-50">
+      <PatternedSection pattern="dots" className="py-16" colorScheme="cool">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -1095,7 +1292,7 @@ export default function HomePage() {
             </form>
           </div>
         </div>
-      </section>
+      </PatternedSection>
     </div>
   );
 }

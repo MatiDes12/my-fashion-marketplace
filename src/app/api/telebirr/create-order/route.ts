@@ -1,37 +1,47 @@
 import { NextResponse } from 'next/server';
-import { TelebirrPayment, getTelebirrConfig } from '@/lib/telebirr';
+import { getTelebirrConfig, TelebirrPayment } from '@/lib/telebirr';
 
 export async function POST(request: Request) {
   try {
-    const { phoneNumber, amount, orderId, description, sellerId } = await request.json();
+    const { amount, description } = await request.json();
+    console.log('Received request:', { amount, description });
 
-    // Validate phone number
-    if (!phoneNumber?.match(/^((\+251)|(251)|(0))[9][0-9]{8}$/)) {
-      return NextResponse.json(
-        { error: 'Invalid phone number format' },
-        { status: 400 }
-      );
-    }
-
-    // Get config based on seller or admin
-    const config = await getTelebirrConfig(sellerId);
+    // Get Telebirr config
+    const config = await getTelebirrConfig();
+    console.log('Got Telebirr config:', {
+      baseUrl: config.baseUrl,
+      merchantAppId: config.merchantAppId,
+      fabricAppId: config.fabricAppId,
+      shortCode: config.shortCode,
+    });
     
-    // Initialize Telebirr with config
+    // Initialize payment service
     const telebirr = new TelebirrPayment(config);
 
-    const response = await telebirr.requestPaymentOTP({
-      phoneNumber,
-      amount,
-      orderId,
-      description,
+    // Create order and get payment URL
+    const paymentUrl = await telebirr.createOrder({
+      title: description,
+      amount: amount.toString()
     });
 
-    return NextResponse.json(response);
+    console.log('Successfully created order with URL:', paymentUrl);
+
+    return NextResponse.json({ success: true, paymentUrl });
 
   } catch (error) {
-    console.error('Create order error:', error);
+    console.error('Detailed Telebirr payment error:', error);
+    let errorMessage = 'Payment initialization failed';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create order' },
+      { 
+        success: false, 
+        error: errorMessage,
+        details: error instanceof Error ? error.stack : undefined
+      },
       { status: 500 }
     );
   }

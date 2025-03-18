@@ -451,8 +451,8 @@ function ProductsContent() {
                               priceRange: { ...prev.priceRange, max: Number(e.target.value) || null }
                             }))}
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
+          />
+        </div>
                       </div>
                     </div>
 
@@ -502,7 +502,7 @@ function ProductsContent() {
                                   viewBox="0 0 20 20"
                                 >
                                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
+                </svg>
                               ))}
                               <span className="ml-2 text-sm text-gray-500">
                                 {rating} star{rating !== 1 ? 's' : ''}
@@ -510,18 +510,18 @@ function ProductsContent() {
                             </span>
                           </label>
                         ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
                 <div className="border-t border-gray-200 px-4 py-6">
-                  <button
+            <button
                     className="w-full bg-red-600 text-white px-4 py-2 rounded-md"
                     onClick={() => setShowFilters(false)}
                   >
                     Apply Filters
-                  </button>
+            </button>
                 </div>
               </div>
             </div>
@@ -533,7 +533,7 @@ function ProductsContent() {
               <div className="sticky top-32 bg-white rounded-2xl shadow-sm p-6 space-y-8 border border-gray-100">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-                  <button 
+              <button
                     onClick={() => setFilters({
                       category: 'all',
                       priceRange: { min: 0, max: null },
@@ -592,7 +592,7 @@ function ProductsContent() {
                           }))}
                         />
                         <span className="ml-3 text-sm text-gray-700">
-                          {category}
+                {category}
                         </span>
                     </label>
                     ))}
@@ -628,7 +628,7 @@ function ProductsContent() {
                           </span>
                         </span>
                       </label>
-                    ))}
+            ))}
           </div>
         </div>
           </div>
@@ -666,7 +666,7 @@ function ProductsContent() {
                       </div>
                     </div>
                   ))}
-                </div>
+            </div>
           ) : error ? (
               <ErrorMessage message={error} />
           ) : products.length === 0 ? (
@@ -674,14 +674,14 @@ function ProductsContent() {
                   <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg className="w-12 h-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                          </svg>
+              </svg>
                   </div>
                   <h3 className="text-lg font-medium text-gray-900">No products found</h3>
                   <p className="mt-1 text-gray-500">
                     Try adjusting your search or filter criteria
-                </p>
-                    </div>
-            ) : (
+              </p>
+            </div>
+          ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {products.map((product) => (
                     <div 
@@ -701,9 +701,9 @@ function ProductsContent() {
                               <div className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-full animate-pulse">
                                 SALE
                               </div>
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
                         <div className="p-6">
                           <h3 className="text-lg font-medium text-gray-900 group-hover:text-red-600 transition-colors">
                             {product.title}
@@ -742,26 +742,26 @@ function ProductsContent() {
                                 <svg
                                   className="w-5 h-5 text-red-500"
                                   fill="currentColor"
-                                  viewBox="0 0 20 20"
+                            viewBox="0 0 20 20" 
                                 >
                                   <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
-                                </svg>
+                          </svg>
                                 <span className="ml-1 text-sm text-gray-500">
                                   {product.like_count}
                                 </span>
-                              </div>
-                            </div>
-                          </div>
+                    </div>
+                        </div>
+                      </div>
                           {product.users?.store_settings?.name && (
                             <div className="mt-1">
                               <span className="text-xs text-gray-500">
                                 {product.users.store_settings.name}
                               </span>
-                            </div>
+                        </div>
                           )}
                         </div>
                       </Link>
-                    </div>
+                  </div>
                 ))}
               </div>
             )}

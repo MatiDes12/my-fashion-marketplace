@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import { CartItem, SellerOrder } from '@/types/cart';
 import PaymentMethodSelector from './PaymentMethodSelector';
 import { PAYMENT_METHODS } from '@/utils/constants';
-import { verifyTelebirrPayment } from '@/lib/telebirr-client';
+import { getTelebirrConfig, TelebirrPayment } from '@/lib/telebirr';
 
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
@@ -69,116 +69,42 @@ export default function PaymentMethodModal({
     }
 
     if (selectedMethod === 'TELEBIRR') {
-      setStep('phone');
-    } else {
       try {
-        await onSelectMethod(selectedMethod, phoneNumber);
-        onClose();
+        setLocalProcessing(true);
+        const response = await fetch('/api/telebirr/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
+            description: `Order payment for ${sellers.length} seller(s)`,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to initialize payment');
+        }
+
+        // Redirect to Telebirr payment page
+        window.location.href = data.paymentUrl;
+
       } catch (error) {
         console.error('Payment error:', error);
         setError(error instanceof Error ? error.message : 'Payment failed');
+      } finally {
+        setLocalProcessing(false);
       }
-    }
-  };
-
-  const handlePhoneSubmit = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    
-    if (!phoneNumber) {
-      setError('Please enter your phone number');
       return;
     }
 
-    if (!phoneNumber.match(/^((\+251)|(251)|(0))[9][0-9]{8}$/)) {
-      setError('Please enter a valid Ethiopian phone number');
-      return;
-    }
-
+    // Handle other payment methods...
     try {
-      setLocalProcessing(true);
-      setError('');
-      
-      const response = await fetch('/api/telebirr/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber,
-          amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
-          orderId: `ORD-${Date.now()}`,
-          description: `Order payment for ${sellers.length} seller(s)`,
-        }),
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (!response.ok) {
-        if (response.status === 504) {
-          throw new Error('Telebirr service is temporarily unavailable. Please try again later.');
-        }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to process payment');
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to send OTP');
-      }
-
-      setOtpReference(data.otpReference);
-      setStep('otp');
-      toast.success('OTP sent to your phone');
-
+      await onSelectMethod(selectedMethod);
+      onClose();
     } catch (error) {
       console.error('Payment error:', error);
-      let errorMessage = 'Failed to send OTP';
-      
-      if (error instanceof Error) {
-        if (error.message.includes('timeout') || error.message.includes('unavailable')) {
-          errorMessage = 'Telebirr service is temporarily unavailable. Please try again later.';
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLocalProcessing(false);
-    }
-  };
-
-  const handleOtpSubmit = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    
-    if (!otpCode) {
-      setError('Please enter the OTP code');
-      return;
-    }
-
-    try {
-      setLocalProcessing(true);
-      setError('');
-
-      const response = await verifyTelebirrPayment(
-        phoneNumber,
-        otpCode,
-        otpReference!,
-        sellers.reduce((sum, seller) => sum + seller.total, 0),
-        `ORD-${Date.now()}`,
-        sellers[0].id // Assuming single seller for now
-      );
-
-      if (!response.success) {
-        throw new Error(response.error || 'Payment verification failed');
-      }
-
-      onClose();
-      toast.success('Payment successful!');
-    } catch (error) {
-      console.error('OTP verification error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to verify OTP');
-    } finally {
-      setLocalProcessing(false);
+      setError(error instanceof Error ? error.message : 'Payment failed');
     }
   };
 
@@ -314,7 +240,7 @@ export default function PaymentMethodModal({
                         </button>
                         <button
                           type="button"
-                          onClick={handlePhoneSubmit}
+                          onClick={handleSubmit}
                           disabled={!phoneNumber || isProcessing || localProcessing}
                           className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
@@ -352,7 +278,7 @@ export default function PaymentMethodModal({
                         </button>
                         <button
                           type="button"
-                          onClick={handleOtpSubmit}
+                          onClick={handleSubmit}
                           disabled={!otpCode || isProcessing || localProcessing}
                           className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >

@@ -6,15 +6,11 @@ import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
-import Image from 'next/image';
-import { TelebirrPayment } from '@/lib/telebirr';
-import { config } from '@/config/env';
 import { getFlashSalePrices } from '@/utils/flashSales';
-import { createTelebirrOrder } from '@/lib/telebirr-client';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
 import { CartItem, SellerOrder } from '@/types/cart';
-import { PaymentInstructions } from '@/components/PaymentInstructions';
 import { PAYMENT_METHODS } from '@/utils/constants';
+import { getTelebirrConfig, createOrder, applyFabricToken } from '@/lib/telebirr';
 
 // Import or define PaymentMethodType
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
@@ -177,28 +173,20 @@ export default function CheckoutPage() {
 
         // Process each seller's items
         for (const seller of sellers) {
-          const response = await createTelebirrOrder({
-            title: `Order #${Date.now()}-${seller.id.substring(0, 4)}`,
-            amount: seller.total,
-            sellerId: seller.id,
-            phoneNumber,
-          });
+          try {
+            const paymentUrl = await createTelebirrOrder({
+              title: `Order #${Date.now()}-${seller.id.substring(0, 4)}`,
+              amount: seller.total,
+              sellerId: seller.id,
+            });
 
-          if (!response.success) {
-            throw new Error(response.error || 'Failed to create order');
-          }
-
-          // Check if we have either paymentUrl or otpReference
-          if (response.paymentUrl) {
-            window.location.href = response.paymentUrl;
+            // Redirect to payment page
+            window.location.href = paymentUrl;
             return;
-          } else if (response.otpReference) {
-            // Handle OTP flow
-            setIsPaymentModalOpen(true);
-            return;
+          } catch (error) {
+            console.error('Payment error:', error);
+            toast.error('Failed to initialize payment. Please try again.');
           }
-
-          throw new Error('No payment URL or OTP reference received');
         }
       }
     } catch (error) {
@@ -271,8 +259,6 @@ export default function CheckoutPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
 
-        <PaymentInstructions />
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Cart Items */}
           <div className="bg-white p-6 rounded-lg shadow">
@@ -344,4 +330,36 @@ export default function CheckoutPage() {
       />
     </div>
   );
+}
+
+async function createTelebirrOrder({ title, amount, sellerId }: {
+  title: string;
+  amount: number;
+  sellerId: string;
+}) {
+  try {
+    // Get Telebirr config
+    const config = await getTelebirrConfig();
+
+    // Get fabric token
+    const tokenResult = await applyFabricToken({
+      baseUrl: config.baseUrl,
+      fabricAppId: config.fabricAppId,
+      appSecret: config.appSecret,
+    });
+
+    // Create order and get payment URL
+    const paymentUrl = await createOrder({
+      config,
+      fabricToken: tokenResult.token,
+      title,
+      amount: amount.toString(),
+    });
+
+    return paymentUrl;
+
+  } catch (error) {
+    console.error('Telebirr payment error:', error);
+    throw new Error('Failed to create Telebirr order');
+  }
 } 

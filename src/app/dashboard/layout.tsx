@@ -7,6 +7,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { AuthChangeEvent } from '@supabase/supabase-js';
+import { useUserDetails } from '@/hooks/useUserDetails';
+import { cleanImageUrl } from '@/utils/url';
 
 export default function DashboardLayout({
   children,
@@ -16,6 +18,7 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const { userDetails } = useUserDetails();
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponent();
@@ -123,189 +126,208 @@ export default function DashboardLayout({
     },
   ];
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Sidebar */}
-      <div
-        className={`fixed inset-0 flex z-[70] lg:hidden ${
-          isSidebarOpen ? 'block' : 'hidden'
-        }`}
-      >
-        {/* Overlay */}
-        <div
-          className="fixed inset-0 bg-gray-600 bg-opacity-75"
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-
-        {/* Sidebar */}
-        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
-          <div className="absolute top-0 right-0 -mr-12 pt-4">
+  const DashboardHeader = () => {
+    return (
+      <div className="fixed top-0 left-0 right-0 z-[50] bg-white shadow-sm backdrop-blur-sm bg-white/90">
+        <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <span className="sr-only">Close sidebar</span>
-              <svg
-                className="h-6 w-6 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-
-          {/* Sidebar content with adjusted padding */}
-          <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-            <div className="flex items-center flex-shrink-0 px-4">
-              <Image
-                src="/logo-ethiopia.png"
-                alt="Habesha Fashion"
-                width={32}
-                height={32}
-                className="rounded-full"
-              />
-              <span className="ml-2 text-lg font-bold">Habesha Fashion</span>
-            </div>
-            <nav className="mt-5 px-2 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`${
-                    pathname === item.href
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <item.icon
-                    className={`${
-                      pathname === item.href
-                        ? 'text-gray-500'
-                        : 'text-gray-400 group-hover:text-gray-500'
-                    } mr-4 flex-shrink-0 h-6 w-6`}
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        </div>
-      </div>
-
-      {/* Static sidebar for desktop */}
-      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 z-[60]">
-        <div className="flex flex-col flex-grow border-r border-gray-200 pt-20 bg-white overflow-y-auto">
-          <div className="flex items-center flex-shrink-0 px-4">
-            <Image
-              src="/logo-ethiopia.png"
-              alt="Habesha Fashion"
-              width={40}
-              height={40}
-              className="rounded-full"
-            />
-            <span className="ml-2 text-xl font-bold">Habesha Fashion</span>
-          </div>
-          <div className="mt-5 flex-grow flex flex-col">
-            <nav className="flex-1 px-2 pb-4 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`${
-                    pathname === item.href
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
-                >
-                  <item.icon
-                    className={`${
-                      pathname === item.href
-                        ? 'text-gray-500'
-                        : 'text-gray-400 group-hover:text-gray-500'
-                    } mr-3 flex-shrink-0 h-6 w-6`}
-                    aria-hidden="true"
-                  />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="lg:pl-64 flex flex-col min-h-screen">
-        {/* Mobile header - adjusted z-index */}
-        <div className="sticky top-0 z-50 bg-white border-b border-gray-200 lg:hidden">
-          <div className="flex items-center justify-between px-4 py-2">
-            <button
-              type="button"
-              className="p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100"
+              className="lg:hidden p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100/80 transition-all cursor-pointer"
               onClick={() => setIsSidebarOpen(true)}
+              aria-label="Open menu"
             >
-              <span className="sr-only">Open sidebar</span>
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
+              <svg 
+                className="h-6 w-6" 
+                fill="none" 
+                viewBox="0 0 24 24" 
                 stroke="currentColor"
+                aria-hidden="true"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M4 6h16M4 12h16M4 18h16"
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M4 6h16M4 12h16M4 18h16" 
                 />
               </svg>
             </button>
-            <div className="flex items-center">
-              <Image
-                src="/logo-ethiopia.png"
-                alt="Habesha Fashion"
-                width={32}
-                height={32}
-                className="rounded-full"
-              />
-              <span className="ml-2 text-lg font-bold">Habesha Fashion</span>
+            <div className="flex items-center gap-3">
+              <div className="p-1">
+                <Image
+                  src="/images/brand/logo.png"
+                  alt="Avrio"
+                  width={48}
+                  height={48}
+                  className="object-contain"
+                />
+              </div>
+              <div className="hidden sm:block">
+                <h1 className="text-lg font-semibold text-gray-900">Business Dashboard</h1>
+                <p className="text-sm text-gray-500">Manage your store</p>
+              </div>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-md"
+              className="p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100/80 transition-all"
             >
-              <span className="sr-only">View store</span>
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" 
                 />
               </svg>
             </Link>
           </div>
         </div>
+      </div>
+    );
+  };
 
-        {/* Page content */}
-        <main className="flex-1 pb-8">
-          <div className="pt-4 lg:pt-0">
-            <div className="px-4 sm:px-6 lg:px-8 py-6">{children}</div>
+  return (
+    <div className="min-h-screen bg-gray-50/50">
+      <DashboardHeader />
+
+      {/* Mobile Sidebar - increased z-index */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-[200] lg:hidden">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-gray-600/75 backdrop-blur-sm"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          
+          {/* Sidebar panel */}
+          <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-white shadow-xl">
+            <div className="h-full flex flex-col">
+              {/* Close button */}
+              <div className="px-4 pt-6 pb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-1">
+                    <Image
+                      src="/images/brand/logo-white.png"
+                      alt="Avrio"
+                      width={48}
+                      height={48}
+                      className="object-contain"
+                    />
+                  </div>
+                  <span className="text-lg font-semibold">Dashboard</span>
+                </div>
+                <button
+                  type="button"
+                  className="p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100"
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Mobile navigation */}
+              <nav className="flex-1 px-4 pb-4 space-y-1 overflow-y-auto">
+                {navigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
+                      pathname === item.href
+                        ? 'bg-red-50 text-red-700'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                    onClick={() => setIsSidebarOpen(false)}
+                  >
+                    <item.icon
+                      className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
+                        pathname === item.href
+                          ? 'text-red-500'
+                          : 'text-gray-400 group-hover:text-gray-500'
+                      }`}
+                    />
+                    {item.name}
+                  </Link>
+                ))}
+              </nav>
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 z-[100]">
+        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 overflow-y-auto">
+          {/* User Profile Section - Moved to top */}
+          <div className="px-4 py-4 border-b border-gray-200">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 h-12 w-12 relative">
+                {userDetails?.avatar_url ? (
+                  <Image
+                    src={cleanImageUrl(userDetails.avatar_url)}
+                    alt="Profile"
+                    fill
+                    className="rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-red-500 to-red-600 flex items-center justify-center text-white text-xl font-bold">
+                    {userDetails?.full_name?.[0] || 'S'}
+                  </div>
+                )}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">
+                  {userDetails?.full_name || 'Store Owner'}
+                </p>
+                <p className="text-xs text-gray-500">Store Manager</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="flex-grow flex flex-col pt-5">
+            <nav className="flex-1 px-3 pb-4 space-y-1">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
+                    pathname === item.href
+                      ? 'bg-red-50 text-red-700'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <item.icon
+                    className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
+                      pathname === item.href
+                        ? 'text-red-500'
+                        : 'text-gray-400 group-hover:text-gray-500'
+                    }`}
+                  />
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Bottom Section */}
+            <div className="p-4">
+              <div className="p-4 bg-gradient-to-tr from-red-50 to-orange-50 rounded-xl">
+                <h3 className="text-sm font-medium text-red-900">Need Help?</h3>
+                <p className="mt-1 text-xs text-red-700">Contact our support team</p>
+                <button className="mt-3 w-full px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
+                  Get Support
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - adjust padding */}
+      <div className="lg:pl-72 flex flex-col min-h-screen pt-16">
+        <main className="flex-1 pb-8">
+          <div className="px-4 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
     </div>
@@ -365,7 +387,7 @@ function SubscriptionIcon(props: React.SVGProps<SVGSVGElement>) {
 function SettingsIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 002.572 1.065c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   );
