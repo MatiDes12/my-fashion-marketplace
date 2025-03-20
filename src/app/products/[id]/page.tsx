@@ -401,6 +401,39 @@ export default function ProductDetailPage() {
     }
   };
   
+  // Add this function to save recently viewed products
+  const saveRecentlyViewed = (product: Product) => {
+    if (typeof window === 'undefined') return;
+
+    const recentlyViewed = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
+    
+    // Remove if product already exists
+    const filtered = recentlyViewed.filter((p: any) => p.id !== product.id);
+    
+    // Add to end of array with current timestamp
+    filtered.push({
+      id: product.id,
+      title: product.title,
+      image: product.product_images[0]?.image_url,
+      price: product.price,
+      timeViewed: Date.now()
+    });
+
+    // Keep only last 5 products
+    while (filtered.length > 5) {
+      filtered.shift();
+    }
+
+    localStorage.setItem('recentlyViewed', JSON.stringify(filtered));
+  };
+
+  // Call this function when the product page loads
+  useEffect(() => {
+    if (product) {
+      saveRecentlyViewed(product);
+    }
+  }, [product]);
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">

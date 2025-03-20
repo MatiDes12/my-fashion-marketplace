@@ -27,13 +27,18 @@ function LoginContent() {
     if (urlMessage) {
       setMessage(urlMessage);
     }
-    
-    // Check if already logged in
+  }, [searchParams]);
+
+  // Separate session check into its own effect
+  useEffect(() => {
+    let isSubscribed = true;
+
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.log("Login page - User already logged in, checking role");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         
+        if (!isSubscribed || !session) return;
+
         // Check user role to determine redirect
         const { data: userData } = await supabase
           .from('users')
@@ -41,6 +46,8 @@ function LoginContent() {
           .eq('id', session.user.id)
           .single();
           
+        if (!isSubscribed) return;
+
         if (userData?.role === 'admin') {
           router.push('/admin');
         } else if (userData?.role === 'owner') {
@@ -48,51 +55,61 @@ function LoginContent() {
         } else {
           router.push('/products');
         }
+      } catch (error) {
+        console.error('Session check error:', error);
       }
     };
     
     checkSession();
-  }, [router, searchParams]);
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (loading) return;
+
     try {
       setLoading(true);
+      setError(null);
 
       const { data: { session }, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
-      if (signInError) throw signInError;
+      if (signInError) {
+        if (signInError.message.includes('rate limit')) {
+          throw new Error('Too many login attempts. Please try again in a few minutes.');
+        }
+        throw signInError;
+      }
+
+      if (!session) {
+        throw new Error('Login failed. Please check your credentials and try again.');
+      }
 
       // Check user role
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('role, is_admin')
-        .eq('id', session?.user.id)
+        .eq('id', session.user.id)
         .single();
 
       if (userError) throw userError;
 
       // Update the user in context
-      if (session?.user) {
-        setUser(session.user);
-      }
+      setUser(session.user);
 
       // Handle redirects based on role and return URL
       if (userData?.role === 'admin') {
-        // Admin users always go to admin panel
         router.push(returnUrl || '/admin');
       } else if (userData?.role === 'owner') {
-        // Owner goes to admin panel if they were trying to access it
-        if (returnUrl?.startsWith('/admin')) {
-          router.push(returnUrl);
-        } else {
-          router.push('/dashboard/products');
-        }
+        router.push(returnUrl?.startsWith('/admin') ? returnUrl : '/dashboard/products');
       } else {
-        // Regular customers go to products
         router.push('/products');
       }
 
@@ -100,6 +117,7 @@ function LoginContent() {
 
     } catch (error) {
       console.error('Login error:', error);
+      setError(error instanceof Error ? error.message : 'Login failed');
       toast.error(error instanceof Error ? error.message : 'Login failed');
     } finally {
       setLoading(false);

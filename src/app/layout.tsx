@@ -21,16 +21,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="hide-scrollbar">
+      <body 
+        className={`
+          ${inter.className}
+          relative w-full overflow-x-hidden
+          hide-scrollbar
+        `}
+      >
         <AuthProvider>
           <LanguageProvider>
-            <ClientNavigation />
-            <PageWrapper>
-              {children}
-            </PageWrapper>
-            {process.env.NODE_ENV !== 'production' && <DebugInfo />}
-            <Toaster position="top-right" />
+            <div className="min-h-screen flex flex-col overflow-x-hidden w-full">
+              <ClientNavigation />
+              <main className="flex-1 relative w-full">
+                <PageWrapper>
+                  {children}
+                </PageWrapper>
+              </main>
+              {process.env.NODE_ENV !== 'production' && <DebugInfo />}
+              <Toaster position="top-right" />
+            </div>
           </LanguageProvider>
         </AuthProvider>
       </body>
