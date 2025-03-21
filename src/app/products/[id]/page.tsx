@@ -434,6 +434,24 @@ export default function ProductDetailPage() {
     }
   }, [product]);
   
+  useEffect(() => {
+    if (product) {
+      const productView = {
+        id: product.id,
+        title: product.title,
+        image: product.product_images[0]?.image_url,
+        price: product.price
+      };
+
+      // Only store if user is logged in
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          localStorage.setItem('lastViewedProduct', JSON.stringify(productView));
+        }
+      });
+    }
+  }, [product]);
+  
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">

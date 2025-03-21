@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -96,17 +96,15 @@ interface SearchProduct {
   users: ProductUser;
 }
 
-const categories = [
-  'All',
-  'Clothing',
-  'Electronics',
-  'Home & Living',
-  'Beauty',
-  'Sports',
-  'Books',
-  'Toys',
-  // Add more categories as needed
-];
+interface ScrollDirection {
+  lastScrollY: number;
+  direction: 'up' | 'down';
+}
+
+const MAIN_CATEGORIES = PRODUCT_CATEGORIES.filter(cat => !cat.includes('&')).slice(0, 5);
+const DROPDOWN_CATEGORIES = PRODUCT_CATEGORIES.filter(cat => 
+  !MAIN_CATEGORIES.includes(cat) || cat.includes('&')
+);
 
 export default function Navigation({ userDetails }: NavigationProps) {
   const { user, setUser } = useAuth();
@@ -128,6 +126,83 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [scroll, setScroll] = useState<ScrollDirection>({
+    lastScrollY: 0,
+    direction: 'up'
+  });
+  const [isVisible, setIsVisible] = useState(true);
+  const scrollThrottleRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollTimeRef = useRef<number>(Date.now());
+
+  const handleScroll = useCallback(() => {
+    const currentTime = Date.now();
+    const timeDiff = currentTime - lastScrollTimeRef.current;
+    
+    // Throttle scroll events to every 100ms
+    if (timeDiff < 100) return;
+    
+    lastScrollTimeRef.current = currentTime;
+
+    const currentScrollY = window.scrollY;
+    
+    // Always show navbar when near the top
+    if (currentScrollY < 100) {
+      setIsVisible(true);
+      return;
+    }
+
+    // Clear any existing throttle timeout
+    if (scrollThrottleRef.current) {
+      clearTimeout(scrollThrottleRef.current);
+    }
+
+    // Set a new throttle timeout
+    scrollThrottleRef.current = setTimeout(() => {
+      setScroll(prevState => {
+        const newDirection = currentScrollY > prevState.lastScrollY ? 'down' : 'up';
+        const scrollDiff = Math.abs(currentScrollY - prevState.lastScrollY);
+        
+        // Only update if scroll difference is significant (20px)
+        if (scrollDiff > 20) {
+          setIsVisible(newDirection === 'up');
+          
+          return {
+            lastScrollY: currentScrollY,
+            direction: newDirection
+          };
+        }
+        
+        return prevState;
+      });
+    }, 50);
+  }, []);
+
+  // Clean up the throttle timeout
+  useEffect(() => {
+    return () => {
+      if (scrollThrottleRef.current) {
+        clearTimeout(scrollThrottleRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let ticking = false;
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [handleScroll]);
 
   // Check auth status on component mount and when pathname changes
   useEffect(() => {
@@ -294,9 +369,34 @@ export default function Navigation({ userDetails }: NavigationProps) {
     setIsMenuOpen(false);
   };
 
-  const handleCategoryClick = (category: string) => {
-    // Navigate to products page with category filter
-    router.push(`/products?category=${category.toLowerCase()}`);
+  const handleCategoryClick = async (category: string) => {
+    const formattedCategory = category === 'All' ? 'all' : category.toLowerCase();
+    
+    try {
+      // For mobile menu
+      if (isMenuOpen) {
+        closeMenu();
+        await router.push(`/products?category=${formattedCategory}`);
+        return;
+      }
+
+      // For desktop navigation
+      if (pathname !== '/products') {
+        await router.push(`/products?category=${formattedCategory}`);
+      } else {
+        // If already on products page, just update the query
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('category', formattedCategory);
+        router.push(`/products?${params.toString()}`);
+      }
+      
+      // Close dropdown if open
+      setIsDropdownOpen(false);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback to direct navigation
+      window.location.href = `/products?category=${formattedCategory}`;
+    }
   };
 
   // Update the handleResultClick function
@@ -476,8 +576,32 @@ export default function Navigation({ userDetails }: NavigationProps) {
     }
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!(event.target as Element).closest('.category-dropdown')) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <nav className="fixed top-0 left-0 right-0 z-[90] bg-white shadow-sm">
+    <nav 
+      className={`
+        fixed top-0 left-0 right-0 z-[90] bg-white shadow-sm
+        transition-transform duration-300 ease-in-out
+        ${!isVisible ? '-translate-y-full' : 'translate-y-0'}
+        md:translate-y-0
+        will-change-transform
+      `}
+      style={{
+        transform: !isVisible ? 'translateY(-100%)' : 'translateY(0)',
+        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden'
+      }}
+    >
       {/* Flash Sale Banner */}
       {activeFlashSales.length > 0 && !isLoading && (
         <div className="bg-gradient-to-r from-red-600 to-pink-600 text-white py-2 relative overflow-hidden">
@@ -825,36 +949,67 @@ export default function Navigation({ userDetails }: NavigationProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Categories Navigation */}
           <div className="hidden md:flex items-center space-x-8 h-12">
-            {PRODUCT_CATEGORIES.slice(0, 5).map((category) => (
-            <Link 
+            {/* Main categories */}
+            {MAIN_CATEGORIES.map((category) => (
+              <button 
                 key={category}
-                href={`/products?category=${category.toLowerCase()}`}
+                onClick={() => handleCategoryClick(category)}
                 className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-red-600 group"
               >
                 <span>{category}</span>
-              </Link>
+              </button>
             ))}
 
             {/* More Categories Dropdown */}
-            <div className="relative group">
-              <button className="flex items-center space-x-1 text-gray-700 hover:text-red-600">
-                <span>More</span>
-                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-              <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 hidden group-hover:block z-50">
-                {PRODUCT_CATEGORIES.slice(5).map((category) => (
-                  <Link
-                    key={category}
-                    href={`/products?category=${category.toLowerCase()}`}
-                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600"
+            {DROPDOWN_CATEGORIES.length > 0 && (
+              <div className="relative category-dropdown">
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center space-x-1 text-gray-700 hover:text-red-600"
+                >
+                  <span>More</span>
+                  <svg 
+                    className={`w-4 h-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                    viewBox="0 0 20 20" 
+                    fill="currentColor"
                   >
-                    {category}
-            </Link>
-                ))}
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <div 
+                  className={`
+                    absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg 
+                    transition-all duration-200 
+                    ${isDropdownOpen 
+                      ? 'opacity-100 visible translate-y-0' 
+                      : 'opacity-0 invisible translate-y-2'
+                    }
+                    z-50 max-h-[calc(100vh-200px)] overflow-y-auto
+                    border border-gray-100
+                    scrollbar-thin scrollbar-thumb-red-500 scrollbar-track-gray-100
+                  `}
+                  style={{
+                    top: 'calc(100% + 8px)',
+                    maxHeight: 'calc(100vh - 200px)',
+                  }}
+                >
+                  <div className="py-2">
+                    {DROPDOWN_CATEGORIES.map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          handleCategoryClick(category);
+                          setIsDropdownOpen(false);
+                        }}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -1026,7 +1181,12 @@ export default function Navigation({ userDetails }: NavigationProps) {
 
       {/* Mobile Sidebar Menu */}
       <div 
-        className={`fixed inset-0 z-50 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out lg:hidden`}
+        className={`
+          fixed inset-0 z-[100] transform 
+          ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} 
+          transition-transform duration-300 ease-in-out lg:hidden
+        `}
+        style={{ height: '100vh' }}
       >
         {/* Overlay */}
         <div 
@@ -1036,7 +1196,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
         
         {/* Menu content */}
         <div className="relative w-[85%] max-w-sm h-full bg-white shadow-xl overflow-y-auto">
-          <div className="px-4 py-6">
+          <div className="px-4 py-6 min-h-screen">
             {/* User section */}
             {user ? (
               <div className="mb-6">

@@ -10,7 +10,7 @@ export default function ClientNavigation() {
   const pathname = usePathname();
   
   // Hide navigation on dashboard pages
-  if (pathname.startsWith('/dashboard')) {
+  if (pathname?.startsWith('/dashboard')) {
     return null;
   }
   

@@ -72,15 +72,9 @@ const carouselStyles = {
   `,
 };
 
-// Also add back the sectionGradientStyles
+// Replace the existing sectionGradientStyles with this simplified version
 const sectionGradientStyles = `
   relative z-10 w-full max-w-[1440px] mx-auto px-4 lg:px-8
-  before:absolute before:-left-[200px] before:top-1/2 before:-translate-y-1/2 before:w-[400px] before:h-[400px]
-  before:bg-gradient-to-r before:from-transparent before:via-red-900/10 before:to-transparent
-  before:rounded-full before:blur-3xl before:-z-10
-  after:absolute after:-right-[200px] after:top-1/2 after:-translate-y-1/2 after:w-[400px] after:h-[400px]
-  after:bg-gradient-to-l after:from-transparent after:via-red-900/10 after:to-transparent
-  after:rounded-full after:blur-3xl after:-z-10
 `;
 
 // Add back the FloatingElement component
@@ -344,22 +338,97 @@ interface TouchPosition {
   startTime: number;
 }
 
-// Add this component at the top level of your page
+// Add this component near the top of your file
+const RecentlyViewed = () => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [recentProducts, setRecentProducts] = useState<any[]>([]);
+  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout>();
+
+  if (!isVisible || recentProducts.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 100 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 100 }}
+      className="fixed bottom-24 right-4 z-[100] w-64 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50"
+      style={{ 
+        transform: 'translate3d(0,0,0)', // Force GPU acceleration
+        willChange: 'transform' // Optimize for animations
+      }}
+    >
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-white">Recently Viewed</h3>
+          <button
+            onClick={() => {
+              setIsVisible(false);
+              if (timeoutId) clearTimeout(timeoutId);
+            }}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="space-y-2">
+          {recentProducts.map((product) => (
+            <Link
+              key={product.id}
+              href={`/products/${product.id}`}
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-700/50 transition-colors group"
+            >
+              <div className="relative w-12 h-12 bg-gray-900 rounded-md overflow-hidden">
+                <Image
+                  src={cleanImageUrl(product.image_url) || PLACEHOLDER_IMAGE}
+                  alt={product.title}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm text-white truncate group-hover:text-red-400">
+                  {product.title}
+                </h4>
+                <p className="text-xs text-gray-400">
+                  ETB {product.price.toLocaleString()}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// Update the BackToTopButton component's positioning
 const BackToTopButton = () => {
   const [isVisible, setIsVisible] = useState(false);
+  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout>();
 
   useEffect(() => {
     const toggleVisibility = () => {
       if (window.pageYOffset > 300) {
         setIsVisible(true);
+        // Reset timeout when scrolling
+        if (timeoutId) clearTimeout(timeoutId);
+        const timeout = setTimeout(() => {
+          setIsVisible(false);
+        }, 10000);
+        setTimeoutId(timeout);
       } else {
         setIsVisible(false);
       }
     };
 
     window.addEventListener('scroll', toggleVisibility);
-    return () => window.removeEventListener('scroll', toggleVisibility);
-  }, []);
+    return () => {
+      window.removeEventListener('scroll', toggleVisibility);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [timeoutId]);
 
   const scrollToTop = () => {
     window.scrollTo({
@@ -368,19 +437,33 @@ const BackToTopButton = () => {
     });
   };
 
+  if (!isVisible) return null;
+
   return (
     <motion.button
       initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ 
-        opacity: isVisible ? 1 : 0,
-        scale: isVisible ? 1 : 0.5,
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.5 }}
+      onClick={() => {
+        scrollToTop();
+        setIsVisible(false);
+        if (timeoutId) clearTimeout(timeoutId);
       }}
-      onClick={scrollToTop}
-      className="fixed bottom-8 right-8 z-50 p-3 rounded-full bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+      className="fixed bottom-8 right-4 z-[100] p-3 rounded-full bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 group"
+      style={{ 
+        transform: 'translate3d(0,0,0)', // Force GPU acceleration
+        willChange: 'transform', // Optimize for animations
+        position: 'fixed', // Ensure fixed positioning
+        bottom: '2rem', // 8 in rem units
+        right: '1rem', // 4 in rem units
+      }}
     >
       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
       </svg>
+      <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+        Back to top
+      </span>
     </motion.button>
   );
 };
@@ -405,7 +488,7 @@ const FloatingChatButton = () => {
 // Update the SectionDivider component
 const SectionDivider = () => {
   return (
-    <div className="relative py-4">
+    <div className="relative py-2"> {/* Changed from py-4 to py-2 */}
       <div className="absolute inset-0 flex items-center">
         <div className="w-full border-t border-gray-800"></div>
       </div>
@@ -499,6 +582,7 @@ const AchievementBadges = () => {
 // First, add this component near your other component definitions
 const CategoryBubbles = () => {
   const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter(); // Add this
 
   useEffect(() => {
     // Set initial value
@@ -512,6 +596,18 @@ const CategoryBubbles = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const handleCategoryClick = async (categoryName: string) => {
+    try {
+      // Navigate to products page with category filter
+      const formattedCategory = categoryName === 'All' ? 'all' : categoryName.toLowerCase();
+      await router.push(`/products?category=${formattedCategory}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback
+      window.location.href = `/products?category=${categoryName.toLowerCase()}`;
+    }
+  };
 
   return (
     <div className="relative h-24 overflow-visible">
@@ -535,8 +631,8 @@ const CategoryBubbles = () => {
             },
           }}
         >
-          <Link 
-            href={`/categories/${category.name.toLowerCase()}`}
+          <button 
+            onClick={() => handleCategoryClick(category.name)}
             className="group relative block"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 rounded-full blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
@@ -548,11 +644,11 @@ const CategoryBubbles = () => {
                 {category.name}
               </div>
             </div>
-          </Link>
+          </button>
         </motion.div>
       ))}
     </div>
-  );
+  ); // Add semicolon here
 };
 
 // Add this component near your other component definitions
@@ -572,14 +668,14 @@ const LiveVisitorCounter = () => {
         </span>
       </div>
     </motion.div>
-  );
+  ); // Add semicolon here
 };
 
-// First, add this component near your other component definitions
+// Update the FeaturedCollection component
 const FeaturedCollection = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Summer Collection */}
+      {/* Home & Living Collection */}
       <motion.div 
         initial={{ opacity: 0, x: -20 }}
         whileInView={{ opacity: 1, x: 0 }}
@@ -587,10 +683,10 @@ const FeaturedCollection = () => {
         className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 p-8 group"
       >
         <div className="relative z-10">
-          <h3 className="text-2xl font-bold text-white mb-4">Summer Collection 2024</h3>
-          <p className="text-white/80 mb-6">Discover our latest Ethiopian-inspired designs</p>
+          <h3 className="text-2xl font-bold text-white mb-4">Home & Living Collection</h3>
+          <p className="text-white/80 mb-6">Discover our curated home decor and furniture</p>
           <Link
-            href="/collections/summer-2024"
+            href="/collections/home-living"
             className="inline-flex items-center bg-white text-gray-900 px-6 py-2 rounded-full hover:bg-gray-100 transition-colors"
           >
             Explore Now
@@ -602,7 +698,7 @@ const FeaturedCollection = () => {
         <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-colors" />
       </motion.div>
 
-      {/* Traditional Collection */}
+      {/* Clothing Collection */}
       <motion.div 
         initial={{ opacity: 0, x: 20 }}
         whileInView={{ opacity: 1, x: 0 }}
@@ -610,10 +706,10 @@ const FeaturedCollection = () => {
         className="relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 to-red-500 p-8 group"
       >
         <div className="relative z-10">
-          <h3 className="text-2xl font-bold text-white mb-4">Traditional Collection</h3>
-          <p className="text-white/80 mb-6">Authentic Ethiopian cultural wear & accessories</p>
+          <h3 className="text-2xl font-bold text-white mb-4">Clothing Collection</h3>
+          <p className="text-white/80 mb-6">Explore our trending fashion & apparel</p>
           <Link
-            href="/collections/traditional"
+            href="/collections/clothing"
             className="inline-flex items-center bg-white text-gray-900 px-6 py-2 rounded-full hover:bg-gray-100 transition-colors"
           >
             View Collection
@@ -628,8 +724,13 @@ const FeaturedCollection = () => {
   );
 };
 
-// Add this testimonials data near your other constants
-const testimonials = [
+// Add the testimonials data at the top level, before any component definitions
+const testimonials: {
+  text: string;
+  name: string;
+  location: string;
+  avatar: string;
+}[] = [
   {
     text: "Amazing marketplace! Found authentic Ethiopian products that I couldn't find anywhere else.",
     name: "Abebe Kebede",
@@ -650,15 +751,13 @@ const testimonials = [
   }
 ];
 
-// Add the TestimonialCarousel component
+// Update the TestimonialCarousel component to use TypeScript types
 const TestimonialCarousel = () => {
   const testimonialsRef = useRef<HTMLDivElement>(null);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
   return (
     <div className="relative overflow-hidden">
-      {/* Update the gradient to be more subtle */}
-      <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-pink-500/5 to-red-500/5 blur-[100px]"></div>
       <div className="relative">
         <h3 className="text-3xl font-bold text-white text-center mb-8">
           What Our Customers Say
@@ -676,12 +775,11 @@ const TestimonialCarousel = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.2 }}
-                className="bg-gray-800/30 backdrop-blur-sm rounded-xl p-6 border border-gray-700/30 hover:border-gray-600/30 transition-colors group"
+                className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50 hover:border-gray-600/50 transition-colors group"
               >
-                {/* Rest of the testimonial card content remains the same */}
                 <div className="relative">
                   <svg 
-                    className="absolute -top-4 -left-4 w-8 h-8 text-red-500/10 group-hover:text-red-500/20 transition-colors" 
+                    className="absolute -top-4 -left-4 w-8 h-8 text-gray-500/10 group-hover:text-gray-500/20 transition-colors" 
                     fill="currentColor" 
                     viewBox="0 0 24 24"
                   >
@@ -692,7 +790,9 @@ const TestimonialCarousel = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-500/10 group-hover:border-red-500/20 transition-colors">
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 
+                    border-gray-700/50 group-hover:border-gray-600/50 
+                    transition-colors">
                     <Image
                       src={testimonial.avatar}
                       alt={testimonial.name}
@@ -714,14 +814,15 @@ const TestimonialCarousel = () => {
   );
 };
 
+// Move the HomePage component to the top level (not nested inside another function)
 export default function HomePage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [popularProducts, setPopularProducts] = useState<PopularProduct[]>([]);
   const [featuredBrands, setFeaturedBrands] = useState<FeaturedSeller[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponent();
-  const router = useRouter();
   const [activeFlashSales, setActiveFlashSales] = useState<FlashSale[]>([]);
   const [sellerImageLoading, setSellerImageLoading] = useState<{[key: string]: boolean}>({});
   const [currentFlashSaleIndex, setCurrentFlashSaleIndex] = useState(0);
@@ -1024,7 +1125,7 @@ export default function HomePage() {
     const allFlashProducts = getAllFlashSaleProducts();
 
     return (
-      <section className="relative py-8">
+      <section className="relative py-6">
         <div className={sectionGradientStyles}>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
@@ -1074,7 +1175,7 @@ export default function HomePage() {
               className="relative overflow-x-auto hide-scrollbar touch-pan-x snap-x snap-mandatory px-4 md:px-0"
               onTouchStart={(e) => handleTouchStart(e, flashSalesRef)}
               onTouchMove={(e) => handleTouchMove(e, flashSalesRef)}
-              onTouchEnd={handleTouchEnd}
+              onTouchEnd={(e) => handleTouchEnd(e, flashSalesRef)}
               style={{ 
                 WebkitOverflowScrolling: 'touch',
                 scrollbarWidth: 'none',
@@ -1506,7 +1607,8 @@ export default function HomePage() {
     }
   };
 
-  const handleTouchEnd = () => {
+  // Update the handleTouchEnd function to accept the event and ref parameters
+  const handleTouchEnd = (e: React.TouchEvent, ref: React.RefObject<HTMLDivElement>) => {
     touchStartRef.current = null;
     isSwiping.current = false;
   };
@@ -1562,14 +1664,25 @@ export default function HomePage() {
     };
   }, []);
 
+  // Add the handleCategoryClick function here
+  const handleCategoryClick = async (categoryName: string) => {
+    try {
+      // Navigate to products page with category filter
+      const formattedCategory = categoryName === 'All' ? 'all' : categoryName.toLowerCase();
+      await router.push(`/products?category=${formattedCategory}`);
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback
+      window.location.href = `/products?category=${categoryName.toLowerCase()}`;
+    }
+  };
+
   return (
     <div className="min-h-screen relative bg-gray-900 overflow-hidden w-full">
       <ScrollProgress />
-      <FloatingPreview />
-      <LiveVisitorCounter />  {/* Add this line */}
       <BackToTopButton />
-      <FloatingChatButton />
-      {loading && <LoadingOverlay />}
+      <RecentlyViewed />  {/* This should be the only instance */}
+      <FloatingPreview />
       
       {/* Hero Section */}
       <section className="relative min-h-[calc(100vh-4rem)] flex items-center text-white pt-16 sm:pt-20 md:pt-0">
@@ -1675,8 +1788,7 @@ export default function HomePage() {
       <SectionDivider />
       
       {/* Stats Section */}
-      <AnimatedSection className="py-8 overflow-hidden" delay={0.2}>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/5 to-transparent pointer-events-none mix-blend-overlay"></div>
+      <AnimatedSection className="py-6 overflow-hidden" delay={0.2}>
         <div className={sectionGradientStyles}>
           {/* Achievement Badges */}
           <div className="mb-12">
@@ -1731,7 +1843,7 @@ export default function HomePage() {
       <SectionDivider />
       
       {/* Featured Collections */}
-      <AnimatedSection className="py-8" delay={0.3}>
+      <AnimatedSection className="py-6" delay={0.3}>
         <div className={sectionGradientStyles}>
           <div className="flex items-center justify-between mb-6">
             <AnimatedTitle>
@@ -1745,12 +1857,127 @@ export default function HomePage() {
       <SectionDivider />
       
       {/* Flash Sales Section */}
-      {renderFlashSales()}
+      {activeFlashSales.length > 0 && (
+        <>
+          <AnimatedSection className="py-3" delay={0.4}>
+            <div className={sectionGradientStyles}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <AnimatedTitle>
+                    Flash Deals
+                  </AnimatedTitle>
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-600 text-sm font-semibold animate-pulse">⚡ Limited Time</span>
+                  </div>
+                </div>
+              </div>
 
-      <SectionDivider />  {/* Add this line */}
+              {/* Flash Sales Carousel */}
+              <div className="relative">
+                {/* Navigation Buttons */}
+                <button 
+                  onClick={() => scrollFlashSales('left')}
+                  className={`${carouselStyles.navButton} left-0 -translate-x-full`}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                
+                <button 
+                  onClick={() => scrollFlashSales('right')}
+                  className={`${carouselStyles.navButton} right-0 translate-x-full`}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                {/* Flash Sales Products */}
+                <div 
+                  ref={flashSalesRef}
+                  className={carouselStyles.container}
+                  onTouchStart={(e) => handleTouchStart(e, flashSalesRef)}
+                  onTouchMove={(e) => handleTouchMove(e, flashSalesRef)}
+                  onTouchEnd={(e) => handleTouchEnd(e, flashSalesRef)}
+                >
+                  <div className={`
+                    ${carouselStyles.wrapper}
+                    ${getAllFlashSaleProducts().length <= 4 ? 'md:justify-center' : ''}
+                  `}>
+                    {getAllFlashSaleProducts().map((flashProduct, index) => (
+                      <motion.div
+                        key={flashProduct.id}
+                        className="flex-none w-[240px] md:w-[280px] snap-center first:ml-0"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                      >
+                        <Link
+                          href={`/products/${flashProduct.product.id}`}
+                          className="block relative bg-gray-800/50 backdrop-blur-sm rounded-lg overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-gray-800/70 group"
+                        >
+                          {/* Countdown Timer */}
+                          <div className="absolute top-2 right-2 z-10">
+                            <CountdownTimer 
+                              endTime={activeFlashSales[0]?.end_time || ''} 
+                              className="text-xs bg-black/50 backdrop-blur-sm text-white px-2 py-1 rounded-full"
+                            />
+                          </div>
+
+                          {/* Discount Badge */}
+                          <div className="absolute top-2 left-2 z-10 bg-gradient-to-r from-red-600 to-pink-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                            -{Math.round(((flashProduct.product.price - flashProduct.special_price) / flashProduct.product.price) * 100)}%
+                          </div>
+
+                          <div className="aspect-w-1 aspect-h-1 relative bg-[#0A0A0A]">
+                            <Image
+                              src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
+                              alt={flashProduct.product.title}
+                              fill
+                              className="object-cover transform group-hover:scale-105 transition-transform duration-500"
+                            />
+                          </div>
+
+                          <div className="p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <h3 className="text-sm font-medium text-white line-clamp-2 group-hover:text-red-500">
+                                {flashProduct.product.title}
+                              </h3>
+                              <div className="flex-shrink-0">
+                                <div className="bg-black/50 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-full">
+                                  ETB {flashProduct.special_price.toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Progress Dots */}
+                <div className="hidden md:flex justify-center mt-4 space-x-2">
+                  {Array.from({ length: Math.ceil(getAllFlashSaleProducts().length / 4) }).map((_, index) => (
+                    <motion.button
+                      key={index}
+                      onClick={() => scrollToFlashSalePage(index)}
+                      className={`${carouselStyles.progressDot} ${
+                        currentFlashSalePage === index ? carouselStyles.progressDotActive : ''
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </AnimatedSection>
+          <SectionDivider />
+        </>
+      )}
 
       {/* Featured Categories */}
-      <AnimatedSection className="py-8" delay={0.3}>
+      <AnimatedSection className="py-4" delay={0.3}> {/* Changed from py-6 to py-4 */}
         <ParallaxSection>
           <div className={sectionGradientStyles}>
             <div className="flex items-center justify-between mb-6">
@@ -1792,14 +2019,15 @@ export default function HomePage() {
               {/* Categories Carousel */}
               <div 
                 ref={categoriesRef}
-                className="relative overflow-x-auto hide-scrollbar touch-pan-x snap-x snap-mandatory px-4 md:px-0"
+                className="relative overflow-x-auto hide-scrollbar touch-pan-x snap-x snap-mandatory px-4 md:px-0 scroll-smooth"
                 onTouchStart={(e) => handleTouchStart(e, categoriesRef)}
                 onTouchMove={(e) => handleTouchMove(e, categoriesRef)}
-                onTouchEnd={handleTouchEnd}
+                onTouchEnd={(e) => handleTouchEnd(e, categoriesRef)}
                 style={{ 
                   WebkitOverflowScrolling: 'touch',
                   scrollbarWidth: 'none',
-                  msOverflowStyle: 'none'
+                  msOverflowStyle: 'none',
+                  scrollBehavior: 'smooth'
                 }}
               >
                 <div className={`
@@ -1814,9 +2042,9 @@ export default function HomePage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
                     >
-                      <Link
-                        href={`/categories/${category.name.toLowerCase()}`}
-                        className="block relative h-[200px] rounded-lg overflow-hidden group touch-pan-y"
+                      <button
+                        onClick={() => handleCategoryClick(category.name)}
+                        className="block relative h-[200px] rounded-lg overflow-hidden group touch-pan-y w-full"
                       >
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
                         <Image
@@ -1832,7 +2060,7 @@ export default function HomePage() {
                           </div>
                           <p className="text-sm text-gray-300">{category.description}</p>
                         </div>
-                      </Link>
+                      </button>
                     </motion.div>
                   ))}
                 </div>
@@ -1848,7 +2076,7 @@ export default function HomePage() {
                       ${currentPage === index 
                         ? 'w-8 bg-gradient-to-r from-red-500 to-pink-500 shadow-lg shadow-red-500/50'
                         : 'bg-gradient-to-r from-red-500/30 to-pink-500/30'
-                      }`}
+                        }`}
                   />
                 ))}
               </div>
@@ -1873,9 +2101,9 @@ export default function HomePage() {
       <SectionDivider />
 
       {/* Featured Brands */}
-      <AnimatedSection className="py-8" delay={0.4}>
+      <AnimatedSection className="py-4" delay={0.4}> {/* Changed from py-6 to py-4 */}
         <div className={sectionGradientStyles}>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4"> {/* Changed from mb-6 to mb-4 */}
             <AnimatedTitle>
               Featured Brands
             </AnimatedTitle>
@@ -1916,7 +2144,7 @@ export default function HomePage() {
               className="relative overflow-x-auto hide-scrollbar touch-pan-x snap-x snap-mandatory px-4 md:px-0"
               onTouchStart={(e) => handleTouchStart(e, brandsRef)}
               onTouchMove={(e) => handleTouchMove(e, brandsRef)}
-              onTouchEnd={handleTouchEnd}
+              onTouchEnd={(e) => handleTouchEnd(e, brandsRef)}
             >
               <div className={`
                 flex gap-3 md:gap-4 pb-3 min-w-full
@@ -1971,7 +2199,7 @@ export default function HomePage() {
                     ${currentBrandsPage === index 
                       ? 'w-8 bg-gradient-to-r from-red-500 to-pink-500 shadow-lg shadow-red-500/50'
                       : 'bg-gradient-to-r from-red-500/30 to-pink-500/30'
-                    }`}
+                      }`}
                 />
               ))}
             </div>
@@ -1982,10 +2210,10 @@ export default function HomePage() {
       <SectionDivider />
 
       {/* Most Liked Products */}
-      <AnimatedSection className="py-8" delay={0.5}>
+      <AnimatedSection className="py-4" delay={0.5}> {/* Changed from py-6 to py-4 */}
         <ParallaxSection offset={30}>
           <div className={sectionGradientStyles}>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4"> {/* Changed from mb-6 to mb-4 */}
               <div className="flex items-center gap-4">
                 <AnimatedTitle>
                   Trending Products
@@ -2029,14 +2257,15 @@ export default function HomePage() {
               {/* Products Carousel */}
               <div 
                 ref={lovedProductsRef}
-                className="relative overflow-x-auto hide-scrollbar touch-pan-x snap-x snap-mandatory px-4 md:px-0"
+                className="relative overflow-x-auto hide-scrollbar touch-pan-x snap-x snap-mandatory px-4 md:px-0 scroll-smooth"
                 onTouchStart={(e) => handleTouchStart(e, lovedProductsRef)}
                 onTouchMove={(e) => handleTouchMove(e, lovedProductsRef)}
-                onTouchEnd={handleTouchEnd}
+                onTouchEnd={(e) => handleTouchEnd(e, lovedProductsRef)}
                 style={{ 
                   WebkitOverflowScrolling: 'touch',
                   scrollbarWidth: 'none',
-                  msOverflowStyle: 'none'
+                  msOverflowStyle: 'none',
+                  scrollBehavior: 'smooth'
                 }}
               >
                 <div className={`
@@ -2109,7 +2338,7 @@ export default function HomePage() {
                       ${currentLovedPage === index 
                         ? 'w-8 bg-gradient-to-r from-red-500 to-pink-500 shadow-lg shadow-red-500/50'
                         : 'bg-gradient-to-r from-red-500/30 to-pink-500/30'
-                      }`}
+                        }`}
                   />
                 ))}
               </div>
@@ -2134,7 +2363,7 @@ export default function HomePage() {
       <SectionDivider />
 
       {/* Why Choose Us */}
-      <AnimatedSection className="py-8" delay={0.6}>
+      <AnimatedSection className="py-6" delay={0.6}>
         <ParallaxSection offset={40}>
           <div className={sectionGradientStyles}>
             <h2 className="text-3xl font-bold text-white text-center mb-12">
@@ -2162,7 +2391,7 @@ export default function HomePage() {
       <SectionDivider />
 
       {/* Testimonials Section */}
-      <AnimatedSection className="py-8" delay={0.7}>
+      <AnimatedSection className="py-6" delay={0.7}>
         <div className={sectionGradientStyles}>
           <TestimonialCarousel />
         </div>
@@ -2171,8 +2400,7 @@ export default function HomePage() {
       <SectionDivider />
 
       {/* Download App Section */}
-      <AnimatedSection className="py-8" delay={0.8}>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/5 to-transparent pointer-events-none mix-blend-overlay"></div>
+      <AnimatedSection className="py-6" delay={0.8}>
         <div className={sectionGradientStyles}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -2258,34 +2486,199 @@ export default function HomePage() {
       <SectionDivider />
 
       {/* Newsletter Section */}
-      <AnimatedSection className="py-8" delay={0.8}>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-red-900/5 to-transparent pointer-events-none mix-blend-overlay"></div>
+      <AnimatedSection className="relative py-12 w-full"> {/* Updated padding and added relative */}
         <div className={sectionGradientStyles}>
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">
-              Stay Updated
-            </h2>
-            <p className="text-gray-300 mb-8">
-              Subscribe to our newsletter for exclusive deals and updates
-            </p>
-            <form className="max-w-md mx-auto">
-              <div className="flex gap-4">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="flex-1 px-4 py-2 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-full focus:outline-none focus:border-red-500 text-white placeholder-gray-400"
-                />
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  Subscribe
-                </button>
-              </div>
-            </form>
+          <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8"> {/* Added relative and adjusted max-width */}
+            <div className="text-center">
+              <motion.h2 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="text-3xl md:text-4xl font-bold text-white mb-4"
+              >
+                Stay Updated
+              </motion.h2>
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="text-lg text-gray-300 mb-8"
+              >
+                Subscribe to our newsletter for exclusive deals and updates
+              </motion.p>
+              <motion.form 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="max-w-md mx-auto"
+              >
+                <div className="flex gap-4">
+                  <input
+                    type="email"
+                    placeholder="Enter your email"
+                    className="flex-1 px-6 py-3 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-full focus:outline-none focus:border-red-500 text-white placeholder-gray-400"
+                  />
+                  <button
+                    type="submit"
+                    className="px-8 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-full hover:from-red-500 hover:to-pink-500 transition-colors transform hover:scale-105 duration-300"
+                  >
+                    Subscribe
+                  </button>
+                </div>
+              </motion.form>
+            </div>
           </div>
         </div>
+        
+        {/* Add decorative elements */}
+        <div className="absolute -top-40 left-0 right-0 bottom-0 bg-gradient-to-b from-transparent to-gray-900/50 pointer-events-none"></div>
+        <div className="absolute inset-0">
+          <div className="absolute top-1/2 left-1/4 w-32 h-32 bg-red-500/20 rounded-full filter blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-pink-500/20 rounded-full filter blur-3xl animate-pulse delay-1000"></div>
+        </div>
       </AnimatedSection>
+
+      <SectionDivider />
+
+      {/* Footer Section */}
+      <footer className="relative py-12 w-full border-t border-gray-800">
+        <div className={sectionGradientStyles}>
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 px-4 sm:px-6 lg:px-8">
+            {/* Company Info */}
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-white">AVRIO</h3>
+              <p className="text-gray-400 text-sm">
+                Your premier destination for Ethiopian fashion and lifestyle products.
+              </p>
+              <div className="flex space-x-4">
+                {/* Social Media Links */}
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <span className="sr-only">Facebook</span>
+                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
+                  </svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <span className="sr-only">Instagram</span>
+                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd" />
+                  </svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <span className="sr-only">Twitter</span>
+                  <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/products" className="text-gray-400 hover:text-white transition-colors">
+                    Shop
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/about" className="text-gray-400 hover:text-white transition-colors">
+                    About Us
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/contact" className="text-gray-400 hover:text-white transition-colors">
+                    Contact
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/blog" className="text-gray-400 hover:text-white transition-colors">
+                    Blog
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Categories */}
+            <div>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Categories</h3>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/categories/fashion" className="text-gray-400 hover:text-white transition-colors">
+                    Fashion
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/categories/electronics" className="text-gray-400 hover:text-white transition-colors">
+                    Electronics
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/categories/home" className="text-gray-400 hover:text-white transition-colors">
+                    Home & Living
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/categories/beauty" className="text-gray-400 hover:text-white transition-colors">
+                    Beauty & Health
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Contact Info */}
+            <div>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Contact Us</h3>
+              <ul className="space-y-2">
+                <li className="text-gray-400">
+                  <span className="block">Addis Ababa, Ethiopia</span>
+                </li>
+                <li>
+                  <a href="tel:+251911234567" className="text-gray-400 hover:text-white transition-colors">
+                    +251 91 123 4567
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:info@avrio.et" className="text-gray-400 hover:text-white transition-colors">
+                    info@avrio.et
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="mt-12 pt-8 border-t border-gray-800">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
+              <p className="text-gray-400 text-sm">
+                © {new Date().getFullYear()} AVRIO. All rights reserved.
+              </p>
+              <div className="flex space-x-6 mt-4 md:mt-0">
+                <Link href="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  Privacy Policy
+                </Link>
+                <Link href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  Terms of Service
+                </Link>
+                <Link href="/shipping" className="text-gray-400 hover:text-white text-sm transition-colors">
+                  Shipping Policy
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Decorative Elements */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute bottom-0 left-1/4 w-64 h-64 bg-red-500/5 rounded-full filter blur-3xl"></div>
+            <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-pink-500/5 rounded-full filter blur-3xl"></div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
+
+  

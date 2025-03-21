@@ -9,6 +9,8 @@ module.exports = {
       animation: {
         fadeIn: 'fadeIn 0.5s ease-out',
         float: 'float 3s ease-in-out infinite',
+        'pulse-loading': 'pulse-loading 1.5s ease-in-out infinite',
+        'slide-loading': 'slide-loading 1.5s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -18,6 +20,14 @@ module.exports = {
         float: {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-10px)' },
+        },
+        'pulse-loading': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.5' },
+        },
+        'slide-loading': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
         },
       },
       backgroundImage: {

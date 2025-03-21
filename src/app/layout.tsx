@@ -7,6 +7,8 @@ import ClientNavigation from "@/components/ClientNavigation";
 import DebugInfo from '@/components/DebugInfo';
 import PageWrapper from '@/components/PageWrapper';
 import { Toaster } from 'react-hot-toast';
+import { Suspense } from 'react';
+import LoadingPage from '@/components/LoadingPage';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,7 +28,7 @@ export default function RootLayout({
         className={`
           ${inter.className}
           relative w-full overflow-x-hidden
-          hide-scrollbar
+          hide-scrollbar bg-gray-50 dark:bg-gray-900
         `}
       >
         <AuthProvider>
@@ -34,9 +36,11 @@ export default function RootLayout({
             <div className="min-h-screen flex flex-col overflow-x-hidden w-full">
               <ClientNavigation />
               <main className="flex-1 relative w-full">
-                <PageWrapper>
-                  {children}
-                </PageWrapper>
+                <Suspense fallback={<LoadingPage />}>
+                  <PageWrapper>
+                    {children}
+                  </PageWrapper>
+                </Suspense>
               </main>
               {process.env.NODE_ENV !== 'production' && <DebugInfo />}
               <Toaster position="top-right" />

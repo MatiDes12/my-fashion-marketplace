@@ -246,7 +246,7 @@ export default function NewProductPage() {
                     </label>
                     <div className="mt-1">
                       {!showCustomCategory ? (
-                        <>
+                        <div className="space-y-4">
                           <select
                             id="category"
                             value={category}
@@ -255,11 +255,40 @@ export default function NewProductPage() {
                             required={!showCustomCategory}
                           >
                             <option value="">Select a category</option>
-                            {PRODUCT_CATEGORIES.slice(1).map((cat) => (
-                              <option key={cat} value={cat.toLowerCase()}>{cat}</option>
-                            ))}
+                            
+                            {/* Main Categories */}
+                            <optgroup label="Traditional Wear">
+                              <option value="traditional_wear">Traditional Wear</option>
+                              <option value="habesha_kemis">Habesha Kemis</option>
+                              <option value="tilfi">Tilfi</option>
+                              <option value="cultural_accessories">Cultural Accessories</option>
+                            </optgroup>
+
+                            <optgroup label="Modern Fashion">
+                              <option value="modern_fashion">Modern Fashion</option>
+                              <option value="dresses">Dresses</option>
+                              <option value="tops">Tops</option>
+                              <option value="pants_skirts">Pants & Skirts</option>
+                              <option value="outerwear">Outerwear</option>
+                              <option value="accessories">Accessories</option>
+                              <option value="shoes">Shoes</option>
+                            </optgroup>
+
+                            <optgroup label="Home & Living">
+                              <option value="home_living">Home & Living</option>
+                              <option value="furniture">Furniture</option>
+                              <option value="home_decor">Home Decor</option>
+                              <option value="kitchen_dining">Kitchen & Dining</option>
+                              <option value="bedding">Bedding</option>
+                              <option value="lighting">Lighting</option>
+                              <option value="rugs_carpets">Rugs & Carpets</option>
+                            </optgroup>
+
+                            {/* Add more optgroups for other categories */}
+                            
                             <option value="custom">+ Add custom category</option>
                           </select>
+
                           {category === 'custom' && (
                             <div className="mt-3">
                               <button
@@ -277,7 +306,7 @@ export default function NewProductPage() {
                               </button>
                             </div>
                           )}
-                        </>
+                        </div>
                       ) : (
                         <div className="flex">
                           <input
@@ -301,6 +330,9 @@ export default function NewProductPage() {
                           </button>
                         </div>
                       )}
+                      <p className="mt-2 text-sm text-gray-500">
+                        Choose the most appropriate category for your product to help buyers find it easily.
+                      </p>
                     </div>
                   </div>
 

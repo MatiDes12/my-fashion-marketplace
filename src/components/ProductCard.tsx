@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import ProductImage from './ProductImage';
 import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
 type ProductCardProps = {
   product: {
@@ -34,6 +35,8 @@ type ProductCardProps = {
       image_url: string;
       is_model_picture: boolean;
     }>;
+    is_coming_soon?: boolean;
+    price_range?: string;
   };
   showOwner?: boolean;
   showActions?: boolean;
@@ -144,6 +147,46 @@ export default function ProductCard({ product, showOwner = false, showActions = 
       onDelete(product.id);
     }
   };
+
+  if (product.is_coming_soon) {
+    return (
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        className="bg-gray-800/30 backdrop-blur-sm rounded-lg border border-gray-700/50 overflow-hidden"
+      >
+        <div className="aspect-w-1 aspect-h-1 bg-gray-800/50">
+          <div className="flex items-center justify-center">
+            <div className="text-center p-4">
+              <div className="text-3xl mb-2">
+                {product.category.includes('traditional') ? '👘' : 
+                 product.category.includes('furniture') ? '🪑' :
+                 product.category.includes('kitchen') ? '🍽️' :
+                 product.category.includes('lighting') ? '💡' :
+                 product.category.includes('bedding') ? '🛏️' :
+                 '✨'}
+              </div>
+              <div className="text-sm font-medium text-gray-300">
+                Coming Soon
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          <h3 className="text-lg font-medium text-gray-300">{product.title}</h3>
+          <p className="mt-1 text-sm text-gray-400 line-clamp-2">{product.description}</p>
+          <div className="mt-2 flex justify-between items-center">
+            <span className="text-gray-400 text-sm">Expected Price Range:</span>
+          </div>
+          <div className="mt-1 text-gray-300 font-medium">ETB {product.price_range}</div>
+          <div className="mt-3">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              Coming Soon
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <div className="group relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">

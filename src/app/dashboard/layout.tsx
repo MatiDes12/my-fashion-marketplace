@@ -114,21 +114,27 @@ export default function DashboardLayout({
     { name: 'Products', href: '/dashboard/products', icon: ProductsIcon },
     { name: 'Orders', href: '/dashboard/orders', icon: OrdersIcon },
     { name: 'Analytics', href: '/dashboard/analytics', icon: AnalyticsIcon },
-    { name: 'Marketing', href: '/dashboard/marketing', icon: MarketingIcon },
+    { 
+      name: 'Marketing', 
+      href: '/dashboard/marketing', 
+      icon: MarketingIcon,
+      subItems: [
+        {
+          name: 'Flash Sales',
+          href: '/dashboard/marketing/flash-sales',
+          icon: LightningBoltIcon,
+          current: pathname === '/dashboard/marketing/flash-sales'
+        }
+      ]
+    },
     { name: 'Payment Settings', href: '/dashboard/payment-settings', icon: PaymentSettingsIcon },
     { name: 'Subscription', href: '/dashboard/subscription', icon: SubscriptionIcon },
     { name: 'Settings', href: '/dashboard/settings', icon: SettingsIcon },
-    {
-      name: 'Flash Sales',
-      href: '/dashboard/marketing/flash-sales',
-      icon: LightningBoltIcon,
-      current: pathname === '/dashboard/marketing/flash-sales'
-    },
   ];
 
   const DashboardHeader = () => {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[50] bg-white shadow-sm backdrop-blur-sm bg-white/90">
+      <div className="fixed top-0 left-0 right-0 z-[30] bg-white shadow-sm backdrop-blur-sm bg-white/90">
         <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <button
@@ -188,11 +194,114 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <DashboardHeader />
+      {/* Fixed Header - lower z-index */}
+      <div className="fixed top-0 left-0 right-0 z-[30] bg-white shadow-sm backdrop-blur-sm bg-white/90">
+        <DashboardHeader />
+      </div>
 
-      {/* Mobile Sidebar - increased z-index */}
+      {/* Desktop Sidebar - higher z-index */}
+      <div className="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 z-[40]">
+        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 overflow-y-auto">
+          {/* User Profile Section - Moved to top */}
+          <div className="px-4 py-4 border-b border-gray-200">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 h-12 w-12 relative">
+                {userDetails?.avatar_url ? (
+                  <Image
+                    src={cleanImageUrl(userDetails.avatar_url)}
+                    alt="Profile"
+                    fill
+                    className="rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-red-500 to-red-600 flex items-center justify-center text-white text-xl font-bold">
+                    {userDetails?.full_name?.[0] || 'S'}
+                  </div>
+                )}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">
+                  {userDetails?.full_name || 'Store Owner'}
+                </p>
+                <p className="text-xs text-gray-500">Store Manager</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="flex-grow flex flex-col pt-5">
+            <nav className="flex-1 px-3 pb-4 space-y-1">
+              {navigation.map((item) => (
+                <div key={item.name}>
+                  <Link
+                    href={item.href}
+                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
+                      pathname === item.href
+                        ? 'bg-red-50 text-red-700'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <item.icon
+                      className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
+                        pathname === item.href
+                          ? 'text-red-500'
+                          : 'text-gray-400 group-hover:text-gray-500'
+                      }`}
+                    />
+                    {item.name}
+                  </Link>
+                  {item.subItems && (
+                    <div className="ml-8 mt-1 space-y-1">
+                      {item.subItems.map((subItem) => (
+                        <Link
+                          key={subItem.name}
+                          href={subItem.href}
+                          className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${
+                            subItem.current
+                              ? 'bg-red-50 text-red-700'
+                              : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          <subItem.icon
+                            className={`mr-3 flex-shrink-0 h-4 w-4 ${
+                              subItem.current
+                                ? 'text-red-500'
+                                : 'text-gray-400 group-hover:text-gray-500'
+                            }`}
+                          />
+                          {subItem.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </nav>
+
+            {/* Bottom Section */}
+            <div className="p-4">
+              <div className="p-4 bg-gradient-to-tr from-red-50 to-orange-50 rounded-xl">
+                <h3 className="text-sm font-medium text-red-900">Need Help?</h3>
+                <p className="mt-1 text-xs text-red-700">Contact our support team</p>
+                <button className="mt-3 w-full px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
+                  Get Support
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - add top padding to match header height */}
+      <div className="lg:pl-72 flex flex-col min-h-screen">
+        <main className="flex-1 pt-16">
+          <div className="px-4 sm:px-6 lg:px-8">{children}</div>
+        </main>
+      </div>
+
+      {/* Mobile Sidebar - highest z-index */}
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-[200] lg:hidden">
+        <div className="fixed inset-0 z-[100] lg:hidden">
           {/* Backdrop */}
           <div 
             className="fixed inset-0 bg-gray-600/75 backdrop-blur-sm"
@@ -255,81 +364,6 @@ export default function DashboardLayout({
           </div>
         </div>
       )}
-
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 z-[100]">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 overflow-y-auto">
-          {/* User Profile Section - Moved to top */}
-          <div className="px-4 py-4 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 h-12 w-12 relative">
-                {userDetails?.avatar_url ? (
-                  <Image
-                    src={cleanImageUrl(userDetails.avatar_url)}
-                    alt="Profile"
-                    fill
-                    className="rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-red-500 to-red-600 flex items-center justify-center text-white text-xl font-bold">
-                    {userDetails?.full_name?.[0] || 'S'}
-                  </div>
-                )}
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">
-                  {userDetails?.full_name || 'Store Owner'}
-                </p>
-                <p className="text-xs text-gray-500">Store Manager</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <div className="flex-grow flex flex-col pt-5">
-            <nav className="flex-1 px-3 pb-4 space-y-1">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
-                    pathname === item.href
-                      ? 'bg-red-50 text-red-700'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <item.icon
-                    className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
-                      pathname === item.href
-                        ? 'text-red-500'
-                        : 'text-gray-400 group-hover:text-gray-500'
-                    }`}
-                  />
-                  {item.name}
-                </Link>
-              ))}
-            </nav>
-
-            {/* Bottom Section */}
-            <div className="p-4">
-              <div className="p-4 bg-gradient-to-tr from-red-50 to-orange-50 rounded-xl">
-                <h3 className="text-sm font-medium text-red-900">Need Help?</h3>
-                <p className="mt-1 text-xs text-red-700">Contact our support team</p>
-                <button className="mt-3 w-full px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
-                  Get Support
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content - adjust padding */}
-      <div className="lg:pl-72 flex flex-col min-h-screen pt-16">
-        <main className="flex-1 pb-8">
-          <div className="px-4 sm:px-6 lg:px-8">{children}</div>
-        </main>
-      </div>
     </div>
   );
 }

@@ -152,8 +152,8 @@ export default function CartPage() {
     // Base calculations
     const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
     const ethiopiaTax = subtotal * 0.15; // 15% VAT
-    const platformCommission = subtotal * 0.05; // 5% platform fee
-    const serviceFee = subtotal * 0.02; // 2% service fee
+    const platformCommission = subtotal * 0.03; // Changed from 5% to 3% platform fee
+    const serviceFee = subtotal * 0.00; // 2% service fee
     // Sum up all delivery fees from products
     const deliveryFee = cartItems.reduce((sum, item) => sum + (item.delivery_fee || 0), 0);
 
@@ -171,192 +171,204 @@ export default function CartPage() {
   const fees = calculateFees();
   
   return (
-    <div className="min-h-screen bg-gray-50 pt-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Shopping Cart</h1>
-        
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
+        {/* Cart Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-gray-900">Shopping Cart</h1>
+          <button
+            onClick={() => router.push('/products')}
+            className="flex items-center text-green-600 hover:text-green-700 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Continue Shopping
+          </button>
+        </div>
+
         {loading ? (
-          <div className="flex justify-center py-20">
+          <div className="flex justify-center py-32">
             <LoadingSpinner />
           </div>
         ) : error ? (
-          <div className="bg-red-50 p-6 rounded-lg shadow-sm">
+          <div className="bg-red-50 p-8 rounded-xl shadow-sm">
             <ErrorMessage message={error} />
           </div>
         ) : cartItems.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-lg shadow-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900">Your cart is empty</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Looks like you haven't added any products to your cart yet.
+          <div className="text-center py-32 bg-white rounded-xl shadow-sm">
+            <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-2">Your cart is empty</h3>
+            <p className="text-gray-500 mb-8">
+              Discover our amazing products and add them to your cart!
             </p>
             <button
               onClick={() => router.push('/products')}
-              className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 transition-colors"
             >
-              Continue Shopping
+              Start Shopping
             </button>
           </div>
         ) : (
           <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start">
+            {/* Cart Items Section */}
             <div className="lg:col-span-8">
-              <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-6">
-                <ul role="list" className="divide-y divide-gray-200">
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <ul role="list" className="divide-y divide-gray-100">
                   {cartItems.map((item) => (
-                    <li key={item.id} className="p-6 flex flex-col sm:flex-row">
-                      <div className="flex-shrink-0 w-24 h-24 bg-gray-100 rounded-md overflow-hidden">
-                        {item.product?.images && item.product.images.length > 0 ? (
-                          <Image
-                            src={item.product.images[0].image_url}
-                            alt={item.product.title}
-                            width={96}
-                            height={96}
-                            className="w-full h-full object-center object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex-1 ml-0 sm:ml-6 mt-4 sm:mt-0">
-                        <div className="flex justify-between">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            <button 
-                              onClick={() => router.push(`/products/${item.product.id}`)}
-                              className="hover:text-green-600"
-                            >
-                              {item.product.title}
-                            </button>
-                          </h3>
-                          <div className="text-right">
-                            <div className="flex flex-col">
-                              {item.flash_sale_price ? (
-                                <>
-                                  <span className="text-lg font-medium text-red-600">
-                                    ${item.flash_sale_price.toFixed(2)}
-                                  </span>
-                                  <span className="text-sm text-gray-500 line-through">
+                    <li key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
+                      <div className="flex gap-6">
+                        {/* Product Image */}
+                        <div className="flex-shrink-0 w-32 h-32 bg-gray-100 rounded-lg overflow-hidden">
+                          {item.product?.images && item.product.images.length > 0 ? (
+                            <Image
+                              src={item.product.images[0].image_url}
+                              alt={item.product.title}
+                              width={128}
+                              height={128}
+                              className="w-full h-full object-center object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Product Details */}
+                        <div className="flex-1 flex flex-col">
+                          <div className="flex justify-between">
+                            <div>
+                              <h3 className="text-xl font-medium text-gray-900 mb-1">
+                                <button 
+                                  onClick={() => router.push(`/products/${item.product.id}`)}
+                                  className="hover:text-green-600 transition-colors"
+                                >
+                                  {item.product.title}
+                                </button>
+                              </h3>
+                              {/* Price Display */}
+                              <div className="flex items-baseline gap-2 mb-4">
+                                {item.flash_sale_price ? (
+                                  <>
+                                    <span className="text-2xl font-bold text-red-600">
+                                      ${item.flash_sale_price.toFixed(2)}
+                                    </span>
+                                    <span className="text-sm text-gray-500 line-through">
+                                      ${item.product.price.toFixed(2)}
+                                    </span>
+                                    <span className="text-sm font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                                      {Math.round(((item.product.price - item.flash_sale_price) / item.product.price) * 100)}% OFF
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="text-2xl font-bold text-gray-900">
                                     ${item.product.price.toFixed(2)}
                                   </span>
-                                  <span className="text-xs text-red-600">
-                                    {Math.round(((item.product.price - item.flash_sale_price) / item.product.price) * 100)}% OFF
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-lg font-medium text-gray-900">
-                                  ${item.product.price.toFixed(2)}
-                                </span>
-                              )}
-                              <span className="text-sm text-gray-500">
-                                Subtotal: ${item.subtotal.toFixed(2)}
-                              </span>
+                                )}
+                              </div>
                             </div>
-                            {item.delivery_fee > 0 && (
-                              <p className="text-sm text-gray-500">
-                                +${item.delivery_fee.toFixed(2)} delivery
+                          </div>
+
+                          {/* Quantity Controls and Subtotal */}
+                          <div className="mt-auto flex items-end justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                  disabled={isUpdating[item.id] || item.quantity <= 1}
+                                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 disabled:opacity-50 transition-colors"
+                                >
+                                  -
+                                </button>
+                                <span className="px-4 py-2 text-gray-900 font-medium min-w-[3rem] text-center">
+                                  {isUpdating[item.id] ? (
+                                    <div className="h-5 w-5 border-2 border-green-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                                  ) : (
+                                    item.quantity
+                                  )}
+                                </span>
+                                <button
+                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                  disabled={isUpdating[item.id]}
+                                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <button
+                                onClick={() => removeItem(item.id)}
+                                disabled={isUpdating[item.id]}
+                                className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                              >
+                                {isUpdating[item.id] && item.quantity === 0 ? (
+                                  <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  'Remove'
+                                )}
+                              </button>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-500 mb-1">Subtotal</p>
+                              <p className="text-lg font-semibold text-gray-900">
+                                ${item.subtotal.toFixed(2)}
                               </p>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="mt-4 flex items-center justify-between">
-                          <div className="flex items-center border border-gray-300 rounded-md">
-                            <button
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                              disabled={isUpdating[item.id] || item.quantity <= 1}
-                              className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                              -
-                            </button>
-                            <span className="px-3 py-1 text-gray-700">
-                              {isUpdating[item.id] ? (
-                                <div className="h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                              ) : (
-                                item.quantity
+                              {item.delivery_fee > 0 && (
+                                <p className="text-sm text-gray-500 mt-1">
+                                  +${item.delivery_fee.toFixed(2)} delivery
+                                </p>
                               )}
-                            </span>
-                            <button
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                              disabled={isUpdating[item.id]}
-                              className="px-3 py-1 text-gray-600 hover:bg-gray-100"
-                            >
-                              +
-                            </button>
+                            </div>
                           </div>
-                          
-                          <button
-                            onClick={() => removeItem(item.id)}
-                            disabled={isUpdating[item.id]}
-                            className="text-sm font-medium text-red-600 hover:text-red-500"
-                          >
-                            {isUpdating[item.id] && item.quantity === 0 ? (
-                              <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin mx-auto" />
-                            ) : (
-                              'Remove'
-                            )}
-                          </button>
                         </div>
                       </div>
                     </li>
                   ))}
                 </ul>
               </div>
-              
-              <div className="flex justify-between">
-                <button
-                  onClick={() => router.push('/products')}
-                  className="text-sm font-medium text-green-600 hover:text-green-500"
-                >
-                  ← Continue Shopping
-                </button>
-              </div>
             </div>
-            
-            <div className="mt-8 lg:mt-0 lg:col-span-4">
-              <div className="bg-white shadow-sm rounded-lg p-6">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Order Summary</h2>
+
+            {/* Order Summary Section */}
+            <div className="lg:col-span-4">
+              <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
                 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-600">Subtotal</p>
-                    <p className="text-gray-900 font-medium">${fees.subtotal.toFixed(2)}</p>
-                  </div>
+                  {/* Summary Items */}
+                  {[
+                    { label: 'Subtotal', value: fees.subtotal },
+                    { label: 'Ethiopia VAT (15%)', value: fees.ethiopiaTax },
+                    { label: 'Platform Fee (3%)', value: fees.platformCommission },
+                    { label: 'Service Fee (0%)', value: fees.serviceFee },
+                    { label: 'Delivery', value: fees.deliveryFee },
+                  ].map((item, index) => (
+                    <div key={index} className="flex justify-between text-gray-600">
+                      <span>{item.label}</span>
+                      <span>${item.value.toFixed(2)}</span>
+                    </div>
+                  ))}
                   
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-600">Ethiopia VAT (15%)</p>
-                    <p className="text-gray-900 font-medium">${fees.ethiopiaTax.toFixed(2)}</p>
+                  {/* Total */}
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-gray-900">Total</span>
+                      <span className="text-2xl font-bold text-gray-900">
+                        ${fees.total.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-600">Platform Fee (5%)</p>
-                    <p className="text-gray-900 font-medium">${fees.platformCommission.toFixed(2)}</p>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-600">Service Fee (2%)</p>
-                    <p className="text-gray-900 font-medium">${fees.serviceFee.toFixed(2)}</p>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <p className="text-gray-600">Delivery</p>
-                    <p className="text-gray-900 font-medium">${fees.deliveryFee.toFixed(2)}</p>
-                  </div>
-                  
-                  <div className="border-t border-gray-200 pt-4 flex items-center justify-between">
-                    <p className="text-lg font-medium text-gray-900">Total</p>
-                    <p className="text-xl font-bold text-gray-900">${fees.total.toFixed(2)}</p>
-                  </div>
-                  
+
+                  {/* Checkout Button */}
                   <button
                     onClick={proceedToCheckout}
                     disabled={isCheckingOut}
-                    className="w-full mt-6 bg-green-600 border border-transparent rounded-md shadow-sm py-3 px-4 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-70"
+                    className="w-full mt-6 bg-green-600 rounded-lg py-4 px-6 text-white font-medium hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-70 transition-colors"
                   >
                     {isCheckingOut ? (
                       <div className="flex items-center justify-center">
@@ -367,15 +379,13 @@ export default function CartPage() {
                       'Proceed to Checkout'
                     )}
                   </button>
-                  
-                  <div className="mt-4 text-sm text-gray-500">
-                    <p className="flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Secure payment
-                    </p>
 
+                  {/* Security Badge */}
+                  <div className="mt-6 flex items-center justify-center text-sm text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Secure checkout
                   </div>
                 </div>
               </div>

@@ -171,7 +171,7 @@ function ProductsContent() {
 
         // Apply category filter
         if (filters.category !== 'all') {
-          query = query.eq('category', filters.category);
+          query = query.ilike('category', filters.category);
         }
 
         // Apply price range filter

@@ -9,6 +9,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { motion } from 'framer-motion';
 import { getFlashSalePrices } from '@/utils/flashSales';
+import { Tab } from '@headlessui/react';
+import Link from 'next/link';
 
 // Add interfaces for store settings
 interface PaymentMethods {
@@ -24,13 +26,44 @@ interface DeliveryOptions {
 interface StoreSettings {
   name: string;
   description: string;
+  shortDescription: string;
   logo_url: string;
   banner_url: string;
-  email: string;
+  address: {
+    city: string;
+    subCity: string;
+    wereda: string;
+    kebele: string;
+    houseNo: string;
+    landmark: string;
+    mapLink: string;
+  };
   phone: string;
-  address: string;
-  payment_methods: PaymentMethods;
-  delivery_options: DeliveryOptions;
+  alternativePhone: string;
+  socialMedia: {
+    [key: string]: string;
+  };
+  workingHours: {
+    [key: string]: { open: string; close: string; isOpen: boolean };
+  };
+  payment_methods: {
+    [key: string]: boolean;
+  };
+  delivery_options: {
+    delivery: boolean;
+    pickup: boolean;
+    shipping: boolean;
+    deliveryRadius: number;
+    deliveryFee: number;
+    minimumOrderForFreeDelivery: number;
+    estimatedDeliveryTime: string;
+  };
+  businessType: string;
+  tinNumber: string;
+  businessLicense: string;
+  vatRegistered: boolean;
+  languages: { [key: string]: boolean };
+  features: { [key: string]: boolean };
 }
 
 export default function StorePage() {
@@ -43,6 +76,9 @@ export default function StorePage() {
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any>({});
   const supabase = createClientComponent();
+  const [activeTab, setActiveTab] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
+  const [store, setStore] = useState<StoreSettings | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -92,6 +128,18 @@ export default function StorePage() {
       setProducts(productsWithFlashSales || []);
       setDebugInfo(data);
 
+      // Fetch store settings
+      const { data: storeData, error: storeError } = await supabase
+        .from('users')
+        .select('store_settings')
+        .eq('id', id)
+        .single();
+
+      if (storeError) throw storeError;
+      if (!storeData?.store_settings) throw new Error('Store not found');
+
+      setStore(storeData.store_settings);
+
     } catch (err) {
       console.error('Error fetching store data:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -100,11 +148,8 @@ export default function StorePage() {
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner />;
-  }
-
-  if (error || !owner) {
+  if (loading) return <LoadingSpinner />;
+  if (error || !owner || !store) {
     return (
       <div className="min-h-screen bg-gray-50 pt-16 flex items-center justify-center">
         <div className="text-center p-8 max-w-md bg-white rounded-2xl shadow-lg">
@@ -141,167 +186,385 @@ export default function StorePage() {
     );
   }
 
-  // Create default store settings if missing
-  const storeSettings = owner.store_settings || {
-    name: owner.full_name || 'Store',
-    description: 'No description available',
-    logo_url: '',
-    banner_url: '',
-    email: owner.email || '',
-    phone: '',
-    address: '',
-    payment_methods: { cash: true },
-    delivery_options: { pickup: true }
+  // Group products by category
+  const productCategories = {
+    all: products,
+    featured: products.filter(p => p.is_featured),
+    new: products.filter(p => {
+      const createdAt = new Date(p.created_at);
+      return Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
+    }),
+    sale: products.filter(p => p.flash_sale_price),
+  };
+
+  // Sort products based on selected option
+  const sortProducts = (products: any[]) => {
+    switch (sortBy) {
+      case 'price-low':
+        return [...products].sort((a, b) => a.price - b.price);
+      case 'price-high':
+        return [...products].sort((a, b) => b.price - a.price);
+      case 'popular':
+        return [...products].sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
+      case 'newest':
+      default:
+        return [...products].sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 pt-16">
       {/* Store Banner */}
       <div className="relative h-64 md:h-80 w-full bg-gray-200">
-        {storeSettings.banner_url ? (
+        {store.banner_url && (
           <Image
-            src={storeSettings.banner_url}
-            alt={storeSettings.name}
+            src={store.banner_url}
+            alt={store.name}
             fill
             className="object-cover"
+            priority
           />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500" />
         )}
       </div>
 
-      {/* Store Info */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative -mt-24 sm:-mt-32 pb-8">
           <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+            {/* Store Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               {/* Store Logo */}
               <div className="relative h-32 w-32 rounded-2xl overflow-hidden bg-gray-100 ring-4 ring-white">
-                {storeSettings.logo_url ? (
+                {store.logo_url ? (
                   <Image
-                    src={storeSettings.logo_url}
-                    alt={storeSettings.name}
+                    src={store.logo_url}
+                    alt={store.name}
                     fill
                     className="object-cover"
                   />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-4xl font-bold">
-                    {storeSettings.name?.[0] || '?'}
+                    {store.name[0] || '?'}
                   </div>
                 )}
               </div>
 
               {/* Store Details */}
               <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {storeSettings.name}
-                </h1>
-                <p className="mt-2 text-lg text-gray-600">
-                  {storeSettings.description}
-                </p>
+                <h1 className="text-3xl font-bold text-gray-900">{store.name}</h1>
+                {store.shortDescription && (
+                  <p className="mt-2 text-lg text-gray-600">{store.shortDescription}</p>
+                )}
+                {store.description && (
+                  <p className="mt-2 text-base text-gray-500">{store.description}</p>
+                )}
+
+                {/* Business Info */}
+                {(store.businessType || store.vatRegistered || store.businessLicense || store.tinNumber) && (
+                  <div className="mt-4 space-y-2">
+                    {store.businessType && (
+                      <p className="text-sm text-gray-600">Business Type: {store.businessType}</p>
+                    )}
+                    {store.businessLicense && (
+                      <p className="text-sm text-gray-600">License: {store.businessLicense}</p>
+                    )}
+                    {store.tinNumber && (
+                      <p className="text-sm text-gray-600">TIN: {store.tinNumber}</p>
+                    )}
+                    {store.vatRegistered && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        VAT Registered
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Contact Info */}
                 <div className="mt-4 flex flex-wrap gap-4">
-                  {storeSettings.phone && (
+                  {store.phone && (
                     <a
-                      href={`tel:${storeSettings.phone}`}
+                      href={`tel:${store.phone}`}
                       className="inline-flex items-center text-sm text-gray-500 hover:text-indigo-600"
                     >
                       <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
-                      {storeSettings.phone}
+                      {store.phone}
                     </a>
                   )}
-                  {storeSettings.email && (
+                  {store.alternativePhone && (
                     <a
-                      href={`mailto:${storeSettings.email}`}
+                      href={`tel:${store.alternativePhone}`}
                       className="inline-flex items-center text-sm text-gray-500 hover:text-indigo-600"
                     >
                       <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
-                      {storeSettings.email}
+                      {store.alternativePhone}
                     </a>
                   )}
-                  {storeSettings.address && (
-                    <span className="inline-flex items-center text-sm text-gray-500">
-                      <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      {storeSettings.address}
-                    </span>
+                </div>
+
+                {/* Languages */}
+                {store.languages && Object.entries(store.languages).filter(([_, enabled]) => enabled).length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-sm font-medium text-gray-700">Available Languages:</h3>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {Object.entries(store.languages)
+                        .filter(([_, enabled]) => enabled)
+                        .map(([language]) => (
+                          <span
+                            key={language}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                          >
+                            {language.charAt(0).toUpperCase() + language.slice(1)}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Store Features */}
+                {store.features && Object.entries(store.features).filter(([_, enabled]) => enabled).length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-sm font-medium text-gray-700">Store Features:</h3>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {Object.entries(store.features)
+                        .filter(([_, enabled]) => enabled)
+                        .map(([feature]) => (
+                          <span
+                            key={feature}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                          >
+                            {feature.replace(/([A-Z])/g, ' $1').trim()}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Contact & Location */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Location</h2>
+                <div className="mt-4 space-y-2">
+                  <p className="text-gray-600">
+                    {[
+                      store.address.city,
+                      store.address.subCity,
+                      store.address.wereda && `Wereda ${store.address.wereda}`,
+                      store.address.kebele && `Kebele ${store.address.kebele}`,
+                      store.address.houseNo && `House No. ${store.address.houseNo}`,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
+                  {store.address.landmark && (
+                    <p className="text-gray-600">Near: {store.address.landmark}</p>
                   )}
+                  {store.address.mapLink && (
+                    <a
+                      href={store.address.mapLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-500 flex items-center"
+                    >
+                      <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                      </svg>
+                      View on Google Maps
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Working Hours */}
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Working Hours</h2>
+                <div className="mt-4 grid grid-cols-1 gap-2">
+                  {Object.entries(store.workingHours).map(([day, hours]) => (
+                    <div key={day} className="flex justify-between py-2 border-b">
+                      <span className="text-gray-600 capitalize">{day}</span>
+                      <span className="text-gray-900">
+                        {hours.isOpen ? `${hours.open} - ${hours.close}` : 'Closed'}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Payment & Delivery Options */}
-            {(storeSettings.payment_methods || storeSettings.delivery_options) && (
-              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-200">
-                {storeSettings.payment_methods && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">Payment Methods</h3>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(Object.entries(storeSettings.payment_methods) as [string, boolean][]).map(([method, isAvailable]) => (
-                        isAvailable && (
-                          <span key={method} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
-                            {method.charAt(0).toUpperCase() + method.slice(1)}
-                          </span>
-                        )
-                      ))}
+            {/* Delivery Options */}
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold text-gray-900">Delivery Information</h2>
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {store.delivery_options?.delivery && (
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h3 className="font-medium text-green-800">Local Delivery</h3>
+                      <p className="mt-2 text-sm text-green-700">
+                        {store.delivery_options.deliveryRadius && (
+                          <>
+                            Delivery within {store.delivery_options.deliveryRadius}km
+                            <br />
+                          </>
+                        )}
+                        {store.delivery_options.deliveryFee && (
+                          <>
+                            Fee: {store.delivery_options.deliveryFee} ETB
+                            <br />
+                          </>
+                        )}
+                        {store.delivery_options.minimumOrderForFreeDelivery && (
+                          <>
+                            Free delivery over {store.delivery_options.minimumOrderForFreeDelivery} ETB
+                          </>
+                        )}
+                        {store.delivery_options.estimatedDeliveryTime && (
+                          <>
+                            <br />
+                            Estimated delivery time: {store.delivery_options.estimatedDeliveryTime} minutes
+                          </>
+                        )}
+                      </p>
                     </div>
-                  </div>
-                )}
-                
-                {storeSettings.delivery_options && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900">Delivery Options</h3>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {(Object.entries(storeSettings.delivery_options) as [string, boolean][]).map(([option, isAvailable]) => (
-                        isAvailable && (
-                          <span key={option} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
-                            {option.charAt(0).toUpperCase() + option.slice(1)}
-                          </span>
-                        )
-                      ))}
+                  )}
+                  {store.delivery_options?.pickup && (
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h3 className="font-medium text-blue-800">Store Pickup</h3>
+                      <p className="mt-2 text-sm text-blue-700">
+                        Available during working hours
+                      </p>
                     </div>
-                  </div>
+                  )}
+                </div>
+                {!store.delivery_options?.delivery && !store.delivery_options?.pickup && (
+                  <p className="text-gray-500 text-center">No delivery options available</p>
                 )}
               </div>
-            )}
+            </div>
+
+            {/* Payment Methods */}
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold text-gray-900">Accepted Payments</h2>
+              <div className="mt-4 flex flex-wrap gap-4">
+                {Object.entries(store.payment_methods)
+                  .filter(([_, enabled]) => enabled)
+                  .map(([method]) => (
+                    <span
+                      key={method}
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800"
+                    >
+                      {method === 'mBirr' ? 'M-Birr' : method.charAt(0).toUpperCase() + method.slice(1)}
+                    </span>
+                  ))}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Products Section */}
-        <div className="py-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8">Store Products</h2>
-          {products.length > 0 ? (
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {products.map((product) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <ProductCard 
-                    product={{
-                      ...product,
-                      users: {
-                        id: owner.id,
-                        full_name: owner.full_name,
-                        store_settings: storeSettings
-                      },
-                      product_images: product.product_images,
-                      flash_sale_price: product.flash_sale_price
-                    }} 
-                  />
-                </motion.div>
-              ))}
-            </div>
-          ) : (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <h2 className="text-2xl font-bold text-gray-900">Store Products</h2>
+            
+            {/* Sort Dropdown */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm"
+            >
+              <option value="newest">Newest First</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+              <option value="popular">Most Popular</option>
+            </select>
+          </div>
+
+          {/* Product Categories */}
+          <Tab.Group onChange={(index) => setActiveTab(['all', 'featured', 'new', 'sale'][index])}>
+            <Tab.List className="flex space-x-2 rounded-xl bg-white p-1 shadow-sm mb-8">
+              <Tab className={({ selected }) =>
+                `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+                 ${selected
+                  ? 'bg-red-500 text-white shadow'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`
+              }>
+                All Products
+              </Tab>
+              <Tab className={({ selected }) =>
+                `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+                 ${selected
+                  ? 'bg-red-500 text-white shadow'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`
+              }>
+                Featured
+              </Tab>
+              <Tab className={({ selected }) =>
+                `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+                 ${selected
+                  ? 'bg-red-500 text-white shadow'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`
+              }>
+                New Arrivals
+              </Tab>
+              <Tab className={({ selected }) =>
+                `w-full rounded-lg py-2.5 text-sm font-medium leading-5
+                 ${selected
+                  ? 'bg-red-500 text-white shadow'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`
+              }>
+                On Sale
+              </Tab>
+            </Tab.List>
+          </Tab.Group>
+
+          {/* Product Grid */}
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {sortProducts(productCategories[activeTab as keyof typeof productCategories]).map((product) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <ProductCard 
+                  product={{
+                    ...product,
+                    users: {
+                      id: owner.id,
+                      full_name: owner.full_name,
+                      store_settings: store
+                    },
+                    product_images: product.product_images,
+                    flash_sale_price: product.flash_sale_price
+                  }} 
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Empty State */}
+          {productCategories[activeTab as keyof typeof productCategories].length === 0 && (
             <div className="text-center py-12 bg-white rounded-lg">
-              <p className="text-gray-500">No products available at the moment.</p>
+              <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center bg-gray-100 rounded-full">
+                <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">No products found</h3>
+              <p className="mt-2 text-gray-500">
+                {activeTab === 'all' 
+                  ? 'This store hasn\'t added any products yet.'
+                  : `No ${activeTab} products available at the moment.`}
+              </p>
             </div>
           )}
         </div>
