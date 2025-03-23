@@ -48,6 +48,13 @@ type FilterState = {
   priceRange: string;
 };
 
+// Add at the top with other interfaces
+interface Section {
+  title: string;
+  categories: string[];
+  hasProducts: boolean;
+}
+
 // Add the EmptyProductCard component at the top level
 const EmptyProductCard = ({ category }: { category: string }) => (
   <motion.div
@@ -215,6 +222,48 @@ export default function ClothingCollection() {
     products.some(product => !product.is_coming_soon)
   );
 
+  // Add this helper function to check if a section has any real products
+  const hasSectionProducts = (categoryGroup: string[]) => {
+    return categoryGroup.some(category => hasRealProducts(category));
+  };
+
+  // Update the filter functions with types
+  const sortCategories = (categories: string[]): string[] => {
+    return [...categories].sort((a, b) => {
+      const aHasProducts = hasRealProducts(a);
+      const bHasProducts = hasRealProducts(b);
+      if (aHasProducts && !bHasProducts) return -1;
+      if (!aHasProducts && bHasProducts) return 1;
+      return 0;
+    });
+  };
+
+  // Get sorted categories for each section
+  const sortedTraditionalCategories = sortCategories(CATEGORY_GROUPS['Traditional Wear']);
+  const sortedModernCategories = sortCategories(CATEGORY_GROUPS['Modern Fashion']);
+
+  // Add this function to sort sections
+  const getSortedSections = (): Section[] => {
+    const sections = [
+      { 
+        title: 'Traditional Wear', 
+        categories: sortedTraditionalCategories,
+        hasProducts: hasSectionProducts(CATEGORY_GROUPS['Traditional Wear'])
+      },
+      { 
+        title: 'Modern Fashion', 
+        categories: sortedModernCategories,
+        hasProducts: hasSectionProducts(CATEGORY_GROUPS['Modern Fashion'])
+      }
+    ];
+
+    return sections.sort((a, b) => {
+      if (a.hasProducts && !b.hasProducts) return -1;
+      if (!a.hasProducts && b.hasProducts) return 1;
+      return 0;
+    });
+  };
+
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
@@ -298,112 +347,92 @@ export default function ClothingCollection() {
           </div>
         </div>
 
-        {/* Products Grid */}
+        {/* Products Grid - Updated to show sections with products first */}
         <div className="space-y-16">
-          {/* Traditional Wear Section */}
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-8"
-          >
-            <h2 className="text-2xl font-bold text-white border-b border-gray-800 pb-4">
-              Traditional Wear
-            </h2>
-            {CATEGORY_GROUPS['Traditional Wear'].map(category => {
-              const filteredProducts = getFilteredProducts(categoryProducts[category] || []);
-              const hasReal = hasRealProducts(category);
-              
-              // Skip empty sections when filtering
-              if (filters.category !== 'All' && filters.category !== category) {
-                return null;
-              }
+          {getSortedSections().map(section => (
+            <motion.section
+              key={section.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              <h2 className="text-2xl font-bold text-white border-b border-gray-800 pb-4">
+                {section.title}
+              </h2>
+              <div className="space-y-12">
+                {/* Categories with real products */}
+                {section.categories
+                  .filter((category: string) => hasRealProducts(category))
+                  .map((category: string) => {
+                    const filteredProducts = getFilteredProducts(categoryProducts[category] || []);
+                    
+                    // Skip when filtering
+                    if (filters.category !== 'All' && filters.category !== category) {
+                      return null;
+                    }
 
-              return (
-                <div key={category} className="space-y-4">
-                  <h3 className="text-xl font-semibold text-white">{category}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {!hasReal || filteredProducts.length === 0 ? (
-                      <EmptyProductCard category={category} />
-                    ) : (
-                      filteredProducts.map((product, index) => (
-                        <motion.div
-                          key={product.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <ProductCard product={product} />
-                        </motion.div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </motion.section>
+                    return (
+                      <div key={category} className="space-y-4">
+                        <h3 className="text-xl font-semibold text-white">{category}</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          {filteredProducts.map((product, index) => (
+                            <motion.div
+                              key={product.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                            >
+                              <ProductCard product={product} />
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
 
-          {/* Modern Fashion Section */}
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-8"
-          >
-            <h2 className="text-2xl font-bold text-white border-b border-gray-800 pb-4">
-              Modern Fashion
-            </h2>
-            {CATEGORY_GROUPS['Modern Fashion'].map(category => {
-              const filteredProducts = getFilteredProducts(categoryProducts[category] || []);
-              const hasReal = hasRealProducts(category);
-              
-              // Skip empty sections when filtering
-              if (filters.category !== 'All' && filters.category !== category) {
-                return null;
-              }
+                {/* Categories without products (coming soon) */}
+                {section.categories
+                  .filter((category: string) => !hasRealProducts(category))
+                  .map((category: string) => {
+                    // Skip when filtering
+                    if (filters.category !== 'All' && filters.category !== category) {
+                      return null;
+                    }
 
-              return (
-                <div key={category} className="space-y-4">
-                  <h3 className="text-xl font-semibold text-white">{category}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {!hasReal || filteredProducts.length === 0 ? (
-                      <EmptyProductCard category={category} />
-                    ) : (
-                      filteredProducts.map((product, index) => (
-                        <motion.div
-                          key={product.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <ProductCard product={product} />
-                        </motion.div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </motion.section>
+                    return (
+                      <div key={category} className="space-y-4">
+                        <h3 className="text-xl font-semibold text-white">{category}</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                          <EmptyProductCard category={category} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </motion.section>
+          ))}
+
+          {/* Coming soon message - show only if no categories at all */}
+          {CATEGORY_GROUPS['Traditional Wear'].length === 0 && 
+           CATEGORY_GROUPS['Modern Fashion'].length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12"
+            >
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-8 max-w-2xl mx-auto">
+                <div className="text-6xl mb-4">👗</div>
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  Coming Soon!
+                </h3>
+                <p className="text-gray-400">
+                  We're putting together an amazing collection of traditional and modern fashion. 
+                  Check back soon to discover beautiful clothing pieces.
+                </p>
+              </div>
+            </motion.div>
+          )}
         </div>
-
-        {/* Show coming soon message only if no real products */}
-        {!hasAnyRealProducts && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-12"
-          >
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-8 max-w-2xl mx-auto">
-              <div className="text-6xl mb-4">👗</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Coming Soon!
-              </h3>
-              <p className="text-gray-400">
-                We're putting together an amazing collection of traditional and modern fashion. 
-                Check back soon to discover beautiful clothing pieces.
-              </p>
-            </div>
-          </motion.div>
-        )}
       </div>
     </div>
   );

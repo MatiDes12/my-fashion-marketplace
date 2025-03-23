@@ -40,7 +40,7 @@ interface CategoryProducts {
   [key: string]: Product[];
 }
 
-// Add this new component for empty product cards
+// Add this component after the existing type definitions and before the main component
 const EmptyProductCard = ({ category }: { category: string }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
@@ -131,6 +131,20 @@ export default function HomeLivingCollection() {
   const hasAnyRealProducts = Object.values(categoryProducts).some(products => 
     products.some(product => !product.is_coming_soon)
   );
+
+  // Add this helper function to sort categories
+  const sortCategories = (categories: string[]) => {
+    return [...categories].sort((a, b) => {
+      const aHasProducts = hasRealProducts(a);
+      const bHasProducts = hasRealProducts(b);
+      if (aHasProducts && !bHasProducts) return -1;
+      if (!aHasProducts && bHasProducts) return 1;
+      return 0;
+    });
+  };
+
+  // Get categories with real products
+  const categoriesWithProducts = sortCategories(CATEGORY_GROUPS['Home & Living']);
 
   useEffect(() => {
     fetchProducts();
@@ -289,9 +303,9 @@ export default function HomeLivingCollection() {
           </div>
         </div>
 
-        {/* Products Grid */}
+        {/* Products Grid - Modified to show categories with products first */}
         <div className="space-y-16">
-          {CATEGORY_GROUPS['Home & Living'].map(category => {
+          {sortCategories(CATEGORY_GROUPS['Home & Living']).map(category => {
             const filteredProducts = getFilteredProducts(categoryProducts[category] || []);
             const hasReal = hasRealProducts(category);
             
@@ -329,27 +343,27 @@ export default function HomeLivingCollection() {
               </motion.section>
             );
           })}
-        </div>
 
-        {/* Show coming soon message only if no real products */}
-        {!hasAnyRealProducts && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-12"
-          >
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-8 max-w-2xl mx-auto">
-              <div className="text-6xl mb-4">🏠</div>
-              <h3 className="text-xl font-semibold text-white mb-2">
-                Coming Soon!
-              </h3>
-              <p className="text-gray-400">
-                We're curating an amazing collection of home and living products. 
-                Check back soon to discover beautiful pieces for your home.
-              </p>
-            </div>
-          </motion.div>
-        )}
+          {/* Show coming soon message only if no categories at all */}
+          {CATEGORY_GROUPS['Home & Living'].length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12"
+            >
+              <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-8 max-w-2xl mx-auto">
+                <div className="text-6xl mb-4">🏠</div>
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  Coming Soon!
+                </h3>
+                <p className="text-gray-400">
+                  We're curating an amazing collection of home and living products. 
+                  Check back soon to discover beautiful pieces for your home.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </div>
       </div>
     </div>
   );
