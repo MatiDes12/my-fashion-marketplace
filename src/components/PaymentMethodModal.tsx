@@ -4,37 +4,96 @@ import { Fragment, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
-import { CartItem, SellerOrder } from '@/types/cart';
+import { CartItem } from '@/types/cart';
 import PaymentMethodSelector from './PaymentMethodSelector';
 import { PAYMENT_METHODS } from '@/utils/constants';
 import { getTelebirrConfig, TelebirrPayment } from '@/lib/telebirr';
+import { useUserDetails } from '@/hooks/useUserDetails';
+import { createClientComponent } from '@/lib/supabase';
 
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
 interface PaymentMethod {
-  id: string;
+  id: PaymentMethodType;
   name: string;
   logo: string;
   isAvailable: boolean;
+  description?: string;
+}
+
+interface PaymentSettings {
+  telebirr_settings?: {
+    is_active: boolean;
+  };
+  bank_settings?: {
+    is_active: boolean;
+  };
+  cbe_birr_settings?: {
+    is_active: boolean;
+  };
+  amole_settings?: {
+    is_active: boolean;
+  };
+  chapa_settings?: {
+    is_active: boolean;
+    public_key?: string;
+    secret_key?: string;
+    callback_url?: string;
+  };
+}
+
+interface SellerProduct {
+  id: string;
+  title: string;
+  price: number;
+  owner: {
+    id: string;
+    full_name: string;
+    store_settings?: {
+      name?: string;
+    };
+    payment_settings?: PaymentSettings;
+  };
+}
+
+interface SellerOrder {
+  sellerId: string;
+  sellerName: string;
+  product: SellerProduct;
+  quantity: number;
+  total: number;
+  platformFee: number;
+  serviceFee: number;
+  ethiopiaTax: number;
+  deliveryFee: number;
+  // ... other fields
 }
 
 const paymentMethods: PaymentMethod[] = [
   {
-    id: 'telebirr',
+    id: 'TELEBIRR',
     name: 'Telebirr',
-    logo: '/images/telebirr-logo.png', // Add this image to your public folder
-    isAvailable: true
+    logo: '/images/telebirr-logo.png',
+    isAvailable: true,
+    description: 'Pay directly with your Telebirr mobile wallet'
   },
   {
-    id: 'cbe',
+    id: 'CHAPA',
+    name: 'Chapa',
+    logo: '/images/chapa-logo.png',
+    isAvailable: true,
+    description: 'Pay with bank transfer, mobile money, or cards'
+  },
+  {
+    id: 'CBE',
     name: 'Commercial Bank of Ethiopia',
     logo: '/images/cbe-logo.png', // Add this image to your public folder
     isAvailable: false
   },
   {
-    id: 'paypal',
-    name: 'PayPal',
-    logo: '/images/paypal-logo.png', // Add this image to your public folder
+    id: 'AMOLE',
+    name: 'Amole',
+    logo: '/images/amole-logo.png', // Add this image to your public folder
     isAvailable: false
   }
 ];
@@ -47,6 +106,26 @@ interface PaymentMethodModalProps {
   sellers: SellerOrder[];
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+const clearCart = async (userId: string) => {
+  try {
+    const supabase = createClientComponent();
+    const { error } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    // Trigger cart count update in the header
+    window.dispatchEvent(new CustomEvent('cart-updated'));
+  } catch (error) {
+    console.error('Error clearing cart:', error);
+    throw error;
+  }
+};
+
 export default function PaymentMethodModal({
   isOpen,
   onClose,
@@ -54,6 +133,7 @@ export default function PaymentMethodModal({
   isProcessing,
   sellers
 }: PaymentMethodModalProps) {
+  const { userDetails } = useUserDetails();
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -62,9 +142,147 @@ export default function PaymentMethodModal({
   const [error, setError] = useState('');
   const [localProcessing, setLocalProcessing] = useState(false);
 
+  // Add this console.log to see what data we're receiving
+  console.log('Sellers data:', sellers);
+
+  // Get available payment methods for the seller
+  const getAvailablePaymentMethods = () => {
+    if (!sellers || sellers.length === 0) return [];
+
+    // Get the first seller's payment settings
+    const seller = sellers[0];
+    const paymentSettings = seller.product?.owner?.payment_settings;
+
+    console.log('Payment Settings:', paymentSettings); // Add this for debugging
+
+    return Object.values(PAYMENT_METHODS).filter(method => 
+      method.id === 'CASH' || // Cash is always available
+      (method.id === 'TELEBIRR' && paymentSettings?.telebirr_settings?.is_active) ||
+      (method.id === 'CBE' && paymentSettings?.bank_settings?.is_active) ||
+      (method.id === 'AMOLE' && paymentSettings?.amole_settings?.is_active) ||
+      (method.id === 'CHAPA' && paymentSettings?.chapa_settings?.is_active)
+    );
+  };
+
+  // Get the available payment methods
+  const availablePaymentMethods = getAvailablePaymentMethods();
+
   const handleSubmit = async () => {
     if (!selectedMethod) {
       setError('Please select a payment method');
+      return;
+    }
+
+    if (selectedMethod === 'CHAPA') {
+      try {
+        if (!userDetails?.email) {
+          throw new Error('Please login to continue with payment');
+        }
+
+        setLocalProcessing(true);
+        const totalAmount = sellers.reduce((sum, seller) => sum + seller.total, 0);
+        const txRef = `tx-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        
+        const supabase = createClientComponent();
+
+        console.log('Creating orders with tx_ref:', txRef);
+
+        // Create orders for each seller
+        for (const seller of sellers) {
+          console.log('Creating order for seller:', seller);
+
+          const { error: orderError } = await supabase
+            .from('orders')
+            .insert({
+              user_id: userDetails.id,
+              product_id: seller.product.id,
+              quantity: seller.quantity,
+              total_price: seller.total,
+              platform_fee: seller.platformFee,
+              service_fee: seller.serviceFee,
+              ethiopia_tax: seller.ethiopiaTax,
+              delivery_fee: seller.deliveryFee,
+              tx_ref: txRef,
+              payment_status: 'pending',
+              order_status: 'pending'
+            });
+
+          if (orderError) {
+            console.error('Order creation error:', orderError);
+            throw orderError;
+          }
+        }
+
+        // Initialize Chapa payment
+        const response = await fetch('/api/payments/chapa/initialize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: totalAmount.toString(),
+            email: userDetails.email,
+            tx_ref: txRef,
+            callback_url: `${BASE_URL}/api/payments/chapa/callback`,
+            customization: {
+              title: 'Order Payment',
+              description: `Payment for order from ${sellers.length} sellers`
+            }
+          }),
+        });
+
+        const data = await response.json();
+        console.log('Payment response:', data);
+
+        if (data.status !== 'success') {
+          throw new Error(data.message || 'Failed to initialize payment');
+        }
+
+        const checkoutUrl = data.data.checkout_url;
+        
+        if (!checkoutUrl) {
+          throw new Error('Invalid payment URL received');
+        }
+
+        // Open Chapa checkout in a new tab
+        window.open(checkoutUrl, '_blank');
+        
+        // Close the payment modal
+        onClose();
+
+        // Start polling for payment status
+        const pollPaymentStatus = async () => {
+          try {
+            const response = await fetch(`/api/payments/chapa/status?tx_ref=${txRef}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+              // Clear cart after successful payment
+              await clearCart(userDetails.id);
+              
+              // Show success message
+              toast.success('Payment successful! Your order has been placed.');
+              
+              // Redirect to orders page
+              window.location.href = '/orders';
+              return;
+            }
+
+            // If payment is still pending, continue polling
+            setTimeout(pollPaymentStatus, 2000); // Poll every 2 seconds
+          } catch (error) {
+            console.error('Error polling payment status:', error);
+            toast.error('Error checking payment status');
+          }
+        };
+
+        // Start polling
+        pollPaymentStatus();
+
+      } catch (error) {
+        console.error('Payment error:', error);
+        setError(error instanceof Error ? error.message : 'Payment failed');
+      } finally {
+        setLocalProcessing(false);
+      }
       return;
     }
 
@@ -84,6 +302,11 @@ export default function PaymentMethodModal({
 
         if (!data.success) {
           throw new Error(data.error || 'Failed to initialize payment');
+        }
+
+        // Clear cart after successful payment initiation
+        if (userDetails?.id) {
+          await clearCart(userDetails.id);
         }
 
         // Redirect to Telebirr payment page
@@ -143,36 +366,43 @@ export default function PaymentMethodModal({
 
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Order Summary</h4>
-                    {sellers.map((seller) => (
-                      <div key={seller.id} className="mb-4 border rounded-lg p-4">
+                    {sellers?.map((seller) => (
+                      <div key={seller.product.id || 'temp-key'} className="mb-4 border rounded-lg p-4">
                         <div className="flex justify-between mb-2">
-                          <span className="font-medium">{seller.name}</span>
+                          <div>
+                            <span className="font-medium">
+                              {seller?.product?.title || 'Product'}
+                            </span>
+                            <p className="text-sm text-gray-500">
+                              Quantity: {seller?.quantity || 0}
+                            </p>
+                          </div>
                         </div>
                         
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
                             <span className="text-gray-500">Subtotal</span>
-                            <span>ETB {seller.subtotal.toFixed(2)}</span>
+                            <span>ETB {((seller?.quantity || 0) * (seller?.product?.price || 0)).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Platform Fee (5%)</span>
-                            <span>ETB {seller.platformFee.toFixed(2)}</span>
+                            <span>ETB {(seller?.platformFee || 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Service Fee (2%)</span>
-                            <span>ETB {seller.serviceFee.toFixed(2)}</span>
+                            <span>ETB {(seller?.serviceFee || 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">VAT (15%)</span>
-                            <span>ETB {seller.ethiopiaTax.toFixed(2)}</span>
+                            <span>ETB {(seller?.ethiopiaTax || 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Delivery Fee</span>
-                            <span>ETB {seller.deliveryFee.toFixed(2)}</span>
+                            <span>ETB {(seller?.deliveryFee || 0).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between pt-2 border-t font-medium">
                             <span>Total</span>
-                            <span>ETB {seller.total.toFixed(2)}</span>
+                            <span>ETB {(seller?.total || 0).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -188,13 +418,37 @@ export default function PaymentMethodModal({
 
                   {step === 'method' ? (
                     <>
-                      <PaymentMethodSelector
-                        onSelect={(method) => {
-                          setSelectedMethod(method);
-                          setError('');
-                        }}
-                        selected={selectedMethod}
-                      />
+                      <div className="grid grid-cols-1 gap-4">
+                        {availablePaymentMethods.map((method) => (
+                          <button
+                            key={method.id}
+                            onClick={() => {
+                              setSelectedMethod(method.id);
+                              setError('');
+                            }}
+                            className={`flex items-center p-4 border rounded-lg ${
+                              selectedMethod === method.id 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : 'border-gray-200 hover:border-blue-200'
+                            }`}
+                          >
+                            <div className="w-12 h-12 relative mr-4">
+                              <Image
+                                src={method.logo}
+                                alt={method.name}
+                                fill
+                                className="object-contain"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-medium">{method.name}</h3>
+                              {method.description && (
+                                <p className="text-sm text-gray-500">{method.description}</p>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                       {error && (
                         <div className="mt-4 text-red-500">
                           {error}

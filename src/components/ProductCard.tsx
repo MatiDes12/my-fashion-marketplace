@@ -10,40 +10,52 @@ import ProductImage from './ProductImage';
 import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import ProductRating from '@/components/ProductRating';
 
-type ProductCardProps = {
-  product: {
+interface Product {
+  id: string;
+  title: string;
+  description?: string;
+  price: number;
+  flash_sale_price?: number | null;
+  category?: string;
+  owner_id?: string;
+  like_count?: number;
+  rating?: number;
+  ratings_count?: number;
+  avgRating?: number;
+  totalRatings?: number;
+  users?: {
     id: string;
-    title: string;
-    description: string;
-    price: number;
-    flash_sale_price?: number | null;
-    category?: string;
-    owner_id?: string;
-    like_count?: number;
-    users?: {
-      id: string;
-      full_name: string;
-      email?: string;
-      store_settings?: {
-        name: string;
-        logo_url: string;
-      };
-    } | null;
-    product_images?: Array<{
-      id: string;
-      image_url: string;
-      is_model_picture: boolean;
-    }>;
-    is_coming_soon?: boolean;
-    price_range?: string;
-  };
+    full_name: string;
+    email?: string;
+    store_settings?: {
+      name: string;
+      logo_url: string;
+    };
+  } | null;
+  product_images?: Array<{
+    id: string;
+    image_url: string;
+    is_model_picture: boolean;
+  }>;
+  is_coming_soon?: boolean;
+  price_range?: string;
+  is_active?: boolean;
+  ratings?: Array<{
+    rating: number;
+  }>;
+}
+
+interface ProductCardProps {
+  product: Product;
   showOwner?: boolean;
   showActions?: boolean;
   onDelete?: (id: string) => void;
-};
+  children?: React.ReactNode;
+}
 
-export default function ProductCard({ product, showOwner = false, showActions = false, onDelete }: ProductCardProps) {
+export default function ProductCard({ product, showOwner = false, showActions = false, onDelete, children }: ProductCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(product.like_count || 0);
   const [loading, setLoading] = useState(false);
@@ -148,6 +160,23 @@ export default function ProductCard({ product, showOwner = false, showActions = 
     }
   };
 
+  const calculateAverageRating = () => {
+    // First check if we have a pre-calculated average
+    if (product.avgRating !== undefined) {
+      return Number(product.avgRating.toFixed(1));
+    }
+    
+    // If not, calculate from ratings array
+    if (!product.ratings?.length) {
+      return 0;
+    }
+    
+    // Calculate average like in products page
+    const sum = product.ratings.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+    const average = sum / product.ratings.length;
+    return Number(average.toFixed(1));
+  };
+
   if (product.is_coming_soon) {
     return (
       <motion.div
@@ -158,11 +187,11 @@ export default function ProductCard({ product, showOwner = false, showActions = 
           <div className="flex items-center justify-center">
             <div className="text-center p-4">
               <div className="text-3xl mb-2">
-                {product.category.includes('traditional') ? '👘' : 
-                 product.category.includes('furniture') ? '🪑' :
-                 product.category.includes('kitchen') ? '🍽️' :
-                 product.category.includes('lighting') ? '💡' :
-                 product.category.includes('bedding') ? '🛏️' :
+                {product.category?.includes('traditional') ? '👘' : 
+                 product.category?.includes('furniture') ? '🪑' :
+                 product.category?.includes('kitchen') ? '🍽️' :
+                 product.category?.includes('lighting') ? '💡' :
+                 product.category?.includes('bedding') ? '🛏️' :
                  '✨'}
               </div>
               <div className="text-sm font-medium text-gray-300">
@@ -314,8 +343,24 @@ export default function ProductCard({ product, showOwner = false, showActions = 
               </button>
             </div>
           )}
+
+          <div className="mt-2 flex items-center">
+            <ProductRating
+              productId={product.id}
+              initialRating={calculateAverageRating()}
+              totalRatings={product.totalRatings ?? 0}
+              readonly={true}
+            />
+            {(product.totalRatings ?? 0) > 0 && (
+              <span className="ml-2 text-sm text-gray-500">
+                ({product.totalRatings})
+              </span>
+            )}
+          </div>
         </div>
       </Link>
+
+      {children}
     </div>
   );
 }

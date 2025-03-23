@@ -21,6 +21,7 @@ export default function NewProductPage() {
   const [success, setSuccess] = useState(false);
   const [quantity, setQuantity] = useState('');
   const [delivery_fee, setDeliveryFee] = useState('');
+  const [detailedDescription, setDetailedDescription] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClientComponent();
@@ -40,8 +41,8 @@ export default function NewProductPage() {
         return;
       }
 
-      if (images.length === 0) {
-        setError('Please upload at least one product image');
+      if (images.length < 4 || images.length > 8) {
+        setError(`Please upload between 4-8 images (you have ${images.length})`);
         setLoading(false);
         return;
       }
@@ -60,6 +61,7 @@ export default function NewProductPage() {
         .insert({
           title,
           description,
+          detailed_description: detailedDescription,
           price: parseFloat(price),
           category: finalCategory,
           owner_id: session.user.id,
@@ -146,19 +148,36 @@ export default function NewProductPage() {
   };
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files && e.target.files.length > 0) {
-      setImages(Array.from(e.target.files));
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      if (files.length < 4) {
+        setError('Please upload at least 4 images');
+        return;
+      }
+      if (files.length > 8) {
+        setError('Maximum 8 images allowed');
+        return;
+      }
+      setImages(files);
+      setError(null);
     }
   }
 
+  // Update the input and textarea styles with these classes
+  const inputClasses = "block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
+  const selectClasses = "block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
+
   return (
-    <div className="py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Add New Product</h1>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Add New Product</h3>
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">
+              Fill in the details below to create a new product listing
+            </p>
       </div>
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-8">
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             {success ? (
               <div className="rounded-md bg-green-50 p-4">
@@ -180,6 +199,9 @@ export default function NewProductPage() {
               <form onSubmit={handleSubmit} className="space-y-8">
                 {error && <ErrorMessage message={error} />}
                 
+                {/* Basic Information Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Basic Information</h4>
                 <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-4">
                     <label htmlFor="title" className="block text-sm font-medium text-gray-700">
@@ -191,50 +213,8 @@ export default function NewProductPage() {
                         id="title"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className={inputClasses}
                         placeholder="Traditional Habesha Dress"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-6">
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                      Description <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1">
-                      <textarea
-                        id="description"
-                        rows={4}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                        placeholder="Describe your product in detail..."
-                        required
-                      />
-                    </div>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Include details about materials, size, color, and any special features.
-                    </p>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-                      Price (ETB) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1 relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 sm:text-sm">ETB</span>
-                      </div>
-                      <input
-                        type="number"
-                        id="price"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        className="focus:ring-green-500 focus:border-green-500 block w-full pl-12 pr-12 sm:text-sm border-gray-300 rounded-md"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
                         required
                       />
                     </div>
@@ -251,29 +231,31 @@ export default function NewProductPage() {
                             id="category"
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                              className={selectClasses}
                             required={!showCustomCategory}
                           >
                             <option value="">Select a category</option>
                             
-                            {/* Main Categories */}
+                              {/* Traditional Wear */}
                             <optgroup label="Traditional Wear">
                               <option value="traditional_wear">Traditional Wear</option>
                               <option value="habesha_kemis">Habesha Kemis</option>
                               <option value="tilfi">Tilfi</option>
-                              <option value="cultural_accessories">Cultural Accessories</option>
+                                <option value="traditional_accessories">Traditional Accessories</option>
                             </optgroup>
 
+                              {/* Modern Fashion */}
                             <optgroup label="Modern Fashion">
                               <option value="modern_fashion">Modern Fashion</option>
                               <option value="dresses">Dresses</option>
                               <option value="tops">Tops</option>
                               <option value="pants_skirts">Pants & Skirts</option>
                               <option value="outerwear">Outerwear</option>
-                              <option value="accessories">Accessories</option>
+                                <option value="fashion_accessories">Fashion Accessories</option>
                               <option value="shoes">Shoes</option>
                             </optgroup>
 
+                              {/* Home & Living */}
                             <optgroup label="Home & Living">
                               <option value="home_living">Home & Living</option>
                               <option value="furniture">Furniture</option>
@@ -284,7 +266,133 @@ export default function NewProductPage() {
                               <option value="rugs_carpets">Rugs & Carpets</option>
                             </optgroup>
 
-                            {/* Add more optgroups for other categories */}
+                              {/* Beauty & Personal Care */}
+                              <optgroup label="Beauty & Personal Care">
+                                <option value="beauty_personal_care">Beauty & Personal Care</option>
+                                <option value="skincare">Skincare</option>
+                                <option value="hair_care">Hair Care</option>
+                                <option value="makeup">Makeup</option>
+                                <option value="fragrances">Fragrances</option>
+                                <option value="traditional_beauty">Traditional Beauty Products</option>
+                              </optgroup>
+
+                              {/* Jewelry & Accessories */}
+                              <optgroup label="Jewelry & Accessories">
+                                <option value="jewelry">Jewelry</option>
+                                <option value="watches">Watches</option>
+                                <option value="bags_purses">Bags & Purses</option>
+                                <option value="scarves_shawls">Scarves & Shawls</option>
+                              </optgroup>
+
+                              {/* Art & Collectibles */}
+                              <optgroup label="Art & Collectibles">
+                                <option value="art_collectibles">Art & Collectibles</option>
+                                <option value="paintings">Paintings</option>
+                                <option value="sculptures">Sculptures</option>
+                                <option value="traditional_art">Traditional Art</option>
+                                <option value="photography">Photography</option>
+                                <option value="handmade_crafts">Handmade Crafts</option>
+                              </optgroup>
+
+                              {/* Food & Beverages */}
+                              <optgroup label="Food & Beverages">
+                                <option value="food_beverages">Food & Beverages</option>
+                                <option value="coffee_tea">Coffee & Tea</option>
+                                <option value="spices_seasonings">Spices & Seasonings</option>
+                                <option value="traditional_foods">Traditional Foods</option>
+                                <option value="snacks">Snacks</option>
+                              </optgroup>
+
+                              {/* Electronics */}
+                              <optgroup label="Electronics">
+                                <option value="electronics">Electronics</option>
+                                <option value="phones_accessories">Phones & Accessories</option>
+                                <option value="computers_tablets">Computers & Tablets</option>
+                                <option value="audio_headphones">Audio & Headphones</option>
+                                <option value="smart_home">Smart Home</option>
+                              </optgroup>
+
+                              {/* Books & Media */}
+                              <optgroup label="Books & Media">
+                                <option value="books_media">Books & Media</option>
+                                <option value="books">Books</option>
+                                <option value="music">Music</option>
+                                <option value="movies">Movies</option>
+                                <option value="educational_materials">Educational Materials</option>
+                              </optgroup>
+
+                              {/* Kids & Baby */}
+                              <optgroup label="Kids & Baby">
+                                <option value="kids_baby">Kids & Baby</option>
+                                <option value="kids_clothing">Kids Clothing</option>
+                                <option value="baby_essentials">Baby Essentials</option>
+                                <option value="toys_games">Toys & Games</option>
+                                <option value="school_supplies">School Supplies</option>
+                              </optgroup>
+
+                              {/* Sports & Fitness */}
+                              <optgroup label="Sports & Fitness">
+                                <option value="sports_fitness">Sports & Fitness</option>
+                                <option value="exercise_equipment">Exercise Equipment</option>
+                                <option value="sports_wear">Sports Wear</option>
+                                <option value="outdoor_gear">Outdoor Gear</option>
+                              </optgroup>
+
+                              {/* Health & Wellness */}
+                              <optgroup label="Health & Wellness">
+                                <option value="health_wellness">Health & Wellness</option>
+                                <option value="traditional_medicine">Traditional Medicine</option>
+                                <option value="supplements">Supplements</option>
+                                <option value="medical_supplies">Medical Supplies</option>
+                              </optgroup>
+
+                              {/* Musical Instruments */}
+                              <optgroup label="Musical Instruments">
+                                <option value="musical_instruments">Musical Instruments</option>
+                                <option value="traditional_instruments">Traditional Instruments</option>
+                                <option value="modern_instruments">Modern Instruments</option>
+                                <option value="music_accessories">Music Accessories</option>
+                              </optgroup>
+
+                              {/* Party & Events */}
+                              <optgroup label="Party & Events">
+                                <option value="party_events">Party & Events</option>
+                                <option value="wedding_supplies">Wedding Supplies</option>
+                                <option value="holiday_decorations">Holiday Decorations</option>
+                                <option value="event_accessories">Event Accessories</option>
+                              </optgroup>
+
+                              {/* Pet Supplies */}
+                              <optgroup label="Pet Supplies">
+                                <option value="pet_supplies">Pet Supplies</option>
+                                <option value="pet_food">Pet Food</option>
+                                <option value="pet_accessories">Pet Accessories</option>
+                                <option value="pet_care">Pet Care</option>
+                              </optgroup>
+
+                              {/* Office & Stationery */}
+                              <optgroup label="Office & Stationery">
+                                <option value="office_stationery">Office & Stationery</option>
+                                <option value="office_supplies">Office Supplies</option>
+                                <option value="writing_materials">Writing Materials</option>
+                                <option value="organization">Organization</option>
+                              </optgroup>
+
+                              {/* Garden & Outdoor */}
+                              <optgroup label="Garden & Outdoor">
+                                <option value="garden_outdoor">Garden & Outdoor</option>
+                                <option value="plants_seeds">Plants & Seeds</option>
+                                <option value="garden_tools">Garden Tools</option>
+                                <option value="outdoor_furniture">Outdoor Furniture</option>
+                              </optgroup>
+
+                              {/* Vintage & Antiques */}
+                              <optgroup label="Vintage & Antiques">
+                                <option value="vintage_antiques">Vintage & Antiques</option>
+                                <option value="vintage_clothing">Vintage Clothing</option>
+                                <option value="antique_furniture">Antique Furniture</option>
+                                <option value="collectibles">Collectibles</option>
+                              </optgroup>
                             
                             <option value="custom">+ Add custom category</option>
                           </select>
@@ -314,7 +422,7 @@ export default function NewProductPage() {
                             id="customCategory"
                             value={customCategory}
                             onChange={(e) => setCustomCategory(e.target.value)}
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                              className={inputClasses}
                             placeholder="Enter custom category"
                             required={showCustomCategory}
                           />
@@ -335,8 +443,109 @@ export default function NewProductPage() {
                       </p>
                     </div>
                   </div>
+                  </div>
+                </div>
 
-                  <div className="sm:col-span-2">
+                {/* Description Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Product Description</h4>
+                  <div className="space-y-6">
+                    <div>
+                      <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                        Brief Description <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1">
+                        <textarea
+                          id="description"
+                          rows={2}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          className={inputClasses}
+                          placeholder="Brief overview of your product (will appear in product listings)"
+                          maxLength={200}
+                          required
+                        />
+                      </div>
+                      <p className="mt-2 text-sm text-gray-500">
+                        A brief summary of your product (max 200 characters)
+                      </p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="detailedDescription" className="block text-sm font-medium text-gray-700">
+                        Detailed Description <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1">
+                        <textarea
+                          id="detailedDescription"
+                          rows={6}
+                          value={detailedDescription}
+                          onChange={(e) => setDetailedDescription(e.target.value)}
+                          className={inputClasses}
+                          placeholder="Provide comprehensive details about your product..."
+                          required
+                        />
+                      </div>
+                      <div className="mt-2 bg-white p-4 rounded-md border border-gray-200">
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">Include information about:</h5>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
+                          <li className="flex items-center">
+                            <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Materials and fabric composition
+                          </li>
+                          <li className="flex items-center">
+                            <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Size and measurements
+                          </li>
+                          <li className="flex items-center">
+                            <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Care instructions
+                          </li>
+                          <li className="flex items-center">
+                            <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Special features
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing and Inventory Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Pricing & Inventory</h4>
+                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
+                    <div>
+                      <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+                        Price (ETB) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative rounded-lg">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-base">ETB</span>
+                        </div>
+                        <input
+                          type="number"
+                          id="price"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
+                          className={`${inputClasses} pl-12`}
+                          placeholder="0.00"
+                          step="0.01"
+                          min="0"
+                          required
+                        />
+                    </div>
+                  </div>
+
+                    <div>
                     <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
                       Quantity in Stock <span className="text-red-500">*</span>
                     </label>
@@ -346,89 +555,120 @@ export default function NewProductPage() {
                         id="quantity"
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
-                        className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                          className={inputClasses}
                         min="0"
                         required
                       />
                     </div>
                   </div>
 
-                  <div className="sm:col-span-2">
+                    <div>
                     <label htmlFor="delivery_fee" className="block text-sm font-medium text-gray-700">
-                      Delivery Fee (optional)
+                        Delivery Fee
                     </label>
-                    <div className="mt-1 relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 sm:text-sm">$</span>
+                      <div className="relative rounded-lg">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-base">ETB</span>
                       </div>
                       <input
                         type="number"
                         id="delivery_fee"
                         value={delivery_fee}
                         onChange={(e) => setDeliveryFee(e.target.value)}
-                        className="focus:ring-green-500 focus:border-green-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
+                          className={`${inputClasses} pl-12`}
                         placeholder="0.00"
                         step="0.01"
                         min="0"
                       />
                     </div>
-                    <p className="mt-1 text-sm text-gray-500">Leave empty for free delivery</p>
+                      <p className="mt-1 text-xs text-gray-500">Leave empty for free delivery</p>
+                    </div>
+                  </div>
                   </div>
 
-                  <div className="sm:col-span-6">
+                {/* Images Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-base font-medium text-gray-900">Product Images</h4>
+                    <span className="text-sm text-gray-500">
+                      {images.length}/8 images
+                    </span>
+                  </div>
+                  <div>
                     <label htmlFor="images" className="block text-sm font-medium text-gray-700">
-                      Product Images
+                      Upload Images <span className="text-red-500">*</span>
                     </label>
-                    <div className="mt-1">
+                    <p className="mt-1 text-sm text-gray-500">
+                      Upload 4-8 high-quality images of your product. Include different angles and details.
+                    </p>
+                    <div className="mt-3">
                       <input
                         type="file"
                         id="images"
                         ref={fileInputRef}
                         onChange={handleImageChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                        className="block w-full text-base text-gray-500 
+                          file:mr-4 file:py-3 file:px-4 
+                          file:rounded-lg file:border-0 
+                          file:text-base file:font-medium 
+                          file:bg-green-50 file:text-green-700 
+                          hover:file:bg-green-100
+                          border-2 border-gray-200 rounded-lg"
                         multiple
                         accept="image/*"
                       />
                     </div>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Upload high-quality images of your product. Multiple images recommended.
-                    </p>
                     {images.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          {images.length} {images.length === 1 ? 'file' : 'files'} selected
-                        </p>
+                      <div className="mt-4">
+                        <div className="flex items-center space-x-2">
+                          <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <p className="text-sm text-gray-700">
+                            {images.length} {images.length === 1 ? 'image' : 'images'} selected
+                          </p>
+                        </div>
                       </div>
                     )}
+                    <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+                      <h5 className="text-sm font-medium text-blue-800 mb-2">Image Guidelines:</h5>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Upload minimum 4 and maximum 8 images</li>
+                        <li>• First image will be the main product image</li>
+                        <li>• Include photos from different angles</li>
+                        <li>• Show both full product and detail shots</li>
+                        <li>• Use well-lit, clear photos</li>
+                        <li>• Recommended size: 1000x1000px or larger</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
 
-                <div className="pt-5">
-                  <div className="flex justify-end">
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3">
                     <Link
                       href="/dashboard/products"
-                      className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                     >
                       Cancel
                     </Link>
                     <button
                       type="submit"
                       disabled={loading}
-                      className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                     >
                       {loading ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Processing...
-                        </>
+                        Creating...
+                      </span>
                       ) : (
                         'Create Product'
                       )}
                     </button>
-                  </div>
                 </div>
               </form>
             )}

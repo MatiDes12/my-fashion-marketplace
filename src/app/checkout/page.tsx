@@ -8,19 +8,61 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { getFlashSalePrices } from '@/utils/flashSales';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
-import { CartItem, SellerOrder } from '@/types/cart';
+import { CartItem } from '@/types/cart';
 import { PAYMENT_METHODS } from '@/utils/constants';
 import { getTelebirrConfig, createOrder, applyFabricToken } from '@/lib/telebirr';
 
 // Import or define PaymentMethodType
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
-interface Seller {
+interface PaymentSettings {
+  telebirr_settings?: {
+    is_active: boolean;
+  };
+  bank_settings?: {
+    is_active: boolean;
+  };
+  cbe_birr_settings?: {
+    is_active: boolean;
+  };
+  amole_settings?: {
+    is_active: boolean;
+  };
+  chapa_settings?: {
+    is_active: boolean;
+    public_key?: string;
+    secret_key?: string;
+    callback_url?: string;
+  };
+}
+
+interface ProductOwner {
   id: string;
-  name: string;
-  hasPaymentSettings: boolean;
+  full_name: string;
+  store_settings?: {
+    name?: string;
+  };
+  payment_settings?: PaymentSettings;
+}
+
+interface SellerOrder {
+  sellerId: string;
+  sellerName: string;
+  product: {
+    id: string;
+    title: string;
+    price: number;
+    images?: { image_url: string; }[];
+    owner: ProductOwner;
+  };
+  quantity: number;
+  subtotal: number;
+  platformFee: number;
+  serviceFee: number;
+  ethiopiaTax: number;
+  deliveryFee: number;
   total: number;
-  items: CartItem[];
+  hasPaymentSettings: boolean;
 }
 
 export default function CheckoutPage() {
@@ -54,7 +96,7 @@ export default function CheckoutPage() {
             owner:users (
               id,
               full_name,
-              payment_settings(telebirr_settings)
+              payment_settings(*)
             ),
             images:product_images (
               image_url
@@ -69,7 +111,7 @@ export default function CheckoutPage() {
       const productIds = data.map(item => item.product.id);
       const flashSalePrices = await getFlashSalePrices(productIds);
 
-      // Process items with flash sale prices
+      // Process items with flash sale prices and payment settings
       const processedItems = data.map(item => ({
         ...item,
         price: flashSalePrices[item.product.id] || item.product.price,
@@ -79,7 +121,10 @@ export default function CheckoutPage() {
           title: item.product.title,
           description: item.product.description,
           images: item.product.images,
-          owner: item.product.owner
+          owner: {
+            ...item.product.owner,
+            payment_settings: item.product.owner.payment_settings
+          }
         }
       }));
 
@@ -96,8 +141,8 @@ export default function CheckoutPage() {
   const calculateFees = (items: CartItem[]) => {
     const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
     const ethiopiaTax = subtotal * 0.15; // 15% VAT
-    const platformCommission = subtotal * 0.05; // 5% platform fee
-    const serviceFee = subtotal * 0.02; // 2% service fee
+    const platformCommission = subtotal * 0.03; // 3% platform fee
+    const serviceFee = subtotal * 0.00; // 0% service fee
     const deliveryFee = items.reduce((sum, item) => sum + (item.delivery_fee || 0), 0);
 
     return {
@@ -130,8 +175,8 @@ export default function CheckoutPage() {
             product_id: item.product_id,
             quantity: item.quantity,
             total_price: item.quantity * item.price,
-            platform_fee: (item.quantity * item.price) * 0.05, // Store platform fee
-            service_fee: (item.quantity * item.price) * 0.02, // Store service fee
+            platform_fee: (item.quantity * item.price) * 0.03, // Store platform fee
+            service_fee: (item.quantity * item.price) * 0.00, // Store service fee
             ethiopia_tax: (item.quantity * item.price) * 0.15, // Store VAT
             delivery_fee: fees.deliveryFee / cartItems.length, // Split delivery fee among items
             order_status: 'pending'
@@ -175,9 +220,9 @@ export default function CheckoutPage() {
         for (const seller of sellers) {
           try {
             const paymentUrl = await createTelebirrOrder({
-              title: `Order #${Date.now()}-${seller.id.substring(0, 4)}`,
+              title: `Order #${Date.now()}-${seller.sellerId.substring(0, 4)}`,
               amount: seller.total,
-              sellerId: seller.id,
+              sellerId: seller.sellerId,
             });
 
             // Redirect to payment page
@@ -223,26 +268,32 @@ export default function CheckoutPage() {
     
     if (!acc[sellerId]) {
       acc[sellerId] = {
-        id: sellerId,
-        name: sellerName,
-        hasPaymentSettings: Boolean(
-          item.product.owner.payment_settings?.telebirr_settings?.is_active
-        ),
+        sellerId: sellerId,
+        sellerName: sellerName,
+        product: {
+          id: item.product.id,
+          title: item.product.title,
+          price: item.price,
+          images: item.product.images,
+          owner: item.product.owner
+        },
+        quantity: item.quantity,
         subtotal: 0,
         platformFee: 0,
         serviceFee: 0,
         ethiopiaTax: 0,
         deliveryFee: 0,
         total: 0,
-        items: []
+        hasPaymentSettings: Boolean(
+          item.product.owner.payment_settings?.telebirr_settings?.is_active
+        )
       };
     }
     
     const itemSubtotal = item.quantity * item.price;
-    acc[sellerId].items.push(item);
     acc[sellerId].subtotal += itemSubtotal;
-    acc[sellerId].platformFee += itemSubtotal * 0.05;
-    acc[sellerId].serviceFee += itemSubtotal * 0.02;
+    acc[sellerId].platformFee += itemSubtotal * 0.03;
+    acc[sellerId].serviceFee += itemSubtotal * 0.00;
     acc[sellerId].ethiopiaTax += itemSubtotal * 0.15;
     acc[sellerId].deliveryFee += item.delivery_fee || 0;
     acc[sellerId].total = (
@@ -339,10 +390,10 @@ export default function CheckoutPage() {
 
             {/* Seller Information */}
             {sellers.map((seller) => (
-              <div key={seller.id} className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
+              <div key={seller.sellerId} className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
                 <div className="p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    Seller: {seller.name}
+                    Seller: {seller.sellerName}
                   </h2>
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
@@ -382,11 +433,11 @@ export default function CheckoutPage() {
                       <span className="text-gray-900">${fees.ethiopiaTax.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-base">
-                      <span className="text-gray-600">Platform Fee (5%)</span>
+                      <span className="text-gray-600">Platform Fee (3%)</span>
                       <span className="text-gray-900">${fees.platformCommission.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-base">
-                      <span className="text-gray-600">Service Fee (2%)</span>
+                      <span className="text-gray-600">Service Fee (0%)</span>
                       <span className="text-gray-900">${fees.serviceFee.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-base">
@@ -451,7 +502,18 @@ export default function CheckoutPage() {
         onClose={() => setIsPaymentModalOpen(false)}
         onSelectMethod={handlePaymentMethodSelect}
         isProcessing={isProcessing}
-        sellers={sellers}
+        sellers={sellers.map(seller => ({
+          ...seller,
+          product: {
+            ...seller.product,
+            owner: {
+              id: seller.product.owner.id,
+              full_name: seller.product.owner.full_name,
+              store_settings: seller.product.owner.store_settings,
+              payment_settings: seller.product.owner.payment_settings as PaymentSettings
+            }
+          }
+        }))}
       />
     </div>
   );

@@ -6,11 +6,10 @@ import Image from 'next/image';
 import { createClientComponent } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorMessage from '@/components/ErrorMessage';
 import { motion } from 'framer-motion';
 import { getFlashSalePrices } from '@/utils/flashSales';
 import { Tab } from '@headlessui/react';
-import Link from 'next/link';
+
 
 // Add interfaces for store settings
 interface PaymentMethods {
@@ -47,7 +46,12 @@ interface StoreSettings {
     [key: string]: { open: string; close: string; isOpen: boolean };
   };
   payment_methods: {
-    [key: string]: boolean;
+    cash: boolean;
+    TELEBIRR: boolean;
+    CBE: boolean;
+    AMOLE: boolean;
+    CHAPA: boolean;
+    BANK: boolean;
   };
   delivery_options: {
     delivery: boolean;
@@ -97,48 +101,86 @@ export default function StorePage() {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching store data for ID:', id);
-      
-      // Use a direct fetch to bypass RLS for public data
-      const response = await fetch(`/api/stores/${id}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
+      // First get the store data
+      const storeResponse = await fetch(`/api/stores/${id}`);
+      if (!storeResponse.ok) {
+        const errorData = await storeResponse.json();
         throw new Error(errorData.message || 'Failed to fetch store data');
       }
       
-      const data = await response.json();
-      console.log('Store API response:', data);
-      
-      if (!data.owner) {
+      const storeData = await storeResponse.json();
+      if (!storeData.owner) {
         throw new Error(`Store not found. ID: ${id}`);
       }
 
-      // Get flash sale prices for all products
-      const productIds = data.products?.map((p: any) => p.id) || [];
-      const flashSalePrices = await getFlashSalePrices(productIds);
-
-      // Add flash sale prices to products without modifying the original structure
-      const productsWithFlashSales = data.products?.map((product: any) => ({
-        ...product,
-        flash_sale_price: flashSalePrices[product.id]
-      }));
-      
-      setOwner(data.owner);
-      setProducts(productsWithFlashSales || []);
-      setDebugInfo(data);
-
-      // Fetch store settings
-      const { data: storeData, error: storeError } = await supabase
-        .from('users')
-        .select('store_settings')
-        .eq('id', id)
+      // Then fetch the store owner's payment settings
+      const { data: paymentSettings, error: paymentSettingsError } = await supabase
+        .from('payment_settings')
+        .select('*')
+        .eq('user_id', storeData.owner.id)
         .single();
 
-      if (storeError) throw storeError;
-      if (!storeData?.store_settings) throw new Error('Store not found');
+      // If no payment settings exist, use default values
+      const activePaymentMethods = {
+        cash: true, // Always available
+        TELEBIRR: paymentSettings?.telebirr_settings?.is_active === true,
+        CBE: paymentSettings?.cbe_birr_settings?.is_active === true,
+        AMOLE: paymentSettings?.amole_settings?.is_active === true,
+        CHAPA: paymentSettings?.chapa_settings?.is_active === true,
+        BANK: paymentSettings?.bank_settings?.is_active === true
+      };
 
-      setStore(storeData.store_settings);
+      // Rest of the data fetching (products, ratings, likes)
+      const productIds = storeData.products?.map((p: any) => p.id) || [];
+      const flashSalePrices = await getFlashSalePrices(productIds);
+
+      // Fetch ratings and likes data
+      const { data: ratingsData } = await supabase
+        .from('ratings')
+        .select(`
+          id,
+          rating,
+          product_id,
+          user_id
+        `)
+        .in('product_id', productIds);
+
+      const { data: likesData } = await supabase
+        .from('likes')
+        .select('*')
+        .in('product_id', productIds);
+
+      // Calculate metrics for each product
+      const productsWithMetrics = storeData.products?.map((product: any) => {
+        const productRatings = (ratingsData || []).filter(r => r.product_id === product.id);
+        const productLikes = (likesData || []).filter(l => l.product_id === product.id);
+        
+        // Calculate average rating
+        const avgRating = productRatings.length > 0 
+          ? productRatings.reduce((acc: number, curr: any) => acc + (curr.rating || 0), 0) / productRatings.length 
+          : 0;
+
+        return {
+          ...product,
+          flash_sale_price: flashSalePrices[product.id],
+          metrics: {
+            avgRating: Number(avgRating.toFixed(1)),
+            totalRatings: productRatings.length,
+            totalLikes: productLikes.length
+          }
+        };
+      });
+
+      setOwner(storeData.owner);
+      setProducts(productsWithMetrics || []);
+
+      // Merge payment settings with store settings
+      const mergedSettings = {
+        ...storeData.owner.store_settings,
+        payment_methods: activePaymentMethods
+      };
+
+      setStore(mergedSettings);
 
     } catch (err) {
       console.error('Error fetching store data:', err);
@@ -148,10 +190,17 @@ export default function StorePage() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-16">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   if (error || !owner || !store) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-16 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 pt-4 flex items-center justify-center">
         <div className="text-center p-8 max-w-md bg-white rounded-2xl shadow-lg">
           <div className="text-red-600 mb-4">
             <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,7 +264,7 @@ export default function StorePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-16">
+    <div className="min-h-screen bg-gray-50 pt-12">
       {/* Store Banner */}
       <div className="relative h-64 md:h-80 w-full bg-gray-200">
         {store.banner_url && (
@@ -449,18 +498,78 @@ export default function StorePage() {
 
             {/* Payment Methods */}
             <div className="mt-8">
-              <h2 className="text-lg font-semibold text-gray-900">Accepted Payments</h2>
-              <div className="mt-4 flex flex-wrap gap-4">
-                {Object.entries(store.payment_methods)
-                  .filter(([_, enabled]) => enabled)
-                  .map(([method]) => (
-                    <span
-                      key={method}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800"
-                    >
-                      {method === 'mBirr' ? 'M-Birr' : method.charAt(0).toUpperCase() + method.slice(1)}
-                    </span>
-                  ))}
+              <h3 className="text-lg font-semibold mb-4">Accepted Payments</h3>
+              <div className="flex flex-wrap gap-3">
+                {/* Always show Cash */}
+                <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                  <span className="text-lg mr-2">💵</span>
+                  <span>Cash</span>
+                </div>
+
+                {/* Show Telebirr if active */}
+                {store?.payment_methods?.TELEBIRR && (
+                  <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                    <Image 
+                      src="/images/payment-methods/Telebirr-logo.png" 
+                      alt="Telebirr" 
+                      width={24} 
+                      height={24} 
+                      className="mr-2"
+                    />
+                    <span>Telebirr</span>
+                  </div>
+                )}
+
+                {/* Show CBE if active */}
+                {store?.payment_methods?.CBE && (
+                  <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                    <Image 
+                      src="/images/cbe-logo.png" 
+                      alt="CBE" 
+                      width={24} 
+                      height={24} 
+                      className="mr-2"
+                    />
+                    <span>CBE</span>
+                  </div>
+                )}
+
+                {/* Show Amole if active */}
+                {store?.payment_methods?.AMOLE && (
+                  <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                    <Image 
+                      src="/images/amole-logo.png" 
+                      alt="Amole" 
+                      width={24} 
+                      height={24} 
+                      className="mr-2"
+                    />
+                    <span>Amole</span>
+                  </div>
+                )}
+
+                {/* Show Chapa if active */}
+                {store?.payment_methods?.CHAPA && (
+                  <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                    <Image 
+                      src="/images/payment-methods/chapa-logo.png" 
+                      alt="Chapa" 
+                      width={48} 
+                      height={32} 
+                      className="mr-2"
+                      style={{ objectFit: 'contain' }}
+                    />
+                    <span>Chapa</span>
+                  </div>
+                )}
+
+                {/* Show Bank Transfer if active */}
+                {store?.payment_methods?.BANK && (
+                  <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                    <span className="text-lg mr-2">🏦</span>
+                    <span>Bank Transfer</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -537,15 +646,24 @@ export default function StorePage() {
               >
                 <ProductCard 
                   product={{
-                    ...product,
+                    id: product.id,
+                    title: product.title,
+                    price: product.price,
+                    description: product.description,
+                    flash_sale_price: product.flash_sale_price,
+                    product_images: product.product_images,
                     users: {
                       id: owner.id,
                       full_name: owner.full_name,
                       store_settings: store
                     },
-                    product_images: product.product_images,
-                    flash_sale_price: product.flash_sale_price
-                  }} 
+                    like_count: product.metrics.totalLikes,
+                    avgRating: product.metrics.avgRating,
+                    totalRatings: product.metrics.totalRatings,
+                    is_active: product.is_active,
+                    owner_id: owner.id,
+                    category: product.category
+                  }}
                 />
               </motion.div>
             ))}

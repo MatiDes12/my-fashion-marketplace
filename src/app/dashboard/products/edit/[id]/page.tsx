@@ -21,6 +21,7 @@ type Product = {
   id: string;
   title: string;
   description: string;
+  detailed_description: string;
   price: number;
   category: string;
   is_active: boolean;
@@ -57,6 +58,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     category: '',
     delivery_fee: '',
   });
+  const [detailedDescription, setDetailedDescription] = useState('');
 
   // Clean image URL helper
   const cleanImageUrl = (url: string | undefined): string => {
@@ -114,14 +116,15 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         // Set product data
         setProduct(productData);
         setTitle(productData.title);
-        setDescription(productData.description);
+        setDescription(productData.description || '');
         setPrice(productData.price.toString());
         setCategory(productData.category || '');
         setIsActive(productData.is_active);
         setQuantity(productData.quantity.toString());
+        setDetailedDescription(productData.detailed_description || '');
         setFormData({
           title: productData.title,
-          description: productData.description,
+          description: productData.description || '',
           price: productData.price.toString(),
           quantity: productData.quantity.toString(),
           category: productData.category,
@@ -164,6 +167,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         .update({
           title,
           description,
+          detailed_description: detailedDescription,
           price: parseFloat(price),
           category: finalCategory,
           is_active: isActive,
@@ -225,6 +229,12 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         }
       }
 
+      if (existingImages.length + newImages.length < 4 || existingImages.length + newImages.length > 8) {
+        setError(`Please maintain between 4-8 images (you have ${existingImages.length + newImages.length})`);
+        setSaving(false);
+        return;
+      }
+
       setSuccess(true);
       setTimeout(() => {
         router.push('/dashboard/products');
@@ -238,8 +248,20 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   };
 
   function handleNewImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files && e.target.files.length > 0) {
-      setNewImages(Array.from(e.target.files));
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      const totalImages = existingImages.length + files.length;
+      
+      if (totalImages < 4) {
+        setError('Please upload enough images to have at least 4 total');
+        return;
+      }
+      if (totalImages > 8) {
+        setError('Maximum 8 images allowed in total');
+        return;
+      }
+      setNewImages(files);
+      setError(null);
     }
   }
 
@@ -250,6 +272,10 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       setImagesToDelete([...imagesToDelete, imageId]);
     }
   }
+
+  // Add the same input and select classes at the top
+  const inputClasses = "block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
+  const selectClasses = "block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -283,243 +309,251 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} className="space-y-8">
                 {error && <ErrorMessage message={error} />}
-                
-                <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                  <div className="sm:col-span-4">
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                      Product Title <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        type="text"
-                        id="title"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                        required
-                      />
+
+                {/* Basic Information Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Basic Information</h4>
+                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                    <div className="sm:col-span-4">
+                      <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                        Product Title <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          type="text"
+                          id="title"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          className={inputClasses}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-6">
+                      <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                        Brief Description <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1">
+                        <textarea
+                          id="description"
+                          rows={2}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          className={inputClasses}
+                          placeholder="Brief overview of your product (will appear in product listings)"
+                          maxLength={200}
+                          required
+                        />
+                      </div>
+                      <p className="mt-2 text-sm text-gray-500">
+                        A brief summary of your product (max 200 characters)
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+                        Price (ETB) <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1 relative rounded-md shadow-sm">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-gray-500 sm:text-sm">ETB</span>
+                        </div>
+                        <input
+                          type="number"
+                          id="price"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
+                          className={`${inputClasses} pl-12`}
+                          min="0"
+                          step="0.01"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                        Category <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1">
+                        {!showCustomCategory ? (
+                          <>
+                            <select
+                              id="category"
+                              value={category}
+                              onChange={(e) => setCategory(e.target.value)}
+                              className={selectClasses}
+                              required={!showCustomCategory}
+                            >
+                              <option value="">Select a category</option>
+                              
+                              {/* Traditional Wear */}
+                              <optgroup label="Traditional Wear">
+                                <option value="traditional_wear">Traditional Wear</option>
+                                <option value="habesha_kemis">Habesha Kemis</option>
+                                <option value="tilfi">Tilfi</option>
+                                <option value="traditional_accessories">Traditional Accessories</option>
+                              </optgroup>
+
+                              {/* Modern Fashion */}
+                              <optgroup label="Modern Fashion">
+                                <option value="modern_fashion">Modern Fashion</option>
+                                <option value="dresses">Dresses</option>
+                                <option value="tops">Tops</option>
+                                <option value="pants_skirts">Pants & Skirts</option>
+                                <option value="outerwear">Outerwear</option>
+                                <option value="fashion_accessories">Fashion Accessories</option>
+                                <option value="shoes">Shoes</option>
+                              </optgroup>
+
+                              {/* Add all other category groups here... */}
+                              
+                              <option value="custom">+ Add custom category</option>
+                            </select>
+                            {category === 'custom' && (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowCustomCategory(true);
+                                    setCategory('');
+                                  }}
+                                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                >
+                                  <svg className="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                  </svg>
+                                  Create custom category
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex">
+                            <input
+                              type="text"
+                              id="customCategory"
+                              value={customCategory}
+                              onChange={(e) => setCustomCategory(e.target.value)}
+                              className={inputClasses}
+                              placeholder="Enter custom category"
+                              required={showCustomCategory}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowCustomCategory(false);
+                                setCustomCategory('');
+                              }}
+                              className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                        Status
+                      </label>
+                      <div className="mt-1">
+                        <select
+                          id="status"
+                          value={isActive ? 'active' : 'inactive'}
+                          onChange={(e) => setIsActive(e.target.value === 'active')}
+                          className={selectClasses}
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
+                        Quantity in Stock <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1">
+                        <input
+                          type="number"
+                          id="quantity"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          className={inputClasses}
+                          min="0"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="delivery_fee" className="block text-sm font-medium text-gray-700">
+                        Delivery Fee (optional)
+                      </label>
+                      <div className="relative rounded-lg">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <span className="text-gray-500 text-base">ETB</span>
+                        </div>
+                        <input
+                          type="number"
+                          id="delivery_fee"
+                          value={formData.delivery_fee}
+                          onChange={(e) => setFormData({ ...formData, delivery_fee: e.target.value })}
+                          className={`${inputClasses} pl-12`}
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500">Leave empty for free delivery</p>
                     </div>
                   </div>
+                </div>
 
+                {/* Description Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Product Description</h4>
                   <div className="sm:col-span-6">
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                      Description <span className="text-red-500">*</span>
+                    <label htmlFor="detailedDescription" className="block text-sm font-medium text-gray-700">
+                      Detailed Description <span className="text-red-500">*</span>
                     </label>
                     <div className="mt-1">
                       <textarea
-                        id="description"
-                        rows={4}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                        id="detailedDescription"
+                        rows={6}
+                        value={detailedDescription}
+                        onChange={(e) => setDetailedDescription(e.target.value)}
+                        className={inputClasses}
+                        placeholder="Provide comprehensive details about your product..."
                         required
                       />
                     </div>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Include detailed information about:
+                      <ul className="list-disc pl-5 mt-1">
+                        <li>Materials and fabric composition</li>
+                        <li>Size and measurements</li>
+                        <li>Care instructions</li>
+                        <li>Special features or characteristics</li>
+                        <li>Any customization options</li>
+                        <li>Return policy specifics</li>
+                      </ul>
+                    </p>
                   </div>
+                </div>
 
-                  <div className="sm:col-span-2">
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-                      Price (ETB) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1 relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 sm:text-sm">ETB</span>
-                      </div>
-                      <input
-                        type="number"
-                        id="price"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        className="focus:ring-green-500 focus:border-green-500 block w-full pl-12 pr-12 sm:text-sm border-gray-300 rounded-md"
-                        step="0.01"
-                        min="0"
-                        required
-                      />
-                    </div>
+                {/* Images Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-base font-medium text-gray-900">Product Images</h4>
+                    <span className="text-sm text-gray-500">
+                      {existingImages.length + newImages.length}/8 images
+                    </span>
                   </div>
-
-                  <div className="sm:col-span-3">
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-                      Category <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1">
-                      {!showCustomCategory ? (
-                        <>
-                          <select
-                            id="category"
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            required={!showCustomCategory}
-                          >
-                            <option value="">Select a category</option>
-                            {PRODUCT_CATEGORIES.slice(1).map((cat) => (
-                              <option 
-                                key={cat} 
-                                value={cat.toLowerCase()}
-                                selected={product?.category?.toLowerCase() === cat.toLowerCase()}
-                              >
-                                {cat}
-                              </option>
-                            ))}
-                            <option value="custom">+ Add custom category</option>
-                          </select>
-                          {category === 'custom' && (
-                            <div className="mt-3">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowCustomCategory(true);
-                                  setCategory('');
-                                }}
-                                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                              >
-                                <svg className="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                </svg>
-                                Create custom category
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex">
-                          <input
-                            type="text"
-                            id="customCategory"
-                            value={customCategory}
-                            onChange={(e) => setCustomCategory(e.target.value)}
-                            className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            placeholder="Enter custom category"
-                            required={showCustomCategory}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowCustomCategory(false);
-                              setCustomCategory('');
-                            }}
-                            className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                      Status
-                    </label>
-                    <div className="mt-1">
-                      <select
-                        id="status"
-                        value={isActive ? 'active' : 'inactive'}
-                        onChange={(e) => setIsActive(e.target.value === 'active')}
-                        className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
-                      Quantity in Stock <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        type="number"
-                        id="quantity"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                        min="0"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <label htmlFor="delivery_fee" className="block text-sm font-medium text-gray-700">
-                      Delivery Fee (optional)
-                    </label>
-                    <div className="mt-1 relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 sm:text-sm">$</span>
-                      </div>
-                      <input
-                        type="number"
-                        id="delivery_fee"
-                        value={formData.delivery_fee}
-                        onChange={(e) => setFormData({ ...formData, delivery_fee: e.target.value })}
-                        className="focus:ring-green-500 focus:border-green-500 block w-full pl-7 pr-12 sm:text-sm border-gray-300 rounded-md"
-                        placeholder="0.00"
-                        step="0.01"
-                        min="0"
-                      />
-                    </div>
-                    <p className="mt-1 text-sm text-gray-500">Leave empty for free delivery</p>
-                  </div>
-
-                  {/* Current Images Section */}
-                  <div className="sm:col-span-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Current Images
-                    </label>
-                    {existingImages.length > 0 ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-2">
-                        {existingImages.map((image) => (
-                          <div 
-                            key={image.id} 
-                            className={`relative border rounded-md overflow-hidden ${
-                              imagesToDelete.includes(image.id) ? 'opacity-50 border-red-500' : 'border-gray-200'
-                            }`}
-                          >
-                            <div className="aspect-w-1 aspect-h-1 w-full">
-                              <Image
-                                src={cleanImageUrl(image.image_url)}
-                                alt="Product image"
-                                width={200}
-                                height={200}
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="p-2 flex justify-between items-center">
-                              <label className="inline-flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={image.is_model_picture}
-                                  className="form-checkbox h-4 w-4 text-green-600"
-                                  disabled
-                                />
-                                <span className="ml-2 text-xs text-gray-700">Model</span>
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => toggleImageForDeletion(image.id)}
-                                className={`text-xs ${
-                                  imagesToDelete.includes(image.id) 
-                                    ? 'text-green-600 hover:text-green-800' 
-                                    : 'text-red-600 hover:text-red-800'
-                                }`}
-                              >
-                                {imagesToDelete.includes(image.id) ? 'Keep' : 'Remove'}
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">No images available</p>
-                    )}
-                  </div>
-
-                  {/* New Images Section */}
                   <div className="sm:col-span-6">
                     <label htmlFor="newImages" className="block text-sm font-medium text-gray-700">
                       Add New Images
@@ -545,32 +579,43 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                   </div>
                 </div>
 
-                <div className="pt-5">
-                  <div className="flex justify-end">
-                    <Link
-                      href="/dashboard/products"
-                      className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                    >
-                      Cancel
-                    </Link>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                    >
-                      {saving ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Saving...
-                        </>
-                      ) : (
-                        'Save Changes'
-                      )}
-                    </button>
-                  </div>
+                <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+                  <h5 className="text-sm font-medium text-blue-800 mb-2">Image Guidelines:</h5>
+                  <ul className="text-sm text-blue-700 space-y-1">
+                    <li>• Upload minimum 4 and maximum 8 images</li>
+                    <li>• First image will be the main product image</li>
+                    <li>• Include photos from different angles</li>
+                    <li>• Show both full product and detail shots</li>
+                    <li>• Use well-lit, clear photos</li>
+                    <li>• Recommended size: 1000x1000px or larger</li>
+                  </ul>
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3">
+                  <Link
+                    href="/dashboard/products"
+                    className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    Cancel
+                  </Link>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </button>
                 </div>
               </form>
             )}

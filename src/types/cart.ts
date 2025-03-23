@@ -29,14 +29,30 @@ export interface CartItem {
 }
 
 export interface SellerOrder {
-  id: string;
-  name: string;
-  hasPaymentSettings: boolean;
+  productId: string;
+  sellerId: string;
+  sellerName: string;
+  product: {
+    id: string;
+    title: string;
+    price: number;
+    images?: {
+      image_url: string;
+    }[];
+    owner?: {
+      id: string;
+      full_name: string;
+      store_settings?: {
+        name?: string;
+      };
+    };
+  };
+  quantity: number;
+  total: number;
   subtotal: number;
   platformFee: number;
   serviceFee: number;
   ethiopiaTax: number;
   deliveryFee: number;
-  total: number;
-  items: CartItem[];
+  hasPaymentSettings?: boolean;
 } 

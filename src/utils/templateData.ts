@@ -27,12 +27,12 @@ const getDescriptionForCategory = (category: string) => {
     'Outerwear': 'Elegant outer layers combining comfort with Ethiopian style.',
     'Accessories': 'Modern accessories with traditional Ethiopian motifs.',
     'Shoes': 'Comfortable footwear with unique Ethiopian design elements.',
-    'Furniture': 'Traditional and modern furniture pieces for your Ethiopian-inspired home.',
-    'Home Decor': 'Decorative items that bring Ethiopian charm to your space.',
-    'Kitchen & Dining': 'Essential kitchen items with traditional Ethiopian patterns.',
-    'Bedding': 'Comfortable bedding with Ethiopian-inspired designs.',
-    'Lighting': 'Unique lighting solutions with Ethiopian artistic elements.',
-    'Rugs & Carpets': 'Hand-woven rugs featuring traditional Ethiopian patterns.',
+    'Furniture': 'Quality furniture pieces for your home',
+    'Home Decor': 'Beautiful decorative items to enhance your space',
+    'Kitchen & Dining': 'Essential items for your kitchen and dining area',
+    'Bedding': 'Comfortable bedding with elegant designs',
+    'Lighting': 'Stylish lighting solutions for every room',
+    'Rugs & Carpets': 'Beautiful rugs and carpets to complete your space',
   };
   return descriptions[category] || 'Coming soon to AVRIO Marketplace';
 };
@@ -63,7 +63,7 @@ export const generateTemplateProduct = (category: string, index: number) => ({
   title: `${category} Collection Coming Soon`,
   description: getDescriptionForCategory(category),
   price: 0,
-  price_range: PRICE_RANGES[category] || 'Price TBD',
+  price_range: PRICE_RANGES[category as keyof typeof PRICE_RANGES] || 'Price TBD',
   category: category.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_'),
   product_images: [{
     id: `coming-soon-image-${index}`,

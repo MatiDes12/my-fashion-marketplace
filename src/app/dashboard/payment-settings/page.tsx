@@ -9,18 +9,66 @@ import { config } from '@/config/env';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { normalizeUrl } from '@/utils/url';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 
+// Define interfaces for each payment method
 interface TelebirrSettings {
-  fabricAppId: string;
-  appSecret: string;
-  merchantAppId: string;
-  shortCode: string;
-  privateKey: string;
-  notifyUrl: string;
-  redirectUrl: string;
-  isActive: boolean;
-  telebirrNumber?: string;
-  telebirrName?: string;
+  is_active: boolean;
+  short_code?: string;
+  merchant_app_id?: string;
+  fabric_app_id?: string;
+  app_secret?: string;
+  private_key?: string;
+  notify_url?: string;
+  redirect_url?: string;
+}
+
+interface BankSettings {
+  is_active: boolean;
+  bank_name?: string;
+  account_number?: string;
+  account_holder?: string;
+  branch?: string;
+  address?: string;
+  mobile_number?: string;
+  contact_email?: string;
+  contact_phone?: string;
+}
+
+interface CBEBirrSettings {
+  is_active: boolean;
+  merchant_id?: string;
+  api_key?: string;
+  notify_url?: string;
+}
+
+interface AmoleSettings {
+  is_active: boolean;
+  merchant_id?: string;
+  api_key?: string;
+  notify_url?: string;
+  account_name?: string;
+  account_number?: string;
+  transfer_type?: 'within_dashen' | 'other_banks';
+  reference_prefix?: string;
+}
+
+interface ChapaSettings {
+  is_active: boolean;
+  public_key?: string;
+  secret_key?: string;
+  callback_url?: string;
+}
+
+interface PaymentSettings {
+  id?: string;
+  user_id?: string;
+  telebirr_settings: TelebirrSettings;
+  bank_settings: BankSettings;
+  cbe_birr_settings: CBEBirrSettings;
+  amole_settings: AmoleSettings;
+  chapa_settings: ChapaSettings;
 }
 
 type ToastType = 'success' | 'error' | 'loading' | 'blank' | 'custom';
@@ -76,8 +124,8 @@ const validatePrivateKey = (key: string): boolean => {
 const validateUrls = (settings: TelebirrSettings): string[] => {
   const errors: string[] = [];
   try {
-    new URL(settings.notifyUrl);
-    new URL(settings.redirectUrl);
+    new URL(settings.notify_url || '');
+    new URL(settings.redirect_url || '');
   } catch {
     errors.push('Invalid URL format');
   }
@@ -168,621 +216,772 @@ const ExampleCredentials = () => (
   </div>
 );
 
-export default function PaymentSettingsPage() {
+// Payment method components
+const TelebirrSettings = ({ settings, onChange }: { 
+  settings: TelebirrSettings; 
+  onChange: (settings: TelebirrSettings) => void;
+}) => {
+  const defaultNotifyUrl = `${config.baseUrl}/api/telebirr/notify`;
+  const defaultRedirectUrl = `${config.baseUrl}/payment/complete`;
+
+  return (
+    <div className="space-y-6 p-4 bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+        <div className="flex items-center space-x-4">
+          <h3 className="text-lg font-medium text-gray-900">Telebirr Settings</h3>
+          <div className="flex items-center">
+        <input
+          type="checkbox"
+              id="telebirr-checkbox"
+              checked={settings.is_active}
+              onChange={(e) => {
+                onChange({
+                  ...settings,
+                  is_active: e.target.checked,
+                  notify_url: e.target.checked ? defaultNotifyUrl : settings.notify_url,
+                  redirect_url: e.target.checked ? defaultRedirectUrl : settings.redirect_url
+                });
+              }}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="telebirr-checkbox" className="ml-2 text-sm text-gray-700">
+              Enable Telebirr
+            </label>
+          </div>
+        </div>
+        <Switch
+          id="telebirr-active"
+          checked={settings.is_active}
+          onCheckedChange={(checked: boolean) => {
+            onChange({
+              ...settings,
+              is_active: checked,
+              notify_url: checked ? defaultNotifyUrl : settings.notify_url,
+              redirect_url: checked ? defaultRedirectUrl : settings.redirect_url
+            });
+          }}
+          className="bg-gray-200 data-[state=checked]:bg-indigo-600"
+        />
+      </div>
+
+      {settings.is_active && (
+        <>
+          <ExampleCredentials />
+          
+          <div className="grid grid-cols-1 gap-6 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Short Code</label>
+              <input
+                type="text"
+                value={settings.short_code || ''}
+                onChange={(e) => onChange({ ...settings, short_code: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Enter your Telebirr short code"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Merchant App ID</label>
+              <input
+                type="text"
+                value={settings.merchant_app_id || ''}
+                onChange={(e) => onChange({ ...settings, merchant_app_id: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Enter your merchant application ID"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Fabric App ID</label>
+              <input
+                type="text"
+                value={settings.fabric_app_id || ''}
+                onChange={(e) => onChange({ ...settings, fabric_app_id: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Enter your fabric application ID"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">App Secret</label>
+              <input
+                type="password"
+                value={settings.app_secret || ''}
+                onChange={(e) => onChange({ ...settings, app_secret: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder="Enter your application secret"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Private Key</label>
+              <textarea
+                value={settings.private_key || ''}
+                onChange={(e) => onChange({ ...settings, private_key: e.target.value })}
+                rows={4}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 font-mono"
+                placeholder="Enter your RSA private key"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Notify URL</label>
+              <input
+                type="url"
+                value={settings.notify_url || defaultNotifyUrl}
+                onChange={(e) => onChange({ ...settings, notify_url: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder={defaultNotifyUrl}
+                readOnly // Make it read-only since we're using default
+              />
+              <p className="mt-1 text-sm text-gray-500">Default notify URL (cannot be changed)</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Redirect URL</label>
+              <input
+                type="url"
+                value={settings.redirect_url || defaultRedirectUrl}
+                onChange={(e) => onChange({ ...settings, redirect_url: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder={defaultRedirectUrl}
+                readOnly // Make it read-only since we're using default
+              />
+              <p className="mt-1 text-sm text-gray-500">Default redirect URL (cannot be changed)</p>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const CBESettings = ({ settings, onChange }: {
+  settings: BankSettings;
+  onChange: (settings: BankSettings) => void;
+}) => {
+  return (
+    <div className="space-y-6 p-4 bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+        <div className="flex items-center space-x-4">
+          <h3 className="text-lg font-medium text-gray-900">CBE Account Settings</h3>
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+              id="cbe-checkbox"
+              checked={settings.is_active}
+              onChange={(e) => onChange({ ...settings, is_active: e.target.checked })}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="cbe-checkbox" className="ml-2 text-sm text-gray-700">
+              Enable CBE Account
+            </label>
+          </div>
+        </div>
+        <Switch
+          id="cbe-active"
+          checked={settings.is_active}
+          onCheckedChange={(checked: boolean) => {
+            onChange({ ...settings, is_active: checked });
+          }}
+          className="bg-gray-200 data-[state=checked]:bg-indigo-600"
+        />
+      </div>
+
+      {settings.is_active && (
+        <>
+          {/* Recipient Information */}
+          <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-900">Recipient Information</h4>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="account-holder" className="block text-sm font-medium text-gray-700">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="account-holder"
+                  placeholder="Account Holder's Full Name"
+                  value={settings.account_holder || ''}
+                  onChange={(e) => onChange({ ...settings, account_holder: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">Must match the name registered with CBE</p>
+              </div>
+
+              <div>
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  id="address"
+                  placeholder="City/Location"
+                  value={settings.address || ''}
+                  onChange={(e) => onChange({ ...settings, address: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Bank Account Details */}
+          <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-900">Bank Account Details</h4>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="branch-name" className="block text-sm font-medium text-gray-700">
+                  Branch Name
+                </label>
+          <input
+            type="text"
+                  id="branch-name"
+                  placeholder="CBE Branch Name"
+            value={settings.bank_name || ''}
+            onChange={(e) => onChange({ ...settings, bank_name: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="branch-code" className="block text-sm font-medium text-gray-700">
+                  Branch Code
+                </label>
+                <input
+                  type="text"
+                  id="branch-code"
+                  placeholder="CBE Branch Code"
+                  value={settings.branch || ''}
+                  onChange={(e) => onChange({ ...settings, branch: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="account-number" className="block text-sm font-medium text-gray-700">
+                  Account Number
+                </label>
+                <input
+                  type="text"
+                  id="account-number"
+                  placeholder="CBE Account Number"
+                  value={settings.account_number || ''}
+                  onChange={(e) => onChange({ ...settings, account_number: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="mobile-number" className="block text-sm font-medium text-gray-700">
+                  CBE Birr Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  id="mobile-number"
+                  placeholder="Mobile Number for CBE Birr"
+                  value={settings.mobile_number || ''}
+                  onChange={(e) => onChange({ ...settings, mobile_number: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">Number registered with CBE Birr</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-900">Contact Information</h4>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="contact-email" className="block text-sm font-medium text-gray-700">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="contact-email"
+                  placeholder="Email for updates"
+                  value={settings.contact_email || ''}
+                  onChange={(e) => onChange({ ...settings, contact_email: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="contact-phone" className="block text-sm font-medium text-gray-700">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  id="contact-phone"
+                  placeholder="Phone number for updates"
+                  value={settings.contact_phone || ''}
+                  onChange={(e) => onChange({ ...settings, contact_phone: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Add AmoleSettings component
+const AmoleSettings = ({ settings, onChange }: {
+  settings: AmoleSettings;
+  onChange: (settings: AmoleSettings) => void;
+}) => {
+  return (
+    <div className="space-y-6 p-4 bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+        <div className="flex items-center space-x-4">
+          <h3 className="text-lg font-medium text-gray-900">Amole Settings</h3>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="amole-checkbox"
+              checked={settings.is_active}
+              onChange={(e) => onChange({ ...settings, is_active: e.target.checked })}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="amole-checkbox" className="ml-2 text-sm text-gray-700">
+              Enable Amole Payments
+            </label>
+          </div>
+        </div>
+        <Switch
+          id="amole-active"
+          checked={settings.is_active}
+          onCheckedChange={(checked: boolean) => {
+            onChange({ ...settings, is_active: checked });
+          }}
+          className="bg-gray-200 data-[state=checked]:bg-indigo-600"
+        />
+      </div>
+
+      {settings.is_active && (
+        <>
+          {/* Account Information */}
+          <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-900">Dashen Bank Account Information</h4>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="account-name" className="block text-sm font-medium text-gray-700">
+                  Account Holder Name
+                </label>
+                <input
+                  type="text"
+                  id="account-name"
+                  value={settings.account_name || ''}
+                  onChange={(e) => onChange({ ...settings, account_name: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Full name as registered with Dashen Bank"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="account-number" className="block text-sm font-medium text-gray-700">
+                  Account Number
+                </label>
+          <input
+            type="text"
+                  id="account-number"
+            value={settings.account_number || ''}
+            onChange={(e) => onChange({ ...settings, account_number: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Dashen Bank Account Number"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Amole API Credentials */}
+          <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-900">Amole API Credentials</h4>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="merchant-id" className="block text-sm font-medium text-gray-700">
+                  Merchant ID
+                </label>
+          <input
+            type="text"
+                  id="merchant-id"
+                  value={settings.merchant_id || ''}
+                  onChange={(e) => onChange({ ...settings, merchant_id: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Your Amole Merchant ID"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="api-key" className="block text-sm font-medium text-gray-700">
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  id="api-key"
+                  value={settings.api_key || ''}
+                  onChange={(e) => onChange({ ...settings, api_key: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Your Amole API Key"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="notify-url" className="block text-sm font-medium text-gray-700">
+                  Notification URL
+                </label>
+                <input
+                  type="url"
+                  id="notify-url"
+                  value={settings.notify_url || ''}
+                  onChange={(e) => onChange({ ...settings, notify_url: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="https://your-domain.com/api/amole/notify"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  URL where Amole will send payment notifications
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Settings */}
+          <div className="space-y-4">
+            <h4 className="text-md font-medium text-gray-900">Additional Settings</h4>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="transfer-type" className="block text-sm font-medium text-gray-700">
+                  Default Transfer Type
+                </label>
+                <select
+                  id="transfer-type"
+                  value={settings.transfer_type || 'within_dashen'}
+                  onChange={(e) => onChange({ 
+                    ...settings, 
+                    transfer_type: e.target.value as 'within_dashen' | 'other_banks' 
+                  })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="within_dashen">Within Dashen Bank</option>
+                  <option value="other_banks">Other Banks</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="reference-prefix" className="block text-sm font-medium text-gray-700">
+                  Reference Prefix
+                </label>
+          <input
+            type="text"
+                  id="reference-prefix"
+                  value={settings.reference_prefix || ''}
+                  onChange={(e) => onChange({ ...settings, reference_prefix: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Optional prefix for transfer references"
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const PaymentSettingsPage = () => {
+  const [activeTab, setActiveTab] = useState('telebirr');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<TelebirrSettings>({
-    fabricAppId: '',
-    appSecret: '',
-    merchantAppId: '',
-    shortCode: '',
-    privateKey: '',
-    notifyUrl: normalizeUrl(config.baseUrl, '/api/telebirr/notify'),
-    redirectUrl: normalizeUrl(config.baseUrl, '/payment/complete'),
-    isActive: false
+  const [settings, setSettings] = useState<PaymentSettings>({
+    telebirr_settings: { is_active: false },
+    bank_settings: { is_active: false },
+    cbe_birr_settings: { is_active: false },
+    amole_settings: { is_active: false },
+    chapa_settings: { is_active: false, public_key: '', secret_key: '', callback_url: '' }
   });
-  const [isTestingCredentials, setIsTestingCredentials] = useState(false);
 
   const supabase = createClientComponentClient();
 
-  const isMockMode = process.env.NEXT_PUBLIC_MOCK_TELEBIRR === 'true';
-
   useEffect(() => {
-    if (!config.supabase.url || !config.supabase.anonKey) {
-      setError('Missing required configuration. Please check your environment variables.');
-      setLoading(false);
-      return;
-    }
-
     fetchSettings();
   }, []);
 
   const fetchSettings = async () => {
     try {
+      // Get current user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No authenticated user');
+      }
+
+      // Try to get existing settings
       const { data, error } = await supabase
-        .from('admin_payment_settings')
+        .from('payment_settings')
         .select('*')
+        .eq('user_id', session.user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No settings exist yet, create default settings
+          const defaultSettings = {
+            user_id: session.user.id,
+            telebirr_settings: { is_active: false },
+            bank_settings: { is_active: false },
+            cbe_birr_settings: { is_active: false },
+            amole_settings: { is_active: false },
+            chapa_settings: { is_active: false, public_key: '', secret_key: '', callback_url: '' }
+          };
 
-      if (data) {
-        setSettings({
-          fabricAppId: data.fabric_app_id || '',
-          appSecret: data.app_secret || '',
-          merchantAppId: data.merchant_app_id || '',
-          shortCode: data.short_code || '',
-          privateKey: data.private_key || '',
-          notifyUrl: data.notify_url || normalizeUrl(config.baseUrl, '/api/telebirr/notify'),
-          redirectUrl: data.redirect_url || normalizeUrl(config.baseUrl, '/payment/complete'),
-          isActive: data.is_active || false,
-          telebirrNumber: data.telebirr_number || '',
-          telebirrName: data.telebirr_name || ''
-        });
-      } else {
-        // Set default URLs if no settings exist
-        setSettings({
-          ...settings,
-          notifyUrl: normalizeUrl(config.baseUrl, '/api/telebirr/notify'),
-          redirectUrl: normalizeUrl(config.baseUrl, '/payment/complete')
-        });
+          // Use upsert instead of insert to handle potential race conditions
+          const { error: upsertError } = await supabase
+            .from('payment_settings')
+            .upsert(defaultSettings, {
+              onConflict: 'user_id',
+              ignoreDuplicates: false
+            });
+
+          if (upsertError) throw upsertError;
+
+          // Fetch the settings again to ensure we have the latest data
+          const { data: freshData, error: freshError } = await supabase
+            .from('payment_settings')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (freshError) throw freshError;
+          setSettings(freshData || defaultSettings);
+        } else {
+          throw error;
+        }
+      } else if (data) {
+        setSettings(data);
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
-      setError('Failed to load settings');
+      setError(error instanceof Error ? error.message : 'Failed to load settings');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     try {
-      setSaving(true);
-      setError(null);
-
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        throw new Error('Please login to save settings');
+        throw new Error('No authenticated user');
       }
 
-      // Validate required fields
-      if (!settings.shortCode || !settings.merchantAppId || !settings.fabricAppId || !settings.appSecret) {
-        throw new Error('All Telebirr credentials are required');
-      }
-
-      if (!validatePrivateKey(settings.privateKey)) {
-        throw new Error('Invalid private key format');
-      }
-
-      // Validate URLs
-      const urlErrors = validateUrls(settings);
-      if (urlErrors.length > 0) {
-        throw new Error(urlErrors.join(', '));
-      }
-
-      // First check if settings exist
-      const { data: existingSettings } = await supabase
+      const { error } = await supabase
         .from('payment_settings')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .single();
+        .upsert({
+          ...settings,
+          user_id: session.user.id,
+          updated_at: new Date().toISOString()
+        });
 
-      const telebirrSettings = {
-        is_active: settings.isActive,
-        short_code: settings.shortCode,
-        merchant_app_id: settings.merchantAppId,
-        fabric_app_id: settings.fabricAppId,
-        app_secret: settings.appSecret,
-        private_key: formatKeyForStorage(settings.privateKey),
-        notify_url: settings.notifyUrl,
-        redirect_url: settings.redirectUrl
-      };
-
-      let error;
-      if (existingSettings) {
-        // Update existing settings
-        const result = await supabase
-          .from('payment_settings')
-          .update({
-            telebirr_settings: telebirrSettings,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingSettings.id);
-        error = result.error;
-      } else {
-        // Insert new settings
-        const result = await supabase
-          .from('payment_settings')
-          .insert({
-            user_id: session.user.id,
-            telebirr_settings: telebirrSettings
-          });
-        error = result.error;
-      }
-
-      if (error) {
-        console.error('Database error:', error);
-        throw new Error('Failed to save settings. Please try again.');
-      }
-
-      toast.success(
-        <div>
-          <p>Payment settings saved successfully!</p>
-          <Link 
-            href="/dashboard/products" 
-            className="text-green-600 hover:text-green-500 mt-2 block"
-          >
-            Add your first product →
-          </Link>
-        </div>,
-        { duration: 5000 }
-      );
-    } catch (err) {
-      console.error('Error saving payment settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save settings');
-      toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
+      if (error) throw error;
+      toast.success('Settings saved successfully');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save settings');
     }
   };
 
-  const handleUrlChange = (field: 'notifyUrl' | 'redirectUrl', value: string) => {
-    setSettings({ ...settings, [field]: value });
-    
-    if (!value) {
-      toast.error(`${field === 'notifyUrl' ? 'Notify' : 'Redirect'} URL is required`);
-      return;
-    }
-    
-    if (!isValidUrl(value)) {
-      toast.error(`Invalid ${field === 'notifyUrl' ? 'Notify' : 'Redirect'} URL format`);
-      return;
-    }
-
-    if (process.env.NODE_ENV === 'production' && !value.startsWith('https://')) {
-      // Use toast.custom instead of toast.warn
-      toast.custom((t) => (
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-yellow-700">
-                {`${field === 'notifyUrl' ? 'Notify' : 'Redirect'} URL should use HTTPS in production`}
-              </p>
-            </div>
-          </div>
-        </div>
-      ));
-    }
-  };
-
-  const TestUrlButton = ({ url, label }: { url: string; label: string }) => {
-    const [testing, setTesting] = useState(false);
-    const [lastTestResult, setLastTestResult] = useState<boolean | null>(null);
-
-    const handleTest = async () => {
-      setTesting(true);
-      try {
-        const isAccessible = await testUrl(url);
-        setLastTestResult(isAccessible);
-        toast[isAccessible ? 'success' : 'error'](
-          `${label} ${isAccessible ? 'is accessible' : 'is not accessible'}`
-        );
-      } catch (error) {
-        setLastTestResult(false);
-        toast.error(`Failed to test ${label}`);
-      } finally {
-        setTesting(false);
-      }
-    };
-
-    return (
-      <button
-        type="button"
-        onClick={handleTest}
-        disabled={testing || !isValidUrl(url)}
-        className={`inline-flex items-center px-2 py-1 text-xs rounded-md ${
-          lastTestResult === null
-            ? 'bg-gray-100 text-gray-700'
-            : lastTestResult
-            ? 'bg-green-100 text-green-700'
-            : 'bg-red-100 text-red-700'
-        } disabled:opacity-50`}
-      >
-        {testing ? (
-          <svg className="animate-spin h-4 w-4 mr-1" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-        ) : (
-          <span>Test {label}</span>
-        )}
-      </button>
-    );
-  };
-
-  const testCredentials = async () => {
+  const testChapaConnection = async () => {
     try {
-      setIsTestingCredentials(true);
-      setError(null);
-
-      // First validate that all required fields are present
-      if (!settings.shortCode || !settings.merchantAppId || 
-          !settings.fabricAppId || !settings.appSecret || !settings.privateKey) {
-        throw new Error('All Telebirr credentials are required');
-      }
-
-      // Get the base URL from environment variables
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-
-      // Make the test request
-      const response = await fetch(`${baseUrl}/api/telebirr/test-credentials`, {
+      const response = await fetch('/api/test-chapa-connection', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          settings: {
-            short_code: settings.shortCode,
-            merchant_app_id: settings.merchantAppId,
-            fabric_app_id: settings.fabricAppId,
-            app_secret: settings.appSecret,
-            private_key: settings.privateKey,
-            notify_url: settings.notifyUrl,
-            redirect_url: settings.redirectUrl
-          }
-        })
+          public_key: settings.chapa_settings.public_key,
+          secret_key: settings.chapa_settings.secret_key,
+        }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to validate credentials');
+        throw new Error('Failed to connect to Chapa');
       }
 
-      if (data.success) {
-        toast.success('Credentials validated successfully!');
-      } else {
-        throw new Error(data.message || 'Failed to validate credentials');
-      }
-
+      toast.success('Successfully connected to Chapa!');
     } catch (error) {
-      console.error('Test credentials error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to test credentials');
-      setError(error instanceof Error ? error.message : 'Failed to test credentials');
-    } finally {
-      setIsTestingCredentials(false);
+      toast.error('Failed to connect to Chapa. Please check your credentials.');
+      console.error('Chapa connection error:', error);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <ErrorMessage message={error} />
-      </div>
-    );
-  }
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage message={error} />;
 
   return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      {error && <ErrorMessage message={error} />}
-      
-      <div className="space-y-6">
-        <div>
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Telebirr Payment Settings
-            </h1>
-            {isMockMode && (
-              <Badge variant="warning" className="text-sm">
-                Mock Mode
-              </Badge>
-            )}
-          </div>
-          <p className="mt-1 text-sm text-gray-500">
-            Configure your Telebirr merchant account to receive payments from customers
-          </p>
-        </div>
+    <main className="max-w-4xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Payment Settings</h1>
 
-        {isMockMode && (
-          <div className="rounded-md bg-blue-50 p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  Mock Mode Active
-                </h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>
-                    Running in mock mode. No real API calls will be made to Telebirr.
-                    This is useful for testing the interface without real credentials.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
-          <div className="md:grid md:grid-cols-3 md:gap-6">
-            <div className="md:col-span-1">
-              <h3 className="text-lg font-medium leading-6 text-gray-900">Merchant Credentials</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Enter your Telebirr merchant account credentials
-              </p>
-            </div>
-
-            <div className="mt-5 md:mt-0 md:col-span-2">
-              <div className="grid grid-cols-6 gap-6">
-                <ExampleCredentials />
-                
-                <SettingsField
-                  id="shortCode"
-                  label="Short Code"
-                  value={settings.shortCode}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-                    setSettings({ ...settings, shortCode: e.target.value })}
-                  placeholder="Enter your short code"
-                  helpText="Your Telebirr short code"
-                />
-
-                <SettingsField
-                  id="merchantAppId"
-                  label="Merchant App ID"
-                  value={settings.merchantAppId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-                    setSettings({ ...settings, merchantAppId: e.target.value })}
-                  placeholder="Enter your merchant application ID"
-                  helpText="Your Telebirr merchant application ID"
-                />
-
-                <SettingsField
-                  id="fabricAppId"
-                  label="Fabric App ID"
-                  value={settings.fabricAppId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-                    setSettings({ ...settings, fabricAppId: e.target.value })}
-                  placeholder="Enter your fabric application ID"
-                  helpText="Your Telebirr fabric application ID"
-                />
-
-                <SettingsField
-                  id="appSecret"
-                  label="App Secret"
-                  value={settings.appSecret}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-                    setSettings({ ...settings, appSecret: e.target.value })}
-                  placeholder="Enter your application secret"
-                  helpText="Your Telebirr application secret"
-                />
-
-                <div className="col-span-6">
-                  <label htmlFor="privateKey" className="block text-sm font-medium text-gray-700">
-                    Private Key
-                  </label>
-                  <textarea
-                    id="privateKey"
-                    value={settings.privateKey}
-                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
-                      setSettings({ ...settings, privateKey: e.target.value })}
-                    rows={8}
-                    className="mt-1 block w-full shadow-sm sm:text-sm focus:ring-green-500 focus:border-green-500 border-gray-300 rounded-md font-mono"
-                    placeholder="Your RSA private key"
-                  />
-                  <p className="mt-2 text-sm text-gray-500">
-                    Your Telebirr RSA private key for signing requests
-                  </p>
-                </div>
-
-                <div className="col-span-6">
-                  <div className="flex items-start">
-                    <div className="flex items-center h-5">
-                      <input
-                        id="isActive"
-                        type="checkbox"
-                        checked={settings.isActive}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                          setSettings({ ...settings, isActive: e.target.checked })}
-                        className="focus:ring-green-500 h-4 w-4 text-green-600 border-gray-300 rounded"
-                      />
-                    </div>
-                    <div className="ml-3 text-sm">
-                      <label htmlFor="isActive" className="font-medium text-gray-700">
-                        Enable Telebirr Payments
-                      </label>
-                      <p className="text-gray-500">Allow customers to pay using Telebirr</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="notifyUrl" className="block text-sm font-medium text-gray-700">
-                        Notify URL
-                      </label>
-                      <div className="mt-1 space-y-2">
-                        <div className="flex rounded-md shadow-sm">
-                          <input
-                            type="text"
-                            id="notifyUrl"
-                            value={settings.notifyUrl}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                              handleUrlChange('notifyUrl', e.target.value)}
-                            className={`flex-1 focus:ring-green-500 focus:border-green-500 block w-full min-w-0 rounded-none rounded-l-md sm:text-sm border-gray-300 ${
-                              !isValidUrl(settings.notifyUrl) && settings.notifyUrl ? 'border-red-300' : ''
-                            }`}
-                            aria-describedby="notify-url-description"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSettings({
-                                ...settings,
-                                notifyUrl: normalizeUrl(config.baseUrl, '/api/telebirr/notify')
-                              });
-                              toast.success('Notify URL copied to form');
-                            }}
-                            className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-500 text-sm"
-                          >
-                            Use Default
-                          </button>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <TestUrlButton url={settings.notifyUrl} label="Notify URL" />
-                          {isValidUrl(settings.notifyUrl) && (
-                            <span className={`text-xs ${
-                              validateUrlPath(settings.notifyUrl, '/api/telebirr/notify')
-                                ? 'text-green-600'
-                                : 'text-red-600'
-                            }`}>
-                              {validateUrlPath(settings.notifyUrl, '/api/telebirr/notify')
-                                ? '✓ Valid path'
-                                : '✗ Invalid path'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <p id="notify-url-description" className="text-sm text-gray-500">
-                        URL where Telebirr will send payment notifications. Must end with /api/telebirr/notify
-                      </p>
-                    </div>
-
-                    <div>
-                      <label htmlFor="redirectUrl" className="block text-sm font-medium text-gray-700">
-                        Redirect URL
-                      </label>
-                      <div className="mt-1 space-y-2">
-                        <div className="flex rounded-md shadow-sm">
-                          <input
-                            type="text"
-                            id="redirectUrl"
-                            value={settings.redirectUrl}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                              handleUrlChange('redirectUrl', e.target.value)}
-                            className={`flex-1 focus:ring-green-500 focus:border-green-500 block w-full min-w-0 rounded-none rounded-l-md sm:text-sm border-gray-300 ${
-                              !isValidUrl(settings.redirectUrl) && settings.redirectUrl ? 'border-red-300' : ''
-                            }`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSettings({
-                                ...settings,
-                                redirectUrl: normalizeUrl(config.baseUrl, '/payment/complete')
-                              });
-                              toast.success('Redirect URL copied to form');
-                            }}
-                            className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-500 text-sm"
-                          >
-                            Use Default
-                          </button>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <TestUrlButton url={settings.redirectUrl} label="Redirect URL" />
-                          {isValidUrl(settings.redirectUrl) && (
-                            <span className={`text-xs ${
-                              validateUrlPath(settings.redirectUrl, '/payment/complete')
-                                ? 'text-green-600'
-                                : 'text-red-600'
-                            }`}>
-                              {validateUrlPath(settings.redirectUrl, '/payment/complete')
-                                ? '✓ Valid path'
-                                : '✗ Invalid path'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <p className="mt-1 text-sm text-gray-500">
-                        URL where customers will be redirected after payment
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-6">
-                  <div className="rounded-md bg-blue-50 p-4">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-blue-800">
-                          Default URLs
-                        </h3>
-                        <div className="mt-2 text-sm text-blue-700">
-                          <p className="mb-1">
-                            <strong>Default Notify URL:</strong>
-                            <code className="ml-2 p-1 bg-blue-100 rounded">
-                              {`${normalizeUrl(config.baseUrl, '/api/telebirr/notify')}`}
-                            </code>
-                          </p>
-                          <p>
-                            <strong>Default Redirect URL:</strong>
-                            <code className="ml-2 p-1 bg-blue-100 rounded">
-                              {`${normalizeUrl(config.baseUrl, '/payment/complete')}`}
-                            </code>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Settings'}
-            </button>
-          </div>
-        </form>
-
-        <div className="mt-6">
-          <button
-            onClick={testCredentials}
-            disabled={isTestingCredentials}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="bg-gray-100 p-1 rounded-lg">
+          <TabsTrigger 
+            value="telebirr" 
+            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
           >
-            {isTestingCredentials ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Testing Credentials...
-              </>
-            ) : (
-              'Test Credentials'
-            )}
-          </button>
+            Telebirr
+          </TabsTrigger>
+          <TabsTrigger 
+            value="cbe" 
+            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+          >
+            CBE Account
+          </TabsTrigger>
+          <TabsTrigger 
+            value="amole" 
+            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+          >
+            Amole
+          </TabsTrigger>
+          <TabsTrigger 
+            value="chapa" 
+            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+          >
+            Chapa
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="mt-4 bg-white rounded-lg shadow-sm border border-gray-200">
+        <TabsContent value="telebirr">
+          <TelebirrSettings 
+            settings={settings.telebirr_settings}
+            onChange={(telebirr_settings) => setSettings({ ...settings, telebirr_settings })}
+          />
+        </TabsContent>
+
+          <TabsContent value="cbe">
+            <CBESettings 
+            settings={settings.bank_settings}
+            onChange={(bank_settings) => setSettings({ ...settings, bank_settings })}
+          />
+        </TabsContent>
+
+          <TabsContent value="amole">
+            <AmoleSettings 
+              settings={settings.amole_settings}
+              onChange={(amole_settings) => setSettings({ ...settings, amole_settings })}
+            />
+          </TabsContent>
+
+          <TabsContent value="chapa">
+            <div className="mt-8 bg-white rounded-lg shadow">
+              <div className="px-4 py-5 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium leading-6 text-gray-900">
+                    Chapa Payment Settings
+                  </h3>
+                  <Switch
+                    id="chapa-active"
+                    checked={settings.chapa_settings.is_active}
+                    onCheckedChange={(checked: boolean) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        chapa_settings: { ...prev.chapa_settings, is_active: checked }
+                      }));
+                    }}
+                  />
+                </div>
+
+                {settings.chapa_settings.is_active && (
+                  <div className="mt-6 space-y-6">
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="chapa-public-key" className="block text-sm font-medium text-gray-700">
+                          Public Key
+                        </label>
+                        <input
+                          type="text"
+                          id="chapa-public-key"
+                          value={settings.chapa_settings.public_key || ''}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            chapa_settings: { ...prev.chapa_settings, public_key: e.target.value }
+                          }))}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                          placeholder="CHAPUBK_TEST-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                        />
+                        <p className="mt-2 text-sm text-gray-500">
+                          Your Chapa public key from the dashboard
+                        </p>
+                      </div>
+
+                      <div>
+                        <label htmlFor="chapa-secret-key" className="block text-sm font-medium text-gray-700">
+                          Secret Key
+                        </label>
+                        <input
+                          type="password"
+                          id="chapa-secret-key"
+                          value={settings.chapa_settings.secret_key || ''}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            chapa_settings: { ...prev.chapa_settings, secret_key: e.target.value }
+                          }))}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                          placeholder="CHASECK_TEST-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                        />
+                        <p className="mt-2 text-sm text-gray-500">
+                          Your Chapa secret key (keep this secure)
+                        </p>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label htmlFor="chapa-callback-url" className="block text-sm font-medium text-gray-700">
+                          Callback URL
+                        </label>
+                        <input
+                          type="url"
+                          id="chapa-callback-url"
+                          value={settings.chapa_settings.callback_url || ''}
+                          onChange={(e) => setSettings(prev => ({
+                            ...prev,
+                            chapa_settings: { ...prev.chapa_settings, callback_url: e.target.value }
+                          }))}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                          placeholder="https://your-domain.com/api/chapa/webhook"
+                        />
+                        <p className="mt-2 text-sm text-gray-500">
+                          The URL where Chapa will send payment notifications
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={testChapaConnection}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        Test Connection
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
         </div>
+      </Tabs>
+
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={handleSave}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        >
+          Save Settings
+        </button>
       </div>
-    </div>
+    </main>
   );
-} 
+};
+
+export default PaymentSettingsPage; 

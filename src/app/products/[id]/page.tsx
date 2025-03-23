@@ -47,6 +47,16 @@ type Product = {
       pickup: boolean;
       [key: string]: boolean;
     };
+    workingHours?: {
+      [key: string]: {
+        isOpen: boolean;
+        open: string;
+        close: string;
+      };
+    };
+    features?: {
+      enableChat: boolean;
+    };
   };
   delivery_fee: number | null;
   original_price: number | null;
@@ -85,11 +95,13 @@ type Product = {
     };
   }>;
   average_rating?: number;
+  total_ratings?: number;
   user_rating?: {
     id: string;
     rating: number;
     comment: string;
   } | null;
+  reviews?: Array<Review>;
   comments?: Array<{
     id: string;
     comment_text: string;
@@ -118,6 +130,185 @@ type StoreSettings = {
     pickup: boolean;
     [key: string]: boolean;
   };
+  workingHours?: {
+    [key: string]: {
+      isOpen: boolean;
+      open: string;
+      close: string;
+    };
+  };
+  features?: {
+    enableChat: boolean;
+  };
+};
+
+// Add this interface for reviews
+interface Review {
+  id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  user: {
+    id: string;
+    full_name: string;
+  };
+}
+
+// Update the ContactSection component
+const ContactSection = ({ seller }: { seller: any }) => {
+  const [showPhone, setShowPhone] = useState(false);
+  const storeSettings = seller?.store_settings || {};
+  const phone = storeSettings?.phone;
+  const alternativePhone = storeSettings?.alternativePhone;
+  
+  // Format the date properly using the user's created_at
+  const memberSince = seller?.created_at 
+    ? new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(new Date(seller.created_at))
+    : 'Unknown date';
+
+  console.log('Store Settings:', storeSettings); // For debugging
+  console.log('Phone:', phone); // For debugging
+  console.log('Created at:', seller?.created_at); // For debugging
+
+  // Get current day and time
+  const today = new Date()
+    .toLocaleDateString('en-US', { weekday: 'long' })
+    .toLowerCase();
+  const currentHours = storeSettings?.workingHours?.[today];
+  const isOpen = currentHours?.isOpen;
+  
+  return (
+    <div className="mt-8 mb-8 bg-white rounded-lg border border-gray-200 p-6">
+      {/* Seller Info */}
+      <div className="flex items-center mb-4">
+        {storeSettings.logo_url && (
+          <div className="mr-4">
+            <Image
+              src={storeSettings.logo_url}
+              alt={storeSettings.name || 'Store logo'}
+              width={64}
+              height={64}
+              className="rounded-full"
+            />
+          </div>
+        )}
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {storeSettings.name || seller?.full_name}
+          </h3>
+          <p className="text-sm text-gray-500">
+            {isOpen ? (
+              <span className="text-green-600 flex items-center">
+                <span className="w-2 h-2 bg-green-600 rounded-full mr-2"></span>
+                Open now
+              </span>
+            ) : (
+              <span className="text-red-600 flex items-center">
+                <span className="w-2 h-2 bg-red-600 rounded-full mr-2"></span>
+                Closed
+              </span>
+            )}
+          </p>
+          <p className="text-sm text-gray-500">Member since {memberSince}</p>
+          {showPhone && (phone || alternativePhone) && (
+            <p className="mt-2 text-green-600 font-medium">
+              📞 {phone || alternativePhone}
+              {alternativePhone && phone && phone !== alternativePhone && (
+                <span className="ml-2 text-gray-500">
+                  Alt: {alternativePhone}
+                </span>
+              )}
+            </p>
+          )}
+          {storeSettings.address && (
+            <p className="mt-1 text-sm text-gray-500">
+              📍 {storeSettings.address.city}, {storeSettings.address.subCity}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Contact Buttons */}
+      <div className="flex gap-3 mb-6">
+        <button
+          onClick={() => setShowPhone(true)}
+          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+        >
+          {showPhone ? 'Phone Number Shown' : 'Show Contact'}
+        </button>
+        {storeSettings.features?.enableChat && (
+          <button
+            onClick={() => {
+              toast.success('Opening chat...'); // Changed from toast.info since it was causing an error
+            }}
+            className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+          >
+            Start Chat
+          </button>
+        )}
+      </div>
+
+      {/* Working Hours */}
+      {storeSettings.workingHours && (
+        <div className="mb-6 text-sm text-gray-600">
+          <h4 className="font-medium mb-2">Working Hours</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(storeSettings.workingHours).map(([day, hours]: [string, any]) => (
+              hours.isOpen && (
+                <div key={day} className="flex justify-between">
+                  <span className="capitalize">{day}</span>
+                  <span>{hours.open} - {hours.close}</span>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Safety Tips */}
+      <div className="bg-yellow-50 rounded-lg p-4">
+        <h4 className="font-medium text-yellow-800 mb-2">In-Person Shopping Tips</h4>
+        <ul className="text-sm text-yellow-700 space-y-2">
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Meet in a public location during daylight hours
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Meet with the seller at a safe public place
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Examine the item thoroughly before payment
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Keep communication within the platform
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Only pay if you're satisfied
+          </li>
+        </ul>
+      </div>
+    </div>
+  );
 };
 
 export default function ProductDetailPage() {
@@ -146,7 +337,7 @@ export default function ProductDetailPage() {
       // First get the current user's session
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Fetch product with all related data - change ratings!inner to ratings!left
+      // Fetch product with all related data including store settings
       const { data: product, error } = await supabase
         .from('products')
         .select(`
@@ -155,6 +346,7 @@ export default function ProductDetailPage() {
             id,
             full_name,
             email,
+            created_at,
             store_settings
           ),
           product_images (
@@ -163,13 +355,13 @@ export default function ProductDetailPage() {
             is_model_picture
           ),
           likes:likes (count),
-          ratings (
+          ratings!left (
             id,
             rating,
             comment,
             created_at,
             updated_at,
-            users (
+            users!ratings_user_id_fkey (
               id,
               full_name
             )
@@ -180,10 +372,16 @@ export default function ProductDetailPage() {
 
       if (error) throw error;
 
-      // Calculate average rating - handle case where ratings might be null
+      // Get flash sale price if available
+      const flashSalePrices = await getFlashSalePrices([productId]);
+      
+      // Update the average rating calculation
       const ratings = product.ratings || [];
-      const averageRating = ratings.length > 0
-        ? ratings.reduce((acc: number, curr: any) => acc + curr.rating, 0) / ratings.length
+      const totalRatings = ratings.length;
+
+      // Calculate average rating with proper types
+      const averageRating = totalRatings > 0
+        ? ratings.reduce((sum: number, curr: { rating: number }) => sum + (curr.rating || 0), 0) / totalRatings
         : 0;
 
       // Get user's rating if they're logged in
@@ -199,28 +397,34 @@ export default function ProductDetailPage() {
         userRating = userRatingData;
       }
 
-      // Get flash sale price if available
-      const flashSalePrices = await getFlashSalePrices([productId]);
-      
+      // Process the store settings
       const processedProduct = {
         ...product,
         flash_sale_price: flashSalePrices[productId],
         like_count: product.likes?.[0]?.count || 0,
-        users: product.owner,
+        users: {
+          ...product.owner,
+          store_settings: typeof product.owner.store_settings === 'string' 
+            ? JSON.parse(product.owner.store_settings)
+            : product.owner.store_settings
+        },
         product_images: product.product_images?.map((img: { image_url: string }) => ({
           ...img,
           image_url: img.image_url
         })),
-        average_rating: averageRating,
-        ratings: ratings.map((rating: any) => ({
-          id: rating.id,
-          rating: rating.rating,
-          comment: rating.comment,
-          created_at: rating.created_at,
-          updated_at: rating.updated_at,
-          user: rating.users
-        })),
-        user_rating: userRating
+        average_rating: Number(averageRating.toFixed(1)),
+        total_ratings: totalRatings,
+        user_rating: userRating,
+        reviews: ratings
+          .filter((r: any) => r.comment)
+          .map((r: any) => ({
+            id: r.id,
+            rating: r.rating,
+            comment: r.comment,
+            created_at: r.created_at,
+            user: r.users
+          }))
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       };
 
       setProduct(processedProduct);
@@ -806,24 +1010,45 @@ export default function ProductDetailPage() {
 
         <div className="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* Keep only the Rating Section */}
+            {/* Add ContactSection here, before the Customer Reviews */}
+            <ContactSection seller={product.users} />
+            
+            {/* Customer Reviews Section */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Customer Reviews</h3>
-                <button
-                  onClick={() => document.getElementById('rating-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-colors"
-                >
-                  {product.user_rating ? 'Update Your Review' : 'Write a Review'}
-                </button>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Customer Reviews</h3>
+                  <div className="mt-2 flex items-center">
+                    <ProductRating
+                      productId={product.id}
+                      initialRating={product.average_rating}
+                      readonly={true}
+                    />
+                    <span className="ml-2 text-sm text-gray-500">
+                      Based on {product.total_ratings} reviews
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Rating Section */}
-              <ProductRating 
-                productId={product.id} 
-                initialRating={product.user_rating}
-                onRatingSubmit={fetchProduct}
-              />
+              {/* Review Form */}
+              <div id="rating-section" className="mb-8">
+                <ReviewForm
+                  productId={product.id}
+                  initialRating={product.user_rating?.rating}
+                  initialComment={product.user_rating?.comment}
+                  onSubmit={fetchProduct}
+                />
+              </div>
+
+              {/* Reviews List */}
+              {(product.reviews || []).length > 0 ? (
+                <ReviewsList reviews={product.reviews || []} />
+              ) : (
+                <p className="text-center text-gray-500 py-8">
+                  No reviews yet. Be the first to review this product!
+                </p>
+              )}
             </div>
           </div>
 
@@ -835,130 +1060,132 @@ export default function ProductDetailPage() {
             />
           </div>
         </div>
-
-        {/* Add this section after the Similar Products section */}
-        <div className="mt-16 col-span-full">
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-            <div className="max-w-7xl mx-auto">
-              {/* Reviews Header */}
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold text-gray-900">Customer Reviews</h2>
-                <button
-                  onClick={() => document.getElementById('rating-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-red-600 hover:bg-red-700 transition-colors"
-                >
-                  {product.user_rating ? 'Update Your Review' : 'Write a Review'}
-                </button>
-              </div>
-
-              {/* Reviews Summary */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
-                {/* Overall Rating */}
-                <div className="lg:col-span-4">
-                  <div className="text-center p-6 bg-gray-50 rounded-xl">
-                    <div className="flex items-center justify-center gap-2 mb-4">
-                      <svg
-                        className="w-8 h-8 text-yellow-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                      <span className="text-4xl font-bold text-gray-900">
-                        {product.average_rating?.toFixed(1) || '0.0'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      Based on {product.ratings?.length || 0} reviews
-                    </p>
-                  </div>
-                </div>
-
-                {/* Rating Distribution */}
-                <div className="lg:col-span-8">
-                  <div className="space-y-3">
-                    {[5, 4, 3, 2, 1].map((star) => {
-                      const count = product.ratings?.filter(
-                        (rating: any) => rating.rating === star
-                      ).length || 0;
-                      const percentage = product.ratings?.length
-                        ? (count / product.ratings.length) * 100
-                        : 0;
-
-                      return (
-                        <div key={star} className="flex items-center">
-                          <div className="w-24 text-sm text-gray-600">
-                            {star} stars
-                          </div>
-                          <div className="flex-1 h-4 mx-4 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-yellow-400 rounded-full"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                          <div className="w-16 text-sm text-gray-600">
-                            {count} ({percentage.toFixed(0)}%)
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Reviews List */}
-              <div className="space-y-8">
-                {product.ratings?.map((review: any) => (
-                  <div
-                    key={review.id}
-                    className="border-b border-gray-100 last:border-0 pb-8 last:pb-0"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <span className="text-gray-500 text-lg">
-                            {review.user.full_name[0]}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <h4 className="text-sm font-medium text-gray-900">
-                            {review.user.full_name}
-                          </h4>
-                          <div className="flex items-center mt-1">
-                            <div className="flex items-center">
-                              <svg
-                                className="w-5 h-5 text-yellow-400"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                              <span className="ml-1 text-sm text-gray-500">
-                                {review.rating.toFixed(1)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {review.comment && (
-                      <div className="prose prose-sm max-w-none text-gray-500">
-                        <p>{review.comment}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {(!product.ratings || product.ratings.length === 0) && (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">No reviews yet. Be the first to review this product!</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
-} 
+}
+
+// Add this component for the review form
+const ReviewForm = ({ productId, initialRating, initialComment, onSubmit }: {
+  productId: string;
+  initialRating?: number;
+  initialComment?: string;
+  onSubmit: () => void;
+}) => {
+  const [rating, setRating] = useState(initialRating || 0);
+  const [comment, setComment] = useState(initialComment || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const supabase = createClientComponent();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error('Please login to submit a review');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('ratings')
+        .upsert({
+          user_id: session.user.id,
+          product_id: productId,
+          rating,
+          comment: comment.trim() || null
+        }, {
+          onConflict: 'user_id,product_id'
+        });
+
+      if (error) throw error;
+      
+      toast.success('Review submitted successfully');
+      onSubmit();
+      setComment('');
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      toast.error('Failed to submit review');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Your Rating</label>
+        <div className="mt-1">
+          <ProductRating
+            productId={productId}
+            initialRating={rating}
+            onRatingSubmit={(newRating) => setRating(newRating)}
+          />
+        </div>
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Your Review</label>
+        <div className="mt-1">
+          <textarea
+            rows={4}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+            placeholder="Share your experience with this product..."
+          />
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        disabled={isSubmitting || rating === 0}
+        className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+          isSubmitting || rating === 0 ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+      >
+        {isSubmitting ? 'Submitting...' : 'Submit Review'}
+      </button>
+    </form>
+  );
+};
+
+// Add this component for displaying reviews
+const ReviewsList = ({ reviews }: { reviews: Review[] }) => {
+  return (
+    <div className="space-y-6">
+      {reviews.map((review) => (
+        <div key={review.id} className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center text-white">
+                  {review.user.full_name[0]}
+                </div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900">{review.user.full_name}</p>
+                <div className="flex items-center">
+                  <ProductRating
+                    productId={review.id}
+                    initialRating={review.rating}
+                    readonly={true}
+                  />
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500">
+              {new Date(review.created_at).toLocaleDateString()}
+            </p>
+          </div>
+          {review.comment && (
+            <div className="mt-4 text-sm text-gray-600">
+              {review.comment}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}; 

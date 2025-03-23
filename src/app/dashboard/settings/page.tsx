@@ -36,7 +36,25 @@ type StoreData = {
   banner_url: string;
   updated_at: string;
   payment_methods: {
-    [key: string]: boolean;
+    cash: boolean;
+    telebirr: {
+      is_active: boolean;
+      // ... other telebirr fields
+    };
+    cbeBirr: {
+      is_active: boolean;
+      // ... other cbe fields
+    };
+    amole: {
+      is_active: boolean;
+      // ... other amole fields
+    };
+    chapa: {
+      is_active: boolean;
+      public_key?: string;
+      secret_key?: string;
+      callback_url?: string;
+    };
   };
   delivery_options: DeliveryOptions;
   address: {
@@ -71,6 +89,15 @@ type StoreData = {
   [key: string]: any; // Add index signature
 };
 
+// Add this type definition at the top with other interfaces
+interface PaymentMethods {
+  cash: boolean;
+  telebirr: boolean;
+  cbeBirr: boolean;
+  amole: boolean;
+  chapa: boolean;
+}
+
 export default function StoreSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,15 +115,15 @@ export default function StoreSettingsPage() {
     updated_at: new Date().toISOString(),
     payment_methods: {
       cash: true,
-      telebirr: true,
-      cbe: false,
-      awash: false,
-      dashen: false,
-      amole: false,
-      helloCash: false,
-      mBirr: false,
-      bankTransfer: false,
-      creditCard: false,
+      telebirr: { is_active: false },
+      cbeBirr: { is_active: false },
+      amole: { is_active: false },
+      chapa: {
+        is_active: false,
+        public_key: '',
+        secret_key: '',
+        callback_url: ''
+      }
     },
     delivery_options: {
       delivery: true,
@@ -182,14 +209,24 @@ export default function StoreSettingsPage() {
           return;
         }
 
-        // Store the session
         setSession(currentSession);
         
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('role, store_settings')
-          .eq('id', currentSession.user.id)
-          .single();
+        // Fetch both user data and payment settings
+        const [
+          { data: userData, error: userError },
+          { data: paymentSettings, error: paymentError }
+        ] = await Promise.all([
+          supabase
+            .from('users')
+            .select('role, store_settings')
+            .eq('id', currentSession.user.id)
+            .single(),
+          supabase
+            .from('payment_settings')
+            .select('*')
+            .eq('user_id', currentSession.user.id)
+            .single()
+        ]);
         
         if (userError) {
           console.error('Error fetching user data:', userError);
@@ -201,15 +238,26 @@ export default function StoreSettingsPage() {
           router.push('/');
           return;
         }
+
+        // Merge payment settings with store settings
+        const mergedPaymentMethods = {
+          cash: true, // Always true
+          telebirr: paymentSettings?.telebirr_settings || { is_active: false },
+          cbeBirr: paymentSettings?.cbe_birr_settings || { is_active: false },
+          amole: paymentSettings?.amole_settings || { is_active: false },
+          chapa: paymentSettings?.chapa_settings || { 
+            is_active: false,
+            public_key: '',
+            secret_key: '',
+            callback_url: ''
+          }
+        };
         
         if (userData?.store_settings) {
           setStoreData(prev => ({
             ...prev,
             ...userData.store_settings,
-            payment_methods: {
-              ...prev.payment_methods,
-              ...userData.store_settings.payment_methods,
-            },
+            payment_methods: mergedPaymentMethods,
             delivery_options: {
               ...prev.delivery_options,
               ...userData.store_settings.delivery_options,
@@ -232,6 +280,10 @@ export default function StoreSettingsPage() {
     
     checkAccessAndLoadData();
   }, [router]);
+
+  useEffect(() => {
+    console.log('Payment Methods State:', storeData.payment_methods);
+  }, [storeData.payment_methods]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -419,6 +471,54 @@ export default function StoreSettingsPage() {
       setError('Failed to save store settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError('No authenticated user');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch payment settings
+      const { data: paymentSettings, error: paymentError } = await supabase
+        .from('payment_settings')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (paymentError) {
+        console.error('Error fetching payment settings:', paymentError);
+        return;
+      }
+
+      // Update the storeData state with the fetched payment settings
+      if (paymentSettings) {
+        setStoreData(prevData => ({
+          ...prevData,
+          payment_methods: {
+            cash: true, // Always true
+            telebirr: paymentSettings.telebirr_settings || { is_active: false },
+            cbeBirr: paymentSettings.cbe_birr_settings || { is_active: false },
+            amole: paymentSettings.amole_settings || { is_active: false },
+            chapa: paymentSettings.chapa_settings || { 
+              is_active: false,
+              public_key: '',
+              secret_key: '',
+              callback_url: ''
+            }
+          }
+        }));
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Failed to fetch settings');
+      setLoading(false);
     }
   };
 
@@ -1173,6 +1273,128 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                             <div className="ml-3">
                               <label className="font-medium text-gray-700">Enable Store Pickup</label>
                               <p className="text-sm text-gray-500">Allow customers to pick up orders during working hours</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-8">
+                        <div>
+                          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Methods</h3>
+                          <p className="mt-1 text-sm text-gray-500">
+                            Available payment methods for your customers
+                          </p>
+                        </div>
+
+                        <div className="mt-6">
+                          <div className="bg-white shadow rounded-lg">
+                            <div className="divide-y divide-gray-200">
+                              {/* Cash Payment - Always enabled */}
+                              <div className="p-4 flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h4 className="text-sm font-medium text-gray-900">Cash Payment</h4>
+                                    <p className="text-xs text-gray-500">Pay with cash on delivery</p>
+                                  </div>
+                                </div>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Always Available
+                                </span>
+                              </div>
+
+                              {/* Telebirr */}
+                              <div className="p-4 flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0">
+                                    <svg className={`h-5 w-5 ${storeData.payment_methods.telebirr.is_active ? 'text-green-500' : 'text-gray-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h4 className="text-sm font-medium text-gray-900">Telebirr</h4>
+                                    <p className="text-xs text-gray-500">Mobile money by Ethio Telecom</p>
+                                  </div>
+                                </div>
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  storeData.payment_methods.telebirr.is_active 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {storeData.payment_methods.telebirr.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+
+                              {/* CBE */}
+                              <div className="p-4 flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0">
+                                    <svg className={`h-5 w-5 ${storeData.payment_methods.cbeBirr.is_active ? 'text-green-500' : 'text-gray-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h4 className="text-sm font-medium text-gray-900">CBE Account</h4>
+                                    <p className="text-xs text-gray-500">Commercial Bank of Ethiopia</p>
+                                  </div>
+                                </div>
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  storeData.payment_methods.cbeBirr.is_active 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {storeData.payment_methods.cbeBirr.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+
+                              {/* Amole */}
+                              <div className="p-4 flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0">
+                                    <svg className={`h-5 w-5 ${storeData.payment_methods.amole.is_active ? 'text-green-500' : 'text-gray-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                                      <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                                      <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h4 className="text-sm font-medium text-gray-900">Amole</h4>
+                                    <p className="text-xs text-gray-500">Dashen Bank mobile wallet</p>
+                                  </div>
+                                </div>
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  storeData.payment_methods.amole.is_active 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {storeData.payment_methods.amole.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
+
+                              {/* Chapa */}
+                              <div className="p-4 flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0">
+                                    <svg className={`h-5 w-5 ${storeData.payment_methods.chapa.is_active ? 'text-green-500' : 'text-gray-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h4 className="text-sm font-medium text-gray-900">Chapa</h4>
+                                    <p className="text-xs text-gray-500">Online payment gateway</p>
+                                  </div>
+                                </div>
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  storeData.payment_methods.chapa.is_active 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {storeData.payment_methods.chapa.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>

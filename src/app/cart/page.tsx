@@ -152,9 +152,8 @@ export default function CartPage() {
     // Base calculations
     const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
     const ethiopiaTax = subtotal * 0.15; // 15% VAT
-    const platformCommission = subtotal * 0.03; // Changed from 5% to 3% platform fee
-    const serviceFee = subtotal * 0.00; // 2% service fee
-    // Sum up all delivery fees from products
+    const platformCommission = subtotal * 0.03; // 3% platform fee
+    const serviceFee = subtotal * 0.00; // 0% service fee
     const deliveryFee = cartItems.reduce((sum, item) => sum + (item.delivery_fee || 0), 0);
 
     return {

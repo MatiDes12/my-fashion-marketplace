@@ -34,6 +34,8 @@ interface Product {
     };
   };
   is_coming_soon: boolean;
+  avgRating?: number;
+  totalRatings?: number;
 }
 
 interface CategoryProducts {
@@ -100,6 +102,7 @@ export default function ClothingCollection() {
             is_model_picture
           ),
           likes:likes(count),
+          ratings:ratings(rating),
           users (
             id,
             full_name,
@@ -132,9 +135,18 @@ export default function ClothingCollection() {
             if (groupedProducts[displayCategory][0]?.id.startsWith('template-')) {
               groupedProducts[displayCategory] = [];
             }
+
+            // Calculate average rating
+            const ratings = product.ratings || [];
+            const avgRating = ratings.length > 0
+              ? ratings.reduce((acc: number, curr: any) => acc + (curr.rating || 0), 0) / ratings.length
+              : 0;
+
             groupedProducts[displayCategory].push({
               ...product,
               like_count: product.likes[0]?.count || 0,
+              avgRating: Number(avgRating.toFixed(1)),
+              totalRatings: ratings.length,
               is_coming_soon: false
             });
           }

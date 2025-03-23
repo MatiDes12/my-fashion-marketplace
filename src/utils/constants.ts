@@ -15,10 +15,41 @@ export const ETHIOPIAN_CATEGORIES = [
 ];
 
 export const PAYMENT_METHODS = {
-  TELEBIRR: 'TELEBIRR',
-  CBE: 'CBE',
-  AMOLE: 'AMOLE',
-  CASH_ON_DELIVERY: 'CASH_ON_DELIVERY',
+  CASH: {
+    id: 'CASH',
+    name: 'Cash on Delivery',
+    description: 'Pay when you receive your order',
+    logo: '/payment-icons/cash.png',
+    isAvailable: true, // Cash is always available
+  },
+  TELEBIRR: {
+    id: 'TELEBIRR',
+    name: 'Telebirr',
+    description: 'Pay with Telebirr mobile money',
+    logo: '/payment-icons/telebirr.png',
+    isAvailable: false, // Will be set dynamically
+  },
+  CBE: {
+    id: 'CBE',
+    name: 'CBE Bank Account',
+    description: 'Direct bank transfer to CBE account',
+    logo: '/payment-icons/cbe.png',
+    isAvailable: false, // Will be set dynamically
+  },
+  AMOLE: {
+    id: 'AMOLE',
+    name: 'Amole',
+    description: 'Pay with Amole digital wallet',
+    logo: '/payment-icons/amole.png',
+    isAvailable: false, // Will be set dynamically
+  },
+  CHAPA: {
+    id: 'CHAPA',
+    name: 'Chapa',
+    description: 'Secure online payment with Chapa',
+    logo: '/payment-icons/chapa.png',
+    isAvailable: false, // Will be set dynamically
+  },
 } as const;
 
 export type PaymentMethodType = keyof typeof PAYMENT_METHODS;
@@ -51,7 +82,7 @@ export const PRODUCT_CATEGORIES = [
   'Traditional Wear',
   'Habesha Kemis',
   'Tilfi',
-  'Cultural Accessories',
+  'Traditional Accessories',
   
   // Modern Fashion
   'Modern Fashion',
@@ -59,7 +90,7 @@ export const PRODUCT_CATEGORIES = [
   'Tops',
   'Pants & Skirts',
   'Outerwear',
-  'Accessories',
+  'Fashion Accessories',
   'Shoes',
   
   // Home & Living
@@ -137,7 +168,7 @@ export const PRODUCT_CATEGORIES = [
   'Musical Instruments',
   'Traditional Instruments',
   'Modern Instruments',
-  'Accessories',
+  'Music Accessories',
   
   // Party & Events
   'Party & Events',
@@ -170,10 +201,13 @@ export const PRODUCT_CATEGORIES = [
   'Collectibles'
 ];
 
-// Add subcategories mapping for better organization
+// Update the CATEGORY_GROUPS object to include Home & Living categories
 export const CATEGORY_GROUPS = {
   'Traditional Wear': ['Habesha Kemis', 'Tilfi', 'Cultural Accessories'],
   'Modern Fashion': ['Dresses', 'Tops', 'Pants & Skirts', 'Outerwear', 'Accessories', 'Shoes'],
+  'Furniture': ['Living Room', 'Bedroom', 'Dining Room', 'Office'],
+  'Home Decor': ['Wall Art', 'Vases', 'Mirrors', 'Decorative Accessories'],
+  'Kitchen & Dining': ['Cookware', 'Dinnerware', 'Kitchen Tools', 'Storage'],
   'Home & Living': ['Furniture', 'Home Decor', 'Kitchen & Dining', 'Bedding', 'Lighting', 'Rugs & Carpets'],
 };
 
@@ -182,7 +216,7 @@ export const normalizeCategory = (category: string): string => {
   return category.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_');
 };
 
-// Add mapping for database categories to display names
+// Update the DB_CATEGORY_MAP to include home & living categories
 export const DB_CATEGORY_MAP: { [key: string]: string } = {
   habesha_kemis: 'Habesha Kemis',
   tilfi: 'Tilfi',
@@ -193,5 +227,11 @@ export const DB_CATEGORY_MAP: { [key: string]: string } = {
   outerwear: 'Outerwear',
   accessories: 'Accessories',
   shoes: 'Shoes',
-  // Add home & living categories if needed
+  // Add home & living categories
+  furniture: 'Furniture',
+  home_decor: 'Home Decor',
+  kitchen_dining: 'Kitchen & Dining',
+  bedding: 'Bedding',
+  lighting: 'Lighting',
+  rugs_carpets: 'Rugs & Carpets'
 }; 

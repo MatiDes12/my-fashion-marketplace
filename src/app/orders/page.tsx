@@ -37,6 +37,10 @@ export default function OrdersPage() {
               title, 
               price,
               images:product_images(*)
+            ),
+            users!orders_user_id_fkey (
+              id,
+              full_name
             )
           `)
           .eq('user_id', session.user.id)
@@ -168,16 +172,21 @@ export default function OrdersPage() {
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-medium text-gray-900">
                           <button 
-                            onClick={() => router.push(`/products/${order.product.id}`)}
+                            onClick={() => router.push(`/products/${order.product?.id}`)}
                             className="hover:text-green-600"
                           >
-                            {order.product.title}
+                            {order.product?.title || 'Product Unavailable'}
                           </button>
                         </h3>
-                        <p className="ml-4 text-lg font-medium text-gray-900">${order.total_price}</p>
+                        <p className="ml-4 text-lg font-medium text-gray-900">
+                          ${order.total_price?.toFixed(2) || '0.00'}
+                        </p>
                       </div>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Seller: {order.users?.full_name || 'Unknown Seller'}
+                      </p>
                       <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
-                      <p className="mt-1 text-sm text-gray-500">Price per item: ${order.product.price}</p>
+                      <p className="mt-1 text-sm text-gray-500">Price per item: ${order.product?.price}</p>
                     </div>
                   </div>
                 </div>

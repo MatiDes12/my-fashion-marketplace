@@ -149,6 +149,7 @@ export default function HomeLivingCollection() {
             is_model_picture
           ),
           likes:likes(count),
+          ratings:ratings(rating),
           users (
             id,
             full_name,
@@ -156,8 +157,7 @@ export default function HomeLivingCollection() {
           )
         `)
         .in('category', [
-          'home_living',
-          ...CATEGORY_GROUPS['Home & Living'].map(cat => cat.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_'))
+          ...CATEGORY_GROUPS['Home & Living'].map(cat => normalizeCategory(cat))
         ])
         .eq('is_active', true);
 
@@ -166,27 +166,33 @@ export default function HomeLivingCollection() {
       // Group products by category and sort by likes
       const groupedProducts: CategoryProducts = {};
       
-      // Initialize categories with template data
+      // Initialize all categories with template data
       CATEGORY_GROUPS['Home & Living'].forEach(category => {
         groupedProducts[category] = generateTemplateCategoryProducts(category);
       });
 
       // If we have real data, override the template data
       if (data && data.length > 0) {
-        // Add products to their categories
         data.forEach(product => {
-          const categoryKey = Object.entries(groupedProducts).find(([key]) => 
-            product.category === key.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_')
-          )?.[0];
-
-          if (categoryKey) {
-            if (groupedProducts[categoryKey][0]?.id.startsWith('template-')) {
-              // Replace template data with real data
-              groupedProducts[categoryKey] = [];
+          const displayCategory = DB_CATEGORY_MAP[product.category] || product.category;
+          
+          if (groupedProducts[displayCategory]) {
+            if (groupedProducts[displayCategory][0]?.id.startsWith('template-')) {
+              groupedProducts[displayCategory] = [];
             }
-            groupedProducts[categoryKey].push({
+
+            // Calculate average rating
+            const ratings = product.ratings || [];
+            const avgRating = ratings.length > 0
+              ? ratings.reduce((acc: number, curr: any) => acc + (curr.rating || 0), 0) / ratings.length
+              : 0;
+
+            groupedProducts[displayCategory].push({
               ...product,
-              like_count: product.likes[0]?.count || 0
+              like_count: product.likes[0]?.count || 0,
+              avgRating: Number(avgRating.toFixed(1)),
+              totalRatings: ratings.length,
+              is_coming_soon: false
             });
           }
         });

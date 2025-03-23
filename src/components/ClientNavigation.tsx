@@ -9,8 +9,8 @@ export default function ClientNavigation() {
   const { userDetails, loading } = useUserDetails();
   const pathname = usePathname();
   
-  // Hide navigation on dashboard pages
-  if (pathname?.startsWith('/dashboard')) {
+  // Hide navigation on dashboard and admin pages
+  if (pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin')) {
     return null;
   }
   

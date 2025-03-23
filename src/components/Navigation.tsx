@@ -106,6 +106,16 @@ const DROPDOWN_CATEGORIES = PRODUCT_CATEGORIES.filter(cat =>
   !MAIN_CATEGORIES.includes(cat) || cat.includes('&')
 );
 
+// Make sure each category has a unique key
+const categories = [
+  { id: 'women', label: 'Women', href: '/category/women' },
+  { id: 'men', label: 'Men', href: '/category/men' },
+  { id: 'accessories-1', label: 'Accessories', href: '/category/accessories' }, // Changed key to be unique
+  { id: 'shoes', label: 'Shoes', href: '/category/shoes' },
+  { id: 'bags', label: 'Bags', href: '/category/bags' },
+  { id: 'accessories-2', label: 'Accessories', href: '/category/accessories' }, // If you need a second one, use a different key
+];
+
 export default function Navigation({ userDetails }: NavigationProps) {
   const { user, setUser } = useAuth();
   const { isOwner } = useOwnerCheck();
@@ -816,6 +826,24 @@ export default function Navigation({ userDetails }: NavigationProps) {
                       <span className="hidden lg:inline ml-1">Stores</span>
                     </Link>
 
+                    {/* Products Icon */}
+                    <Link
+                      href="/products"
+                      className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+                    >
+                      <div className="relative">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2} 
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" 
+                          />
+                        </svg>
+                      </div>
+                      <span className="hidden lg:inline ml-1">Products</span>
+                    </Link>
+
                     {/* Add Flash Sale Icon */}
                     <Link
                       href="/flash-sales"
@@ -994,9 +1022,9 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   }}
                 >
                   <div className="py-2">
-                    {DROPDOWN_CATEGORIES.map((category) => (
+                    {DROPDOWN_CATEGORIES.map((category, index) => (
                       <button
-                        key={category}
+                        key={`${category}-${index}`}
                         onClick={() => {
                           handleCategoryClick(category);
                           setIsDropdownOpen(false);
@@ -1250,9 +1278,14 @@ export default function Navigation({ userDetails }: NavigationProps) {
                 className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-300"
               >
                 <svg className="w-6 h-6 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" 
+                  />
                 </svg>
-                <span className="font-medium">All Products</span>
+                <span className="font-medium">Products</span>
               </Link>
               
               <Link 
@@ -1282,6 +1315,24 @@ export default function Navigation({ userDetails }: NavigationProps) {
                 <span className="font-medium">Stores</span>
               </Link>
 
+              {/* Products Icon */}
+              <Link
+                href="/products"
+                className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+              >
+                <div className="relative">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" 
+                    />
+                  </svg>
+                </div>
+                <span className="hidden lg:inline ml-1">Products</span>
+              </Link>
+
               {/* Cart Link with Badge */}
               <Link 
                 href="/cart" 
@@ -1306,16 +1357,16 @@ export default function Navigation({ userDetails }: NavigationProps) {
                 Categories
               </h3>
               <div className="mt-4 flex flex-wrap gap-2 px-4">
-                {PRODUCT_CATEGORIES.map((category) => (
+                {categories.map((category) => (
                   <button
-                    key={category}
+                    key={category.id}
                     onClick={() => {
-                      handleCategoryClick(category);
+                      handleCategoryClick(category.label);
                       closeMenu();
                     }}
                     className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-300"
                   >
-                    {category}
+                    {category.label}
                   </button>
                 ))}
               </div>

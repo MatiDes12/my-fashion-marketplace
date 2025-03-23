@@ -50,7 +50,7 @@ export default function OrdersPage() {
           return;
         }
 
-        // Get products with their orders and user information
+        // Update the query to properly join with users table
         const { data: products, error: productsError } = await supabase
           .from('products')
           .select(`
@@ -64,7 +64,7 @@ export default function OrdersPage() {
               total_price,
               order_status,
               user_id,
-              users (
+              user:users (
                 id,
                 full_name,
                 email
@@ -78,13 +78,13 @@ export default function OrdersPage() {
           throw productsError;
         }
 
-        // Transform the data structure to match Order type
+        // Transform the data structure with proper user information
         const allOrders: Order[] = products.flatMap(product => 
           product.orders?.map(order => ({
             id: order.id,
             created_at: order.created_at,
             user_id: order.user_id,
-            product_id: product.id, // Add product_id from the parent product
+            product_id: product.id,
             quantity: order.quantity,
             total_price: order.total_price,
             order_status: order.order_status,
@@ -94,7 +94,7 @@ export default function OrdersPage() {
               price: product.price,
               owner_id: session.user.id
             },
-            user: order.users[0] || { // Take first user from users array
+            user: order.user || {
               id: order.user_id,
               full_name: 'Unknown',
               email: 'unknown@example.com'
@@ -182,6 +182,24 @@ export default function OrdersPage() {
       setUpdatingStatus(false);
     }
   };
+
+  async function debugOrderData(supabase: any) {
+    // Check orders table
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        user:users (*)
+      `)
+      .limit(5);
+
+    console.log('Debug - Orders with users:', orders);
+    console.log('Debug - Orders error:', ordersError);
+  }
+
+  useEffect(() => {
+    debugOrderData(supabase);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -22,6 +22,9 @@ import FloatingGradient from '@/components/FloatingGradient';
 import ParallaxSection from '@/components/ParallaxSection';
 import ScrollProgress from '@/components/ScrollProgress';
 import { FloatingPreview } from '@/components/FloatingPreview';
+import { PRODUCT_CATEGORIES } from '@/utils/constants';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3ELoading...%3C/text%3E%3C/svg%3E';
 
@@ -814,7 +817,178 @@ const TestimonialCarousel = () => {
   );
 };
 
-// Move the HomePage component to the top level (not nested inside another function)
+// Add interfaces at the top of the file
+interface PolicyModalContent {
+  title: string;
+  content: React.ReactNode;
+}
+
+// Move PolicyModal component outside of HomePage
+const PolicyModal = ({ 
+  isOpen, 
+  onClose, 
+  policy 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  policy: PolicyModalContent;
+}) => {
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-75" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-gray-900 p-6 text-white shadow-xl transition-all">
+                {policy.content}
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    className="inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                    onClick={onClose}
+                  >
+                    Close
+                  </button>
+                </div>
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
+
+// Move policy content components outside of HomePage
+const PrivacyPolicyContent = () => (
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold">Privacy Policy</h3>
+    <div className="space-y-2 text-sm text-gray-300">
+      <p>Last updated: {new Date().toLocaleDateString()}</p>
+      <h4 className="font-medium text-white">Information We Collect</h4>
+      <p>We collect information that you provide directly to us, including:</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Name and contact information</li>
+        <li>Delivery address and phone number</li>
+        <li>Payment information (processed securely through our payment partners)</li>
+        <li>Shopping preferences and history</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">How We Use Your Information</h4>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Process your orders and payments</li>
+        <li>Communicate about your orders and account</li>
+        <li>Send you marketing communications (with your consent)</li>
+        <li>Improve our services and user experience</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">Data Security</h4>
+      <p>We implement appropriate security measures to protect your personal information.</p>
+    </div>
+  </div>
+);
+
+const TermsOfServiceContent = () => (
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold">Terms of Service</h3>
+    <div className="space-y-2 text-sm text-gray-300">
+      <p>Last updated: {new Date().toLocaleDateString()}</p>
+      <h4 className="font-medium text-white">Agreement to Terms</h4>
+      <p>By accessing or using AVRIO, you agree to be bound by these terms.</p>
+
+      <h4 className="font-medium text-white mt-4">User Accounts</h4>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>You must provide accurate account information</li>
+        <li>You are responsible for maintaining account security</li>
+        <li>We reserve the right to suspend or terminate accounts</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">Product Listings</h4>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>All product descriptions must be accurate</li>
+        <li>Prices and availability are subject to change</li>
+        <li>We reserve the right to refuse any order</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">Dispute Resolution</h4>
+      <p>Any disputes will be resolved in accordance with Ethiopian law.</p>
+    </div>
+  </div>
+);
+
+const ShippingPolicyContent = () => (
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold">Shipping & Delivery Policy</h3>
+    <div className="space-y-2 text-sm text-gray-300">
+      <p>Last updated: {new Date().toLocaleDateString()}</p>
+
+      <h4 className="font-medium text-white">Delivery Options</h4>
+      <p>Each seller on AVRIO can offer different delivery methods:</p>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Store Pickup - Collect your order directly from the seller's location</li>
+        <li>Local Delivery - Available in selected areas, delivered by the seller</li>
+        <li>Shipping - Nationwide delivery through our shipping partners</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">Delivery Information</h4>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Available delivery options will be shown on each product page</li>
+        <li>Delivery fees and times vary by seller and location</li>
+        <li>Some sellers may offer free delivery above a minimum order value</li>
+        <li>Estimated delivery times are provided at checkout</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">Store Pickup</h4>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Available during the seller's business hours</li>
+        <li>Pickup location and instructions provided after order confirmation</li>
+        <li>Bring your order confirmation and ID for collection</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">Local Delivery</h4>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Delivery radius and fees set by individual sellers</li>
+        <li>Delivery times arranged directly with the seller</li>
+        <li>Real-time tracking where available</li>
+      </ul>
+
+      <h4 className="font-medium text-white mt-4">Order Tracking</h4>
+      <ul className="list-disc pl-5 space-y-1">
+        <li>Track orders through your AVRIO account</li>
+        <li>Receive SMS/email updates on order status</li>
+        <li>Contact seller directly for specific delivery queries</li>
+      </ul>
+
+      <div className="mt-4 p-4 bg-gray-800 rounded-lg">
+        <p className="text-sm text-gray-300">
+          <strong className="text-white">Note:</strong> Delivery options, times, and fees are set by individual sellers. 
+          Please check the specific delivery information on each product page or contact the seller directly for detailed shipping information.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
 export default function HomePage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -827,6 +1001,7 @@ export default function HomePage() {
   const [sellerImageLoading, setSellerImageLoading] = useState<{[key: string]: boolean}>({});
   const [currentFlashSaleIndex, setCurrentFlashSaleIndex] = useState(0);
   const [mostLikedProducts, setMostLikedProducts] = useState<PopularProduct[]>([]);
+  const [activePolicy, setActivePolicy] = useState<PolicyModalContent | null>(null);
 
   const subscriptionTiers = [
     {
@@ -2606,24 +2781,41 @@ export default function HomePage() {
             <div>
               <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Categories</h3>
               <ul className="space-y-2">
-                <li>
-                  <Link href="/categories/fashion" className="text-gray-400 hover:text-white transition-colors">
-                    Fashion
+                {PRODUCT_CATEGORIES
+                  .filter(category => 
+                    // Filter to show only main categories
+                    ['Traditional Wear', 'Modern Fashion', 'Home & Living', 'Beauty & Personal Care']
+                    .includes(category)
+                  )
+                  .map((category: string) => (
+                    <li key={category}>
+                      <Link 
+                        href={`/products?category=${category.toLowerCase()}`}
+                        className="text-gray-400 hover:text-white transition-colors"
+                      >
+                        {category}
                   </Link>
                 </li>
+                ))}
                 <li>
-                  <Link href="/categories/electronics" className="text-gray-400 hover:text-white transition-colors">
-                    Electronics
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/categories/home" className="text-gray-400 hover:text-white transition-colors">
-                    Home & Living
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/categories/beauty" className="text-gray-400 hover:text-white transition-colors">
-                    Beauty & Health
+                  <Link 
+                    href="/products"
+                    className="text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    View All Categories
+                    <svg 
+                      className="w-4 h-4" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M9 5l7 7-7 7" 
+                      />
+                    </svg>
                   </Link>
                 </li>
               </ul>
@@ -2657,15 +2849,33 @@ export default function HomePage() {
                 © {new Date().getFullYear()} AVRIO. All rights reserved.
               </p>
               <div className="flex space-x-6 mt-4 md:mt-0">
-                <Link href="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors">
+                <button 
+                  onClick={() => setActivePolicy({ 
+                    title: 'Privacy Policy', 
+                    content: <PrivacyPolicyContent /> 
+                  })}
+                  className="text-gray-400 hover:text-white text-sm transition-colors"
+                >
                   Privacy Policy
-                </Link>
-                <Link href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
+                </button>
+                <button 
+                  onClick={() => setActivePolicy({ 
+                    title: 'Terms of Service', 
+                    content: <TermsOfServiceContent /> 
+                  })}
+                  className="text-gray-400 hover:text-white text-sm transition-colors"
+                >
                   Terms of Service
-                </Link>
-                <Link href="/shipping" className="text-gray-400 hover:text-white text-sm transition-colors">
+                </button>
+                <button 
+                  onClick={() => setActivePolicy({ 
+                    title: 'Shipping Policy', 
+                    content: <ShippingPolicyContent /> 
+                  })}
+                  className="text-gray-400 hover:text-white text-sm transition-colors"
+                >
                   Shipping Policy
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -2677,6 +2887,15 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Add the modal */}
+      {activePolicy && (
+        <PolicyModal
+          isOpen={!!activePolicy}
+          onClose={() => setActivePolicy(null)}
+          policy={activePolicy}
+        />
+      )}
     </div>
   );
 }

@@ -1,56 +1,112 @@
-import Image from 'next/image';
+'use client';
+
+import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 export default function LoadingPage() {
+  const [show, setShow] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShow(false);
+    }, 3000); // 3 seconds
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!show) return null;
+
   return (
-    <div className="fixed inset-0 w-full h-full z-[9999] flex items-center justify-center">
-      {/* Blurred backdrop */}
-      <div className="fixed inset-0 bg-white/30 dark:bg-gray-950/30 backdrop-blur-lg" />
+    <motion.div 
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 w-full h-full z-[99999] flex items-center justify-center"
+    >
+      {/* Enhanced darker blue blurred backdrop */}
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-950/98 via-blue-950/98 to-slate-950/98 backdrop-blur-2xl after:absolute after:inset-0 after:bg-blue-950/30" />
       
-      {/* Content container */}
-      <div className="relative z-10 flex flex-col items-center justify-center p-8 rounded-2xl">
-        {/* Logo and brand name */}
-        <div className="text-center mb-12 animate-fadeIn">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+      {/* Content container with glass effect */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10 flex flex-col items-center justify-center p-10 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/10 shadow-2xl transform -translate-y-8"
+      >
+        {/* Logo and brand name with enhanced animation */}
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-12"
+        >
+          <h1 className="text-6xl font-bold bg-gradient-to-r from-red-500 via-pink-500 to-purple-500 bg-clip-text text-transparent drop-shadow-lg">
             AVRIO
           </h1>
-        </div>
+        </motion.div>
 
-        {/* Custom loading animation */}
-        <div className="relative w-64">
-          {/* Loading bars */}
-          <div className="flex gap-1">
+        {/* Enhanced loading animation */}
+        <div className="relative w-72">
+          {/* Animated bars with glow effect */}
+          <div className="flex gap-1.5">
             {[...Array(5)].map((_, i) => (
-              <div
+              <motion.div
                 key={i}
-                className="flex-1 h-16 bg-gradient-to-t from-red-500 to-pink-500 rounded-full animate-pulse"
+                animate={{ 
+                  height: [40, 64, 40], 
+                  opacity: [0.5, 1, 0.5] 
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  delay: i * 0.15,
+                  ease: "easeInOut"
+                }}
+                className="flex-1 bg-gradient-to-t from-red-500 via-pink-500 to-purple-500 rounded-full shadow-lg shadow-red-500/20"
                 style={{
-                  animationDelay: `${i * 0.15}s`,
-                  animationDuration: '1s'
+                  filter: 'brightness(1.2) contrast(1.1)',
                 }}
               />
             ))}
           </div>
 
-          {/* Circular progress */}
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2">
-            <div className="w-24 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-red-500 to-pink-500 rounded-full loading-slide" />
-            </div>
-          </div>
+          {/* Circular progress with glow */}
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-8 left-1/2 -translate-x-1/2"
+          >
+            <div className="w-16 h-16 rounded-full border-4 border-gray-700 border-t-red-500 border-r-pink-500 shadow-lg shadow-red-500/20" />
+          </motion.div>
         </div>
 
-        {/* Loading text */}
-        <div className="mt-12 space-y-2 text-center">
-          <p className="text-gray-600 dark:text-gray-300 animate-pulse text-sm">
+        {/* Enhanced loading text with typing effect */}
+        <div className="mt-20 space-y-3 text-center">
+          <motion.p 
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="text-gray-200 text-sm font-medium tracking-wide px-8 whitespace-nowrap"
+          >
             Loading amazing things...
-          </p>
-          <div className="flex items-center justify-center gap-1">
-            <div className="w-1 h-1 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-            <div className="w-1 h-1 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-            <div className="w-1 h-1 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+          </motion.p>
+          <div className="flex items-center justify-center gap-2">
+            {[...Array(3)].map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{ 
+                  scale: [0, 1, 0],
+                  opacity: [0, 1, 0]
+                }}
+                transition={{
+                  duration: 1,
+                  repeat: Infinity,
+                  delay: i * 0.2,
+                  ease: "easeInOut"
+                }}
+                className="w-2 h-2 bg-gradient-to-r from-red-500 to-pink-500 rounded-full shadow-lg shadow-red-500/50"
+              />
+            ))}
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
-} 
+}

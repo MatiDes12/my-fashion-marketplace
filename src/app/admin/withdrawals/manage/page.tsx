@@ -175,6 +175,40 @@ export default function ManageWithdrawalsPage() {
     return transferResult;
   };
 
+  const approvePayout = async (transactionId: string) => {
+    try {
+      setProcessing(prev => ({ ...prev, [transactionId]: true }));
+
+      // First update the order status to completed
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({ order_status: 'completed' })
+        .eq('id', transactionId);
+
+      if (orderError) throw orderError;
+
+      // Then update the transaction seller payout status
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .update({ 
+          seller_payout_status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transactionId);
+
+      if (transactionError) throw transactionError;
+
+      toast.success('Seller payout approved successfully');
+      fetchWithdrawals(); // Refresh the list
+
+    } catch (error) {
+      console.error('Error approving payout:', error);
+      toast.error('Failed to approve payout');
+    } finally {
+      setProcessing(prev => ({ ...prev, [transactionId]: false }));
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
