@@ -95,7 +95,7 @@ function LoginContent() {
       // Check user role
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('role, is_admin')
+        .select('role, is_admin, is_verified, verification_status')
         .eq('id', session.user.id)
         .single();
 
@@ -104,11 +104,28 @@ function LoginContent() {
       // Update the user in context
       setUser(session.user);
 
-      // Handle redirects based on role and return URL
+      // Handle redirects based on role and verification status
       if (userData?.role === 'admin') {
         router.push(returnUrl || '/admin');
       } else if (userData?.role === 'owner') {
-        router.push(returnUrl?.startsWith('/admin') ? returnUrl : '/dashboard/products');
+        if (!userData.is_verified) {
+          // Check if verification is pending
+          const { data: verificationData } = await supabase
+            .from('seller_verification')
+            .select('status')
+            .eq('user_id', session.user.id)
+            .single();
+
+          if (!verificationData) {
+            router.push('/dashboard/verify');
+          } else if (verificationData.status === 'pending') {
+            router.push('/dashboard/verification-pending');
+          } else {
+            router.push('/dashboard');
+          }
+        } else {
+          router.push('/dashboard');
+        }
       } else {
         router.push('/products');
       }

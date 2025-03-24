@@ -222,6 +222,24 @@ export default function SellerFlashSalesPage() {
     }
   };
 
+  const deleteFlashSale = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('flash_sales')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Refresh the flash sales list after deletion
+      fetchMyFlashSales();
+      toast.success('Flash sale deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting flash sale:', error);
+      toast.error('Failed to delete flash sale');
+    }
+  };
+
   if (!user) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -234,8 +252,11 @@ export default function SellerFlashSalesPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-2xl font-bold mb-6">Create Flash Sale</h2>
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Create Flash Sale</h2>
+        <p className="text-gray-600 mb-4 text-center">
+          Offer your customers amazing discounts and boost your sales with our flash sale feature!
+        </p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -246,7 +267,8 @@ export default function SellerFlashSalesPage() {
                 required
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2"
+                placeholder="Enter flash sale title"
               />
             </div>
 
@@ -256,7 +278,8 @@ export default function SellerFlashSalesPage() {
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2"
+                placeholder="Enter a brief description"
               />
             </div>
 
@@ -269,7 +292,8 @@ export default function SellerFlashSalesPage() {
                 max="100"
                 value={formData.discount_percentage}
                 onChange={(e) => setFormData({ ...formData, discount_percentage: Number(e.target.value) })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2"
+                placeholder="Enter discount percentage"
               />
             </div>
 
@@ -280,7 +304,8 @@ export default function SellerFlashSalesPage() {
                 min="0"
                 value={formData.min_order_amount}
                 onChange={(e) => setFormData({ ...formData, min_order_amount: Number(e.target.value) })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2"
+                placeholder="Enter minimum order amount"
               />
             </div>
 
@@ -291,7 +316,7 @@ export default function SellerFlashSalesPage() {
                 required
                 value={formData.start_time}
                 onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2"
               />
             </div>
 
@@ -302,7 +327,7 @@ export default function SellerFlashSalesPage() {
                 required
                 value={formData.end_time}
                 onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2"
               />
             </div>
           </div>
@@ -397,7 +422,7 @@ export default function SellerFlashSalesPage() {
           <div>
             <button
               type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-300 ease-in-out"
             >
               Create Flash Sale
             </button>
@@ -424,16 +449,24 @@ export default function SellerFlashSalesPage() {
                       </span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => toggleFlashSale(sale.id, sale.is_active)}
-                    className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${
-                      sale.is_active
-                        ? 'text-red-700 bg-red-100 hover:bg-red-200'
-                        : 'text-green-700 bg-green-100 hover:bg-green-200'
-                    }`}
-                  >
-                    {sale.is_active ? 'Deactivate' : 'Activate'}
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => toggleFlashSale(sale.id, sale.is_active)}
+                      className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${
+                        sale.is_active
+                          ? 'text-red-700 bg-red-100 hover:bg-red-200'
+                          : 'text-green-700 bg-green-100 hover:bg-green-200'
+                      }`}
+                    >
+                      {sale.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button
+                      onClick={() => deleteFlashSale(sale.id)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}

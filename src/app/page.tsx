@@ -406,32 +406,22 @@ const RecentlyViewed = () => {
   );
 };
 
-// Update the BackToTopButton component's positioning
+// Replace the BackToTopButton component with this simplified version
 const BackToTopButton = () => {
   const [isVisible, setIsVisible] = useState(false);
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout>();
 
   useEffect(() => {
     const toggleVisibility = () => {
       if (window.pageYOffset > 300) {
         setIsVisible(true);
-        // Reset timeout when scrolling
-        if (timeoutId) clearTimeout(timeoutId);
-        const timeout = setTimeout(() => {
-          setIsVisible(false);
-        }, 10000);
-        setTimeoutId(timeout);
       } else {
         setIsVisible(false);
       }
     };
 
     window.addEventListener('scroll', toggleVisibility);
-    return () => {
-      window.removeEventListener('scroll', toggleVisibility);
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [timeoutId]);
+    return () => window.removeEventListener('scroll', toggleVisibility);
+  }, []);
 
   const scrollToTop = () => {
     window.scrollTo({
@@ -443,31 +433,25 @@ const BackToTopButton = () => {
   if (!isVisible) return null;
 
   return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.5 }}
-      onClick={() => {
-        scrollToTop();
-        setIsVisible(false);
-        if (timeoutId) clearTimeout(timeoutId);
-      }}
-      className="fixed bottom-8 right-4 z-[100] p-3 rounded-full bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 group"
-      style={{ 
-        transform: 'translate3d(0,0,0)', // Force GPU acceleration
-        willChange: 'transform', // Optimize for animations
-        position: 'fixed', // Ensure fixed positioning
-        bottom: '2rem', // 8 in rem units
-        right: '1rem', // 4 in rem units
+    <button
+      onClick={scrollToTop}
+      className="always-visible-element"
+      style={{
+        position: 'fixed',
+        bottom: '30px',
+        right: '20px',
+        zIndex: 9999,
+        padding: '0.75rem',
+        borderRadius: '9999px',
+        background: 'linear-gradient(to right, rgb(220, 38, 38), rgb(219, 39, 119))',
+        color: 'white',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
       }}
     >
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg style={{ width: '24px', height: '24px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
       </svg>
-      <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-        Back to top
-      </span>
-    </motion.button>
+    </button>
   );
 };
 

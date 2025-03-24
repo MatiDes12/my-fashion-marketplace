@@ -9,6 +9,45 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { AuthChangeEvent } from '@supabase/supabase-js';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import { cleanImageUrl } from '@/utils/url';
+import { motion } from 'framer-motion';
+
+interface UserData {
+  role: string;
+  is_verified: boolean;
+  verification_status: 'pending' | 'verified' | 'rejected';
+}
+
+const UnverifiedHeader = () => {
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[30] bg-white shadow-sm backdrop-blur-sm bg-white/90">
+      <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
+        <div className="flex items-center gap-3">
+          <div className="p-1">
+            <Image
+              src="/images/brand/logo.png"
+              alt="Logo"
+              width={48}
+              height={48}
+              className="object-contain"
+            />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">Seller Verification</h1>
+            <p className="text-sm text-gray-500">Complete verification to access dashboard</p>
+          </div>
+        </div>
+        <Link
+          href="/"
+          className="p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100/80 transition-all"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+        </Link>
+      </div>
+    </div>
+  );
+};
 
 export default function DashboardLayout({
   children,
@@ -18,6 +57,7 @@ export default function DashboardLayout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const { userDetails } = useUserDetails();
   const pathname = usePathname();
   const router = useRouter();
@@ -28,47 +68,39 @@ export default function DashboardLayout({
       setIsLoading(true);
       
       try {
-        // Force refresh the session to ensure we have the latest state
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          console.error('Error refreshing session:', refreshError);
-          router.push('/login?message=Session+expired');
-          return;
-        }
-        
-        const session = refreshData.session;
+        const { data: { session } } = await supabase.auth.refreshSession();
         
         if (!session) {
-          console.log('No session found, redirecting to login');
-          router.push('/login?message=Please+login+to+access+the+dashboard');
+          router.push('/login?message=Please login to access the dashboard');
           return;
         }
         
-        // Verify the user's role
+        // Verify the user's role and verification status
         const { data, error } = await supabase
           .from('users')
-          .select('role')
+          .select('role, is_verified, verification_status')
           .eq('id', session.user.id)
-          .single();
+          .single() as { data: UserData | null; error: any };
         
         if (error) {
           console.error('Error fetching user role:', error);
-          router.push('/login?message=Error+verifying+permissions');
+          router.push('/login?message=Error verifying permissions');
           return;
         }
         
         if (data?.role !== 'owner') {
-          console.log('User is not an owner, redirecting to home');
-          router.push('/?message=Access+denied');
+          router.push('/?message=Access denied');
           return;
         }
+
+        // Only show sidebar if verified
+        setIsVerified(data.is_verified);
         
         // User is authorized
         setIsAuthorized(true);
       } catch (error) {
         console.error('Error checking access:', error);
-        router.push('/login?message=Authentication+error');
+        router.push('/login?message=Authentication error');
       } finally {
         setIsLoading(false);
       }
@@ -76,26 +108,21 @@ export default function DashboardLayout({
     
     checkAccess();
     
-    // Set up auth state change listener
+    // Auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session) => {
-      console.log('Auth state changed:', event);
-      
       if (event === 'SIGNED_OUT') {
-        // Redirect to login if user signs out
-        router.push('/login?message=You+have+been+signed+out');
+        router.push('/login?message=You have been signed out');
       } else if (event === 'TOKEN_REFRESHED' && !session) {
-        // If token refresh fails (no session), redirect to login
-        router.push('/login?message=Session+expired');
+        router.push('/login?message=Session expired');
       }
     });
     
-    // Clean up subscription when component unmounts
     return () => {
       subscription.unsubscribe();
     };
   }, [router]);
 
-  // If still loading or not authorized, show loading spinner
+  // Show loading spinner while checking auth
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -104,9 +131,26 @@ export default function DashboardLayout({
     );
   }
   
-  // If not authorized after loading, don't render the dashboard
+  // Don't render anything if not authorized
   if (!isAuthorized) {
     return null;
+  }
+
+  // For verification pages, only show minimal layout
+  if (pathname === '/dashboard/verify' || pathname === '/dashboard/verification-pending') {
+    return <main className="min-h-screen bg-gray-50">{children}</main>;
+  }
+
+  // If not verified, don't show the sidebar
+  if (!isVerified) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <UnverifiedHeader />
+        <main className="pt-16">
+          {children}
+        </main>
+      </div>
+    );
   }
 
   const navigation = [

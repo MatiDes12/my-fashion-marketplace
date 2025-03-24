@@ -441,3 +441,71 @@ body {
 .animate-bounce {
   animation: bounce 1s ease-in-out infinite;
 }
+
+/* Add these styles to the end of your globals.css file */
+
+/* Fixed positioning for floating elements */
+.fixed-float {
+  position: fixed !important;
+  z-index: 90;
+  transform: translate3d(0,0,0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Ensure fixed elements stay on top */
+.z-fixed {
+  z-index: 90;
+}
+
+/* Add a subtle float animation */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Ensure fixed elements don't get affected by other transforms */
+.transform-none {
+  transform: none !important;
+}
+
+/* Add this class to your globals.css file */
+.viewport-fixed {
+  position: fixed;
+  z-index: 90;
+  transform: translate3d(0,0,0);
+  will-change: transform;
+  transition: transform 0.2s ease-out;
+}
+
+/* Add this animation for a subtle float effect */
+@keyframes viewport-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.viewport-float {
+  animation: viewport-float 4s ease-in-out infinite;
+}
+
+/* Add this at the end of your globals.css file */
+.always-visible-element {
+  position: fixed !important;
+  z-index: 9999 !important;
+  transform: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}

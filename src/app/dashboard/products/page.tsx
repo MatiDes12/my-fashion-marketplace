@@ -9,6 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { formatCurrency } from '@/utils/currency';
 import { toast } from 'react-hot-toast';
+import { withSellerVerification } from '@/components/withSellerVerification';
 
 type Product = {
   id: string;
@@ -33,7 +34,7 @@ type CategoryGroup = {
   [key: string]: Product[];
 };
 
-export default function ProductsManagementPage() {
+function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -275,4 +276,6 @@ export default function ProductsManagementPage() {
       </div>
     </div>
   );
-} 
+}
+
+export default withSellerVerification(ProductsPage); 

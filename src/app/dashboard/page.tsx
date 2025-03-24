@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { CreditCardIcon } from '@heroicons/react/24/outline';
 import { classNames } from '@/utils/classNames';
 import { useUserDetails } from '@/hooks/useUserDetails';
+import SellerVerificationForm from '@/components/SellerVerificationForm';
+import { withSellerVerification } from '@/components/withSellerVerification';
 
 interface Product {
   id: string;
@@ -73,7 +75,12 @@ interface ProductWithRelations extends Product {
   product_images: ProductImage[];
 }
 
-export default function DashboardPage() {
+interface VerificationStatus {
+  status: 'pending' | 'approved' | 'rejected';
+  is_verified: boolean;
+}
+
+export default withSellerVerification(function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,46 +89,66 @@ export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClientComponent();
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus | null>(null);
 
   useEffect(() => {
     const checkAccessAndLoadData = async () => {
       try {
         setLoading(true);
         
-        // Get session
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (!session) {
           router.push('/login?message=Please login to access the dashboard');
           return;
         }
-        
-        // Check role directly from database
-        const { data, error } = await supabase
+
+        // Check verification status
+        const { data: userData } = await supabase
           .from('users')
-          .select('role')
+          .select('is_verified, verification_status')
           .eq('id', session.user.id)
           .single();
-        
-        if (error) {
-          setError('Failed to verify user role');
+
+        if (userData?.verification_status === 'rejected') {
+          router.push('/dashboard/verification-rejected');
           return;
         }
-        
-        if (data?.role !== 'owner') {
-          router.push('/');
-          return;
+
+        // Now TypeScript knows about both fields
+        if (!userData?.is_verified) {
+          const { data: verificationData } = await supabase
+            .from('seller_verification')
+            .select('status')
+            .eq('user_id', session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          // If no verification exists or status is rejected, redirect to verification form
+          if (!verificationData || verificationData.status === 'rejected') {
+            router.push('/dashboard/verify');
+            return;
+          }
+
+          // If verification is pending, show pending page
+          if (verificationData.status === 'pending') {
+            router.push('/dashboard/verification-pending');
+            return;
+          }
         }
-        
-        // If we have a valid session and correct role, fetch data
-        await fetchDashboardData(session.user.id);
+        // If verified, fetch dashboard data
+        if (userData?.is_verified) {
+          await fetchDashboardData(session.user.id);
+        }
+
       } catch (error) {
+        console.error('Error:', error);
         setError('Failed to verify access permissions');
       } finally {
         setLoading(false);
       }
     };
-    
+
     checkAccessAndLoadData();
   }, [router]);
 
@@ -485,4 +512,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-} 
+}); 

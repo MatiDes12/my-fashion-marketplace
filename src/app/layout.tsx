@@ -9,6 +9,7 @@ import PageWrapper from '@/components/PageWrapper';
 import { Toaster } from 'react-hot-toast';
 import { Suspense } from 'react';
 import LoadingPage from '@/components/LoadingPage';
+import ScrollProgress from '@/components/ScrollProgress';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,6 +32,7 @@ export default function RootLayout({
           hide-scrollbar bg-gray-50 dark:bg-gray-900
         `}
       >
+        <ScrollProgress />
         <AuthProvider>
           <LanguageProvider>
             <div className="min-h-screen flex flex-col overflow-x-hidden w-full">
