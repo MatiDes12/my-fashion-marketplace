@@ -10,6 +10,7 @@ export default function VerificationRejectedPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const supabase = createClientComponent();
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
 
   useEffect(() => {
     checkVerificationStatus();
@@ -23,18 +24,20 @@ export default function VerificationRejectedPage() {
         return;
       }
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('verification_status')
-        .eq('id', session.user.id)
+      const { data: verificationData } = await supabase
+        .from('seller_verification')
+        .select('rejection_reason, status')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single();
 
-      // If not rejected, redirect appropriately
-      if (!userData || userData.verification_status !== 'rejected') {
+      if (!verificationData || verificationData.status !== 'rejected') {
         router.push('/dashboard');
         return;
       }
 
+      setRejectionReason(verificationData.rejection_reason);
       setLoading(false);
     } catch (error) {
       console.error('Error checking verification:', error);
@@ -59,8 +62,16 @@ export default function VerificationRejectedPage() {
           <p className="mt-4 text-lg text-gray-600">
             We regret to inform you that your seller verification was not approved.
           </p>
+          {rejectionReason && (
+            <div className="mt-4 text-sm text-gray-500">
+              <div className="mb-4 p-4 bg-red-50 rounded-md">
+                <h3 className="font-medium text-red-800">Rejection Reason:</h3>
+                <p className="mt-1 text-red-700">{rejectionReason}</p>
+              </div>
+              <p>Common reasons for rejection include:</p>
+            </div>
+          )}
           <div className="mt-4 text-sm text-gray-500">
-            <p>Common reasons for rejection include:</p>
             <ul className="mt-2 list-disc list-inside">
               <li>Incomplete or incorrect documentation</li>
               <li>Unclear or unreadable documents</li>

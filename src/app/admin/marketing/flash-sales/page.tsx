@@ -18,6 +18,14 @@ interface FlashSale {
   is_active: boolean;
   created_by: string;
   created_at: string;
+  creator: {
+    id: string;
+    full_name: string;
+    store_settings: {
+      name: string;
+      email: string;
+    };
+  };
 }
 
 interface FlashSaleProduct {
@@ -59,6 +67,12 @@ export default function FlashSalesPage() {
         .from('flash_sales')
         .select(`
           *,
+          creator:users!flash_sales_created_by_fkey (
+            id,
+            full_name,
+            store_settings,
+            email
+          ),
           flash_sale_products (
             id,
             product_id,
@@ -72,7 +86,12 @@ export default function FlashSalesPage() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
+
+      console.log('All flash sales:', data);
       setFlashSales(data || []);
     } catch (error) {
       console.error('Error fetching flash sales:', error);
@@ -96,12 +115,30 @@ export default function FlashSalesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Insert flash sale
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) {
+        toast.error('You must be logged in to create a flash sale');
+        return;
+      }
+
+      // Get the user's store information
+      const { data: userData, error: storeError } = await supabase
+        .from('users')
+        .select('id, store_settings')
+        .eq('id', user.id)
+        .single();
+
+      if (storeError) throw storeError;
+
+      // Insert flash sale with both created_by and store_id
       const { data: flashSale, error: flashSaleError } = await supabase
         .from('flash_sales')
         .insert({
           ...formData,
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: user.id,
+          store_id: user.id,  // Set store_id to the creator's ID
+          store_name: userData?.store_settings?.name || ''
         })
         .select()
         .single();
@@ -157,6 +194,22 @@ export default function FlashSalesPage() {
     } catch (error) {
       console.error('Error toggling flash sale:', error);
       toast.error('Failed to update flash sale');
+    }
+  };
+
+  const deleteFlashSale = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('flash_sales')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Flash sale deleted successfully');
+      fetchFlashSales();
+    } catch (error) {
+      console.error('Error deleting flash sale:', error);
+      toast.error('Failed to delete flash sale');
     }
   };
 
@@ -308,7 +361,20 @@ export default function FlashSalesPage() {
                 <div className="px-4 py-4 sm:px-6">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-900">{sale.title}</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-gray-900">{sale.title}</h3>
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Seller: {sale.creator?.full_name || 'Unknown'}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            Brand: {sale.creator?.store_settings?.name || 'Unknown'}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            Email: {sale.creator?.store_settings?.email || 'Unknown'}
+                          </span>
+                        </div>
+                      </div>
                       <p className="mt-1 text-sm text-gray-500">{sale.description}</p>
                       <div className="mt-2 flex items-center text-sm text-gray-500">
                         <span>{sale.discount_percentage}% OFF</span>
@@ -316,9 +382,15 @@ export default function FlashSalesPage() {
                         <span>
                           {new Date(sale.start_time).toLocaleDateString()} - {new Date(sale.end_time).toLocaleDateString()}
                         </span>
+                        {sale.free_shipping && (
+                          <>
+                            <span className="mx-2">•</span>
+                            <span className="text-green-600">Free Shipping</span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="ml-4 flex-shrink-0">
+                    <div className="ml-4 flex-shrink-0 space-x-2">
                       <button
                         onClick={() => toggleFlashSale(sale.id, sale.is_active)}
                         className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
@@ -328,6 +400,16 @@ export default function FlashSalesPage() {
                         }`}
                       >
                         {sale.is_active ? 'Deactivate' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this flash sale?')) {
+                            deleteFlashSale(sale.id);
+                          }
+                        }}
+                        className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>

@@ -88,6 +88,9 @@ function VerificationsPage() {
   const [verifications, setVerifications] = useState<SellerVerification[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; title: string } | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [showReasonInput, setShowReasonInput] = useState(false);
+  const [selectedVerificationId, setSelectedVerificationId] = useState<string | null>(null);
   const supabase = createClientComponentClient();
 
   useEffect(() => {
@@ -175,6 +178,47 @@ function VerificationsPage() {
     } catch (error) {
       console.error('Error updating status:', error);
       toast.error('Failed to update status. Please check console for details.');
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    if (!rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      // First update seller_verification table with status and reason
+      const { error: verificationError } = await supabase
+        .from('seller_verification')
+        .update({ 
+          status: 'rejected',
+          rejection_reason: rejectionReason 
+        })
+        .eq('id', id);
+
+      if (verificationError) throw verificationError;
+
+      const verification = verifications.find(v => v.id === id);
+      if (verification) {
+        const { error: rpcError } = await supabase
+          .rpc('update_user_verification_status', {
+            p_is_verified: false,
+            p_new_status: 'rejected',
+            p_user_id: verification.user_id
+          });
+
+        if (rpcError) throw rpcError;
+      }
+
+      toast.success('Verification rejected successfully');
+      setRejectionReason('');
+      setShowReasonInput(false);
+      setSelectedVerificationId(null);
+      fetchVerifications();
+    } catch (error) {
+      console.error('Error rejecting verification:', error);
+      toast.error('Failed to reject verification');
     }
   };
 
@@ -341,16 +385,19 @@ function VerificationsPage() {
                       </div>
                       <div className="space-y-2">
                         {verification.status === 'pending' ? (
-                          <div className="space-x-2">
+                          <div className="space-y-2">
                             <button
                               onClick={() => handleStatusUpdate(verification.id, 'approved')}
-                              className="bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700"
+                              className="w-full bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700"
                             >
                               Approve
                             </button>
                             <button
-                              onClick={() => handleStatusUpdate(verification.id, 'rejected')}
-                              className="bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
+                              onClick={() => {
+                                setSelectedVerificationId(verification.id);
+                                setShowReasonInput(true);
+                              }}
+                              className="w-full bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
                             >
                               Reject
                             </button>
@@ -358,7 +405,7 @@ function VerificationsPage() {
                         ) : (
                           <button
                             onClick={() => handleStatusUpdate(verification.id, 'pending')}
-                            className="bg-yellow-600 text-white px-3 py-1 rounded-md text-sm hover:bg-yellow-700"
+                            className="w-full bg-yellow-600 text-white px-3 py-1 rounded-md text-sm hover:bg-yellow-700"
                           >
                             Reconsider
                           </button>
@@ -379,6 +426,38 @@ function VerificationsPage() {
           title={selectedDocument.title}
           onClose={() => setSelectedDocument(null)}
         />
+      )}
+
+      {showReasonInput && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium mb-4">Provide Rejection Reason</h3>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="w-full h-32 p-2 border rounded-md mb-4"
+              placeholder="Please provide a reason for rejection..."
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowReasonInput(false);
+                  setRejectionReason('');
+                  setSelectedVerificationId(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => selectedVerificationId && handleReject(selectedVerificationId)}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

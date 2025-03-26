@@ -36,11 +36,13 @@ export default function OrdersPage() {
               id, 
               title, 
               price,
-              images:product_images(*)
-            ),
-            users!orders_user_id_fkey (
-              id,
-              full_name
+              owner_id,
+              images:product_images(*),
+              seller:users!products_owner_id_fkey(
+                id,
+                full_name,
+                store_settings
+              )
             )
           `)
           .eq('user_id', session.user.id)
@@ -182,11 +184,37 @@ export default function OrdersPage() {
                           ${order.total_price?.toFixed(2) || '0.00'}
                         </p>
                       </div>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Seller: {order.users?.full_name || 'Unknown Seller'}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
-                      <p className="mt-1 text-sm text-gray-500">Price per item: ${order.product?.price}</p>
+                      <div className="mt-2 space-y-1">
+                        <p className="mt-1 text-sm text-gray-500">
+                          Seller: {order.product?.seller?.store_settings?.name || 
+                                   order.product?.seller?.full_name || 
+                                   'Unknown Seller'}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Contact: {order.product?.seller?.store_settings?.email || 'N/A'} | {order.product?.seller?.store_settings?.phone || 'N/A'}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Address: {order.product?.seller?.store_settings?.address?.city || 'N/A'}, {order.product?.seller?.store_settings?.address?.subCity || ''}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
+                        <p className="mt-1 text-sm text-gray-500">Price per item: ${order.product?.price}</p>
+                        
+                        {(order.payment_reference || order.tx_ref) && (
+                          <div className="mt-3 bg-gray-50 p-2 rounded-md">
+                            <p className="text-sm font-medium text-gray-700">References</p>
+                            {order.payment_reference && (
+                              <p className="text-sm text-gray-600">
+                                Chapa: <span className="font-mono">{order.payment_reference}</span>
+                              </p>
+                            )}
+                            {order.tx_ref && (
+                              <p className="text-sm text-gray-600">
+                                Merchant: <span className="font-mono">{order.tx_ref}</span>
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

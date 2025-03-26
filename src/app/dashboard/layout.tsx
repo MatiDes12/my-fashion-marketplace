@@ -10,6 +10,9 @@ import { AuthChangeEvent } from '@supabase/supabase-js';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import { cleanImageUrl } from '@/utils/url';
 import { motion } from 'framer-motion';
+import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import FloatingSupportButton from '@/components/FloatingSupportButton';
+import { toast } from 'react-hot-toast';
 
 interface UserData {
   role: string;
@@ -154,10 +157,25 @@ export default function DashboardLayout({
   }
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-    { name: 'Products', href: '/dashboard/products', icon: ProductsIcon },
-    { name: 'Orders', href: '/dashboard/orders', icon: OrdersIcon },
-    { name: 'Analytics', href: '/dashboard/analytics', icon: AnalyticsIcon },
+    { 
+      name: 'Dashboard', 
+      href: '/dashboard', 
+      icon: HomeIcon,
+      show: true
+    },
+    { 
+      name: 'Products', 
+      href: '/dashboard/products', 
+      icon: ProductsIcon,
+      show: true
+    },
+    { 
+      name: 'Orders', 
+      href: '/dashboard/orders', 
+      icon: OrdersIcon,
+      show: true
+    },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: AnalyticsIcon, show: true },
     { 
       name: 'Marketing', 
       href: '/dashboard/marketing', 
@@ -169,11 +187,18 @@ export default function DashboardLayout({
           icon: LightningBoltIcon,
           current: pathname === '/dashboard/marketing/flash-sales'
         }
-      ]
+      ],
+      show: true
     },
-    { name: 'Payment Settings', href: '/dashboard/payment-settings', icon: PaymentSettingsIcon },
-    { name: 'Subscription', href: '/dashboard/subscription', icon: SubscriptionIcon },
-    { name: 'Settings', href: '/dashboard/settings', icon: SettingsIcon },
+    { name: 'Payment Settings', href: '/dashboard/payment-settings', icon: PaymentSettingsIcon, show: true },
+    { name: 'Subscription', href: '/dashboard/subscription', icon: SubscriptionIcon, show: true },
+    { name: 'Settings', href: '/dashboard/settings', icon: SettingsIcon, show: true },
+    { 
+      name: 'Get Support',
+      href: '/support',
+      icon: QuestionMarkCircleIcon,
+      show: true
+    },
   ];
 
   const DashboardHeader = () => {
@@ -236,178 +261,115 @@ export default function DashboardLayout({
     );
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      router.push('/');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50/50">
-      {/* Fixed Header - lower z-index */}
-      <div className="fixed top-0 left-0 right-0 z-[30] bg-white shadow-sm backdrop-blur-sm bg-white/90">
-        <DashboardHeader />
-      </div>
-
-      {/* Desktop Sidebar - higher z-index */}
-      <div className="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 z-[40]">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 overflow-y-auto">
-          {/* User Profile Section - Moved to top */}
-          <div className="px-4 py-4 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 h-12 w-12 relative">
-                {userDetails?.avatar_url ? (
-                  <Image
-                    src={cleanImageUrl(userDetails.avatar_url)}
-                    alt="Profile"
-                    fill
-                    className="rounded-xl object-cover"
-                  />
-                ) : (
-                  <div className="h-12 w-12 rounded-xl bg-gradient-to-tr from-red-500 to-red-600 flex items-center justify-center text-white text-xl font-bold">
-                    {userDetails?.full_name?.[0] || 'S'}
-                  </div>
-                )}
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">
-                  {userDetails?.full_name || 'Store Owner'}
-                </p>
-                <p className="text-xs text-gray-500">Store Manager</p>
-              </div>
-            </div>
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+      {/* Sidebar with logout */}
+      <div className="w-64 flex-shrink-0 fixed h-full">
+        <div className="h-full flex flex-col bg-white shadow-lg">
+          {/* Logo section */}
+          <div className="flex-shrink-0 px-4 py-4 flex items-center">
+            <Link href="/dashboard" className="flex-shrink-0">
+              <Image
+                src="/images/brand/logo.png"
+                alt="Logo"
+                width={40}
+                height={40}
+                className="h-10 w-auto"
+              />
+            </Link>
+            <span className="ml-2 text-xl font-semibold text-gray-900">
+              Dashboard
+            </span>
           </div>
 
-          {/* Navigation Links */}
-          <div className="flex-grow flex flex-col pt-5">
-            <nav className="flex-1 px-3 pb-4 space-y-1">
-              {navigation.map((item) => (
-                <div key={item.name}>
-                  <Link
-                    href={item.href}
-                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
-                      pathname === item.href
-                        ? 'bg-red-50 text-red-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <item.icon
-                      className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
-                        pathname === item.href
-                          ? 'text-red-500'
-                          : 'text-gray-400 group-hover:text-gray-500'
-                      }`}
-                    />
-                    {item.name}
-                  </Link>
-                  {item.subItems && (
-                    <div className="ml-8 mt-1 space-y-1">
-                      {item.subItems.map((subItem) => (
-                        <Link
-                          key={subItem.name}
-                          href={subItem.href}
-                          className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-                            subItem.current
-                              ? 'bg-red-50 text-red-700'
-                              : 'text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          <subItem.icon
-                            className={`mr-3 flex-shrink-0 h-4 w-4 ${
-                              subItem.current
-                                ? 'text-red-500'
-                                : 'text-gray-400 group-hover:text-gray-500'
-                            }`}
-                          />
-                          {subItem.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </nav>
-
-            {/* Bottom Section */}
-            <div className="p-4">
-              <div className="p-4 bg-gradient-to-tr from-red-50 to-orange-50 rounded-xl">
-                <h3 className="text-sm font-medium text-red-900">Need Help?</h3>
-                <p className="mt-1 text-xs text-red-700">Contact our support team</p>
-                <button className="mt-3 w-full px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
-                  Get Support
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content - add top padding to match header height */}
-      <div className="lg:pl-72 flex flex-col min-h-screen">
-        <main className="flex-1 pt-16">
-          <div className="px-4 sm:px-6 lg:px-8">{children}</div>
-        </main>
-      </div>
-
-      {/* Mobile Sidebar - highest z-index */}
-      {isSidebarOpen && (
-        <div className="fixed inset-0 z-[100] lg:hidden">
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-gray-600/75 backdrop-blur-sm"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-          
-          {/* Sidebar panel */}
-          <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-white shadow-xl">
-            <div className="h-full flex flex-col">
-              {/* Close button */}
-              <div className="px-4 pt-6 pb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1">
-                    <Image
-                      src="/images/brand/logo-white.png"
-                      alt="Avrio"
-                      width={48}
-                      height={48}
-                      className="object-contain"
-                    />
-                  </div>
-                  <span className="text-lg font-semibold">Dashboard</span>
-                </div>
-                <button
-                  type="button"
-                  className="p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100"
-                  onClick={() => setIsSidebarOpen(false)}
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Mobile navigation */}
-              <nav className="flex-1 px-4 pb-4 space-y-1 overflow-y-auto">
-                {navigation.map((item) => (
+          {/* Navigation - scrollable */}
+          <div className="flex-1 flex flex-col overflow-y-auto">
+            <nav className="flex-1 px-4 py-4 space-y-1">
+              {navigation.map((item) => {
+                if (!item.show && item.name !== 'Get Support') return null;
+                const isActive = pathname === item.href;
+                return (
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
-                      pathname === item.href
+                    className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
+                      isActive
                         ? 'bg-red-50 text-red-700'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
-                    onClick={() => setIsSidebarOpen(false)}
                   >
                     <item.icon
                       className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
-                        pathname === item.href
+                        isActive
                           ? 'text-red-500'
                           : 'text-gray-400 group-hover:text-gray-500'
                       }`}
                     />
                     {item.name}
                   </Link>
-                ))}
-              </nav>
-            </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Logout button */}
+          <div className="flex-shrink-0 p-4 border-t border-gray-200">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <svg 
+                className="mr-3 h-5 w-5" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  strokeWidth={2} 
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" 
+                />
+              </svg>
+              Logout
+            </button>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Main content area with header */}
+      <div className={`flex-1 ml-64 flex flex-col overflow-hidden`}>
+        {/* Header */}
+        <header className="bg-white shadow-sm z-10">
+          <div className="flex items-center justify-between px-6 py-4">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              {navigation.find(item => item.href === pathname)?.name || 'Dashboard'}
+            </h1>
+            <Link
+              href="/"
+              className="p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100/80 transition-all"
+              title="Go to Homepage"
+            >
+              <HomeIcon className="h-6 w-6" />
+            </Link>
+          </div>
+        </header>
+
+        {/* Scrollable content */}
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

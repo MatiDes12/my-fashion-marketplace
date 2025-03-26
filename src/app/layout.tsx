@@ -10,6 +10,8 @@ import { Toaster } from 'react-hot-toast';
 import { Suspense } from 'react';
 import LoadingPage from '@/components/LoadingPage';
 import ScrollProgress from '@/components/ScrollProgress';
+import FloatingSupportButton from '@/components/FloatingSupportButton';
+import { FloatingPreview } from '@/components/FloatingPreview';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -45,6 +47,8 @@ export default function RootLayout({
                 </Suspense>
               </main>
               {process.env.NODE_ENV !== 'production' && <DebugInfo />}
+              <FloatingSupportButton />
+              <FloatingPreview />
               <Toaster position="top-right" />
             </div>
           </LanguageProvider>

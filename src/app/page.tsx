@@ -21,7 +21,6 @@ import { useScroll, useTransform } from 'framer-motion';
 import FloatingGradient from '@/components/FloatingGradient';
 import ParallaxSection from '@/components/ParallaxSection';
 import ScrollProgress from '@/components/ScrollProgress';
-import { FloatingPreview } from '@/components/FloatingPreview';
 import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
@@ -341,70 +340,6 @@ interface TouchPosition {
   startTime: number;
 }
 
-// Add this component near the top of your file
-const RecentlyViewed = () => {
-  const [isVisible, setIsVisible] = useState(true);
-  const [recentProducts, setRecentProducts] = useState<any[]>([]);
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout>();
-
-  if (!isVisible || recentProducts.length === 0) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 100 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 100 }}
-      className="fixed bottom-24 right-4 z-[100] w-64 bg-gray-800/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50"
-      style={{ 
-        transform: 'translate3d(0,0,0)', // Force GPU acceleration
-        willChange: 'transform' // Optimize for animations
-      }}
-    >
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-white">Recently Viewed</h3>
-          <button
-            onClick={() => {
-              setIsVisible(false);
-              if (timeoutId) clearTimeout(timeoutId);
-            }}
-            className="text-gray-400 hover:text-white transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="space-y-2">
-          {recentProducts.map((product) => (
-            <Link
-              key={product.id}
-              href={`/products/${product.id}`}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-700/50 transition-colors group"
-            >
-              <div className="relative w-12 h-12 bg-gray-900 rounded-md overflow-hidden">
-                <Image
-                  src={cleanImageUrl(product.image_url) || PLACEHOLDER_IMAGE}
-                  alt={product.title}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm text-white truncate group-hover:text-red-400">
-                  {product.title}
-                </h4>
-                <p className="text-xs text-gray-400">
-                  ETB {product.price.toLocaleString()}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </motion.div>
-  );
-};
 
 // Replace the BackToTopButton component with this simplified version
 const BackToTopButton = () => {
@@ -1840,8 +1775,7 @@ export default function HomePage() {
     <div className="min-h-screen relative bg-gray-900 overflow-hidden w-full">
       <ScrollProgress />
       <BackToTopButton />
-      <RecentlyViewed />  {/* This should be the only instance */}
-      <FloatingPreview />
+
       
       {/* Hero Section */}
       <section className="relative min-h-[calc(100vh-4rem)] flex items-center text-white pt-16 sm:pt-20 md:pt-0">
@@ -2818,8 +2752,8 @@ export default function HomePage() {
                   </a>
                 </li>
                 <li>
-                  <a href="mailto:info@avrio.et" className="text-gray-400 hover:text-white transition-colors">
-                    info@avrio.et
+                  <a href="mailto: avrioxshop@gmail.com" className="text-gray-400 hover:text-white transition-colors">
+                    avrioxshop@gmail.com
                   </a>
                 </li>
               </ul>

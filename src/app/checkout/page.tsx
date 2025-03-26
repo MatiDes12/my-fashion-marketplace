@@ -155,6 +155,22 @@ export default function CheckoutPage() {
     };
   };
 
+  const updateProductQuantities = async (items: CartItem[]) => {
+    try {
+      for (const item of items) {
+        const { error: updateError } = await supabase.rpc('update_product_quantity', {
+          p_product_id: item.product_id,
+          p_quantity: item.quantity
+        });
+        
+        if (updateError) throw updateError;
+      }
+    } catch (error) {
+      console.error('Error updating product quantities:', error);
+      throw error;
+    }
+  };
+
   const handleCheckout = async () => {
     try {
       setIsProcessing(true);
@@ -164,10 +180,24 @@ export default function CheckoutPage() {
         throw new Error('Please login to complete checkout');
       }
 
+      // First check if all products have sufficient quantity
+      for (const item of cartItems) {
+        const { data: product } = await supabase
+          .from('products')
+          .select('quantity')
+          .eq('id', item.product_id)
+          .single();
+          
+        if (!product || product.quantity < item.quantity) {
+          throw new Error(`Insufficient stock for ${item.product?.title || 'product'}`);
+        }
+      }
+
       const fees = calculateFees(cartItems);
 
-      // Create orders for each cart item
+      // Create orders and update quantities
       for (const item of cartItems) {
+        // Create order
         const { error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -183,6 +213,17 @@ export default function CheckoutPage() {
           });
 
         if (orderError) throw orderError;
+
+        // Update product quantity
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({
+            quantity: item.quantity
+          })
+          .eq('id', item.product_id)
+          .neq('quantity', 0);
+
+        if (updateError) throw updateError;
       }
 
       // Clear the cart
@@ -195,9 +236,8 @@ export default function CheckoutPage() {
         throw new Error('Failed to clear cart');
       }
 
-      // Update UI to reflect empty cart
+      // Update UI
       window.dispatchEvent(new CustomEvent('cart-updated'));
-      
       toast.success('Order placed successfully!');
       router.push('/orders');
 

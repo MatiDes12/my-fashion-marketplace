@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 import { cleanImageUrl } from '@/utils/url';
 import { getFlashSalePrices } from '@/utils/flashSales';
 import ProductRating from '@/components/ProductRating';
-import SimilarProducts from '@/components/SimilarProducts';
+import Link from 'next/link';
 
 type Product = {
   id: string;
@@ -112,6 +112,7 @@ type Product = {
       full_name: string;
     };
   }>;
+  detailed_description?: string;
 };
 
 type StoreSettings = {
@@ -618,7 +619,7 @@ export default function ProductDetailPage() {
     filtered.push({
       id: product.id,
       title: product.title,
-      image: product.product_images[0]?.image_url,
+      image_url: product.product_images[0]?.image_url,
       price: product.price,
       timeViewed: Date.now()
     });
@@ -653,6 +654,27 @@ export default function ProductDetailPage() {
           localStorage.setItem('lastViewedProduct', JSON.stringify(productView));
         }
       });
+    }
+  }, [product]);
+  
+  // Add this function near the top of your component
+  const showFloatingPreview = (product: any) => {
+    // Create custom event with product data
+    const event = new CustomEvent('showProductPreview', {
+      detail: {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        image_url: product.product_images?.[0]?.image_url || '/images/placeholder.png'
+      }
+    });
+    window.dispatchEvent(event);
+  };
+
+  // Add this to your useEffect
+  useEffect(() => {
+    if (product) {
+      showFloatingPreview(product);
     }
   }, [product]);
   
@@ -740,8 +762,9 @@ export default function ProductDetailPage() {
           </ol>
         </nav>
         
-        <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start">
-          {/* Image gallery */}
+        {/* Main product section */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-x-8 lg:items-start mb-12">
+          {/* Left column - Image gallery */}
           <div className="flex flex-col">
             <div className="w-full">
               {/* Main image */}
@@ -781,9 +804,10 @@ export default function ProductDetailPage() {
             )}
           </div>
           
-          {/* Product info */}
+          {/* Right column - Product info */}
           <div className="mt-10 px-4 sm:px-0 sm:mt-16 lg:mt-0">
-            <div className="flex items-center justify-between">
+            {/* Title and like button */}
+            <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-extrabold text-gray-900 sm:text-3xl">{product.title}</h1>
               <button
                 onClick={handleLike}
@@ -814,7 +838,8 @@ export default function ProductDetailPage() {
               </button>
             </div>
             
-            <div className="mt-4">
+            {/* Price section */}
+            <div className="mb-6">
               {product.flash_sale_price ? (
                 <div className="flex flex-col">
                   <span className="text-3xl font-bold text-red-600">
@@ -834,6 +859,7 @@ export default function ProductDetailPage() {
               )}
             </div>
             
+            {/* Add this after the price section and before the short description */}
             <div className="mt-3 flex items-center">
               <div>
                 {product.delivery_fee ? (
@@ -851,6 +877,7 @@ export default function ProductDetailPage() {
               )}
             </div>
             
+            {/* Update the Product Specifications section */}
             <div className="mt-4">
               <div className="flex items-center">
                 <div className="flex items-center text-sm text-gray-500">
@@ -880,78 +907,97 @@ export default function ProductDetailPage() {
               </div>
             </div>
             
+            {/* Update the Product Specifications section */}
             <div className="mt-6">
-              <h2 className="text-lg font-medium text-gray-900">Description</h2>
-              <div className="mt-2 prose prose-sm text-gray-500">
-                <p>{product.description}</p>
-              </div>
-            </div>
-            
-            {/* Product details section */}
-            {product.details && (
-              <div className="mt-6">
-                <h2 className="text-lg font-medium text-gray-900">Details</h2>
-                <div className="mt-2 prose prose-sm text-gray-500">
-                  <p>{product.details}</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Product Information</h3>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Left column - Description */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Description</h4>
+                  <p className="text-sm text-gray-500">
+                    {product.description || 'No description available'}
+                  </p>
                 </div>
-              </div>
-            )}
-            
-            {/* Add this section to show available quantity */}
-            <div className="mt-4">
-              <p className={`text-sm ${
-                availableQuantity > 10 
-                  ? 'text-green-600' 
-                  : availableQuantity > 0 
-                    ? 'text-orange-600' 
-                    : 'text-red-600'
-              }`}>
-                {availableQuantity > 0 
-                  ? `${availableQuantity} items available` 
-                  : 'Out of stock'}
-              </p>
-            </div>
-            
-            {/* Update the quantity selector */}
-            <div id="buy-section" className="mt-8 border-t border-gray-200 pt-8">
-              <div className="flex items-center">
-                <h2 className="text-lg font-medium text-gray-900">Quantity</h2>
-                <div className="ml-auto flex items-center">
-                  <div className="flex items-center border border-gray-300 rounded-md">
-                  <button
-                    onClick={() => handleQuantityChange(quantity - 1)}
-                    disabled={quantity <= 1}
-                    className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    -
-                  </button>
-                    <input
-                      type="number"
-                      min="1"
-                      max={availableQuantity}
-                      value={quantity}
-                      onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                      className="w-16 text-center border-0 focus:ring-0"
-                    />
-                  <button
-                    onClick={() => handleQuantityChange(quantity + 1)}
-                      disabled={quantity >= availableQuantity}
-                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    +
-                  </button>
+                
+                {/* Right column - Specifications in 2x2 grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Category</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{product.category || 'N/A'}</dd>
                   </div>
-                  {quantity === availableQuantity && (
-                    <span className="ml-2 text-sm text-orange-600">
-                      Max quantity reached
-                    </span>
-                  )}
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Delivery Fee</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {product.delivery_fee ? `$${product.delivery_fee.toFixed(2)}` : 'Free Delivery'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Store Name</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {product.users?.store_settings?.name || 'N/A'}
+                    </dd>
+                  </div>
                 </div>
-                </div>
+              </div>
+            </div>
+            
+            {/* Quantity selector and buy buttons */}
+            <div className="space-y-6">
+              {/* Available quantity */}
+              <div className="mt-4">
+                <p className={`text-sm ${
+                  availableQuantity > 10 
+                    ? 'text-green-600' 
+                    : availableQuantity > 0 
+                      ? 'text-orange-600' 
+                      : 'text-red-600'
+                }`}>
+                  {availableQuantity > 0 
+                    ? `${availableQuantity} items available` 
+                    : 'Out of stock'}
+                </p>
               </div>
               
-            {/* Update the buy/cart buttons */}
-              <div className="mt-6 grid grid-cols-2 gap-4">
+              {/* Quantity selector */}
+              <div id="buy-section">
+                <div className="flex items-center">
+                  <h2 className="text-lg font-medium text-gray-900">Quantity</h2>
+                  <div className="ml-auto flex items-center">
+                    <div className="flex items-center border border-gray-300 rounded-md">
+                    <button
+                      onClick={() => handleQuantityChange(quantity - 1)}
+                      disabled={quantity <= 1}
+                      className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      -
+                    </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max={availableQuantity}
+                        value={quantity}
+                        onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                        className="w-16 text-center border-0 focus:ring-0"
+                      />
+                    <button
+                      onClick={() => handleQuantityChange(quantity + 1)}
+                        disabled={quantity >= availableQuantity}
+                        className="px-3 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                    </div>
+                    {quantity === availableQuantity && (
+                      <span className="ml-2 text-sm text-orange-600">
+                        Max quantity reached
+                      </span>
+                    )}
+                  </div>
+                  </div>
+                </div>
+                
+              {/* Buy/Cart buttons */}
+              <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={addToCart}
                 disabled={isAddingToCart || availableQuantity === 0}
@@ -996,68 +1042,110 @@ export default function ProductDetailPage() {
                 )}
                 </button>
               </div>
-              
-              <div className="mt-4 text-sm text-gray-500">
-                <p className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Secure payment
-                </p>
             </div>
           </div>
         </div>
-
-        <div className="mt-16 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            {/* Add ContactSection here, before the Customer Reviews */}
-            <ContactSection seller={product.users} />
+        
+        {/* Additional Details Section - Full width below */}
+        <div className="grid grid-cols-1 gap-8 mt-12">
+          {/* Detailed Description */}
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <h2 className="text-xl font-medium text-gray-900 mb-6">Additional Details</h2>
             
-            {/* Customer Reviews Section */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Customer Reviews</h3>
-                  <div className="mt-2 flex items-center">
-                    <ProductRating
-                      productId={product.id}
-                      initialRating={product.average_rating}
-                      readonly={true}
-                    />
-                    <span className="ml-2 text-sm text-gray-500">
-                      Based on {product.total_ratings} reviews
-                    </span>
-                  </div>
+            {/* Product Specifications */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Detailed Description */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Product Description</h3>
+                <div className="prose prose-sm text-gray-500">
+                  {product.detailed_description && (
+                    <div dangerouslySetInnerHTML={{ __html: product.detailed_description }} />
+                  )}
                 </div>
               </div>
-
-              {/* Review Form */}
-              <div id="rating-section" className="mb-8">
-                <ReviewForm
-                  productId={product.id}
-                  initialRating={product.user_rating?.rating}
-                  initialComment={product.user_rating?.comment}
-                  onSubmit={fetchProduct}
-                />
+              
+              {/* Specifications */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Product Specifications</h3>
+                <dl className="grid grid-cols-1 gap-y-4">
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Category</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{product.category || 'N/A'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Stock</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{product.quantity} units</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Delivery Fee</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {product.delivery_fee ? `$${product.delivery_fee.toFixed(2)}` : 'Free Delivery'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Store Name</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      {product.users?.store_settings?.name || 'N/A'}
+                    </dd>
+                  </div>
+                </dl>
               </div>
-
-              {/* Reviews List */}
-              {(product.reviews || []).length > 0 ? (
-                <ReviewsList reviews={product.reviews || []} />
-              ) : (
-                <p className="text-center text-gray-500 py-8">
-                  No reviews yet. Be the first to review this product!
-                </p>
-              )}
             </div>
           </div>
+          
+          {/* Reviews and Related Products sections */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Reviews - Takes up 2 columns */}
+            <div className="lg:col-span-2">
+              {/* Add ContactSection here, before the Customer Reviews */}
+              <ContactSection seller={product.users} />
+              
+              {/* Customer Reviews Section */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Customer Reviews</h3>
+                    <div className="mt-2 flex items-center">
+                      <ProductRating
+                        productId={product.id}
+                        initialRating={product.average_rating}
+                        readonly={true}
+                      />
+                      <span className="ml-2 text-sm text-gray-500">
+                        Based on {product.total_ratings} reviews
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-          {/* Similar Products */}
-          <div className="lg:col-span-1">
-            <SimilarProducts 
-              currentProductId={product.id}
-              category={product.category}
-            />
+                {/* Review Form */}
+                <div id="rating-section" className="mb-8">
+                  <ReviewForm
+                    productId={product.id}
+                    initialRating={product.user_rating?.rating}
+                    initialComment={product.user_rating?.comment}
+                    onSubmit={fetchProduct}
+                  />
+                </div>
+
+                {/* Reviews List */}
+                {(product.reviews || []).length > 0 ? (
+                  <ReviewsList reviews={product.reviews || []} />
+                ) : (
+                  <p className="text-center text-gray-500 py-8">
+                    No reviews yet. Be the first to review this product!
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            {/* Related Products - Takes up 1 column */}
+            <div className="lg:col-span-1">
+              <RelatedProducts 
+                currentProductId={product.id}
+                category={product.category}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1186,6 +1274,76 @@ const ReviewsList = ({ reviews }: { reviews: Review[] }) => {
           )}
         </div>
       ))}
+    </div>
+  );
+};
+
+// Rename the local SimilarProducts component to RelatedProducts to avoid conflict
+const RelatedProducts = ({ currentProductId, category }: { currentProductId: string, category?: string }) => {
+  const [products, setProducts] = useState<any[]>([]);
+  const supabase = createClientComponent();
+
+  useEffect(() => {
+    const fetchSimilarProducts = async () => {
+      if (!category) return;
+
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          id,
+          title,
+          price,
+          product_images (
+            image_url
+          )
+        `)
+        .eq('category', category)
+        .eq('is_active', true)
+        .neq('id', currentProductId)
+        .limit(4);
+
+      if (!error && data) {
+        setProducts(data);
+      }
+    };
+
+    fetchSimilarProducts();
+  }, [category, currentProductId]);
+
+  if (products.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <h2 className="text-lg font-medium text-gray-900 mb-4">Related Products</h2>
+      <div className="grid grid-cols-2 gap-4">
+        {products.map((product) => (
+          <Link 
+            href={`/products/${product.id}`}
+            key={product.id}
+            className="group"
+          >
+            <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg">
+              {product.product_images?.[0]?.image_url ? (
+                <Image
+                  src={product.product_images[0].image_url}
+                  alt={product.title}
+                  width={200}
+                  height={200}
+                  className="h-full w-full object-cover object-center group-hover:opacity-75"
+                />
+              ) : (
+                <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-400">No image</span>
+                </div>
+              )}
+            </div>
+            <h3 className="mt-2 text-sm text-gray-700">{product.title}</h3>
+            <p className="mt-1 text-sm font-medium text-gray-900">
+              ${product.price.toFixed(2)}
+            </p>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }; 

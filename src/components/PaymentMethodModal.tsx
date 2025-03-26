@@ -126,6 +126,37 @@ const clearCart = async (userId: string) => {
   }
 };
 
+// Add this function to handle quantity updates
+const updateProductQuantity = async (productId: string, orderedQuantity: number) => {
+  const supabase = createClientComponent();
+  
+  try {
+    // First get the current product quantity
+    const { data: product, error: fetchError } = await supabase
+      .from('products')
+      .select('quantity')
+      .eq('id', productId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    // Calculate new quantity
+    const newQuantity = Math.max(0, (product?.quantity || 0) - orderedQuantity);
+    
+    // Update the product quantity
+    const { error: updateError } = await supabase
+      .from('products')
+      .update({ quantity: newQuantity })
+      .eq('id', productId);
+      
+    if (updateError) throw updateError;
+    
+  } catch (error) {
+    console.error('Error updating product quantity:', error);
+    throw error;
+  }
+};
+
 export default function PaymentMethodModal({
   isOpen,
   onClose,
@@ -255,6 +286,12 @@ export default function PaymentMethodModal({
             const data = await response.json();
 
             if (data.status === 'success') {
+              // After successful payment (in both CHAPA and TELEBIRR cases)
+              // Update product quantities
+              for (const seller of sellers) {
+                await updateProductQuantity(seller.product.id, seller.quantity);
+              }
+              
               // Clear cart after successful payment
               await clearCart(userDetails.id);
               
@@ -304,7 +341,13 @@ export default function PaymentMethodModal({
           throw new Error(data.error || 'Failed to initialize payment');
         }
 
-        // Clear cart after successful payment initiation
+        // After successful payment (in both CHAPA and TELEBIRR cases)
+        // Update product quantities
+        for (const seller of sellers) {
+          await updateProductQuantity(seller.product.id, seller.quantity);
+        }
+        
+        // Clear cart after successful payment
         if (userDetails?.id) {
           await clearCart(userDetails.id);
         }

@@ -8,7 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import Image from 'next/image';
 import { formatCurrency } from '@/utils/currency';
 import Link from 'next/link';
-import { CreditCardIcon } from '@heroicons/react/24/outline';
+import { CreditCardIcon, QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { classNames } from '@/utils/classNames';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import SellerVerificationForm from '@/components/SellerVerificationForm';
@@ -270,6 +270,32 @@ export default withSellerVerification(function DashboardPage() {
     return url.startsWith('@') ? url.substring(1) : url;
   };
 
+  const SupportSection = () => {
+    return (
+      <div className="mt-8 bg-white rounded-lg shadow p-6">
+        <div className="flex items-start space-x-4">
+          <div className="flex-shrink-0">
+            <QuestionMarkCircleIcon className="h-8 w-8 text-red-500" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-medium text-gray-900">Need Help?</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Having issues or questions? Our support team is here to help you.
+            </p>
+            <div className="mt-4">
+              <Link
+                href="/support"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700"
+              >
+                Get Support
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -509,6 +535,8 @@ export default withSellerVerification(function DashboardPage() {
             </div>
           </div>
         </div>
+
+        <SupportSection />
       </div>
     </div>
   );
