@@ -52,6 +52,8 @@ interface Seller {
   totalLikes: number;
   recentActivity: number;
   trendingScore: number;
+  is_verified: boolean;
+  verification_status: string;
 }
 
 interface StoreCategory {
@@ -90,6 +92,8 @@ export default function StoresPage() {
           email,
           store_settings,
           created_at,
+          is_verified,
+          verification_status,
           products (
             id,
             created_at,
@@ -121,6 +125,8 @@ export default function StoresPage() {
             created_at: seller.created_at,
             total_products: seller.products?.length || 0,
             products: seller.products,
+            is_verified: seller.is_verified,
+            verification_status: seller.verification_status,
             ...metrics
           };
         })
@@ -372,9 +378,31 @@ export default function StoresPage() {
 
                 {/* Store Info */}
                 <div className="px-4 pt-4 pb-6 text-center">
-                  <h3 className="text-xl font-semibold text-gray-900">
-                    {seller.store_settings?.name || seller.full_name}
-                  </h3>
+                  <div className="flex items-center justify-center gap-2">
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {seller.store_settings?.name || seller.full_name}
+                    </h3>
+                    {seller.verification_status === 'verified' && (
+                      <div className="relative group">
+                        <svg 
+                          className="w-5 h-5 text-blue-500" 
+                          viewBox="0 0 20 20" 
+                          fill="currentColor"
+                          aria-label="Verified Seller"
+                        >
+                          <path 
+                            fillRule="evenodd" 
+                            d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
+                            clipRule="evenodd" 
+                          />
+                        </svg>
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          Verified Seller
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
                   <p className="mt-2 text-sm text-gray-500 line-clamp-2">
                     {seller.store_settings?.description || 'Ethiopian Store'}
                   </p>

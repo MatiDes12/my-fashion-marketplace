@@ -144,6 +144,8 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const [isVisible, setIsVisible] = useState(true);
   const scrollThrottleRef = useRef<NodeJS.Timeout | null>(null);
   const lastScrollTimeRef = useRef<number>(Date.now());
+  const [activeCategory, setActiveCategory] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = useCallback(() => {
     const currentTime = Date.now();
@@ -597,6 +599,20 @@ export default function Navigation({ userDetails }: NavigationProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveCategory((prev) => (prev + 1) % PRODUCT_CATEGORIES.length);
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({
+          left: (activeCategory * 150), // Adjust based on item width
+          behavior: 'smooth'
+        });
+      }
+    }, 5000); // Rotate every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [activeCategory]);
+
   return (
     <nav 
       className={`
@@ -804,81 +820,92 @@ export default function Navigation({ userDetails }: NavigationProps) {
 
             {/* Right Navigation Items */}
           <div className="flex items-center space-x-6">
+            {/* Store Icon - Always visible */}
+            <Link
+              href="/stores"
+              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+            >
+              <div className="relative">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" 
+                  />
+                </svg>
+              </div>
+              <span className="hidden lg:inline ml-1">Stores</span>
+            </Link>
+
+            {/* Products Icon - Always visible */}
+            <Link
+              href="/products"
+              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+            >
+              <div className="relative">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" 
+                  />
+                </svg>
+              </div>
+              <span className="hidden lg:inline ml-1">Products</span>
+            </Link>
+
+            {/* Flash Sale Icon - Always visible */}
+            <Link
+              href="/flash-sales"
+              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+            >
+              <div className="relative">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M13 10V3L4 14h7v7l9-11h-7z" 
+                  />
+                </svg>
+                {activeFlashSales.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                )}
+              </div>
+              <span className="hidden lg:inline ml-1">Flash Sales</span>
+            </Link>
+
+            {/* Cart Icon - Always visible but redirects to login if not authenticated */}
+            <Link 
+              href={user ? "/cart" : "/login?returnUrl=/cart"} 
+              className="flex items-center text-gray-700 hover:text-red-600 transition-colors"
+              onClick={(e) => {
+                if (!user) {
+                  e.preventDefault();
+                  toast.error('Please login to access your cart');
+                  router.push('/login?returnUrl=/cart');
+                }
+              }}
+            >
+              <div className="relative">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                {user && cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </div>
+              <span className="hidden lg:inline ml-1">Cart</span>
+            </Link>
+
             {!isLoading && (
               <>
                 {user ? (
                   <div className="flex items-center space-x-4">
-                    {/* Add Store Icon */}
-                    <Link
-                      href="/stores"
-                      className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
-                    >
-                      <div className="relative">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" 
-                          />
-                        </svg>
-                      </div>
-                      <span className="hidden lg:inline ml-1">Stores</span>
-                    </Link>
-
-                    {/* Products Icon */}
-                    <Link
-                      href="/products"
-                      className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
-                    >
-                      <div className="relative">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" 
-                          />
-                        </svg>
-                      </div>
-                      <span className="hidden lg:inline ml-1">Products</span>
-                    </Link>
-
-                    {/* Add Flash Sale Icon */}
-                    <Link
-                      href="/flash-sales"
-                      className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
-                    >
-                      <div className="relative">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M13 10V3L4 14h7v7l9-11h-7z" 
-                          />
-                        </svg>
-                        {activeFlashSales.length > 0 && (
-                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                        )}
-                      </div>
-                      <span className="hidden lg:inline ml-1">Flash Sales</span>
-                    </Link>
-                    {/* Existing Cart Icon */}
-                    <Link href="/cart" className="flex items-center text-gray-700 hover:text-red-600 transition-colors">
-                      <div className="relative">
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        {cartCount > 0 && (
-                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                            {cartCount}
-                          </span>
-                        )}
-                      </div>
-                      <span className="hidden lg:inline ml-1">Cart</span>
-                    </Link>
-
                     {/* Rest of the account menu */}
                     <div className="relative group">
                         <button className="flex items-center space-x-1 text-gray-700 hover:text-red-600">
@@ -890,8 +917,20 @@ export default function Navigation({ userDetails }: NavigationProps) {
                           <span className="hidden md:inline font-medium">Account</span>
                       </button>
 
-                        {/* Dropdown Menu */}
-                        <div className="absolute right-0 w-48 mt-2 py-2 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ease-in-out transform group-hover:translate-y-0 translate-y-2">
+                        {/* Updated Dropdown Menu */}
+                        <div 
+                          className="
+                            absolute right-0 w-48 mt-2 py-2 bg-white rounded-lg shadow-xl
+                            opacity-0 invisible group-hover:opacity-100 group-hover:visible
+                            transition-all duration-200 ease-in-out transform 
+                            group-hover:translate-y-0 translate-y-2
+                            z-[100] /* Increased z-index to appear above the category scroller */
+                          "
+                          style={{
+                            filter: 'drop-shadow(0 20px 13px rgb(0 0 0 / 0.03)) drop-shadow(0 8px 5px rgb(0 0 0 / 0.08))',
+                            backdropFilter: 'blur(8px)',
+                          }}
+                        >
                         <div className="px-4 py-3 border-b border-gray-100">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {user.user_metadata?.full_name || 'Account User'}
@@ -973,71 +1012,104 @@ export default function Navigation({ userDetails }: NavigationProps) {
       </div>
 
       {/* Border after main navigation */}
-      <div className="border-t border-gray-100 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Categories Navigation */}
-          <div className="hidden md:flex items-center space-x-8 h-12">
-            {/* Main categories */}
-            {MAIN_CATEGORIES.map((category) => (
-              <button 
-                key={category}
-                onClick={() => handleCategoryClick(category)}
-                className="flex items-center space-x-1 text-sm font-medium text-gray-700 hover:text-red-600 group"
-              >
-                <span>{category}</span>
-              </button>
-            ))}
-
-            {/* More Categories Dropdown */}
-            {DROPDOWN_CATEGORIES.length > 0 && (
-              <div className="relative category-dropdown">
-                <button 
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center space-x-1 text-gray-700 hover:text-red-600"
-                >
-                  <span>More</span>
-                  <svg 
-                    className={`w-4 h-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 
-                    viewBox="0 0 20 20" 
-                    fill="currentColor"
-                  >
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                <div 
-                  className={`
-                    absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg 
-                    transition-all duration-200 
-                    ${isDropdownOpen 
-                      ? 'opacity-100 visible translate-y-0' 
-                      : 'opacity-0 invisible translate-y-2'
-                    }
-                    z-50 max-h-[calc(100vh-200px)] overflow-y-auto
-                    border border-gray-100
-                    scrollbar-thin scrollbar-thumb-red-500 scrollbar-track-gray-100
-                  `}
-                  style={{
-                    top: 'calc(100% + 8px)',
-                    maxHeight: 'calc(100vh - 200px)',
-                  }}
-                >
-                  <div className="py-2">
-                    {DROPDOWN_CATEGORIES.map((category, index) => (
-                      <button
-                        key={`${category}-${index}`}
-                        onClick={() => {
-                          handleCategoryClick(category);
-                          setIsDropdownOpen(false);
-                        }}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
-                      >
-                        {category}
-                      </button>
-                    ))}
-                  </div>
+      <div className="border-t border-gray-100 bg-gradient-to-r from-gray-900/5 via-white/50 to-gray-900/5 backdrop-blur-md z-[50]">
+        <div className="w-full">
+          {/* Categories Horizontal Scroll - Hidden on Mobile */}
+          <div className="relative w-full border-b border-gray-200/30 hidden md:block">
+            <div className="relative">
+              {/* Futuristic Background - Full Width */}
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-white/10 to-pink-500/5 backdrop-blur-sm">
+                {/* Thinner Animated lines */}
+                <div className="absolute inset-0 overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-[0.5px] bg-gradient-to-r from-transparent via-red-500/20 to-transparent animate-slide-right" />
+                  <div className="absolute bottom-0 left-0 w-full h-[0.5px] bg-gradient-to-r from-transparent via-pink-500/20 to-transparent animate-slide-left" />
                 </div>
               </div>
-            )}
+
+              {/* Wider Shadow Gradients */}
+              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-white via-white/90 to-transparent z-10 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-white via-white/90 to-transparent z-10 pointer-events-none" />
+
+              {/* Scroll Buttons - Adjusted Position */}
+              <button 
+                onClick={() => {
+                  if (scrollRef.current) {
+                    scrollRef.current.scrollLeft -= 300;
+                  }
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/80 backdrop-blur-md rounded-lg p-2
+                  shadow-[0_0_10px_rgba(0,0,0,0.03)] hover:shadow-[0_0_15px_rgba(255,0,0,0.1)] 
+                  transition-all duration-300 group border border-white/50"
+              >
+                <svg className="w-4 h-4 text-gray-600 group-hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+
+              {/* Scrollable Categories - Full Width with Padding */}
+              <div 
+                ref={scrollRef}
+                className="flex overflow-x-auto scrollbar-hide py-3 px-16 space-x-3 relative"
+                style={{ scrollBehavior: 'smooth' }}
+              >
+                {PRODUCT_CATEGORIES.map((category, index) => (
+                  <button
+                    key={category}
+                    onClick={() => {
+                      handleCategoryClick(category);
+                      setActiveCategory(index);
+                    }}
+                    className={`
+                      flex-shrink-0 inline-flex items-center px-4 py-2 rounded-lg
+                      transition-all duration-300 transform hover:scale-105
+                      backdrop-blur-sm border border-white/30
+                      ${index === activeCategory 
+                        ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.15)]' 
+                        : 'bg-white/30 text-gray-700 hover:bg-white/60 hover:shadow-[0_0_10px_rgba(239,68,68,0.1)] hover:border-red-100'
+                      }
+                      min-w-[120px] justify-center group text-sm
+                    `}
+                  >
+                    <span className="text-xs font-medium whitespace-nowrap">{category}</span>
+                    {index === activeCategory && (
+                      <div className="relative ml-1.5">
+                        <span className="absolute inset-0 rounded-full animate-ping bg-white/60" />
+                        <span className="relative block w-1 h-1 bg-white rounded-full" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 rounded-lg overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Right scroll button - Adjusted Position */}
+              <button 
+                onClick={() => {
+                  if (scrollRef.current) {
+                    scrollRef.current.scrollLeft += 300;
+                  }
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/80 backdrop-blur-md rounded-lg p-2
+                  shadow-[0_0_10px_rgba(0,0,0,0.03)] hover:shadow-[0_0_15px_rgba(255,0,0,0.1)]
+                  transition-all duration-300 group border border-white/50"
+              >
+                <svg className="w-4 h-4 text-gray-600 group-hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              {/* Decorative Elements - Adjusted for Full Width */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-1/2 left-[10%] w-1 h-1 bg-red-400/50 rounded-full animate-pulse-glow" />
+                <div className="absolute top-1/3 right-[30%] w-1 h-1 bg-pink-400/50 rounded-full animate-pulse-glow delay-150" />
+                <div className="absolute bottom-1/2 right-[10%] w-1 h-1 bg-red-400/50 rounded-full animate-pulse-glow delay-300" />
+                
+                <div className="absolute top-0 left-[20%] w-[0.5px] h-full bg-gradient-to-b from-transparent via-red-500/10 to-transparent" />
+                <div className="absolute top-0 right-[20%] w-[0.5px] h-full bg-gradient-to-b from-transparent via-pink-500/10 to-transparent" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1354,21 +1426,100 @@ export default function Navigation({ userDetails }: NavigationProps) {
             {/* Categories Section */}
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="px-4 text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Categories
+                Popular Categories
               </h3>
-              <div className="mt-4 flex flex-wrap gap-2 px-4">
-                {categories.map((category) => (
+              <div className="mt-4 space-y-1">
+                {/* Traditional Wear Section */}
+                <div className="px-4 py-2">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Traditional Wear</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['Traditional Wear', 'Habesha Kemis', 'Tilfi', 'Traditional Accessories'].map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          handleCategoryClick(category);
+                          closeMenu();
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-300"
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Modern Fashion Section */}
+                <div className="px-4 py-2">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Modern Fashion</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['Dresses', 'Tops', 'Pants & Skirts', 'Fashion Accessories', 'Shoes'].map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          handleCategoryClick(category);
+                          closeMenu();
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-300"
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Home & Living Section */}
+                <div className="px-4 py-2">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Home & Living</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['Home Decor', 'Furniture', 'Kitchen & Dining', 'Bedding', 'Rugs & Carpets'].map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          handleCategoryClick(category);
+                          closeMenu();
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-300"
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Jewelry & Accessories Section */}
+                <div className="px-4 py-2">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">Jewelry & Accessories</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['Jewelry', 'Watches', 'Bags & Purses', 'Scarves & Shawls'].map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          handleCategoryClick(category);
+                          closeMenu();
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-300"
+                      >
+                        {category}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* View All Categories Button */}
+                <div className="px-4 py-2">
                   <button
-                    key={category.id}
                     onClick={() => {
-                      handleCategoryClick(category.label);
+                      router.push('/products?category=all');
                       closeMenu();
                     }}
-                    className="px-3 py-1.5 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-300"
+                    className="w-full py-2 mt-2 text-sm font-medium text-red-600 hover:text-red-700 flex items-center justify-center gap-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors duration-300"
                   >
-                    {category.label}
+                    View All Categories
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
-                ))}
+                </div>
               </div>
             </div>
 

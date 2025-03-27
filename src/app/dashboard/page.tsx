@@ -298,9 +298,9 @@ export default withSellerVerification(function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Welcome Section with Quick Stats */}
-        <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl shadow-lg p-6 mb-8">
+        <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between text-white">
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl font-bold sm:text-3xl">
@@ -323,8 +323,8 @@ export default withSellerVerification(function DashboardPage() {
             </div>
           </div>
           
-          {/* Quick Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+          {/* Quick Stats Cards - Mobile responsive grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="flex items-center">
                 <div className="p-2 rounded-lg bg-white/20">
@@ -389,11 +389,11 @@ export default withSellerVerification(function DashboardPage() {
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Main Content Grid - Mobile responsive */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
           {/* Recent Orders Card */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
                 <Link href="/dashboard/orders" className="text-sm font-medium text-red-600 hover:text-red-500">
@@ -440,7 +440,7 @@ export default withSellerVerification(function DashboardPage() {
 
           {/* Top Products Card */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-medium text-gray-900">Top Products</h2>
                 <Link href="/dashboard/products" className="text-sm font-medium text-red-600 hover:text-red-500">
@@ -508,9 +508,9 @@ export default withSellerVerification(function DashboardPage() {
           </div>
         </div>
 
-        {/* AI Assistant Section with updated design */}
-        <div className="mt-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-lg p-8 text-white">
-          <div className="flex items-start">
+        {/* AI Assistant Section - Mobile responsive */}
+        <div className="mt-6 sm:mt-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-lg p-4 sm:p-8 text-white">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
             <div className="flex-shrink-0">
               <svg className="h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -536,7 +536,10 @@ export default withSellerVerification(function DashboardPage() {
           </div>
         </div>
 
-        <SupportSection />
+        {/* Support Section - Mobile responsive */}
+        <div className="mt-6 sm:mt-8">
+          <SupportSection />
+        </div>
       </div>
     </div>
   );

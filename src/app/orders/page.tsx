@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
+import { toast } from 'react-hot-toast';
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -13,6 +15,10 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClientComponent();
+  const searchParams = useSearchParams();
+  const paymentSuccess = searchParams.get('payment_success');
+  const tx_ref = searchParams.get('tx_ref');
+  const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
   
   useEffect(() => {
     const fetchOrders = async () => {
@@ -65,6 +71,52 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
   
+  useEffect(() => {
+    if (paymentSuccess === 'true' && tx_ref) {
+      toast.success('Payment successful! Your order has been placed.');
+    }
+  }, [paymentSuccess, tx_ref]);
+  
+  // Add polling for desktop payment completion
+  useEffect(() => {
+    const tx_ref = searchParams.get('tx_ref');
+    if (!tx_ref || isPaymentConfirmed) return;
+
+    const checkPaymentStatus = async () => {
+      try {
+        const response = await fetch(`/api/payments/chapa/verify?tx_ref=${tx_ref}`);
+        const data = await response.json();
+
+        if (data.status === 'success' && data.data?.status === 'success') {
+          // Refresh orders list
+          setOrders([]); // Reset orders to trigger refetch
+          // Clear URL params
+          router.replace('/orders');
+          // Stop polling by setting payment as confirmed
+          setIsPaymentConfirmed(true);
+        }
+      } catch (error) {
+        console.error('Error checking payment status:', error);
+        // Stop polling on error as well
+        setIsPaymentConfirmed(true);
+      }
+    };
+
+    const pollInterval = setInterval(checkPaymentStatus, 3000);
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [searchParams, isPaymentConfirmed]);
+  
+  // Reset payment confirmation when tx_ref changes
+  useEffect(() => {
+    const tx_ref = searchParams.get('tx_ref');
+    if (!tx_ref) {
+      setIsPaymentConfirmed(false);
+    }
+  }, [searchParams]);
+  
   // Helper function to format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -90,6 +142,21 @@ export default function OrdersPage() {
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  const handleDownloadReceipt = async (receiptUrl: string, orderRef: string) => {
+    try {
+      if (!receiptUrl) {
+        toast.error('Receipt not available');
+        return;
+      }
+
+      // Open receipt in new tab instead of downloading
+      window.open(receiptUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error opening receipt:', error);
+      toast.error('Failed to open receipt');
     }
   };
   
@@ -200,17 +267,28 @@ export default function OrdersPage() {
                         <p className="mt-1 text-sm text-gray-500">Price per item: ${order.product?.price}</p>
                         
                         {(order.payment_reference || order.tx_ref) && (
-                          <div className="mt-3 bg-gray-50 p-2 rounded-md">
-                            <p className="text-sm font-medium text-gray-700">References</p>
-                            {order.payment_reference && (
-                              <p className="text-sm text-gray-600">
-                                Chapa: <span className="font-mono">{order.payment_reference}</span>
-                              </p>
-                            )}
-                            {order.tx_ref && (
-                              <p className="text-sm text-gray-600">
-                                Merchant: <span className="font-mono">{order.tx_ref}</span>
-                              </p>
+                          <div className="mt-3 bg-gray-50 p-2 rounded-md flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">References</p>
+                              {order.payment_reference && (
+                                <p className="text-sm text-gray-600">
+                                  Chapa: <span className="font-mono">{order.payment_reference}</span>
+                                </p>
+                              )}
+                              {order.tx_ref && (
+                                <p className="text-sm text-gray-600">
+                                  Merchant: <span className="font-mono">{order.tx_ref}</span>
+                                </p>
+                              )}
+                            </div>
+                            {order.receipt_url && (
+                              <button
+                                onClick={() => handleDownloadReceipt(order.receipt_url, order.tx_ref)}
+                                className="flex items-center space-x-2 text-red-600 hover:text-red-700"
+                              >
+                                <ArrowDownTrayIcon className="h-5 w-5" />
+                                <span>View Receipt</span>
+                              </button>
                             )}
                           </div>
                         )}

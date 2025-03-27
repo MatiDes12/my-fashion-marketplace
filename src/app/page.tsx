@@ -135,6 +135,7 @@ const ScrollIndicator = () => {
 interface FeaturedSeller {
   seller_id: string;
   seller_name: string;
+  verification_status: string;  // Add this line
   store_settings: {
     name: string;
     logo_url: string;
@@ -1001,7 +1002,8 @@ export default function HomePage() {
           id,
           full_name,
           store_settings,
-          products!inner (
+          verification_status,
+          products (
             id,
             title,
             price,
@@ -1009,7 +1011,7 @@ export default function HomePage() {
               id,
               image_url
             ),
-            likes:likes(count)
+            likes (count)
           )
         `)
         .eq('role', 'owner')
@@ -1023,6 +1025,7 @@ export default function HomePage() {
       const featuredSellers = sellersData?.map(seller => ({
         seller_id: seller.id,
         seller_name: seller.full_name,
+        verification_status: seller.verification_status || '',  // Change this line
         store_settings: seller.store_settings,
         top_product: {
           id: seller.products[0]?.id,
@@ -2268,9 +2271,30 @@ export default function HomePage() {
                           </div>
                         </div>
                         <div className="text-center">
-                          <h3 className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">
-                            {brand.store_settings.name}
-                          </h3>
+                          <div className="flex items-center justify-center gap-2">
+                            <h3 className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">
+                              {brand.store_settings.name}
+                            </h3>
+                            {brand.verification_status === 'verified' && (
+                              <div className="relative group/tooltip">
+                                <svg 
+                                  className="w-4 h-4 text-blue-500" 
+                                  viewBox="0 0 20 20" 
+                                  fill="currentColor"
+                                  aria-label="Verified Seller"
+                                >
+                                  <path 
+                                    fillRule="evenodd" 
+                                    d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
+                                    clipRule="evenodd" 
+                                  />
+                                </svg>
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                  Verified Seller
+                                </div>
+                              </div>
+                            )}
+                          </div>
                           <p className="mt-0.5 text-xs text-gray-400 group-hover:text-gray-300 line-clamp-2">
                             {brand.store_settings.description}
                           </p>

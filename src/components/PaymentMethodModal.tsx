@@ -10,6 +10,8 @@ import { PAYMENT_METHODS } from '@/utils/constants';
 import { getTelebirrConfig, TelebirrPayment } from '@/lib/telebirr';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import { createClientComponent } from '@/lib/supabase';
+import { isMobile } from '@/utils/deviceDetection';
+import { useRouter } from 'next/navigation';
 
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
@@ -172,6 +174,7 @@ export default function PaymentMethodModal({
   const [step, setStep] = useState<'method' | 'phone' | 'otp'>('method');
   const [error, setError] = useState('');
   const [localProcessing, setLocalProcessing] = useState(false);
+  const router = useRouter();
 
   // Add this console.log to see what data we're receiving
   console.log('Sellers data:', sellers);
@@ -206,119 +209,10 @@ export default function PaymentMethodModal({
 
     if (selectedMethod === 'CHAPA') {
       try {
-        if (!userDetails?.email) {
-          throw new Error('Please login to continue with payment');
-        }
-
-        setLocalProcessing(true);
-        const totalAmount = sellers.reduce((sum, seller) => sum + seller.total, 0);
-        const txRef = `tx-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-        
-        const supabase = createClientComponent();
-
-        console.log('Creating orders with tx_ref:', txRef);
-
-        // Create orders for each seller
-        for (const seller of sellers) {
-          console.log('Creating order for seller:', seller);
-
-          const { error: orderError } = await supabase
-            .from('orders')
-            .insert({
-              user_id: userDetails.id,
-              product_id: seller.product.id,
-              quantity: seller.quantity,
-              total_price: seller.total,
-              platform_fee: seller.platformFee,
-              service_fee: seller.serviceFee,
-              ethiopia_tax: seller.ethiopiaTax,
-              delivery_fee: seller.deliveryFee,
-              tx_ref: txRef,
-              payment_status: 'pending',
-              order_status: 'pending'
-            });
-
-          if (orderError) {
-            console.error('Order creation error:', orderError);
-            throw orderError;
-          }
-        }
-
-        // Initialize Chapa payment
-        const response = await fetch('/api/payments/chapa/initialize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: totalAmount.toString(),
-            email: userDetails.email,
-            tx_ref: txRef,
-            callback_url: `${BASE_URL}/api/payments/chapa/callback`,
-            customization: {
-              title: 'Order Payment',
-              description: `Payment for order from ${sellers.length} sellers`
-            }
-          }),
-        });
-
-        const data = await response.json();
-        console.log('Payment response:', data);
-
-        if (data.status !== 'success') {
-          throw new Error(data.message || 'Failed to initialize payment');
-        }
-
-        const checkoutUrl = data.data.checkout_url;
-        
-        if (!checkoutUrl) {
-          throw new Error('Invalid payment URL received');
-        }
-
-        // Open Chapa checkout in a new tab
-        window.open(checkoutUrl, '_blank');
-        
-        // Close the payment modal
-        onClose();
-
-        // Start polling for payment status
-        const pollPaymentStatus = async () => {
-          try {
-            const response = await fetch(`/api/payments/chapa/status?tx_ref=${txRef}`);
-            const data = await response.json();
-
-            if (data.status === 'success') {
-              // After successful payment (in both CHAPA and TELEBIRR cases)
-              // Update product quantities
-              for (const seller of sellers) {
-                await updateProductQuantity(seller.product.id, seller.quantity);
-              }
-              
-              // Clear cart after successful payment
-              await clearCart(userDetails.id);
-              
-              // Show success message
-              toast.success('Payment successful! Your order has been placed.');
-              
-              // Redirect to orders page
-              window.location.href = '/orders';
-              return;
-            }
-
-            // If payment is still pending, continue polling
-            setTimeout(pollPaymentStatus, 2000); // Poll every 2 seconds
-          } catch (error) {
-            console.error('Error polling payment status:', error);
-            toast.error('Error checking payment status');
-          }
-        };
-
-        // Start polling
-        pollPaymentStatus();
-
+        await handleChapaPayment();
       } catch (error) {
         console.error('Payment error:', error);
         setError(error instanceof Error ? error.message : 'Payment failed');
-      } finally {
-        setLocalProcessing(false);
       }
       return;
     }
@@ -371,6 +265,111 @@ export default function PaymentMethodModal({
     } catch (error) {
       console.error('Payment error:', error);
       setError(error instanceof Error ? error.message : 'Payment failed');
+    }
+  };
+
+  const handleChapaPayment = async () => {
+    try {
+      if (!userDetails?.email) {
+        throw new Error('Please login to continue with payment');
+      }
+
+      setLocalProcessing(true);
+      const totalAmount = sellers.reduce((sum, seller) => sum + seller.total, 0);
+      const txRef = `tx-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      
+      const supabase = createClientComponent();
+
+      // Create orders first
+      for (const seller of sellers) {
+        const { error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            user_id: userDetails.id,
+            product_id: seller.product.id,
+            quantity: seller.quantity,
+            total_price: seller.total,
+            platform_fee: seller.platformFee,
+            service_fee: seller.serviceFee,
+            ethiopia_tax: seller.ethiopiaTax,
+            delivery_fee: seller.deliveryFee,
+            tx_ref: txRef,
+            payment_status: 'pending',
+            order_status: 'pending',
+            payment_reference: null,
+            receipt_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (orderError) throw orderError;
+      }
+
+      // Initialize Chapa payment
+      const response = await fetch('/api/payments/chapa/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: totalAmount.toString(),
+          email: userDetails.email,
+          tx_ref: txRef,
+          callback_url: `${window.location.origin}/api/payments/chapa/callback`,
+          return_url: `${window.location.origin}/orders?payment_success=true&tx_ref=${txRef}`,
+          customization: {
+            title: 'Order Payment',
+            description: `Payment for order from ${sellers.length} sellers`
+          }
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.data.checkout_url) {
+        // Store payment info
+        localStorage.setItem('pendingPayment', JSON.stringify({
+          tx_ref: txRef,
+          amount: totalAmount,
+          items: sellers,
+          checkout_url: data.data.checkout_url
+        }));
+
+        // Close modal first
+        onClose();
+
+        // Clear cart after storing order
+        if (userDetails?.id) {
+          await clearCart(userDetails.id);
+        }
+
+        if (isMobile()) {
+          // Mobile: Open in new tab and show tracking
+          const newWindow = window.open(data.data.checkout_url, '_blank');
+          
+          if (!newWindow) {
+            const link = document.createElement('a');
+            link.href = data.data.checkout_url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.click();
+          }
+
+          setTimeout(() => {
+            router.push(`/payment/mobile-tracking?tx_ref=${txRef}`);
+          }, 100);
+        } else {
+          // Desktop: Use current window
+          window.location.href = data.data.checkout_url;
+          // No need to redirect to orders page as Chapa callback will handle it
+        }
+      } else {
+        throw new Error(data.message || 'Payment initialization failed');
+      }
+
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Payment failed');
+    } finally {
+      setLocalProcessing(false);
     }
   };
 

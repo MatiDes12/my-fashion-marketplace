@@ -65,6 +65,7 @@ type Product = {
     id: string;
     full_name: string;
     email: string;
+    verification_status?: string;
     store_settings?: {
       name?: string;
       description?: string;
@@ -200,9 +201,30 @@ const ContactSection = ({ seller }: { seller: any }) => {
           </div>
         )}
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {storeSettings.name || seller?.full_name}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">
+              {storeSettings.name || 'Store'}
+            </h3>
+            {seller?.verification_status === 'verified' && (
+              <div className="relative group">
+                <svg 
+                  className="w-5 h-5 text-blue-500" 
+                  viewBox="0 0 20 20" 
+                  fill="currentColor"
+                  aria-label="Verified Seller"
+                >
+                  <path 
+                    fillRule="evenodd" 
+                    d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
+                    clipRule="evenodd" 
+                  />
+                </svg>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                  Verified Seller
+                </div>
+              </div>
+            )}
+          </div>
           <p className="text-sm text-gray-500">
             {isOpen ? (
               <span className="text-green-600 flex items-center">
@@ -348,7 +370,8 @@ export default function ProductDetailPage() {
             full_name,
             email,
             created_at,
-            store_settings
+            store_settings,
+            verification_status
           ),
           product_images (
             id,
@@ -366,6 +389,13 @@ export default function ProductDetailPage() {
               id,
               full_name
             )
+          ),
+          users (
+            id,
+            full_name,
+            email,
+            verification_status,
+            store_settings
           )
         `)
         .eq('id', productId)
@@ -899,9 +929,30 @@ export default function ProductDetailPage() {
                         className="h-8 w-8 rounded-full object-cover"
                       />
                     )}
-                    <span className="ml-2 text-sm font-medium text-gray-900">
-                      {product.users?.store_settings?.name || 'Store'}
-                    </span>
+                    <div className="flex items-center gap-2 ml-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {product.users?.store_settings?.name || 'Store'}
+                      </span>
+                      {product.users?.verification_status === 'verified' && (
+                        <div className="relative group">
+                          <svg 
+                            className="w-4 h-4 text-blue-500" 
+                            viewBox="0 0 20 20" 
+                            fill="currentColor"
+                            aria-label="Verified Seller"
+                          >
+                            <path 
+                              fillRule="evenodd" 
+                              d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
+                              clipRule="evenodd" 
+                            />
+                          </svg>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                            Verified Seller
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
