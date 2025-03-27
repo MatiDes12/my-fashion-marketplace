@@ -39,7 +39,7 @@ export function FloatingPreview() {
       // Set a timeout to auto-dismiss after 20 seconds
       const timer = setTimeout(() => {
         setIsDismissed(true);
-      }, 20000);
+      }, 5000);
 
       // Clean up timer on unmount or when pathname changes
       return () => clearTimeout(timer);
