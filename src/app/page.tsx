@@ -25,7 +25,7 @@ import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 
-const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3ELoading...%3C/text%3E%3C/svg%3E';
+const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3ELoading...%3C/text%3E%3C/svg%3E';
 
 const APP_PREVIEW_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="600" viewBox="0 0 300 600"%3E%3Crect width="300" height="600" fill="%23f3f4f6"/%3E%3Ctext x="150" y="300" font-family="Arial" font-size="14" fill="%239ca3af" text-anchor="middle"%3EAVRIO App Preview%3C/text%3E%3C/svg%3E';
 
@@ -1852,13 +1852,14 @@ export default function HomePage() {
                       transition={{ duration: 0.5, delay: image.delay }}
                       whileHover={{ scale: 1.05 }}
                     >
-                      <div className="relative w-full pb-[100%]">
+                      {/* Update the image container */}
+                      <div className="relative w-full pt-[100%]">
                         <Image
                           src={image.src}
                           alt={image.alt}
                           fill
-                          className="absolute inset-0 object-cover rounded-lg shadow-lg"
                           sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 20vw"
+                          className="absolute inset-0 w-full h-full object-cover rounded-lg shadow-lg"
                           priority={index < 2}
                         />
                       </div>
@@ -2260,16 +2261,17 @@ export default function HomePage() {
                       className="group block"
                     >
                       <div className="relative bg-gray-800/50 backdrop-blur-sm p-3 transition-all duration-300 hover:bg-gray-800/70 rounded-xl">
-                        <div className="aspect-w-1 aspect-h-1 mb-2 relative">
-                          <div className="absolute inset-0 rounded-full overflow-hidden border-2 border-red-500/20 group-hover:border-red-500/40 transition-colors">
-                            <Image
-                              src={brand.store_settings.logo_url || PLACEHOLDER_IMAGE}
-                              alt={brand.store_settings.name}
-                              fill
-                              className="object-cover transform group-hover:scale-110 transition-transform duration-300"
-                            />
-                          </div>
+                        {/* Update the image container */}
+                        <div className="relative w-full pt-[100%] rounded-full overflow-hidden border-2 border-red-500/20 group-hover:border-red-500/40 transition-colors">
+                          <Image
+                            src={cleanImageUrl(brand.store_settings.logo_url) || PLACEHOLDER_IMAGE}
+                            alt={brand.store_settings.name}
+                            fill
+                            sizes="(max-width: 640px) 200px, 240px"
+                            className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-300"
+                          />
                         </div>
+                        {/* Rest of the brand card content */}
                         <div className="text-center">
                           <div className="flex items-center justify-center gap-2">
                             <h3 className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">
@@ -2401,35 +2403,111 @@ export default function HomePage() {
                         href={`/products/${product.id}`}
                         className="block relative bg-gray-800/50 backdrop-blur-sm rounded-lg overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-gray-800/70 group"
                       >
-                        <div className="aspect-w-1 aspect-h-1 relative bg-[#0A0A0A]">
-                          <Image
-                            src={cleanImageUrl(product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
-                            alt={product.title}
-                            fill
-                            className="object-cover transform group-hover:scale-105 transition-transform duration-500"
-                          />
+                        {/* Updated image container */}
+                        <div className="relative w-full pt-[100%] bg-gray-900">
+                          {product.product_images && product.product_images[0] ? (
+                            <Image
+                              src={cleanImageUrl(product.product_images[0].image_url)}
+                              alt={product.title}
+                              fill
+                              sizes="(max-width: 640px) 280px, 320px"
+                              priority={index < 4}
+                              className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = PLACEHOLDER_IMAGE;
+                              }}
+                            />
+                          ) : (
+                            // Placeholder for products without images
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                              <svg
+                                className="w-12 h-12 text-gray-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                            </div>
+                          )}
+
+                          {/* Category tag */}
+                          <div className="absolute top-2 left-2 z-10">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-white/90 text-gray-800">
+                              {product.category}
+                            </span>
+                          </div>
+
+                          {/* Flash sale badge */}
+                          {product.flash_sale_price && (
+                            <div className="absolute top-2 right-2 z-10">
+                              <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                                SALE
+                              </div>
+                            </div>
+                          )}
                         </div>
 
+                        {/* Rest of your existing product card content */}
                         <div className="p-4">
-                          <h3 className="text-sm font-medium text-white line-clamp-2 group-hover:text-red-500 mb-2">
+                          {/* Title */}
+                          <h3 className="text-sm font-medium text-white line-clamp-2 group-hover:text-red-500 mb-3">
                             {product.title}
                           </h3>
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm font-medium text-white">
-                              ETB {product.price.toLocaleString()}
-                            </div>
+
+                          {/* Price section */}
+                          <div className="flex items-center justify-between mb-3">
+                            {product.flash_sale_price ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-bold text-red-500">
+                                  ETB {product.flash_sale_price.toLocaleString()}
+                                </span>
+                                <span className="text-sm text-gray-400 line-through">
+                                  ETB {product.price.toLocaleString()}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-lg font-bold text-white">
+                                ETB {product.price.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Rating and Likes */}
+                          <div className="flex items-center justify-between border-t border-gray-700/50 pt-3">
                             <div className="flex items-center gap-3">
-                              <div className="flex items-center text-yellow-500">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              {/* Rating */}
+                              <div className="flex items-center">
+                                <svg 
+                                  className="w-4 h-4 text-yellow-500" 
+                                  fill="currentColor" 
+                                  viewBox="0 0 20 20"
+                                >
                                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                                 </svg>
-                                <span className="ml-1 text-xs">{product.average_rating?.toFixed(1) || '0.0'}</span>
+                                <span className="ml-1 text-sm text-gray-300">
+                                  {product.average_rating?.toFixed(1) || '0.0'}
+                                </span>
                               </div>
-                              <div className="flex items-center text-red-500">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+
+                              {/* Likes */}
+                              <div className="flex items-center">
+                                <svg 
+                                  className="w-4 h-4 text-red-500" 
+                                  fill="currentColor" 
+                                  viewBox="0 0 20 20"
+                                >
                                   <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
                                 </svg>
-                                <span className="ml-1 text-xs">{product.like_count}</span>
+                                <span className="ml-1 text-sm text-gray-300">
+                                  {product.like_count}
+                                </span>
                               </div>
                             </div>
                           </div>

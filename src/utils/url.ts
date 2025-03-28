@@ -11,13 +11,16 @@ export const cleanImageUrl = (url: string): string => {
     return url;
   }
   
-  // If it's a Supabase storage URL, construct the full URL
-  if (url.startsWith('/storage/v1/object/public/')) {
-    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}${url}`;
+  // If it's a Supabase storage URL that's already complete
+  if (url.includes('/storage/v1/object/public/')) {
+    // Remove any duplicate URLs
+    const storagePathIndex = url.indexOf('/storage/v1/object/public/');
+    const cleanUrl = url.substring(storagePathIndex);
+    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}${cleanUrl}`;
   }
   
-  // Return the original URL if none of the above conditions match
-  return url;
+  // If it's just a filename
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${url}`;
 };
 
 export const normalizeUrl = (baseUrl: string, path: string) => {
