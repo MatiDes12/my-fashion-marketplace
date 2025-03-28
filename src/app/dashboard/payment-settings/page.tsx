@@ -506,7 +506,7 @@ const CBESettings = ({ settings, onChange }: {
                 />
               </div>
 
-              <div>
+        <div>
                 <label htmlFor="contact-phone" className="block text-sm font-medium text-gray-700">
                   Phone Number
                 </label>
@@ -612,7 +612,7 @@ const AmoleSettings = ({ settings, onChange }: {
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   placeholder="Your Amole Merchant ID"
                 />
-              </div>
+            </div>
 
               <div>
                 <label htmlFor="api-key" className="block text-sm font-medium text-gray-700">
@@ -642,10 +642,10 @@ const AmoleSettings = ({ settings, onChange }: {
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   URL where Amole will send payment notifications
-                </p>
-              </div>
+              </p>
             </div>
           </div>
+        </div>
 
           {/* Additional Settings */}
           <div className="space-y-4">
@@ -760,10 +760,10 @@ const PaymentSettingsPage = () => {
       } else if (data) {
         setSettings(data);
       }
-    } catch (error) {
+      } catch (error) {
       console.error('Error fetching settings:', error);
       setError(error instanceof Error ? error.message : 'Failed to load settings');
-    } finally {
+      } finally {
       setLoading(false);
     }
   };
@@ -818,7 +818,7 @@ const PaymentSettingsPage = () => {
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
-  return (
+    return (
     <main className="max-w-4xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-6">Payment Settings</h1>
 
@@ -897,7 +897,7 @@ const PaymentSettingsPage = () => {
                       <div>
                         <label htmlFor="chapa-public-key" className="block text-sm font-medium text-gray-700">
                           Public Key
-                        </label>
+                  </label>
                         <input
                           type="text"
                           id="chapa-public-key"
@@ -908,17 +908,17 @@ const PaymentSettingsPage = () => {
                           }))}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
                           placeholder="CHAPUBK_TEST-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
-                        />
-                        <p className="mt-2 text-sm text-gray-500">
+                  />
+                  <p className="mt-2 text-sm text-gray-500">
                           Your Chapa public key from the dashboard
-                        </p>
-                      </div>
+                  </p>
+                </div>
 
-                      <div>
+                    <div>
                         <label htmlFor="chapa-secret-key" className="block text-sm font-medium text-gray-700">
                           Secret Key
-                        </label>
-                        <input
+                      </label>
+                          <input
                           type="password"
                           id="chapa-secret-key"
                           value={settings.chapa_settings.secret_key || ''}
@@ -931,14 +931,14 @@ const PaymentSettingsPage = () => {
                         />
                         <p className="mt-2 text-sm text-gray-500">
                           Your Chapa secret key (keep this secure)
-                        </p>
-                      </div>
+                      </p>
+                    </div>
 
                       <div className="sm:col-span-2">
                         <label htmlFor="chapa-callback-url" className="block text-sm font-medium text-gray-700">
                           Callback URL
-                        </label>
-                        <input
+                      </label>
+                          <input
                           type="url"
                           id="chapa-callback-url"
                           value={settings.chapa_settings.callback_url || ''}
@@ -956,30 +956,30 @@ const PaymentSettingsPage = () => {
                     </div>
 
                     <div className="flex justify-end">
-                      <button
-                        type="button"
+                          <button
+                            type="button"
                         onClick={testChapaConnection}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                       >
                         Test Connection
-                      </button>
-                    </div>
+                          </button>
+                        </div>
                   </div>
-                )}
-              </div>
-            </div>
+                          )}
+                        </div>
+                      </div>
           </TabsContent>
-        </div>
+                    </div>
       </Tabs>
 
       <div className="mt-6 flex justify-end">
-        <button
+            <button
           onClick={handleSave}
           className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-        >
+            >
           Save Settings
-        </button>
-      </div>
+            </button>
+          </div>
     </main>
   );
 };

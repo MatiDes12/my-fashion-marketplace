@@ -79,7 +79,7 @@ export default function VATReportPage() {
       // Calculate daily VAT
       const dailyVAT = transactions?.reduce((acc, t) => {
         const date = new Date(t.created_at).toISOString().split('T')[0];
-        const existing = acc.find(d => d.date === date);
+        const existing = acc.find((d: {date: string}) => d.date === date);
         
         if (existing) {
           existing.vat += t.vat_amount || 0;
@@ -92,7 +92,7 @@ export default function VATReportPage() {
           });
         }
         return acc;
-      }, [] as VATStats['dailyVAT']).sort((a, b) => a.date.localeCompare(b.date)) || [];
+      }, [] as VATStats['dailyVAT']).sort((a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date)) || [];
 
       // Calculate VAT by category
       const vatByCategory = [
@@ -116,7 +116,7 @@ export default function VATReportPage() {
 
       // Calculate VAT by seller
       const vatBySeller = transactions?.reduce((acc, t) => {
-        const existing = acc.find(s => s.seller_id === t.seller?.id);
+        const existing = acc.find((s: { seller_id: string }) => s.seller_id === t.seller?.id);
         if (existing) {
           existing.total_vat += t.vat_amount || 0;
           existing.taxable_amount += t.subtotal || 0;
@@ -149,7 +149,7 @@ export default function VATReportPage() {
           new Date(t.created_at) >= yearStart ? sum + (t.vat_amount || 0) : sum, 0) || 0,
         vatByCategory,
         dailyVAT,
-        vatBySeller: vatBySeller.sort((a, b) => b.total_vat - a.total_vat)
+        vatBySeller: vatBySeller.sort((a: { total_vat: number }, b: { total_vat: number }) => b.total_vat - a.total_vat)
       });
 
     } catch (error) {

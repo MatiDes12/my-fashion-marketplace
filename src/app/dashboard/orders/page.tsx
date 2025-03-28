@@ -7,7 +7,20 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { formatCurrency } from '@/utils/currency';
 
-type Order = {
+interface User {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  owner_id: string;
+}
+
+interface Order {
   id: string;
   created_at: string;
   user_id: string;
@@ -15,18 +28,57 @@ type Order = {
   quantity: number;
   total_price: number;
   order_status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  product: {
-    id: string;
-    title: string;
-    price: number;
-    owner_id: string;
-  };
+  platform_fee?: number;
+  service_fee?: number;
+  ethiopia_tax?: number;
+  delivery_fee?: number;
+  payment_status?: string;
+  payment_reference?: string;
+  tx_ref?: string;
+  receipt_url?: string;
+  product?: Product;
+  user?: User;
+}
+
+interface OrderWithUser {
+  id: string;
+  created_at: string;
+  quantity: number;
+  total_price: number;
+  order_status: Order['order_status'];
+  user_id: string;
+  platform_fee?: number;
+  service_fee?: number;
+  ethiopia_tax?: number;
+  delivery_fee?: number;
+  payment_status?: string;
+  payment_reference?: string;
+  tx_ref?: string;
+  receipt_url?: string;
+  user: User;  // Not an array, just a single user object
+}
+
+interface SupabaseOrder {
+  id: string;
+  created_at: string;
+  quantity: number;
+  total_price: number;
+  order_status: Order['order_status'];
+  user_id: string;
+  platform_fee?: number;
+  service_fee?: number;
+  ethiopia_tax?: number;
+  delivery_fee?: number;
+  payment_status?: string;
+  payment_reference?: string;
+  tx_ref?: string;
+  receipt_url?: string;
   user: {
     id: string;
     full_name: string;
     email: string;
   };
-};
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -64,7 +116,15 @@ export default function OrdersPage() {
               total_price,
               order_status,
               user_id,
-              user:users (
+              platform_fee,
+              service_fee,
+              ethiopia_tax,
+              delivery_fee,
+              payment_status,
+              payment_reference,
+              tx_ref,
+              receipt_url,
+              user:users!user_id (
                 id,
                 full_name,
                 email
@@ -80,26 +140,34 @@ export default function OrdersPage() {
 
         // Transform the data structure with proper user information
         const allOrders: Order[] = products.flatMap(product => 
-          product.orders?.map(order => ({
-            id: order.id,
-            created_at: order.created_at,
-            user_id: order.user_id,
+          (product.orders || []).map((order: unknown) => ({
+            id: (order as any).id,
+            created_at: (order as any).created_at,
+            user_id: (order as any).user_id,
             product_id: product.id,
-            quantity: order.quantity,
-            total_price: order.total_price,
-            order_status: order.order_status,
+            quantity: (order as any).quantity,
+            total_price: (order as any).total_price,
+            order_status: (order as any).order_status,
+            platform_fee: (order as any).platform_fee,
+            service_fee: (order as any).service_fee,
+            ethiopia_tax: (order as any).ethiopia_tax,
+            delivery_fee: (order as any).delivery_fee,
+            payment_status: (order as any).payment_status,
+            payment_reference: (order as any).payment_reference,
+            tx_ref: (order as any).tx_ref,
+            receipt_url: (order as any).receipt_url,
             product: {
               id: product.id,
               title: product.title,
               price: product.price,
               owner_id: session.user.id
             },
-            user: order.user || {
-              id: order.user_id,
-              full_name: 'Unknown',
-              email: 'unknown@example.com'
+            user: (order as any).user && {
+              id: (order as any).user.id,
+              full_name: (order as any).user.full_name,
+              email: (order as any).user.email
             }
-          })) || []
+          }))
         );
 
         // Sort by date
