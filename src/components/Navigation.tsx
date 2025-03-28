@@ -1326,21 +1326,21 @@ export default function Navigation({ userDetails }: NavigationProps) {
             ) : (
               <div className="space-y-3 mb-6">
                 <Link
-                  href="/auth/login"
+                  href="/login"
                   onClick={closeMenu}
                   className="block w-full px-4 py-3 text-center font-medium text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 rounded-xl shadow-sm transition-all duration-300"
                 >
                   Sign In
                 </Link>
                 <Link
-                  href="/auth/signup"
+                  href="/signup"
                   onClick={closeMenu}
                   className="block w-full px-4 py-3 text-center font-medium text-red-600 border-2 border-red-600 hover:bg-red-50 rounded-xl transition-all duration-300"
                 >
                   Create Account
                 </Link>
-        </div>
-      )}
+              </div>
+            )}
 
             {/* Main Navigation */}
             <nav className="space-y-2">
