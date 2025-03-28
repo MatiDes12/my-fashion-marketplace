@@ -6,13 +6,10 @@ const nextConfig = {
     domains: [
       'localhost',
       '127.0.0.1',
-      'habeshamarket.com',
-      'supabase.co',
-      'supabase.io',
-      'supabase.in',
-      'supabase.com',
       'xnvufnoqbtpvoiqhsrdo.supabase.co',
-      'your-image-hosting-domain.com'
+      'supabase.co',
+      'supabase.in',
+      'supabase.com'
     ],
     remotePatterns: [
       {

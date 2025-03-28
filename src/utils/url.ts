@@ -4,18 +4,19 @@
  * @returns The cleaned and properly formatted URL
  */
 export const cleanImageUrl = (url: string): string => {
-  if (!url) return '';
+  if (!url) return '/placeholder.png';
   
   // If it's already a full URL, return it
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
   
-  // If it's a Supabase storage URL, add the base URL
-  if (url.startsWith('/storage/v1/')) {
+  // If it's a Supabase storage URL, construct the full URL
+  if (url.startsWith('/storage/v1/object/public/')) {
     return `${process.env.NEXT_PUBLIC_SUPABASE_URL}${url}`;
   }
   
+  // Return the original URL if none of the above conditions match
   return url;
 };
 

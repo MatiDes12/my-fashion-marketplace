@@ -338,14 +338,14 @@ function ProductsContent() {
           });
 
           return {
-          ...product,
+            ...product,
             average_rating: averageRating,
-          like_count: product.likes?.[0]?.count || 0,
+            like_count: product.likes?.[0]?.count || 0,
             flash_sale_price: activeFlashSale?.special_price || null,
             product_images: product.product_images?.map((img: any) => ({
-            ...img,
+              ...img,
               image_url: cleanImageUrl(img.image_url)
-            }))
+            })) || []
           };
         }) || [];
 
@@ -825,19 +825,46 @@ function ProductsContent() {
                     className="group relative bg-white rounded-2xl shadow-sm overflow-hidden transform hover:-translate-y-1 transition-all duration-300 hover:shadow-xl"
                   >
                     <Link href={`/products/${product.id}`}>
-                      <div className="relative aspect-w-1 aspect-h-1 bg-gray-200">
+                      <div className="relative w-full pt-[100%] bg-gray-200">
+                        {product.product_images && product.product_images.length > 0 ? (
+                          <Image
+                            src={product.product_images[0].image_url}
+                            alt={product.title}
+                            fill
+                            sizes="(max-width: 640px) 100vw, 
+                                   (max-width: 1024px) 50vw, 
+                                   (max-width: 1280px) 33vw,
+                                   25vw"
+                            className="absolute inset-0 w-full h-full object-cover object-center group-hover:opacity-75 transition-opacity"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/placeholder.png';
+                            }}
+                            priority={false}
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                            <svg
+                              className="w-12 h-12 text-gray-400"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </div>
+                        )}
+                        
                         <div className="absolute top-8 left-0 z-10">
                           <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/90 text-gray-800 shadow-sm">
                             {product.category}
                           </span>
                         </div>
-                        
-                        <Image
-                          src={product.product_images[0]?.image_url || '/placeholder.png'}
-                          alt={product.title}
-                          fill
-                          className="object-cover object-center group-hover:opacity-75 transition-opacity"
-                        />
                         
                         {product.flash_sale_price && (
                           <div className="absolute bottom-6 right-4 z-10">
