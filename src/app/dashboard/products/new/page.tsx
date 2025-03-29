@@ -22,6 +22,7 @@ export default function NewProductPage() {
   const [quantity, setQuantity] = useState('');
   const [delivery_fee, setDeliveryFee] = useState('');
   const [detailedDescription, setDetailedDescription] = useState('');
+  const [quality, setQuality] = useState('new');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClientComponent();
@@ -67,7 +68,8 @@ export default function NewProductPage() {
           owner_id: session.user.id,
           is_active: true,
           quantity: parseInt(quantity),
-          delivery_fee: parseFloat(delivery_fee)
+          delivery_fee: parseFloat(delivery_fee),
+          quality
         })
         .select();
 
@@ -585,6 +587,37 @@ export default function NewProductPage() {
                     </div>
                   </div>
                   </div>
+
+                {/* Product Quality Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Product Quality</h4>
+                  <div className="sm:col-span-3">
+                    <label htmlFor="quality" className="block text-sm font-medium text-gray-700">
+                      Item Condition <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mt-1">
+                      <select
+                        id="quality"
+                        value={quality}
+                        onChange={(e) => setQuality(e.target.value)}
+                        className={selectClasses}
+                        required
+                      >
+                        <option value="new">New</option>
+                        <option value="used">Used</option>
+                        <option value="refurbished">Refurbished</option>
+                      </select>
+                      <p className="mt-2 text-sm text-gray-500">
+                        Select the condition of your item:
+                        <ul className="list-disc pl-5 mt-1">
+                          <li>New: Brand new, unused item</li>
+                          <li>Used: Previously owned and used item</li>
+                          <li>Refurbished: Restored to like-new condition</li>
+                        </ul>
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Images Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">

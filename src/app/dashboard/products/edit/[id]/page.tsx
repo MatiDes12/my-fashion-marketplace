@@ -28,6 +28,7 @@ type Product = {
   images?: ProductImage[];
   quantity: number;
   delivery_fee?: number;
+  quality: string;
 };
 
 export default function EditProductPage({ params }: { params: { id: string } }) {
@@ -59,6 +60,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     delivery_fee: '',
   });
   const [detailedDescription, setDetailedDescription] = useState('');
+  const [quality, setQuality] = useState('new');
 
   // Clean image URL helper
   const cleanImageUrl = (url: string | undefined): string => {
@@ -130,6 +132,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           category: productData.category,
           delivery_fee: productData.delivery_fee?.toString() || '',
         });
+        setQuality(productData.quality || 'new');
         
         // Set existing images
         if (imagesData) {
@@ -173,6 +176,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           is_active: isActive,
           quantity: parseInt(quantity),
           delivery_fee: formData.delivery_fee ? parseFloat(formData.delivery_fee) : null,
+          quality,
         })
         .eq('id', params.id);
 
@@ -543,6 +547,37 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         <li>Return policy specifics</li>
                       </ul>
                     </p>
+                  </div>
+                </div>
+
+                {/* Product Quality Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Product Quality</h4>
+                  <div className="sm:col-span-3">
+                    <label htmlFor="quality" className="block text-sm font-medium text-gray-700">
+                      Item Condition <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mt-1">
+                      <select
+                        id="quality"
+                        value={quality}
+                        onChange={(e) => setQuality(e.target.value)}
+                        className={selectClasses}
+                        required
+                      >
+                        <option value="new">New</option>
+                        <option value="used">Used</option>
+                        <option value="refurbished">Refurbished</option>
+                      </select>
+                      <p className="mt-2 text-sm text-gray-500">
+                        Select the condition of your item:
+                        <ul className="list-disc pl-5 mt-1">
+                          <li>New: Brand new, unused item</li>
+                          <li>Used: Previously owned and used item</li>
+                          <li>Refurbished: Restored to like-new condition</li>
+                        </ul>
+                      </p>
+                    </div>
                   </div>
                 </div>
 

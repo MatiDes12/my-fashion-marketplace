@@ -31,7 +31,26 @@ export default function SignupPage() {
     setError(null);
 
     try {
-      // Sign up with Supabase Auth - the trigger will handle user table insertion
+      // Check if the email already exists
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      // Handle the case where no user is found
+      if (userError && userError.code !== 'PGRST116') {
+        console.error('Error checking existing user:', userError);
+        throw userError;
+      }
+
+      // If existingUser is not null, it means the email exists
+      if (existingUser) {
+        setError('An account with this email already exists. Please log in instead.');
+        return;
+      }
+
+      // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -51,7 +70,13 @@ export default function SignupPage() {
 
       if (data.user) {
         console.log('User created with metadata:', data.user.user_metadata);
-        router.push('/auth/verify-email');
+        // Check if the user role is 'owner' and handle accordingly
+        if (role === 'owner') {
+          // Optionally, you can redirect to a specific page for sellers
+          router.push('/auth/verify-email');
+        } else {
+          router.push('/auth/verify-email');
+        }
       }
     } catch (error) {
       console.error('Signup error:', error);

@@ -114,6 +114,7 @@ type Product = {
     };
   }>;
   detailed_description?: string;
+  quality?: string;
 };
 
 type StoreSettings = {
@@ -988,6 +989,17 @@ export default function ProductDetailPage() {
                       {product.users?.store_settings?.name || 'N/A'}
                     </dd>
                   </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Condition</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                        ${product.quality === 'new' ? 'bg-green-100 text-green-800' : 
+                          product.quality === 'used' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-blue-100 text-blue-800'}`}>
+                        {product.quality || 'New'}
+                      </span>
+                    </dd>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1137,6 +1149,17 @@ export default function ProductDetailPage() {
                     <dt className="text-sm font-medium text-gray-500">Store Name</dt>
                     <dd className="mt-1 text-sm text-gray-900">
                       {product.users?.store_settings?.name || 'N/A'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm font-medium text-gray-500">Condition</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                        ${product.quality === 'new' ? 'bg-green-100 text-green-800' : 
+                          product.quality === 'used' ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-blue-100 text-blue-800'}`}>
+                        {product.quality || 'New'}
+                      </span>
                     </dd>
                   </div>
                 </dl>

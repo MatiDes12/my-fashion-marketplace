@@ -101,7 +101,7 @@ export default function StorePage() {
       setLoading(true);
       setError(null);
 
-      // First get the store data
+      // Get the store data (which now includes payment methods)
       const storeResponse = await fetch(`/api/stores/${id}`);
       if (!storeResponse.ok) {
         const errorData = await storeResponse.json();
@@ -112,23 +112,6 @@ export default function StorePage() {
       if (!storeData.owner) {
         throw new Error(`Store not found. ID: ${id}`);
       }
-
-      // Then fetch the store owner's payment settings
-      const { data: paymentSettings, error: paymentSettingsError } = await supabase
-        .from('payment_settings')
-        .select('*')
-        .eq('user_id', storeData.owner.id)
-        .single();
-
-      // If no payment settings exist, use default values
-      const activePaymentMethods = {
-        cash: true, // Always available
-        TELEBIRR: paymentSettings?.telebirr_settings?.is_active === true,
-        CBE: paymentSettings?.cbe_birr_settings?.is_active === true,
-        AMOLE: paymentSettings?.amole_settings?.is_active === true,
-        CHAPA: paymentSettings?.chapa_settings?.is_active === true,
-        BANK: paymentSettings?.bank_settings?.is_active === true
-      };
 
       // Rest of the data fetching (products, ratings, likes)
       const productIds = storeData.products?.map((p: any) => p.id) || [];
@@ -171,16 +154,10 @@ export default function StorePage() {
         };
       });
 
+      // Set the store data (which now includes payment methods from the API)
+      setStore(storeData.owner.store_settings);
       setOwner(storeData.owner);
       setProducts(productsWithMetrics || []);
-
-      // Merge payment settings with store settings
-      const mergedSettings = {
-        ...storeData.owner.store_settings,
-        payment_methods: activePaymentMethods
-      };
-
-      setStore(mergedSettings);
 
     } catch (err) {
       console.error('Error fetching store data:', err);
@@ -521,14 +498,14 @@ export default function StorePage() {
             <div className="mt-8">
               <h3 className="text-lg font-semibold mb-4">Accepted Payments</h3>
               <div className="flex flex-wrap gap-3">
-                {/* Always show Cash */}
+                {/* Cash is always shown */}
                 <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                   <span className="text-lg mr-2">💵</span>
                   <span>Cash</span>
                 </div>
 
                 {/* Show Telebirr if active */}
-                {store?.payment_methods?.TELEBIRR && (
+                {store.payment_methods.TELEBIRR && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                     <Image 
                       src="/images/payment-methods/Telebirr-logo.png" 
@@ -542,7 +519,7 @@ export default function StorePage() {
                 )}
 
                 {/* Show CBE if active */}
-                {store?.payment_methods?.CBE && (
+                {store.payment_methods.CBE && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                     <Image 
                       src="/images/cbe-logo.png" 
@@ -556,7 +533,7 @@ export default function StorePage() {
                 )}
 
                 {/* Show Amole if active */}
-                {store?.payment_methods?.AMOLE && (
+                {store.payment_methods.AMOLE && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                     <Image 
                       src="/images/amole-logo.png" 
@@ -570,7 +547,7 @@ export default function StorePage() {
                 )}
 
                 {/* Show Chapa if active */}
-                {store?.payment_methods?.CHAPA && (
+                {store.payment_methods.CHAPA && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                     <Image 
                       src="/images/payment-methods/chapa-logo.png" 
@@ -585,7 +562,7 @@ export default function StorePage() {
                 )}
 
                 {/* Show Bank Transfer if active */}
-                {store?.payment_methods?.BANK && (
+                {store.payment_methods.BANK && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                     <span className="text-lg mr-2">🏦</span>
                     <span>Bank Transfer</span>
