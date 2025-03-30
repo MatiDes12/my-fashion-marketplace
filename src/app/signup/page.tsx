@@ -7,6 +7,22 @@ import Link from 'next/link';
 
 type Role = 'customer' | 'owner';
 
+// Add this function to check password strength
+const isPasswordStrong = (password: string) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChars = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    return (
+        password.length >= minLength &&
+        hasUpperCase &&
+        hasLowerCase &&
+        hasNumbers &&
+        hasSpecialChars
+    );
+};
+
 export default function SignupPage() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -16,6 +32,7 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -29,6 +46,14 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setPasswordError(null); // Reset password error
+
+    // Check password strength
+    if (!isPasswordStrong(password)) {
+        setPasswordError('Password must be at least 8 characters long and include uppercase letters, lowercase letters, numbers, and special characters.');
+        setLoading(false);
+        return;
+    }
 
     try {
       // Check if the email already exists
@@ -55,7 +80,7 @@ export default function SignupPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
           data: {
             full_name: fullName,
             role: role
@@ -253,6 +278,9 @@ export default function SignupPage() {
                     </svg>
                   </div>
                 </div>
+                {passwordError && (
+                    <p className="mt-2 text-sm text-red-600">{passwordError}</p>
+                )}
               </div>
 
               <div>
