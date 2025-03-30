@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -14,22 +13,25 @@ function CallbackContent() {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        if (!searchParams) {
-          throw new Error('No search parameters found');
+        const code = searchParams.get('code');
+        if (!code) {
+          throw new Error('No verification code found');
         }
 
-        const code = searchParams.get('code');
-        if (code) {
-          await supabase.auth.exchangeCodeForSession(code);
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (user?.user_metadata?.role === 'owner') {
-            router.push('/dashboard');
-          } else {
-            router.push('/products');
-          }
+        // Exchange the code for a session
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          throw error;
+        }
+
+        // Get the user details
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        // Redirect based on user role
+        if (user?.user_metadata?.role === 'owner') {
+          router.push('/dashboard'); // Redirect to dashboard for owners
         } else {
-          throw new Error('No verification code found');
+          router.push('/products'); // Redirect to products for customers
         }
       } catch (error) {
         console.error('Error during email confirmation:', error);
