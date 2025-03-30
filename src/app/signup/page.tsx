@@ -30,14 +30,6 @@ export default function SignupPage() {
     setLoading(true);
     setError(null);
 
-    // Password strength validation
-    const passwordStrengthRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/; // At least 8 characters, 1 uppercase, 1 lowercase, 1 number, 1 special character
-    if (!passwordStrengthRegex.test(password)) {
-        setError('Password must be at least 8 characters long, include at least one uppercase letter, one lowercase letter, one number, and one special character.');
-        setLoading(false);
-        return;
-    }
-
     try {
       // Check if the email already exists
       const { data: existingUser, error: userError } = await supabase
@@ -58,17 +50,12 @@ export default function SignupPage() {
         return;
       }
 
-      // Determine the redirect URL based on the environment
-      const redirectUrl = process.env.NODE_ENV === 'production'
-        ? 'https://www.avrioxshop.com/auth/callback'
-        : `${window.location.origin}/auth/callback`;
-
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             full_name: fullName,
             role: role
