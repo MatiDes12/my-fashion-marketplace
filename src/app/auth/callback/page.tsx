@@ -1,37 +1,48 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { createClientComponent } from '@/lib/supabase';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import LoadingPage from '@/components/LoadingPage';
 
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = createClientComponent();
 
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
+        if (!searchParams) {
+          throw new Error('No search parameters found');
+        }
+
         const code = searchParams.get('code');
-        if (!code) {
-          throw new Error('No verification code found');
-        }
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          // Check if the user exists and get their role
+          if (user) {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('role')
+              .eq('id', user.id)
+              .single();
 
-        // Exchange the code for a session
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          throw error;
-        }
-
-        // Get the user details
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        // Redirect based on user role
-        if (user?.user_metadata?.role === 'owner') {
-          router.push('/dashboard'); // Redirect to dashboard for owners
+            // Redirect based on user role
+            if (userData?.role === 'owner') {
+              router.push('/dashboard');
+            } else {
+              router.push('/products');
+            }
+          } else {
+            throw new Error('User not found');
+          }
         } else {
-          router.push('/products'); // Redirect to products for customers
+          throw new Error('No verification code found');
         }
       } catch (error) {
         console.error('Error during email confirmation:', error);
