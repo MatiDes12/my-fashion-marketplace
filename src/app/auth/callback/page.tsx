@@ -16,37 +16,62 @@ function CallbackContent() {
     const handleEmailConfirmation = async () => {
       try {
         if (!searchParams) {
-          throw new Error('No search parameters found');
+          return; // Exit silently if no search params
         }
 
         const code = searchParams.get('code');
-        if (code) {
-          await supabase.auth.exchangeCodeForSession(code);
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          // Check if the user exists and get their role
-          if (user) {
+        // If no code is present, check if user is already authenticated
+        if (!code) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            // User is already authenticated, redirect based on role
             const { data: userData } = await supabase
               .from('users')
               .select('role')
-              .eq('id', user.id)
+              .eq('id', session.user.id)
               .single();
 
-            // Redirect based on user role
             if (userData?.role === 'owner') {
               router.push('/dashboard');
             } else {
               router.push('/products');
             }
           } else {
-            throw new Error('User not found');
+            router.push('/login');
+          }
+          return;
+        }
+
+        // Process verification code
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        // Check if the user exists and get their role
+        if (user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+          // Redirect based on user role
+          if (userData?.role === 'owner') {
+            router.push('/dashboard');
+          } else {
+            router.push('/products');
           }
         } else {
-          throw new Error('No verification code found');
+          throw new Error('User not found');
         }
+
       } catch (error) {
         console.error('Error during email confirmation:', error);
-        router.push('/login?error=Verification failed');
+        // Only redirect to login with error if there was a code but verification failed
+        if (searchParams.get('code')) {
+          router.push('/login?error=Verification failed');
+        }
       }
     };
 
