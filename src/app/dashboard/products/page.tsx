@@ -21,6 +21,20 @@ type Product = {
   created_at: string;
   category: string;
   product_images?: ProductImage[];
+  sizes: string[];
+  colors: string[];
+  available_variants: {
+    size: string;
+    color: string;
+    quantity: number;
+    sku: string;
+  }[];
+  brand?: string;
+  material?: string;
+  care_instructions?: string;
+  measurements?: {
+    [key: string]: string;
+  };
 };
 
 type ProductImage = {
@@ -256,6 +270,26 @@ function ProductsPage() {
                           }`}>
                             {product.quantity} in stock
                           </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {product.colors?.map((color) => (
+                            <span
+                              key={color}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100"
+                            >
+                              {color}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {product.sizes?.map((size) => (
+                            <span
+                              key={size}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100"
+                            >
+                              {size}
+                            </span>
+                          ))}
                         </div>
                         <div className="mt-4 flex justify-end space-x-2">
                           <Link

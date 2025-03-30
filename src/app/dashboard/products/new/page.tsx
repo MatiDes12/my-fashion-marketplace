@@ -5,8 +5,9 @@ import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
-import { PRODUCT_CATEGORIES } from '@/utils/constants';
+import { PRODUCT_CATEGORIES, CATEGORY_SPECIFIC_FIELDS } from '@/utils/constants';
 import Link from 'next/link';
+import DynamicProductFields from '@/components/DynamicProductFields';
 
 export default function NewProductPage() {
   const [title, setTitle] = useState('');
@@ -23,9 +24,40 @@ export default function NewProductPage() {
   const [delivery_fee, setDeliveryFee] = useState('');
   const [detailedDescription, setDetailedDescription] = useState('');
   const [quality, setQuality] = useState('new');
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [colors, setColors] = useState<string[]>([]);
+  const [variants, setVariants] = useState<Array<{
+    size: string;
+    color: string;
+    quantity: number;
+    sku: string;
+  }>>([]);
+  const [brand, setBrand] = useState('');
+  const [material, setMaterial] = useState('');
+  const [careInstructions, setCareInstructions] = useState('');
+  const [measurements, setMeasurements] = useState<{[key: string]: string}>({});
+  const [shippingInfo, setShippingInfo] = useState({
+    processing_time: '1-2 business days',
+    shipping_options: [],
+    return_policy: ''
+  });
+  const [highlights, setHighlights] = useState<string[]>([]);
+  const [specifications, setSpecifications] = useState<{[key: string]: string}>({});
+  const [styleNotes, setStyleNotes] = useState('');
+  const [fitInfo, setFitInfo] = useState('');
+  const [occasion, setOccasion] = useState<string[]>([]);
+  const [season, setSeason] = useState<string[]>([]);
+  const [sustainabilityInfo, setSustainabilityInfo] = useState('');
+  const [countryOfOrigin, setCountryOfOrigin] = useState('');
+  const [warrantyInfo, setWarrantyInfo] = useState('');
+  const [faqs, setFaqs] = useState<Array<{question: string; answer: string}>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClientComponent();
+
+  // Add this line to get category configuration
+  const categoryConfig = CATEGORY_SPECIFIC_FIELDS[category as keyof typeof CATEGORY_SPECIFIC_FIELDS] 
+    || CATEGORY_SPECIFIC_FIELDS.default;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,8 +100,29 @@ export default function NewProductPage() {
           owner_id: session.user.id,
           is_active: true,
           quantity: parseInt(quantity),
-          delivery_fee: parseFloat(delivery_fee),
-          quality
+          delivery_fee: delivery_fee ? parseFloat(delivery_fee) : null,
+          quality,
+          sizes,
+          colors,
+          available_variants: variants,
+          brand,
+          material,
+          care_instructions: careInstructions,
+          measurements,
+          shipping_info: {
+            processing_time: shippingInfo.processing_time,
+            shipping_options: shippingInfo.shipping_options,
+          },
+          highlights,
+          specifications,
+          style_notes: styleNotes,
+          fit_info: fitInfo,
+          occasion,
+          season,
+          sustainability_info: sustainabilityInfo,
+          country_of_origin: countryOfOrigin,
+          warranty_info: shippingInfo.return_policy,
+          faqs
         })
         .select();
 
@@ -619,6 +672,334 @@ export default function NewProductPage() {
                   </div>
                 </div>
 
+                {/* Product Variants Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Product Variants</h4>
+                  
+                  {/* Sizes */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Available Sizes
+                    </label>
+                    <div className="mt-2 space-y-2">
+                      {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'].map((size) => (
+                        <label key={size} className="inline-flex items-center mr-4">
+                          <input
+                            type="checkbox"
+                            checked={sizes.includes(size)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSizes([...sizes, size]);
+                              } else {
+                                setSizes(sizes.filter(s => s !== size));
+                              }
+                            }}
+                            className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">{size}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Colors */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Available Colors
+                    </label>
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        value={colors.join(', ')}
+                        onChange={(e) => setColors(e.target.value.split(',').map(c => c.trim()))}
+                        placeholder="Enter colors (comma-separated)"
+                        className={inputClasses}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Variants */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Product Variants
+                    </label>
+                    <div className="mt-2 space-y-4">
+                      {sizes.map(size => 
+                        colors.map(color => (
+                          <div key={`${size}-${color}`} className="flex items-center space-x-4">
+                            <span className="w-24">{size} - {color}</span>
+                            <input
+                              type="number"
+                              placeholder="Quantity"
+                              min="0"
+                              onChange={(e) => {
+                                const newVariants = [...variants];
+                                const variantIndex = variants.findIndex(
+                                  v => v.size === size && v.color === color
+                                );
+                                if (variantIndex >= 0) {
+                                  newVariants[variantIndex].quantity = parseInt(e.target.value);
+                                } else {
+                                  newVariants.push({
+                                    size,
+                                    color,
+                                    quantity: parseInt(e.target.value),
+                                    sku: `${size}-${color}`
+                                  });
+                                }
+                                setVariants(newVariants);
+                              }}
+                              className={inputClasses}
+                            />
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Additional Details */}
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Brand
+                      </label>
+                      <input
+                        type="text"
+                        value={brand}
+                        onChange={(e) => setBrand(e.target.value)}
+                        className={inputClasses}
+                        placeholder="Brand name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Material
+                      </label>
+                      <input
+                        type="text"
+                        value={material}
+                        onChange={(e) => setMaterial(e.target.value)}
+                        className={inputClasses}
+                        placeholder="Material composition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Care Instructions */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Care Instructions
+                    </label>
+                    <textarea
+                      value={careInstructions}
+                      onChange={(e) => setCareInstructions(e.target.value)}
+                      rows={3}
+                      className={inputClasses}
+                      placeholder="Washing and care instructions"
+                    />
+                  </div>
+
+                  {/* Measurements */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Measurements
+                    </label>
+                    <div className="mt-2 space-y-2">
+                      {['Chest', 'Length', 'Shoulder', 'Sleeve'].map((measurement) => (
+                        <div key={measurement} className="flex items-center space-x-2">
+                          <span className="w-24 text-sm">{measurement}</span>
+                          <input
+                            type="text"
+                            value={measurements[measurement] || ''}
+                            onChange={(e) => setMeasurements({
+                              ...measurements,
+                              [measurement]: e.target.value
+                            })}
+                            className={inputClasses}
+                            placeholder={`${measurement} measurement`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Product Details */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Additional Product Details</h4>
+
+                  {/* Product Highlights */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Product Highlights
+                    </label>
+                    <div className="mt-2 space-y-2">
+                      <input
+                        type="text"
+                        value={highlights.join(', ')}
+                        onChange={(e) => setHighlights(e.target.value.split(',').map(h => h.trim()))}
+                        placeholder="Enter key features (comma-separated)"
+                        className={inputClasses}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Style and Fit Information */}
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Style Notes
+                      </label>
+                      <textarea
+                        value={styleNotes}
+                        onChange={(e) => setStyleNotes(e.target.value)}
+                        rows={3}
+                        className={inputClasses}
+                        placeholder="Describe the style and how to wear it"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Fit Information
+                      </label>
+                      <textarea
+                        value={fitInfo}
+                        onChange={(e) => setFitInfo(e.target.value)}
+                        rows={3}
+                        className={inputClasses}
+                        placeholder="Describe how the item fits"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Occasion and Season */}
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Suitable Occasions
+                      </label>
+                      <select
+                        multiple
+                        value={occasion}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                          setOccasion(selected);
+                        }}
+                        className={selectClasses}
+                      >
+                        <option value="casual">Casual</option>
+                        <option value="formal">Formal</option>
+                        <option value="party">Party</option>
+                        <option value="wedding">Wedding</option>
+                        <option value="business">Business</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Suitable Seasons
+                      </label>
+                      <select
+                        multiple
+                        value={season}
+                        onChange={(e) => {
+                          const selected = Array.from(e.target.selectedOptions).map(opt => opt.value);
+                          setSeason(selected);
+                        }}
+                        className={selectClasses}
+                      >
+                        <option value="spring">Spring</option>
+                        <option value="summer">Summer</option>
+                        <option value="autumn">Autumn</option>
+                        <option value="winter">Winter</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Shipping and Returns */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Return Policy
+                    </label>
+                    <textarea
+                      value={shippingInfo.return_policy}
+                      onChange={(e) => setShippingInfo({...shippingInfo, return_policy: e.target.value})}
+                      rows={3}
+                      className={inputClasses}
+                      placeholder="Describe your return policy"
+                    />
+                  </div>
+
+                  {/* FAQs */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Frequently Asked Questions
+                    </label>
+                    <div className="mt-2 space-y-4">
+                      {faqs.map((faq, index) => (
+                        <div key={index} className="grid grid-cols-1 gap-2">
+                          <input
+                            type="text"
+                            value={faq.question}
+                            onChange={(e) => {
+                              const newFaqs = [...faqs];
+                              newFaqs[index].question = e.target.value;
+                              setFaqs(newFaqs);
+                            }}
+                            placeholder="Question"
+                            className={inputClasses}
+                          />
+                          <textarea
+                            value={faq.answer}
+                            onChange={(e) => {
+                              const newFaqs = [...faqs];
+                              newFaqs[index].answer = e.target.value;
+                              setFaqs(newFaqs);
+                            }}
+                            placeholder="Answer"
+                            rows={2}
+                            className={inputClasses}
+                          />
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setFaqs([...faqs, { question: '', answer: '' }])}
+                        className="text-sm text-green-600 hover:text-green-500"
+                      >
+                        + Add FAQ
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Additional Information */}
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Country of Origin
+                      </label>
+                      <input
+                        type="text"
+                        value={countryOfOrigin}
+                        onChange={(e) => setCountryOfOrigin(e.target.value)}
+                        className={inputClasses}
+                        placeholder="Where was this item made?"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Sustainability Information
+                      </label>
+                      <textarea
+                        value={sustainabilityInfo}
+                        onChange={(e) => setSustainabilityInfo(e.target.value)}
+                        className={inputClasses}
+                        placeholder="Eco-friendly features, sustainable practices, etc."
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Images Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
                   <div className="flex justify-between items-center">
@@ -676,6 +1057,63 @@ export default function NewProductPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Dynamic Fields based on Category */}
+                {category && (
+                  <DynamicProductFields
+                    category={category}
+                    specifications={specifications}
+                    setSpecifications={setSpecifications}
+                    measurements={measurements}
+                    setMeasurements={setMeasurements}
+                    inputClasses={inputClasses}
+                    selectClasses={selectClasses}
+                  />
+                )}
+
+                {/* Show Size/Color options only if required for the category */}
+                {categoryConfig.requiresSizing && (
+                  <div className="sizes-section mt-6">
+                    <h4 className="text-base font-medium text-gray-900 mb-4">Size Options</h4>
+                    <div className="mt-2 space-y-2">
+                      {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'].map((size) => (
+                        <label key={size} className="inline-flex items-center mr-4">
+                          <input
+                            type="checkbox"
+                            checked={sizes.includes(size)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSizes([...sizes, size]);
+                              } else {
+                                setSizes(sizes.filter(s => s !== size));
+                              }
+                            }}
+                            className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">{size}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {categoryConfig.requiresColors && (
+                  <div className="colors-section mt-6">
+                    <h4 className="text-base font-medium text-gray-900 mb-4">Color Options</h4>
+                    <div className="mt-2">
+                      <input
+                        type="text"
+                        value={colors.join(', ')}
+                        onChange={(e) => setColors(e.target.value.split(',').map(c => c.trim()))}
+                        placeholder="Enter colors (comma-separated)"
+                        className={inputClasses}
+                      />
+                      <p className="mt-2 text-sm text-gray-500">
+                        Example: Red, Blue, Green, Black
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Form Actions */}
                 <div className="flex justify-end space-x-3">

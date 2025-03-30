@@ -84,7 +84,10 @@ interface SettingsFieldProps {
 }
 
 const getBaseUrl = () => {
-  return config.baseUrl;
+  // In development, use localhost, in production use AVRIO domain
+  return process.env.NODE_ENV === 'production' 
+    ? 'https://www.avrioxshop.com'
+    : 'https://www.avrioxshop.com';
 };
 
 const isValidUrl = (url: string): boolean => {
@@ -221,8 +224,9 @@ const TelebirrSettings = ({ settings, onChange }: {
   settings: TelebirrSettings; 
   onChange: (settings: TelebirrSettings) => void;
 }) => {
-  const defaultNotifyUrl = `${config.baseUrl}/api/telebirr/notify`;
-  const defaultRedirectUrl = `${config.baseUrl}/payment/complete`;
+  const baseUrl = getBaseUrl();
+  const defaultNotifyUrl = `${baseUrl}/api/telebirr/notify`;
+  const defaultRedirectUrl = `${baseUrl}/payment/complete`;
 
   return (
     <div className="space-y-6 p-4 bg-white rounded-lg shadow">
@@ -532,6 +536,9 @@ const AmoleSettings = ({ settings, onChange }: {
   settings: AmoleSettings;
   onChange: (settings: AmoleSettings) => void;
 }) => {
+  const baseUrl = getBaseUrl();
+  const defaultNotifyUrl = `${baseUrl}/api/amole/notify`;
+
   return (
     <div className="space-y-6 p-4 bg-white rounded-lg shadow">
       <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
@@ -635,10 +642,11 @@ const AmoleSettings = ({ settings, onChange }: {
                 <input
                   type="url"
                   id="notify-url"
-                  value={settings.notify_url || ''}
+                  value={settings.notify_url || defaultNotifyUrl}
                   onChange={(e) => onChange({ ...settings, notify_url: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  placeholder="https://your-domain.com/api/amole/notify"
+                  placeholder={defaultNotifyUrl}
+                  readOnly // Make it read-only since we're using default
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   URL where Amole will send payment notifications

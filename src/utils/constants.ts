@@ -234,4 +234,162 @@ export const DB_CATEGORY_MAP: { [key: string]: string } = {
   bedding: 'Bedding',
   lighting: 'Lighting',
   rugs_carpets: 'Rugs & Carpets'
-}; 
+};
+
+// Update the type definition for each category configuration
+type CategoryConfig = {
+  requiresSizing: boolean;
+  requiresColors: boolean;
+  measurements?: readonly string[];
+  specifications?: readonly string[];
+  specificFields: readonly string[];
+};
+
+export const CATEGORY_SPECIFIC_FIELDS: { [key: string]: CategoryConfig } = {
+  // Update each category to include specifications
+  'Traditional Wear': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Chest', 'Length', 'Shoulder', 'Sleeve'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
+  },
+  'Modern Fashion': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Chest', 'Length', 'Shoulder', 'Sleeve'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
+  },
+
+  // Electronics Categories
+  'Electronics': {
+    requiresSizing: false,
+    requiresColors: true,
+    specifications: [
+      'Model Number',
+      'Operating System',
+      'Screen Size',
+      'Battery Life',
+      'Storage',
+      'RAM',
+      'Processor',
+      'Warranty Period'
+    ],
+    specificFields: ['warranty_info', 'technical_specifications', 'power_requirements'],
+  },
+
+  // Beauty & Personal Care
+  'Beauty & Personal Care': {
+    requiresSizing: false,
+    requiresColors: false,
+    specifications: [
+      'Volume/Weight',
+      'Ingredients',
+      'Skin Type',
+      'Expiration Date',
+      'Usage Instructions'
+    ],
+    specificFields: ['ingredients', 'usage_instructions', 'warnings', 'shelf_life'],
+  },
+
+  // Home & Living
+  'Home & Living': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Length', 'Width', 'Height', 'Weight'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'assembly_required'],
+  },
+
+  // Books & Media
+  'Books & Media': {
+    requiresSizing: false,
+    requiresColors: false,
+    specifications: [
+      'ISBN',
+      'Publisher',
+      'Publication Date',
+      'Language',
+      'Pages',
+      'Format'
+    ],
+    specificFields: ['author', 'publisher', 'language', 'format'],
+  },
+
+  // Food & Beverages
+  'Food & Beverages': {
+    requiresSizing: false,
+    requiresColors: false,
+    specifications: [
+      'Weight/Volume',
+      'Ingredients',
+      'Nutritional Info',
+      'Storage Instructions',
+      'Expiration Date'
+    ],
+    specificFields: ['ingredients', 'allergens', 'storage_instructions', 'expiration_date'],
+  },
+
+  // Musical Instruments
+  'Musical Instruments': {
+    requiresSizing: false,
+    requiresColors: true,
+    specifications: [
+      'Instrument Type',
+      'Material',
+      'Dimensions',
+      'Weight'
+    ],
+    specificFields: ['material', 'care_instructions', 'included_accessories'],
+  },
+
+  // Default (for any other category)
+  'default': {
+    requiresSizing: false,
+    requiresColors: false,
+    measurements: ['Length', 'Width', 'Height', 'Weight'],
+    specificFields: ['brand', 'warranty_info'],
+  }
+} as const;
+
+// Add common specifications that apply to all products
+export const COMMON_SPECIFICATIONS = [
+  'brand',
+  'model',
+  'warranty_period',
+  'country_of_origin',
+  'certification',
+];
+
+// Add common fields that apply to all products
+export const COMMON_PRODUCT_FIELDS = [
+  'title',
+  'description',
+  'price',
+  'quantity',
+  'delivery_fee',
+  'quality',
+  'highlights',
+  'shipping_info',
+  'faqs',
+];
+
+// Add quality options
+export const QUALITY_OPTIONS = [
+  { value: 'new', label: 'New', description: 'Brand new, unused item' },
+  { value: 'used', label: 'Used', description: 'Previously owned and used item' },
+  { value: 'refurbished', label: 'Refurbished', description: 'Restored to like-new condition' }
+];
+
+// Add warranty period options
+export const WARRANTY_PERIODS = [
+  'No Warranty',
+  '3 Months',
+  '6 Months',
+  '1 Year',
+  '2 Years',
+  '3 Years',
+  '5 Years',
+  'Lifetime'
+]; 

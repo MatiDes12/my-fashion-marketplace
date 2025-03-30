@@ -604,11 +604,11 @@ export default function Navigation({ userDetails }: NavigationProps) {
       setActiveCategory((prev) => (prev + 1) % PRODUCT_CATEGORIES.length);
       if (scrollRef.current) {
         scrollRef.current.scrollTo({
-          left: (activeCategory * 150), // Adjust based on item width
+          left: (activeCategory * 150),
           behavior: 'smooth'
         });
       }
-    }, 5000); // Rotate every 5 seconds
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [activeCategory]);
@@ -906,101 +906,124 @@ export default function Navigation({ userDetails }: NavigationProps) {
               <>
                 {user ? (
                   <div className="flex items-center space-x-4">
-                    {/* Rest of the account menu */}
-                    <div className="relative group">
+                    {/* Show full account dropdown only if user is not an owner or is a verified owner */}
+                    {(!userDetails?.role || userDetails.role !== 'owner' || 
+                      (userDetails.role === 'owner' && userDetails.verification_status === 'verified')) && (
+                      <div className="relative group">
                         <button className="flex items-center space-x-1 text-gray-700 hover:text-red-600">
                           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                          </div>
-                          <span className="hidden md:inline font-medium">Account</span>
-                      </button>
-
-                        {/* Updated Dropdown Menu */}
-                        <div 
-                          className="
-                            absolute right-0 w-48 mt-2 py-2 bg-white rounded-lg shadow-xl
-                            opacity-0 invisible group-hover:opacity-100 group-hover:visible
-                            transition-all duration-200 ease-in-out transform 
-                            group-hover:translate-y-0 translate-y-2
-                            z-[100] /* Increased z-index to appear above the category scroller */
-                          "
-                          style={{
-                            filter: 'drop-shadow(0 20px 13px rgb(0 0 0 / 0.03)) drop-shadow(0 8px 5px rgb(0 0 0 / 0.08))',
-                            backdropFilter: 'blur(8px)',
-                          }}
-                        >
-                        <div className="px-4 py-3 border-b border-gray-100">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {user.user_metadata?.full_name || 'Account User'}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {user.email}
-                          </p>
-                        </div>
-
-                        <div className="py-1">
-                          <Link 
-                            href="/orders" 
-                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-red-600"
-                          >
-                            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                            </svg>
-                            My Orders
-                          </Link>
-
-                          <Link 
-                            href="/profile" 
-                            className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-red-600"
-                          >
-                            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
-                            Profile Settings
-                          </Link>
+                          </div>
+                          <span className="hidden md:inline font-medium">Account</span>
+                        </button>
 
-                          {isOwner && (
+                        {/* Dropdown Menu Content */}
+                        <div className="absolute right-0 w-48 mt-2 py-2 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ease-in-out transform group-hover:translate-y-0 translate-y-2 z-[100]">
+                          <div className="px-4 py-3 border-b border-gray-100">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {user.user_metadata?.full_name || 'Account User'}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {user.email}
+                            </p>
+                          </div>
+
+                          <div className="py-1">
                             <Link 
-                              href="/dashboard" 
+                              href="/orders" 
                               className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-red-600"
                             >
                               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                               </svg>
-                              Dashboard
+                              My Orders
                             </Link>
-                          )}
-                        </div>
 
-                        <div className="py-1 border-t border-gray-100">
-                          <button
-                            onClick={handleSignOut}
-                            className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
-                          >
-                            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                            Sign Out
-                          </button>
+                            <Link 
+                              href="/profile" 
+                              className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              Profile Settings
+                            </Link>
+
+                            {isOwner && (
+                              <Link 
+                                href="/dashboard" 
+                                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-red-600"
+                              >
+                                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                </svg>
+                                Dashboard
+                              </Link>
+                            )}
+                          </div>
+
+                          <div className="py-1 border-t border-gray-100">
+                            <button
+                              onClick={handleSignOut}
+                              className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-50"
+                            >
+                              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                              </svg>
+                              Sign Out
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    {/* Show only logout button for unverified owners */}
+                    {userDetails?.role === 'owner' && userDetails.verification_status !== 'verified' && (
+                      <div className="flex items-center space-x-4">
+                        <div className="flex flex-col items-start">
+                          <div className="hidden md:flex items-center text-yellow-600">
+                            <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span className="text-sm">Verification Pending</span>
+                          </div>
+                          <Link 
+                            href="/dashboard/verify" 
+                            className="hidden md:inline-flex mt-2 items-center px-4 py-1.5 text-xs font-medium rounded-full text-yellow-700 bg-yellow-50 border border-yellow-200 hover:bg-yellow-100 transition-colors"
+                          >
+                            Complete Verification
+                            <svg className="w-3 h-3 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </Link>
+                        </div>
+                        <button
+                          onClick={handleSignOut}
+                          className="flex items-center text-gray-700 hover:text-red-600"
+                        >
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                          <span className="hidden md:inline ml-2">Sign Out</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center space-x-4">
-                      <Link 
-                        href="/login" 
-                        className="text-gray-700 hover:text-red-600 font-medium transition-colors"
-                      >
+                    <Link 
+                      href="/login" 
+                      className="text-gray-700 hover:text-red-600 font-medium transition-colors"
+                    >
                       Sign In
                     </Link>
-                      <Link 
-                        href="/signup" 
-                        className="hidden md:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all"
-                      >
-                        Get Started
+                    <Link 
+                      href="/signup" 
+                      className="hidden md:inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all"
+                    >
+                      Get Started
                     </Link>
                   </div>
                 )}
@@ -1328,7 +1351,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                 <Link
                   href="/login"
                   onClick={closeMenu}
-                  className="block w-full px-4 py-3 text-center font-medium text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 rounded-xl shadow-sm transition-all duration-300"
+                  className="block w-full px-4 py-3 text-center font-medium text-white bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-pink-700 rounded-xl shadow-sm transition-all duration-300"
                 >
                   Sign In
                 </Link>
@@ -1538,6 +1561,29 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   </svg>
                   <span className="font-medium">Sign Out</span>
                 </button>
+              </div>
+            )}
+
+            {/* For mobile menu - Add this in the mobile menu section */}
+            {userDetails?.role === 'owner' && userDetails.verification_status !== 'verified' && (
+              <div className="px-4 py-3 mb-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="flex items-center text-yellow-700 mb-2">
+                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span className="font-medium">Verification Required</span>
+                </div>
+                <p className="text-sm text-yellow-600 mb-3">Complete your seller verification to access all features.</p>
+                <Link
+                  href="/dashboard/verify"
+                  onClick={closeMenu}
+                  className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-yellow-700 bg-yellow-100 rounded-lg hover:bg-yellow-200 transition-colors"
+                >
+                  Complete Verification
+                  <svg className="w-4 h-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
             )}
           </div>

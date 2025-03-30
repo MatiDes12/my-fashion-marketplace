@@ -9,6 +9,8 @@ export interface UserDetails {
   email?: string;
   avatar_url?: string;
   role?: string;
+  is_verified?: boolean;
+  verification_status?: string;
   store_settings?: {
     name?: string;
     description?: string;
