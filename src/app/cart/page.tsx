@@ -8,6 +8,9 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { getFlashSalePrices } from '@/utils/flashSales';
+import AddressSelectionModal from '@/components/AddressSelectionModal';
+import StoreLocationMap from '@/components/StoreLocationMap';
+import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<any[]>([]);
@@ -15,12 +18,18 @@ export default function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({});
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [userAddress, setUserAddress] = useState<any>(null);
+  const [selectedDeliveryMethods, setSelectedDeliveryMethods] = useState<Record<string, 'delivery' | 'pickup'>>({});
+  const [activeProductId, setActiveProductId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'owner' | 'customer' | null>(null);
   
   const router = useRouter();
   const supabase = createClientComponent();
   
   useEffect(() => {
     fetchCartItems();
+    fetchUserAddress();
   }, []);
   
   const fetchCartItems = async () => {
@@ -35,7 +44,6 @@ export default function CartPage() {
         return;
       }
       
-      // Fetch cart items with product details
       const { data, error: fetchError } = await supabase
         .from('cart_items')
         .select(`
@@ -45,7 +53,15 @@ export default function CartPage() {
             title, 
             price,
             delivery_fee,
-            images:product_images(*)
+            delivery_options,
+            shipping_info,
+            delivery_time,
+            images:product_images(*),
+            owner:users(
+              id,
+              full_name,
+              store_settings
+            )
           )
         `)
         .eq('user_id', session.user.id)
@@ -53,25 +69,58 @@ export default function CartPage() {
         
       if (fetchError) throw fetchError;
 
-      // Get flash sale prices for all products
+      // Get flash sale prices
       const productIds = data?.map(item => item.product.id) || [];
       const flashSalePrices = await getFlashSalePrices(productIds);
       
-      // Calculate subtotal and include delivery fee for each item
+      // Process items and set delivery methods from database
       const processedItems = data?.map(item => ({
         ...item,
         subtotal: item.quantity * (flashSalePrices[item.product.id] || item.product.price),
-        delivery_fee: item.product.delivery_fee || 0,
         flash_sale_price: flashSalePrices[item.product.id]
       })) || [];
       
       setCartItems(processedItems);
+
+      // Set delivery methods from database
+      const methods: Record<string, 'delivery' | 'pickup'> = {};
+      processedItems.forEach(item => {
+        if (item.delivery_method) {
+          methods[item.id] = item.delivery_method;
+        }
+      });
+      setSelectedDeliveryMethods(methods);
       
     } catch (err) {
       console.error('Error fetching cart:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const fetchUserAddress = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('role, store_settings')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user address:', error);
+        return;
+      }
+
+      if (userData?.store_settings?.address) {
+        console.log('Found user address:', userData.store_settings.address);
+        setUserAddress(userData.store_settings.address);
+      }
+    } catch (err) {
+      console.error('Error in fetchUserAddress:', err);
     }
   };
   
@@ -149,26 +198,148 @@ export default function CartPage() {
   
   // Calculate cart totals
   const calculateFees = () => {
-    // Base calculations
-    const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const ethiopiaTax = subtotal * 0.15; // 15% VAT
-    const platformCommission = subtotal * 0.03; // 3% platform fee
-    const serviceFee = subtotal * 0.00; // 0% service fee
-    const deliveryFee = cartItems.reduce((sum, item) => sum + (item.delivery_fee || 0), 0);
+    let subtotal = 0;
+    let deliveryFee = 0;
+    let serviceFee = 0;
+
+    cartItems.forEach(item => {
+      const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
+      subtotal += itemSubtotal;
+
+      // Only add delivery fee if home delivery is selected for this item
+      if (selectedDeliveryMethods[item.id] === 'delivery') {
+        deliveryFee += (item.product.delivery_fee || 0);
+      }
+
+      // Calculate service fee (3%)
+      serviceFee += itemSubtotal * 0.03;
+    });
+
+    // Calculate total
+    const total = subtotal + deliveryFee + serviceFee;
 
     return {
       subtotal,
-      ethiopiaTax,
-      platformCommission,
-      serviceFee,
       deliveryFee,
-      total: subtotal + ethiopiaTax + platformCommission + serviceFee + deliveryFee
+      serviceFee,
+      total
     };
   };
 
   // Use the calculated fees in your JSX
   const fees = calculateFees();
   
+  const getFullAddress = (address: any) => {
+    // Debug logs
+    console.log('Input address:', address);
+    
+    if (!address || !('0' in address)) {
+      console.log('No numbered address found');
+      return null;
+    }
+    
+    const numberedKeys = Object.keys(address).filter(key => !isNaN(Number(key)));
+    console.log('Numbered keys:', numberedKeys);
+    
+    const sortedKeys = numberedKeys.sort((a, b) => Number(a) - Number(b));
+    console.log('Sorted keys:', sortedKeys);
+    
+    const addressChars = sortedKeys.map(key => {
+      console.log(`Key ${key}:`, address[key]);
+      return address[key];
+    });
+    console.log('Address chars:', addressChars);
+    
+    const result = addressChars.join('');
+    console.log('Final result:', result);
+    
+    return result;
+  };
+  
+  const handleDeliveryMethodSelect = async (itemId: string, method: 'delivery' | 'pickup') => {
+    try {
+      // Update local state
+      setSelectedDeliveryMethods(prev => ({
+        ...prev,
+        [itemId]: method
+      }));
+
+      // Update database
+      const { error } = await supabase
+        .from('cart_items')
+        .update({ 
+          delivery_method: method,
+          // Only set delivery fee if delivery is selected
+          delivery_fee: method === 'delivery' ? 
+            cartItems.find(item => item.id === itemId)?.product.delivery_fee || 0 : 
+            0
+        })
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      // If delivery is selected and we don't have user's address, fetch it
+      if (method === 'delivery') {
+        if (!userAddress) {
+          await fetchUserAddress();
+        }
+
+        // If we have the address, update cart item with it
+        if (userAddress) {
+          setCartItems(prev => prev.map(item => 
+            item.id === itemId
+              ? { ...item, deliveryAddress: userAddress }
+              : item
+          ));
+        } else {
+          // If no address, show the modal
+          setActiveProductId(itemId);
+          setShowAddressModal(true);
+        }
+      } else {
+        // If switching to pickup, remove delivery address
+        setCartItems(prev => prev.map(item => 
+          item.id === itemId
+            ? { ...item, deliveryAddress: undefined }
+            : item
+        ));
+      }
+
+    } catch (err) {
+      console.error('Error updating delivery method:', err);
+      toast.error('Failed to update delivery method');
+      // Revert local state on error
+      setSelectedDeliveryMethods(prev => {
+        const newState = { ...prev };
+        delete newState[itemId];
+        return newState;
+      });
+    }
+  };
+
+  // Add this useEffect to monitor state changes
+  useEffect(() => {
+    console.log('Cart items updated:', cartItems);
+    console.log('User address:', userAddress);
+    console.log('Selected delivery methods:', selectedDeliveryMethods);
+  }, [cartItems, userAddress, selectedDeliveryMethods]);
+
+  // Add this helper function at the top of the component
+  const getDeliveryTimeText = (time: string) => {
+    switch (time) {
+      case '1-2':
+        return '1-2 business days';
+      case '3-5':
+        return '3-5 business days';
+      case '5-7':
+        return '5-7 business days';
+      case '7-14':
+        return '1-2 weeks';
+      default:
+        return time;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
@@ -257,10 +428,10 @@ export default function CartPage() {
                                 {item.flash_sale_price ? (
                                   <>
                                     <span className="text-2xl font-bold text-red-600">
-                                      ${item.flash_sale_price.toFixed(2)}
+                                      ETB {item.flash_sale_price.toFixed(2)}
                                     </span>
                                     <span className="text-sm text-gray-500 line-through">
-                                      ${item.product.price.toFixed(2)}
+                                      ETB {item.product.price.toFixed(2)}
                                     </span>
                                     <span className="text-sm font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
                                       {Math.round(((item.product.price - item.flash_sale_price) / item.product.price) * 100)}% OFF
@@ -268,7 +439,7 @@ export default function CartPage() {
                                   </>
                                 ) : (
                                   <span className="text-2xl font-bold text-gray-900">
-                                    ${item.product.price.toFixed(2)}
+                                    ETB {item.product.price.toFixed(2)}
                                   </span>
                                 )}
                               </div>
@@ -316,12 +487,172 @@ export default function CartPage() {
                             <div className="text-right">
                               <p className="text-sm text-gray-500 mb-1">Subtotal</p>
                               <p className="text-lg font-semibold text-gray-900">
-                                ${item.subtotal.toFixed(2)}
+                                ETB {item.subtotal.toFixed(2)}
                               </p>
                               {item.delivery_fee > 0 && (
-                                <p className="text-sm text-gray-500 mt-1">
-                                  +${item.delivery_fee.toFixed(2)} delivery
-                                </p>
+                                <div className="text-sm text-gray-500">
+                                  +ETB {item.delivery_fee.toFixed(2)} delivery
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Delivery Method Selection */}
+                          <div className="mt-4 border-t border-gray-100 pt-4">
+                            <h4 className="text-sm font-medium text-gray-900">Delivery Method</h4>
+                            <div className="mt-2 space-y-3">
+                              {item.product?.delivery_options?.delivery && (
+                                <div>
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="radio"
+                                      id={`delivery-${item.id}`}
+                                      name={`delivery-method-${item.id}`}
+                                      checked={selectedDeliveryMethods[item.id] === 'delivery'}
+                                      onChange={() => handleDeliveryMethodSelect(item.id, 'delivery')}
+                                      className="h-4 w-4 text-green-600 focus:ring-green-500"
+                                    />
+                                    <label htmlFor={`delivery-${item.id}`} className="text-sm text-gray-700">
+                                      Home Delivery
+                                      {item.product.delivery_fee ? (
+                                        <span className="ml-1 text-gray-500">
+                                          (ETB {item.product.delivery_fee.toFixed(2)})
+                                        </span>
+                                      ) : (
+                                        <span className="ml-1 text-green-600">(Free)</span>
+                                      )}
+                                    </label>
+                                  </div>
+
+                                  {selectedDeliveryMethods[item.id] === 'delivery' && (
+                                    <div className="ml-7 mt-2">
+                                      {/* Delivery Time */}
+                                      {item.product.delivery_options?.delivery_time && (
+                                        <div className="mb-2">
+                                          <p className="text-sm text-gray-600">
+                                            Estimated delivery time: {getDeliveryTimeText(item.product.delivery_options.delivery_time)}
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {/* Address Section */}
+                                      {item.deliveryAddress ? (
+                                        <div className="bg-gray-50 p-3 rounded-lg">
+                                          <div className="flex justify-between items-start">
+                                            <div>
+                                              {console.log('Trying to get full address:', item.deliveryAddress)}
+                                              {getFullAddress(item.deliveryAddress) && (
+                                                <p className="text-sm text-gray-900 font-medium">
+                                                  {getFullAddress(item.deliveryAddress)}
+                                                </p>
+                                              )}
+                                              <p className="text-sm text-gray-900">
+                                                {item.deliveryAddress.subCity}, {item.deliveryAddress.city}
+                                              </p>
+                                              <p className="text-sm text-gray-500">
+                                                Wereda {item.deliveryAddress.wereda}, Kebele {item.deliveryAddress.kebele}
+                                              </p>
+                                              <p className="text-sm text-gray-500">
+                                                House No: {item.deliveryAddress.houseNo}
+                                              </p>
+                                              {item.deliveryAddress.landmark && (
+                                                <p className="text-sm text-gray-500">
+                                                  Landmark: {item.deliveryAddress.landmark}
+                                                </p>
+                                              )}
+                                              {item.deliveryAddress.mapLink && (
+                                                <a
+                                                  href={item.deliveryAddress.mapLink}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="inline-flex items-center text-sm text-green-600 hover:text-green-700 mt-1"
+                                                >
+                                                  <span>View on Google Maps</span>
+                                                  <ArrowTopRightOnSquareIcon className="ml-1 h-4 w-4" />
+                                                </a>
+                                              )}
+                                            </div>
+                                            <button
+                                              onClick={() => {
+                                                setActiveProductId(item.id);
+                                                setShowAddressModal(true);
+                                              }}
+                                              className="text-sm text-green-600 hover:text-green-700"
+                                            >
+                                              Change
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => {
+                                            setActiveProductId(item.id);
+                                            setShowAddressModal(true);
+                                          }}
+                                          className="text-sm text-green-600 hover:text-green-700"
+                                        >
+                                          + Add Delivery Address
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {item.product?.delivery_options?.pickup && (
+                                <div>
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="radio"
+                                      id={`pickup-${item.id}`}
+                                      name={`delivery-method-${item.id}`}
+                                      checked={selectedDeliveryMethods[item.id] === 'pickup'}
+                                      onChange={() => handleDeliveryMethodSelect(item.id, 'pickup')}
+                                      className="h-4 w-4 text-green-600 focus:ring-green-500"
+                                    />
+                                    <label htmlFor={`pickup-${item.id}`} className="text-sm text-gray-700">
+                                      Store Pickup
+                                    </label>
+                                  </div>
+
+                                  {selectedDeliveryMethods[item.id] === 'pickup' && (
+                                    <div className="ml-7 mt-2">
+                                      <div className="bg-gray-50 p-3 rounded-lg space-y-3">
+                                        <div>
+                                          <p className="text-sm text-gray-900 font-medium">Pickup Location:</p>
+                                          {/* Debug log */}
+                                          {console.log('Store address:', item.product.owner?.store_settings?.address)}
+                                          {item.product.owner?.store_settings?.address && 
+                                            getFullAddress(item.product.owner.store_settings.address) && (
+                                            <p className="text-sm text-gray-900">
+                                              {getFullAddress(item.product.owner.store_settings.address)}
+                                            </p>
+                                          )}
+                                          <p className="text-sm text-gray-600">
+                                            {item.product.owner?.store_settings?.address?.subCity}, 
+                                            {item.product.owner?.store_settings?.address?.city}
+                                          </p>
+                                          <p className="text-sm text-gray-500">
+                                            Wereda {item.product.owner?.store_settings?.address?.wereda}, 
+                                            Kebele {item.product.owner?.store_settings?.address?.kebele}
+                                          </p>
+                                          {item.product.shipping_info?.processing_time && (
+                                            <p className="text-sm text-gray-500 mt-1">
+                                              Processing time: {item.product.shipping_info.processing_time}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        {/* Store Location Map */}
+                                        {item.product.owner?.store_settings?.address && (
+                                          <StoreLocationMap 
+                                            address={item.product.owner.store_settings.address}
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -341,15 +672,29 @@ export default function CartPage() {
                 <div className="space-y-4">
                   {/* Summary Items */}
                   {[
-                    { label: 'Subtotal', value: fees.subtotal },
-                    { label: 'Ethiopia VAT (15%)', value: fees.ethiopiaTax },
-                    { label: 'Platform Fee (3%)', value: fees.platformCommission },
-                    { label: 'Service Fee (0%)', value: fees.serviceFee },
-                    { label: 'Delivery', value: fees.deliveryFee },
+                    { 
+                      label: 'Subtotal', 
+                      value: fees.subtotal 
+                    },
+                    ...(Object.values(selectedDeliveryMethods).includes('delivery') 
+                      ? [{ 
+                          label: 'Delivery Fee', 
+                          value: fees.deliveryFee,
+                          className: 'text-gray-600'
+                        }] 
+                      : []
+                    ),
+                    { 
+                      label: 'Service Fee (3%)',
+                      value: fees.serviceFee,
+                      className: 'text-gray-600'
+                    }
                   ].map((item, index) => (
                     <div key={index} className="flex justify-between text-gray-600">
                       <span>{item.label}</span>
-                      <span>${item.value.toFixed(2)}</span>
+                      <span className={item.className}>
+                        ETB {item.value.toFixed(2)}
+                      </span>
                     </div>
                   ))}
                   
@@ -358,7 +703,7 @@ export default function CartPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-gray-900">Total</span>
                       <span className="text-2xl font-bold text-gray-900">
-                        ${fees.total.toFixed(2)}
+                        ETB {fees.total.toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -366,14 +711,18 @@ export default function CartPage() {
                   {/* Checkout Button */}
                   <button
                     onClick={proceedToCheckout}
-                    disabled={isCheckingOut}
-                    className="w-full mt-6 bg-green-600 rounded-lg py-4 px-6 text-white font-medium hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-70 transition-colors"
+                    disabled={isCheckingOut || !Object.keys(selectedDeliveryMethods).length}
+                    className="w-full mt-6 bg-green-600 rounded-lg py-4 px-6 text-white font-medium 
+                      hover:bg-green-700 focus:ring-2 focus:ring-offset-2 focus:ring-green-500 
+                      disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
                   >
                     {isCheckingOut ? (
                       <div className="flex items-center justify-center">
                         <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                         Processing...
                       </div>
+                    ) : !Object.keys(selectedDeliveryMethods).length ? (
+                      'Select delivery method to continue'
                     ) : (
                       'Proceed to Checkout'
                     )}
@@ -392,6 +741,28 @@ export default function CartPage() {
           </div>
         )}
       </div>
+      <AddressSelectionModal
+        isOpen={showAddressModal}
+        onClose={() => {
+          setShowAddressModal(false);
+          setActiveProductId(null);
+        }}
+        currentAddress={userAddress}
+        onAddressSelect={(address) => {
+          if (activeProductId) {
+            setCartItems(prev => 
+              prev.map(item => 
+                item.id === activeProductId 
+                  ? { ...item, deliveryAddress: address }
+                  : item
+              )
+            );
+          }
+          setUserAddress(address);
+          setShowAddressModal(false);
+          setActiveProductId(null);
+        }}
+      />
     </div>
   );
 } 

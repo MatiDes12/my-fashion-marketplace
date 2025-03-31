@@ -8,33 +8,12 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { getFlashSalePrices } from '@/utils/flashSales';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
-import { CartItem } from '@/types/cart';
+import { CartItem, PaymentSettings } from '@/types/cart';
 import { PAYMENT_METHODS } from '@/utils/constants';
 import { getTelebirrConfig, createOrder, applyFabricToken } from '@/lib/telebirr';
 
 // Import or define PaymentMethodType
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
-
-interface PaymentSettings {
-  telebirr_settings?: {
-    is_active: boolean;
-  };
-  bank_settings?: {
-    is_active: boolean;
-  };
-  cbe_birr_settings?: {
-    is_active: boolean;
-  };
-  amole_settings?: {
-    is_active: boolean;
-  };
-  chapa_settings?: {
-    is_active: boolean;
-    public_key?: string;
-    secret_key?: string;
-    callback_url?: string;
-  };
-}
 
 interface ProductOwner {
   id: string;
@@ -73,6 +52,7 @@ export default function CheckoutPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const router = useRouter();
   const supabase = createClientComponent();
+  const [selectedDeliveryMethods, setSelectedDeliveryMethods] = useState<Record<string, 'delivery' | 'pickup'>>({});
 
   useEffect(() => {
     fetchCartItems();
@@ -88,18 +68,20 @@ export default function CheckoutPage() {
         .from('cart_items')
         .select(`
           *,
-          product:products (
+          product:products(
             id,
             title,
-            description,
             price,
-            owner:users (
+            delivery_fee,
+            delivery_options,
+            shipping_info,
+            delivery_time,
+            images:product_images(*),
+            owner:users(
               id,
               full_name,
+              store_settings,
               payment_settings(*)
-            ),
-            images:product_images (
-              image_url
             )
           )
         `)
@@ -108,50 +90,61 @@ export default function CheckoutPage() {
       if (error) throw error;
 
       // Get flash sale prices
-      const productIds = data.map(item => item.product.id);
+      const productIds = data?.map(item => item.product.id) || [];
       const flashSalePrices = await getFlashSalePrices(productIds);
-
-      // Process items with flash sale prices and payment settings
-      const processedItems = data.map(item => ({
+      
+      // Process items with flash sale prices
+      const processedItems = data?.map(item => ({
         ...item,
-        price: flashSalePrices[item.product.id] || item.product.price,
-        original_price: item.product.price,
-        product: {
-          ...item.product,
-          title: item.product.title,
-          description: item.product.description,
-          images: item.product.images,
-          owner: {
-            ...item.product.owner,
-            payment_settings: item.product.owner.payment_settings
-          }
-        }
-      }));
-
+        flash_sale_price: flashSalePrices[item.product.id]
+      })) || [];
+      
       setCartItems(processedItems);
+      
+      // Set delivery methods from cart
+      const methods: Record<string, 'delivery' | 'pickup'> = {};
+      processedItems.forEach(item => {
+        // Default to delivery if available, otherwise pickup
+        if (item.product.delivery_options?.delivery) {
+          methods[item.id] = 'delivery';
+        } else if (item.product.delivery_options?.pickup) {
+          methods[item.id] = 'pickup';
+        }
+      });
+      setSelectedDeliveryMethods(methods);
 
-    } catch (error) {
-      console.error('Error fetching cart:', error);
-      setError('Failed to load cart items');
+    } catch (err) {
+      console.error('Error fetching cart:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   const calculateFees = (items: CartItem[]) => {
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-    const ethiopiaTax = subtotal * 0.15; // 15% VAT
-    const platformCommission = subtotal * 0.03; // 3% platform fee
-    const serviceFee = subtotal * 0.00; // 0% service fee
-    const deliveryFee = items.reduce((sum, item) => sum + (item.delivery_fee || 0), 0);
+    let subtotal = 0;
+    let deliveryFee = 0;
+    let serviceFee = 0;
+
+    items.forEach(item => {
+      const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
+      subtotal += itemSubtotal;
+
+      // Use saved delivery method from database
+      if (item.delivery_method === 'delivery') {
+        deliveryFee += (item.delivery_fee || 0);
+      }
+
+      serviceFee += itemSubtotal * 0.03;
+    });
+
+    const total = subtotal + deliveryFee + serviceFee;
 
     return {
       subtotal,
-      ethiopiaTax,
-      platformCommission,
-      serviceFee,
       deliveryFee,
-      total: subtotal + ethiopiaTax + platformCommission + serviceFee + deliveryFee
+      serviceFee,
+      total
     };
   };
 
@@ -171,9 +164,25 @@ export default function CheckoutPage() {
     }
   };
 
+  const validateCheckout = (items: CartItem[]) => {
+    const missingDeliveryMethod = items.some(item => !item.delivery_method);
+    if (missingDeliveryMethod) {
+      toast.error('Please select delivery method for all items in cart');
+      router.push('/cart');
+      return false;
+    }
+    return true;
+  };
+
   const handleCheckout = async () => {
     try {
       setIsProcessing(true);
+
+      // Validate delivery methods
+      if (!validateCheckout(cartItems)) {
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -243,7 +252,7 @@ export default function CheckoutPage() {
 
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to process checkout');
+      toast.error('Checkout failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -263,6 +272,7 @@ export default function CheckoutPage() {
               title: `Order #${Date.now()}-${seller.sellerId.substring(0, 4)}`,
               amount: seller.total,
               sellerId: seller.sellerId,
+              owner: seller.owner
             });
 
             // Redirect to payment page
@@ -300,52 +310,66 @@ export default function CheckoutPage() {
 
   const fees = calculateFees(cartItems);
 
-  const sellers = Object.values(cartItems.reduce<Record<string, SellerOrder>>((acc, item) => {
-    if (!item.product?.owner) return acc;
-    
-    const sellerId = item.product.owner.id;
-    const sellerName = item.product.owner.store_settings?.name || item.product.owner.full_name || 'Unknown Seller';
-    
-    if (!acc[sellerId]) {
-      acc[sellerId] = {
-        sellerId: sellerId,
-        sellerName: sellerName,
-        product: {
-          id: item.product.id,
-          title: item.product.title,
-          price: item.price,
-          images: item.product.images,
-          owner: item.product.owner
-        },
+  const calculateSellerTotals = (items: CartItem[]) => {
+    const sellerGroups = items.reduce((acc, item) => {
+      if (!item.product?.owner) return acc;
+      
+      const sellerId = item.product.owner.id;
+      const sellerName = item.product.owner.store_settings?.name || item.product.owner.full_name;
+      
+      if (!acc[sellerId]) {
+        acc[sellerId] = {
+          sellerId,
+          sellerName,
+          items: [],
+          subtotal: 0,
+          deliveryFee: 0,
+          serviceFee: 0,
+          total: 0,
+          owner: {
+            ...item.product.owner,
+            payment_settings: item.product.owner.payment_settings
+          },
+          products: [],
+          hasPaymentSettings: Boolean(
+            item.product.owner.payment_settings?.telebirr_settings?.is_active ||
+            item.product.owner.payment_settings?.bank_settings?.is_active ||
+            item.product.owner.payment_settings?.cbe_birr_settings?.is_active ||
+            item.product.owner.payment_settings?.amole_settings?.is_active ||
+            item.product.owner.payment_settings?.chapa_settings?.is_active
+          )
+        };
+      }
+      
+      acc[sellerId].items.push(item);
+      acc[sellerId].products.push({
+        id: item.product.id,
+        title: item.product.title,
+        price: item.flash_sale_price || item.product.price,
         quantity: item.quantity,
-        subtotal: 0,
-        platformFee: 0,
-        serviceFee: 0,
-        ethiopiaTax: 0,
-        deliveryFee: 0,
-        total: 0,
-        hasPaymentSettings: Boolean(
-          item.product.owner.payment_settings?.telebirr_settings?.is_active
-        )
-      };
-    }
-    
-    const itemSubtotal = item.quantity * item.price;
-    acc[sellerId].subtotal += itemSubtotal;
-    acc[sellerId].platformFee += itemSubtotal * 0.03;
-    acc[sellerId].serviceFee += itemSubtotal * 0.00;
-    acc[sellerId].ethiopiaTax += itemSubtotal * 0.15;
-    acc[sellerId].deliveryFee += item.delivery_fee || 0;
-    acc[sellerId].total = (
-      acc[sellerId].subtotal + 
-      acc[sellerId].platformFee + 
-      acc[sellerId].serviceFee + 
-      acc[sellerId].ethiopiaTax + 
-      acc[sellerId].deliveryFee
-    );
-    
-    return acc;
-  }, {}));
+        images: item.product.images
+      });
+      
+      const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
+      acc[sellerId].subtotal += itemSubtotal;
+      
+      if (item.delivery_method === 'delivery') {
+        acc[sellerId].deliveryFee += (item.delivery_fee || 0);
+      }
+      
+      acc[sellerId].serviceFee += itemSubtotal * 0.03;
+      
+      acc[sellerId].total = acc[sellerId].subtotal + 
+                           acc[sellerId].deliveryFee + 
+                           acc[sellerId].serviceFee;
+      
+      return acc;
+    }, {} as Record<string, any>);
+
+    return Object.values(sellerGroups);
+  };
+
+  const sellers = calculateSellerTotals(cartItems);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-24">
@@ -402,24 +426,24 @@ export default function CheckoutPage() {
                         <p className="mt-1 text-sm text-gray-500">
                           Quantity: {item.quantity}
                         </p>
-                        {item.product?.owner?.full_name && (
+                        {item.product?.owner?.store_settings?.name && (
                           <p className="mt-1 text-sm text-gray-500">
-                            Seller: {item.product.owner.full_name}
+                            Seller: {item.product.owner.store_settings.name}
                           </p>
                         )}
                       </div>
 
                       {/* Price */}
                       <div className="flex-shrink-0 text-right">
-                        {item.price !== item.product?.price && (
+                        {item.flash_sale_price && item.flash_sale_price !== item.product.price && (
                           <p className="text-sm text-gray-500 line-through">
-                            ${item.product?.price?.toFixed(2)}
+                            ETB {item.product.price.toFixed(2)}
                           </p>
                         )}
                         <p className={`text-base font-medium ${
-                          item.price !== item.product?.price ? 'text-red-600' : 'text-gray-900'
+                          item.flash_sale_price ? 'text-red-600' : 'text-gray-900'
                         }`}>
-                          ${(item.price * item.quantity).toFixed(2)}
+                          ETB {((item.flash_sale_price || item.product.price) * item.quantity).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -438,16 +462,22 @@ export default function CheckoutPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Subtotal</span>
-                      <span className="text-gray-900">${seller.subtotal.toFixed(2)}</span>
+                      <span className="text-gray-900">ETB {seller.subtotal.toFixed(2)}</span>
                     </div>
+                    {seller.deliveryFee > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Delivery Fee</span>
+                        <span className="text-gray-900">ETB {seller.deliveryFee.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="text-gray-900">${seller.deliveryFee.toFixed(2)}</span>
+                      <span className="text-gray-600">Service Fee (3%)</span>
+                      <span className="text-gray-900">ETB {seller.serviceFee.toFixed(2)}</span>
                     </div>
                     <div className="pt-3 border-t border-gray-100">
                       <div className="flex justify-between text-base font-medium">
                         <span className="text-gray-900">Seller Total</span>
-                        <span className="text-gray-900">${seller.total.toFixed(2)}</span>
+                        <span className="text-gray-900">ETB {seller.total.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -460,37 +490,45 @@ export default function CheckoutPage() {
           <div className="lg:col-span-5">
             <div className="sticky top-24">
               {/* Order Summary */}
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
-                <div className="p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
-                  <div className="space-y-4">
-                    <div className="flex justify-between text-base">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="text-gray-900">${fees.subtotal.toFixed(2)}</span>
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Order Summary</h3>
+                
+                <div className="space-y-4">
+                  {/* Summary Items */}
+                  {[
+                    { 
+                      label: 'Subtotal', 
+                      value: fees.subtotal 
+                    },
+                    ...(Object.values(selectedDeliveryMethods).includes('delivery') 
+                      ? [{ 
+                          label: 'Delivery Fee', 
+                          value: fees.deliveryFee,
+                          className: 'text-gray-600'
+                        }] 
+                      : []
+                    ),
+                    { 
+                      label: 'Service Fee (3%)', 
+                      value: fees.serviceFee,
+                      className: 'text-gray-600'
+                    }
+                  ].map((item, index) => (
+                    <div key={index} className="flex justify-between text-gray-600">
+                      <span>{item.label}</span>
+                      <span className={item.className}>
+                        ETB {item.value.toFixed(2)}
+                      </span>
                     </div>
-                    <div className="flex justify-between text-base">
-                      <span className="text-gray-600">Ethiopia VAT (15%)</span>
-                      <span className="text-gray-900">${fees.ethiopiaTax.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-base">
-                      <span className="text-gray-600">Platform Fee (3%)</span>
-                      <span className="text-gray-900">${fees.platformCommission.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-base">
-                      <span className="text-gray-600">Service Fee (0%)</span>
-                      <span className="text-gray-900">${fees.serviceFee.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-base">
-                      <span className="text-gray-600">Delivery Fee</span>
-                      <span className="text-gray-900">${fees.deliveryFee.toFixed(2)}</span>
-                    </div>
-                    <div className="pt-4 border-t border-gray-100">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-gray-900">Total</span>
-                        <span className="text-2xl font-bold text-gray-900">
-                          ${fees.total.toFixed(2)}
-                        </span>
-                      </div>
+                  ))}
+                  
+                  {/* Total */}
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-gray-900">Total</span>
+                      <span className="text-2xl font-bold text-gray-900">
+                        ETB {fees.total.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -545,12 +583,15 @@ export default function CheckoutPage() {
         sellers={sellers.map(seller => ({
           ...seller,
           product: {
-            ...seller.product,
+            id: seller.products[0].id,
+            title: seller.products[0].title,
+            price: seller.products[0].price,
+            images: seller.products[0].images,
             owner: {
-              id: seller.product.owner.id,
-              full_name: seller.product.owner.full_name,
-              store_settings: seller.product.owner.store_settings,
-              payment_settings: seller.product.owner.payment_settings as PaymentSettings
+              id: seller.owner.id,
+              full_name: seller.owner.full_name,
+              store_settings: seller.owner.store_settings,
+              payment_settings: seller.owner.payment_settings
             }
           }
         }))}
@@ -559,10 +600,11 @@ export default function CheckoutPage() {
   );
 }
 
-async function createTelebirrOrder({ title, amount, sellerId }: {
+async function createTelebirrOrder({ title, amount, sellerId, owner }: {
   title: string;
   amount: number;
   sellerId: string;
+  owner: ProductOwner;
 }) {
   try {
     // Get Telebirr config

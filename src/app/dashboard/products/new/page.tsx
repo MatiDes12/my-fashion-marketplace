@@ -51,6 +51,12 @@ export default function NewProductPage() {
   const [countryOfOrigin, setCountryOfOrigin] = useState('');
   const [warrantyInfo, setWarrantyInfo] = useState('');
   const [faqs, setFaqs] = useState<Array<{question: string; answer: string}>>([]);
+  const [deliveryOptions, setDeliveryOptions] = useState({
+    delivery: true,
+    pickup: true
+  });
+  const [pickupLocation, setPickupLocation] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClientComponent();
@@ -100,7 +106,7 @@ export default function NewProductPage() {
           owner_id: session.user.id,
           is_active: true,
           quantity: parseInt(quantity),
-          delivery_fee: delivery_fee ? parseFloat(delivery_fee) : null,
+          delivery_fee: deliveryOptions.delivery && delivery_fee ? parseFloat(delivery_fee) : null,
           quality,
           sizes,
           colors,
@@ -122,7 +128,11 @@ export default function NewProductPage() {
           sustainability_info: sustainabilityInfo,
           country_of_origin: countryOfOrigin,
           warranty_info: shippingInfo.return_policy,
-          faqs
+          faqs,
+          delivery_options: {
+            ...deliveryOptions,
+            pickup_location: deliveryOptions.pickup ? pickupLocation : null
+          },
         })
         .select();
 
@@ -200,6 +210,18 @@ export default function NewProductPage() {
       console.error('Error creating product:', err);
       setError(err.message || 'An error occurred while creating the product');
     }
+
+    if (!deliveryOptions.delivery && !deliveryOptions.pickup) {
+      setError('Please select at least one delivery option');
+      setLoading(false);
+      return;
+    }
+
+    if (deliveryOptions.delivery && !delivery_fee) {
+      setError('Please set a delivery fee');
+      setLoading(false);
+      return;
+    }
   };
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -221,6 +243,7 @@ export default function NewProductPage() {
   // Update the input and textarea styles with these classes
   const inputClasses = "block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
   const selectClasses = "block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
+  const textareaClasses = "block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -577,69 +600,38 @@ export default function NewProductPage() {
                 {/* Pricing and Inventory Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
                   <h4 className="text-base font-medium text-gray-900">Pricing & Inventory</h4>
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
-                      <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+                      <label className="block text-sm font-medium text-gray-700">
                         Price (ETB) <span className="text-red-500">*</span>
                       </label>
-                      <div className="relative rounded-lg">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <span className="text-gray-500 text-base">ETB</span>
-                        </div>
                         <input
                           type="number"
-                          id="price"
                           value={price}
                           onChange={(e) => setPrice(e.target.value)}
-                          className={`${inputClasses} pl-12`}
-                          placeholder="0.00"
-                          step="0.01"
-                          min="0"
+                        className={inputClasses}
+                        placeholder="Enter price"
                           required
+                        min="0"
+                        step="0.01"
                         />
                     </div>
-                  </div>
-
                     <div>
-                    <label htmlFor="quantity" className="block text-sm font-medium text-gray-700">
-                      Quantity in Stock <span className="text-red-500">*</span>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Quantity <span className="text-red-500">*</span>
                     </label>
-                    <div className="mt-1">
                       <input
                         type="number"
-                        id="quantity"
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
                           className={inputClasses}
-                        min="0"
+                        placeholder="Available quantity"
                         required
-                      />
-                    </div>
-                  </div>
-
-                    <div>
-                    <label htmlFor="delivery_fee" className="block text-sm font-medium text-gray-700">
-                        Delivery Fee
-                    </label>
-                      <div className="relative rounded-lg">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                          <span className="text-gray-500 text-base">ETB</span>
-                      </div>
-                      <input
-                        type="number"
-                        id="delivery_fee"
-                        value={delivery_fee}
-                        onChange={(e) => setDeliveryFee(e.target.value)}
-                          className={`${inputClasses} pl-12`}
-                        placeholder="0.00"
-                        step="0.01"
                         min="0"
                       />
                     </div>
-                      <p className="mt-1 text-xs text-gray-500">Leave empty for free delivery</p>
-                    </div>
                   </div>
-                  </div>
+                </div>
 
                 {/* Product Quality Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
@@ -703,7 +695,7 @@ export default function NewProductPage() {
                   </div>
 
                   {/* Colors */}
-                  <div>
+                    <div>
                     <label className="block text-sm font-medium text-gray-700">
                       Available Colors
                     </label>
@@ -715,7 +707,7 @@ export default function NewProductPage() {
                         placeholder="Enter colors (comma-separated)"
                         className={inputClasses}
                       />
-                    </div>
+                      </div>
                   </div>
 
                   {/* Variants */}
@@ -728,10 +720,10 @@ export default function NewProductPage() {
                         colors.map(color => (
                           <div key={`${size}-${color}`} className="flex items-center space-x-4">
                             <span className="w-24">{size} - {color}</span>
-                            <input
-                              type="number"
+                      <input
+                        type="number"
                               placeholder="Quantity"
-                              min="0"
+                        min="0"
                               onChange={(e) => {
                                 const newVariants = [...variants];
                                 const variantIndex = variants.findIndex(
@@ -750,8 +742,8 @@ export default function NewProductPage() {
                                 setVariants(newVariants);
                               }}
                               className={inputClasses}
-                            />
-                          </div>
+                      />
+                    </div>
                         ))
                       )}
                     </div>
@@ -998,7 +990,7 @@ export default function NewProductPage() {
                       />
                     </div>
                   </div>
-                </div>
+                  </div>
 
                 {/* Images Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
@@ -1111,6 +1103,123 @@ export default function NewProductPage() {
                       <p className="mt-2 text-sm text-gray-500">
                         Example: Red, Blue, Green, Black
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delivery Options Section */}
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Delivery Options</h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="delivery"
+                        checked={deliveryOptions.delivery}
+                        onChange={(e) => setDeliveryOptions(prev => ({
+                          ...prev,
+                          delivery: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="delivery" className="text-sm text-gray-700">
+                        Home Delivery
+                      </label>
+                    </div>
+
+                    {deliveryOptions.delivery && (
+                      <div className="ml-7 space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Delivery Fee (ETB)
+                          </label>
+                          <div className="relative rounded-lg">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                              <span className="text-gray-500 text-base">ETB</span>
+                            </div>
+                            <input
+                              type="number"
+                              value={delivery_fee}
+                              onChange={(e) => setDeliveryFee(e.target.value)}
+                              placeholder="0.00"
+                              className={`${inputClasses} pl-12`}
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">Leave empty for free delivery</p>
+                        </div>
+                        {deliveryOptions.delivery && !delivery_fee && (
+                          <p className="mt-1 text-xs text-yellow-600">
+                            <svg className="inline h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            No delivery fee set - delivery will be free
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="pickup"
+                        checked={deliveryOptions.pickup}
+                        onChange={(e) => setDeliveryOptions(prev => ({
+                          ...prev,
+                          pickup: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="pickup" className="text-sm text-gray-700">
+                        Store Pickup
+                      </label>
+                    </div>
+
+                    {deliveryOptions.pickup && (
+                      <div className="ml-7">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Pickup Location
+                        </label>
+                        <textarea
+                          value={pickupLocation}
+                          onChange={(e) => setPickupLocation(e.target.value)}
+                          placeholder="Enter pickup address and instructions"
+                          className={textareaClasses}
+                          rows={2}
+                        />
+                      </div>
+                    )}
+
+                    {!deliveryOptions.delivery && !deliveryOptions.pickup && (
+                      <p className="text-sm text-red-500 mt-2">
+                        Please select at least one delivery option
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Delivery Time Estimate */}
+                {deliveryOptions.delivery && (
+                  <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                    <h4 className="text-base font-medium text-gray-900">Delivery Time Estimate</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Estimated Delivery Time
+                        </label>
+                        <select
+                          value={deliveryTime}
+                          onChange={(e) => setDeliveryTime(e.target.value)}
+                          className={selectClasses}
+                        >
+                          <option value="">Select delivery time</option>
+                          <option value="1-2">1-2 business days</option>
+                          <option value="3-5">3-5 business days</option>
+                          <option value="5-7">5-7 business days</option>
+                          <option value="7-14">1-2 weeks</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 )}

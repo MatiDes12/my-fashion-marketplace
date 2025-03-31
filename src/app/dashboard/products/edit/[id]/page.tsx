@@ -88,6 +88,12 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   const [countryOfOrigin, setCountryOfOrigin] = useState('');
   const [warrantyInfo, setWarrantyInfo] = useState('');
   const [faqs, setFaqs] = useState<Array<{question: string; answer: string}>>([]);
+  const [deliveryOptions, setDeliveryOptions] = useState({
+    delivery: true,
+    pickup: true,
+    pickup_location: '',
+    delivery_time: ''
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -149,6 +155,12 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         setWarrantyInfo(productData.warranty_info || '');
         setFaqs(productData.faqs || []);
         setExistingImages(productData.product_images || []);
+        setDeliveryOptions(productData.delivery_options || {
+          delivery: true,
+          pickup: true,
+          pickup_location: '',
+          delivery_time: ''
+        });
         
         setLoading(false);
       } catch (error) {
@@ -195,6 +207,18 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         return;
       }
 
+      if (!deliveryOptions.delivery && !deliveryOptions.pickup) {
+        setError('Please select at least one delivery option');
+        setLoading(false);
+        return;
+      }
+
+      if (deliveryOptions.delivery && !delivery_fee) {
+        setError('Please set a delivery fee');
+        setLoading(false);
+        return;
+      }
+
       const { error: updateError } = await supabase
         .from('products')
         .update({
@@ -203,7 +227,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           price: parseFloat(price),
           category,
           quantity: parseInt(quantity),
-          delivery_fee: delivery_fee ? parseFloat(delivery_fee) : null,
+          delivery_fee: deliveryOptions.delivery && delivery_fee ? parseFloat(delivery_fee) : null,
           detailed_description: detailedDescription,
           quality,
           sizes,
@@ -224,6 +248,11 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           country_of_origin: countryOfOrigin,
           warranty_info: warrantyInfo,
           faqs,
+          delivery_options: {
+            ...deliveryOptions,
+            pickup_location: deliveryOptions.pickup ? deliveryOptions.pickup_location : null,
+            delivery_time: deliveryOptions.delivery ? deliveryOptions.delivery_time : null
+          },
           updated_at: new Date().toISOString()
         })
         .eq('id', params.id);
@@ -365,68 +394,153 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                       </div>
                     </div>
 
-                    <div className="sm:col-span-3">
-                      <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">
                         Category <span className="text-red-500">*</span>
                       </label>
-                      <div className="mt-1">
                         {!showCustomCategory ? (
-                          <>
+                        <div className="mt-1 flex items-center">
                             <select
-                              id="category"
                               value={category}
-                              onChange={(e) => setCategory(e.target.value)}
+                            onChange={(e) => {
+                              if (e.target.value === 'custom') {
+                                setShowCustomCategory(true);
+                              } else {
+                                setCategory(e.target.value);
+                              }
+                            }}
                               className={selectClasses}
-                              required={!showCustomCategory}
+                            required
                             >
                               <option value="">Select a category</option>
-                              
-                              {/* Traditional Wear */}
                               <optgroup label="Traditional Wear">
-                                <option value="traditional_wear">Traditional Wear</option>
-                                <option value="habesha_kemis">Habesha Kemis</option>
-                                <option value="tilfi">Tilfi</option>
-                                <option value="traditional_accessories">Traditional Accessories</option>
+                              <option value="Habesha Kemis">Habesha Kemis</option>
+                              <option value="Tilfi">Tilfi</option>
+                              <option value="Traditional Accessories">Traditional Accessories</option>
                               </optgroup>
-
-                              {/* Modern Fashion */}
                               <optgroup label="Modern Fashion">
-                                <option value="modern_fashion">Modern Fashion</option>
-                                <option value="dresses">Dresses</option>
-                                <option value="tops">Tops</option>
-                                <option value="pants_skirts">Pants & Skirts</option>
-                                <option value="outerwear">Outerwear</option>
-                                <option value="fashion_accessories">Fashion Accessories</option>
-                                <option value="shoes">Shoes</option>
+                              <option value="Modern Fashion">Modern Fashion</option>
+                              <option value="Dresses">Dresses</option>
+                              <option value="Tops">Tops</option>
+                              <option value="Pants & Skirts">Pants & Skirts</option>
+                              <option value="Outerwear">Outerwear</option>
+                              <option value="Fashion Accessories">Fashion Accessories</option>
+                              <option value="Shoes">Shoes</option>
+                            </optgroup>
+                            <optgroup label="Home & Living">
+                              <option value="Home & Living">Home & Living</option>
+                              <option value="Furniture">Furniture</option>
+                              <option value="Home Decor">Home Decor</option>
+                              <option value="Kitchen & Dining">Kitchen & Dining</option>
+                              <option value="Bedding">Bedding</option>
+                              <option value="Lighting">Lighting</option>
+                              <option value="Rugs & Carpets">Rugs & Carpets</option>
+                            </optgroup>
+                            <optgroup label="Beauty & Personal Care">
+                              <option value="Beauty & Personal Care">Beauty & Personal Care</option>
+                              <option value="Skincare">Skincare</option>
+                              <option value="Hair Care">Hair Care</option>
+                              <option value="Makeup">Makeup</option>
+                              <option value="Fragrances">Fragrances</option>
+                              <option value="Traditional Beauty Products">Traditional Beauty Products</option>
+                            </optgroup>
+                            <optgroup label="Jewelry & Accessories">
+                              <option value="Jewelry">Jewelry</option>
+                              <option value="Watches">Watches</option>
+                              <option value="Bags & Purses">Bags & Purses</option>
+                              <option value="Scarves & Shawls">Scarves & Shawls</option>
+                            </optgroup>
+                            <optgroup label="Art & Collectibles">
+                              <option value="Art & Collectibles">Art & Collectibles</option>
+                              <option value="Paintings">Paintings</option>
+                              <option value="Sculptures">Sculptures</option>
+                              <option value="Traditional Art">Traditional Art</option>
+                              <option value="Photography">Photography</option>
+                              <option value="Handmade Crafts">Handmade Crafts</option>
+                            </optgroup>
+                            <optgroup label="Food & Beverages">
+                              <option value="Food & Beverages">Food & Beverages</option>
+                              <option value="Coffee & Tea">Coffee & Tea</option>
+                              <option value="Spices & Seasonings">Spices & Seasonings</option>
+                              <option value="Traditional Foods">Traditional Foods</option>
+                              <option value="Snacks">Snacks</option>
+                            </optgroup>
+                            <optgroup label="Electronics & Gadgets">
+                              <option value="Electronics">Electronics</option>
+                              <option value="Phones & Accessories">Phones & Accessories</option>
+                              <option value="Computers & Tablets">Computers & Tablets</option>
+                              <option value="Audio & Headphones">Audio & Headphones</option>
+                              <option value="Smart Home">Smart Home</option>
+                            </optgroup>
+                            <optgroup label="Books & Media">
+                              <option value="Books & Media">Books & Media</option>
+                              <option value="Books">Books</option>
+                              <option value="Music">Music</option>
+                              <option value="Movies">Movies</option>
+                              <option value="Educational Materials">Educational Materials</option>
+                            </optgroup>
+                            <optgroup label="Kids & Baby">
+                              <option value="Kids & Baby">Kids & Baby</option>
+                              <option value="Kids Clothing">Kids Clothing</option>
+                              <option value="Baby Essentials">Baby Essentials</option>
+                              <option value="Toys & Games">Toys & Games</option>
+                              <option value="School Supplies">School Supplies</option>
+                            </optgroup>
+                            <optgroup label="Sports & Fitness">
+                              <option value="Sports & Fitness">Sports & Fitness</option>
+                              <option value="Exercise Equipment">Exercise Equipment</option>
+                              <option value="Sports Wear">Sports Wear</option>
+                              <option value="Outdoor Gear">Outdoor Gear</option>
+                            </optgroup>
+                            <optgroup label="Health & Wellness">
+                              <option value="Health & Wellness">Health & Wellness</option>
+                              <option value="Traditional Medicine">Traditional Medicine</option>
+                              <option value="Supplements">Supplements</option>
+                              <option value="Medical Supplies">Medical Supplies</option>
+                            </optgroup>
+                            <optgroup label="Musical Instruments">
+                              <option value="Musical Instruments">Musical Instruments</option>
+                              <option value="Traditional Instruments">Traditional Instruments</option>
+                              <option value="Modern Instruments">Modern Instruments</option>
+                              <option value="Music Accessories">Music Accessories</option>
+                            </optgroup>
+                            <optgroup label="Party & Events">
+                              <option value="Party & Events">Party & Events</option>
+                              <option value="Wedding Supplies">Wedding Supplies</option>
+                              <option value="Holiday Decorations">Holiday Decorations</option>
+                              <option value="Event Accessories">Event Accessories</option>
+                            </optgroup>
+                            <optgroup label="Pet Supplies">
+                              <option value="Pet Supplies">Pet Supplies</option>
+                              <option value="Pet Food">Pet Food</option>
+                              <option value="Pet Accessories">Pet Accessories</option>
+                              <option value="Pet Care">Pet Care</option>
+                            </optgroup>
+                            <optgroup label="Office & Stationery">
+                              <option value="Office & Stationery">Office & Stationery</option>
+                              <option value="Office Supplies">Office Supplies</option>
+                              <option value="Writing Materials">Writing Materials</option>
+                              <option value="Organization">Organization</option>
+                            </optgroup>
+                            <optgroup label="Garden & Outdoor">
+                              <option value="Garden & Outdoor">Garden & Outdoor</option>
+                              <option value="Plants & Seeds">Plants & Seeds</option>
+                              <option value="Garden Tools">Garden Tools</option>
+                              <option value="Outdoor Furniture">Outdoor Furniture</option>
+                            </optgroup>
+                            <optgroup label="Vintage & Antiques">
+                              <option value="Vintage & Antiques">Vintage & Antiques</option>
+                              <option value="Vintage Clothing">Vintage Clothing</option>
+                              <option value="Antique Furniture">Antique Furniture</option>
+                              <option value="Collectibles">Collectibles</option>
                               </optgroup>
-
-                              {/* Add all other category groups here... */}
-                              
-                              <option value="custom">+ Add custom category</option>
+                            <option value="custom">Add Custom Category</option>
                             </select>
-                            {category === 'custom' && (
-                              <div className="mt-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShowCustomCategory(true);
-                                    setCategory('');
-                                  }}
-                                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                                >
-                                  <svg className="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                  </svg>
-                                  Create custom category
-                                </button>
                               </div>
-                            )}
-                          </>
                         ) : (
-                          <div className="flex">
+                        <div className="mt-1 flex items-center">
                             <input
                               type="text"
-                              id="customCategory"
                               value={customCategory}
                               onChange={(e) => setCustomCategory(e.target.value)}
                               className={inputClasses}
@@ -445,7 +559,6 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                             </button>
                           </div>
                         )}
-                      </div>
                     </div>
 
                     <div className="sm:col-span-2">
@@ -466,9 +579,6 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label htmlFor="delivery_fee" className="block text-sm font-medium text-gray-700">
-                        Delivery Fee (optional)
-                      </label>
                       <div className="relative rounded-lg">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                           <span className="text-gray-500 text-base">ETB</span>
@@ -483,8 +593,113 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                           step="0.01"
                         />
                       </div>
-                      <p className="mt-1 text-sm text-gray-500">Leave empty for free delivery</p>
                     </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Delivery Options</h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="delivery"
+                        checked={deliveryOptions.delivery}
+                        onChange={(e) => setDeliveryOptions(prev => ({
+                          ...prev,
+                          delivery: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="delivery" className="text-sm text-gray-700">
+                        Home Delivery
+                      </label>
+                    </div>
+
+                    {deliveryOptions.delivery && (
+                      <div className="ml-7 space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Delivery Fee (ETB)
+                          </label>
+                          <div className="relative rounded-lg">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                              <span className="text-gray-500 text-base">ETB</span>
+                            </div>
+                            <input
+                              type="number"
+                              value={delivery_fee}
+                              onChange={(e) => setDeliveryFee(e.target.value)}
+                              placeholder="0.00"
+                              className={`${inputClasses} pl-12`}
+                              min="0"
+                              step="0.01"
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">Leave empty for free delivery</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Estimated Delivery Time
+                          </label>
+                          <select
+                            value={deliveryOptions.delivery_time}
+                            onChange={(e) => setDeliveryOptions(prev => ({
+                              ...prev,
+                              delivery_time: e.target.value
+                            }))}
+                            className={selectClasses}
+                          >
+                            <option value="">Select delivery time</option>
+                            <option value="1-2">1-2 business days</option>
+                            <option value="3-5">3-5 business days</option>
+                            <option value="5-7">5-7 business days</option>
+                            <option value="7-14">1-2 weeks</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="pickup"
+                        checked={deliveryOptions.pickup}
+                        onChange={(e) => setDeliveryOptions(prev => ({
+                          ...prev,
+                          pickup: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="pickup" className="text-sm text-gray-700">
+                        Store Pickup
+                      </label>
+                    </div>
+
+                    {deliveryOptions.pickup && (
+                      <div className="ml-7">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Pickup Location
+                        </label>
+                        <textarea
+                          value={deliveryOptions.pickup_location}
+                          onChange={(e) => setDeliveryOptions(prev => ({
+                            ...prev,
+                            pickup_location: e.target.value
+                          }))}
+                          placeholder="Enter pickup address and instructions"
+                          className={textareaClasses}
+                          rows={2}
+                        />
+                      </div>
+                    )}
+
+                    {!deliveryOptions.delivery && !deliveryOptions.pickup && (
+                      <p className="text-sm text-red-500 mt-2">
+                        Please select at least one delivery option
+                      </p>
+                    )}
                   </div>
                 </div>
 

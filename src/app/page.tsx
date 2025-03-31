@@ -2849,8 +2849,8 @@ export default function HomePage() {
                   <span className="block">Addis Ababa, Ethiopia</span>
                 </li>
                 <li>
-                  <a href="tel:+251911234567" className="text-gray-400 hover:text-white transition-colors">
-                    +251 91 123 4567
+                  <a href="tel:+251912841237" className="text-gray-400 hover:text-white transition-colors">
+                    +251 91 284 1237
                   </a>
                 </li>
                 <li>

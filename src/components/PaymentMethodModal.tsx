@@ -53,6 +53,7 @@ interface SellerProduct {
     full_name: string;
     store_settings?: {
       name?: string;
+      phone?: string;
     };
     payment_settings?: PaymentSettings;
   };
@@ -75,28 +76,35 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: 'TELEBIRR',
     name: 'Telebirr',
-    logo: '/images/telebirr-logo.png',
+    logo: '/images/payment-methods/Telebirr-logo.png',
     isAvailable: true,
     description: 'Pay directly with your Telebirr mobile wallet'
   },
   {
     id: 'CHAPA',
     name: 'Chapa',
-    logo: '/images/chapa-logo.png',
+    logo: '/images/payment-methods/chapa-logo.png',
     isAvailable: true,
     description: 'Pay with bank transfer, mobile money, or cards'
   },
   {
     id: 'CBE',
     name: 'Commercial Bank of Ethiopia',
-    logo: '/images/cbe-logo.png', // Add this image to your public folder
+    logo: '/images/payment-methods/cbe-logo.png', // Add this image to your public folder
     isAvailable: false
   },
   {
     id: 'AMOLE',
     name: 'Amole',
-    logo: '/images/amole-logo.png', // Add this image to your public folder
+    logo: 'camole-logo.png', // Add this image to your public folder
     isAvailable: false
+  },
+  {
+    id: 'CASH',
+    name: 'Cash on Delivery/Pickup',
+    logo: '/images/payment-methods/cash-icon.jpg', // Add this icon to your public folder
+    isAvailable: true,
+    description: 'Pay with cash when your order is delivered or during pickup'
   }
 ];
 
@@ -108,7 +116,7 @@ interface PaymentMethodModalProps {
   sellers: SellerOrder[];
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.avrioxshop.com/';
 
 const clearCart = async (userId: string) => {
   try {
@@ -204,6 +212,79 @@ export default function PaymentMethodModal({
   const handleSubmit = async () => {
     if (!selectedMethod) {
       setError('Please select a payment method');
+      return;
+    }
+
+    if (selectedMethod === 'CASH') {
+      try {
+        setLocalProcessing(true);
+        const supabase = createClientComponent();
+        const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // First create the order
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            user_id: userDetails?.id,
+            product_id: sellers[0].product.id,
+            quantity: sellers[0].quantity,
+            total_price: sellers[0].total,
+            platform_fee: sellers[0].platformFee,
+            service_fee: sellers[0].serviceFee,
+            ethiopia_tax: sellers[0].ethiopiaTax,
+            delivery_fee: sellers[0].deliveryFee,
+            order_status: 'pending',
+            payment_status: 'pending',
+            payment_reference: txRef,
+            tx_ref: txRef
+          })
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+
+        // Then create the transaction record
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            order_id: order.id,
+            payment_method: 'CASH',
+            payment_status: 'pending',
+            subtotal: sellers[0].quantity * sellers[0].product.price,
+            vat_amount: sellers.reduce((sum, seller) => sum + seller.ethiopiaTax, 0),
+            platform_fee: sellers.reduce((sum, seller) => sum + seller.platformFee, 0),
+            service_fee: sellers.reduce((sum, seller) => sum + seller.serviceFee, 0),
+            delivery_fee: sellers.reduce((sum, seller) => sum + seller.deliveryFee, 0),
+            total_amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
+            seller_id: sellers[0].product.owner.id,
+            customer_name: userDetails?.full_name,
+            customer_email: userDetails?.email,
+            customer_phone: sellers[0].product.owner.store_settings?.phone || null,
+            seller_payout_amount: sellers[0].quantity * sellers[0].product.price - 
+              (sellers[0].platformFee + sellers[0].serviceFee + sellers[0].ethiopiaTax)
+          });
+
+        if (transactionError) throw transactionError;
+
+        // Update product quantities
+        await updateProductQuantity(sellers[0].product.id, sellers[0].quantity);
+
+        // Clear cart after successful order creation
+        if (userDetails?.id) {
+          await clearCart(userDetails.id);
+        }
+
+        // Close modal and redirect to orders page with tx_ref
+        onClose();
+        toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
+        router.push(`/orders?payment_success=true&tx_ref=${txRef}`);
+
+      } catch (error) {
+        console.error('Order creation error:', error);
+        setError(error instanceof Error ? error.message : 'Failed to create order');
+      } finally {
+        setLocalProcessing(false);
+      }
       return;
     }
 

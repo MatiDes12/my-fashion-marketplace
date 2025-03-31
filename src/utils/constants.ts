@@ -19,35 +19,35 @@ export const PAYMENT_METHODS = {
     id: 'CASH',
     name: 'Cash on Delivery',
     description: 'Pay when you receive your order',
-    logo: '/payment-icons/cash.png',
+    logo: '/images/payment-methods/cash-icon.jpg',
     isAvailable: true, // Cash is always available
   },
   TELEBIRR: {
     id: 'TELEBIRR',
     name: 'Telebirr',
     description: 'Pay with Telebirr mobile money',
-    logo: '/payment-icons/telebirr.png',
+    logo: '/images/payment-methods/Telebirr-logo.png',
     isAvailable: false, // Will be set dynamically
   },
   CBE: {
     id: 'CBE',
     name: 'CBE Bank Account',
     description: 'Direct bank transfer to CBE account',
-    logo: '/payment-icons/cbe.png',
+    logo: '/images/payment-methods/cbe.png',
     isAvailable: false, // Will be set dynamically
   },
   AMOLE: {
     id: 'AMOLE',
     name: 'Amole',
     description: 'Pay with Amole digital wallet',
-    logo: '/payment-icons/amole.png',
+    logo: '/images/payment-methods/amole.png',
     isAvailable: false, // Will be set dynamically
   },
   CHAPA: {
     id: 'CHAPA',
     name: 'Chapa',
     description: 'Secure online payment with Chapa',
-    logo: '/payment-icons/chapa.png',
+    logo: '/images/payment-methods/chapa-logo.png',
     isAvailable: false, // Will be set dynamically
   },
 } as const;

@@ -682,14 +682,19 @@ export default function Navigation({ userDetails }: NavigationProps) {
           {/* Logo */}
             <Link href="/" className="flex items-center space-x-2 group">
               <div className="relative w-10 h-10">
-                <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-pink-600 rounded-lg transform group-hover:rotate-6 transition-transform"></div>
-                <span className="absolute inset-0 flex items-center justify-center text-white font-bold text-xl">A</span>
+                <Image
+                  src="/images/brand/logo.png"
+                  alt="Avrio Logo"
+                  fill
+                  className="object-contain transform group-hover:scale-105 transition-transform"
+                  priority
+                />
               </div>
               <div>
                 <span className="text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
                   AVRIO
                 </span>
-                <span className="block text-xs text-gray-500">Global Marketplace</span>
+                <span className="block text-xs text-gray-500">Ethio Marketplace</span>
               </div>
           </Link>
 

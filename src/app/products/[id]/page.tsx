@@ -115,6 +115,12 @@ type Product = {
   }>;
   detailed_description?: string;
   quality?: string;
+  delivery_options: {
+    delivery: boolean;
+    pickup: boolean;
+    pickup_location?: string;
+    delivery_time?: string;
+  };
 };
 
 type StoreSettings = {
@@ -330,6 +336,75 @@ const ContactSection = ({ seller }: { seller: any }) => {
             Only pay if you're satisfied
           </li>
         </ul>
+      </div>
+    </div>
+  );
+};
+
+// Update the DeliveryOptions component
+const DeliveryOptions = ({ options, product }: { 
+  options: Product['delivery_options'], 
+  product: Product 
+}) => {
+  if (!options) return null;
+
+  return (
+    <div className="mt-6 border-t border-gray-200 pt-6">
+      <h3 className="text-lg font-medium text-gray-900">Delivery & Pickup Options</h3>
+      <div className="mt-4 space-y-4">
+        {/* Delivery Option */}
+        {options.delivery && (
+          <div className="space-y-2">
+            <div className="flex items-center text-sm text-gray-500">
+              <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Home Delivery Available</span>
+            </div>
+            {product.delivery_fee ? (
+              <div className="ml-7 text-sm text-gray-500">
+                Delivery Fee: ETB {product.delivery_fee.toFixed(2)}
+              </div>
+            ) : (
+              <div className="ml-7 text-sm text-green-600">
+                Free Delivery
+              </div>
+            )}
+            {options.delivery_time && (
+              <div className="ml-7 text-sm text-gray-500">
+                Estimated Delivery: {options.delivery_time} business days
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Pickup Option */}
+        {options.pickup && (
+          <div className="space-y-2">
+            <div className="flex items-center text-sm text-gray-500">
+              <svg className="h-5 w-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Store Pickup Available</span>
+            </div>
+            {options.pickup_location && (
+              <div className="ml-7 text-sm text-gray-500">
+                <div className="font-medium">Pickup Location:</div>
+                <p className="whitespace-pre-line">{options.pickup_location}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* No Options Available */}
+        {!options.delivery && !options.pickup && (
+          <div className="flex items-center text-sm text-red-500">
+            <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>Contact seller for delivery options</span>
+          </div>
+        )}
       </div>
     </div>
   );

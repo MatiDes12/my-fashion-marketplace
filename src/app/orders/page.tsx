@@ -160,6 +160,44 @@ export default function OrdersPage() {
     }
   };
   
+  const generateCashReceipt = async (order: any) => {
+    try {
+      const supabase = createClientComponent();
+      
+      // Generate receipt URL
+      const receiptUrl = `/api/receipts/cash/${order.tx_ref}`;
+      
+      // Update the order with receipt URL and payment status
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({ 
+          receipt_url: receiptUrl,
+          payment_status: 'paid' 
+        })
+        .eq('id', order.id);
+        
+      if (orderError) throw orderError;
+
+      // Update the transaction statuses
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .update({
+          payment_status: 'paid',
+          platform_payout_status: 'completed',
+          seller_payout_status: 'completed'
+        })
+        .eq('order_id', order.id);
+
+      if (transactionError) throw transactionError;
+      
+      return receiptUrl;
+    } catch (error) {
+      console.error('Error generating receipt:', error);
+      toast.error('Failed to generate receipt');
+      return null;
+    }
+  };
+  
   return (
     <div className="bg-gray-50 min-h-screen">
       <div className="h-20"></div>
@@ -270,20 +308,43 @@ export default function OrdersPage() {
                           <div className="mt-3 bg-gray-50 p-2 rounded-md flex justify-between items-center">
                             <div>
                               <p className="text-sm font-medium text-gray-700">References</p>
-                              {order.payment_reference && (
-                                <p className="text-sm text-gray-600">
-                                  Chapa: <span className="font-mono">{order.payment_reference}</span>
-                                </p>
-                              )}
-                              {order.tx_ref && (
-                                <p className="text-sm text-gray-600">
-                                  Merchant: <span className="font-mono">{order.tx_ref}</span>
-                                </p>
+                              {order.tx_ref?.startsWith('CASH-') ? (
+                                <>
+                                  <p className="text-sm text-gray-600">
+                                    Payment Method: <span className="font-medium">Cash on Delivery/Pickup</span>
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    Reference: <span className="font-mono">{order.tx_ref}</span>
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  {order.payment_reference && (
+                                    <p className="text-sm text-gray-600">
+                                      Chapa: <span className="font-mono">{order.payment_reference}</span>
+                                    </p>
+                                  )}
+                                  {order.tx_ref && !order.tx_ref.startsWith('CASH-') && (
+                                    <p className="text-sm text-gray-600">
+                                      Merchant: <span className="font-mono">{order.tx_ref}</span>
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
-                            {order.receipt_url && (
+                            {(order.receipt_url || (order.tx_ref?.startsWith('CASH-') && order.order_status === 'delivered')) && (
                               <button
-                                onClick={() => handleDownloadReceipt(order.receipt_url, order.tx_ref)}
+                                onClick={async () => {
+                                  if (order.tx_ref?.startsWith('CASH-') && !order.receipt_url) {
+                                    // Generate receipt for cash payment
+                                    const receiptUrl = await generateCashReceipt(order);
+                                    if (receiptUrl) {
+                                      handleDownloadReceipt(receiptUrl, order.tx_ref);
+                                    }
+                                  } else {
+                                    handleDownloadReceipt(order.receipt_url, order.tx_ref);
+                                  }
+                                }}
                                 className="flex items-center space-x-2 text-red-600 hover:text-red-700"
                               >
                                 <ArrowDownTrayIcon className="h-5 w-5" />
