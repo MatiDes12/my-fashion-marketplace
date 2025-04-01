@@ -7,6 +7,9 @@ export async function GET(
   { params }: { params: { txRef: string } }
 ) {
   try {
+    const { searchParams } = new URL(request.url);
+    const redirectUrl = searchParams.get('redirect');
+    
     const supabase = createRouteHandlerClient({ cookies });
     
     // Get order details with transaction info
@@ -58,7 +61,30 @@ export async function GET(
             .row { display: flex; justify-content: space-between; margin-bottom: 10px; }
             .total { font-weight: bold; border-top: 2px solid #000; padding-top: 10px; }
             .status { text-align: center; color: green; margin-top: 20px; }
+            .button-container { text-align: center; margin-top: 30px; }
+            .view-orders-btn {
+              background-color: #2563eb;
+              color: white;
+              padding: 12px 24px;
+              border: none;
+              border-radius: 6px;
+              font-weight: 500;
+              cursor: pointer;
+              text-decoration: none;
+              display: inline-block;
+            }
+            .view-orders-btn:hover {
+              background-color: #1d4ed8;
+            }
           </style>
+          <script>
+            // Add auto-redirect after 5 seconds if redirect URL is provided
+            ${redirectUrl ? `
+              setTimeout(() => {
+                window.location.href = "${decodeURIComponent(redirectUrl)}";
+              }, 5000);
+            ` : ''}
+          </script>
         </head>
         <body>
           <div class="receipt">
@@ -78,37 +104,41 @@ export async function GET(
               </div>
               <div class="row">
                 <span>Price per item:</span>
-                <span>$${order.product.price}</span>
+                <span>ETB ${order.product.price}</span>
               </div>
               <div class="row">
                 <span>Subtotal:</span>
-                <span>$${order.transaction.subtotal}</span>
-              </div>
-              <div class="row">
-                <span>Platform Fee:</span>
-                <span>$${order.platform_fee}</span>
+                <span>ETB ${(order.quantity * order.product.price).toFixed(2)}</span>
               </div>
               <div class="row">
                 <span>Service Fee:</span>
-                <span>$${order.service_fee}</span>
-              </div>
-              <div class="row">
-                <span>VAT:</span>
-                <span>$${order.ethiopia_tax}</span>
+                <span>ETB 0.00</span>
               </div>
               <div class="row">
                 <span>Delivery Fee:</span>
-                <span>$${order.delivery_fee}</span>
+                <span>ETB ${order.delivery_fee.toFixed(2)}</span>
               </div>
               <div class="row total">
                 <span>Total:</span>
-                <span>$${order.total_price}</span>
+                <span>ETB ${order.total_price.toFixed(2)}</span>
               </div>
             </div>
             <div class="status">
-              <p>✓ Payment Completed</p>
+              <p>✓ Payment Status: ${order.payment_status.toUpperCase()}</p>
               <p>Order Status: ${order.order_status.toUpperCase()}</p>
             </div>
+            
+            <div class="button-container">
+              <a href="/orders" class="view-orders-btn">
+                View My Orders
+              </a>
+            </div>
+            
+            ${redirectUrl ? `
+              <div class="mt-4 text-center text-gray-500">
+                Redirecting to orders page in 5 seconds...
+              </div>
+            ` : ''}
           </div>
         </body>
       </html>

@@ -124,26 +124,31 @@ export default function CheckoutPage() {
   const calculateFees = (items: CartItem[]) => {
     let subtotal = 0;
     let deliveryFee = 0;
-    let serviceFee = 0;
+    let serviceFee = 0; // Will remain 0
+    let vat = 0; // Add VAT (at 0%)
 
     items.forEach(item => {
       const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
       subtotal += itemSubtotal;
 
-      // Use saved delivery method from database
       if (item.delivery_method === 'delivery') {
         deliveryFee += (item.delivery_fee || 0);
       }
 
-      serviceFee += itemSubtotal * 0.03;
+      // Service fee is now 0% for customers
+      serviceFee = 0;
+      
+      // VAT at 0%
+      vat = 0;
     });
 
-    const total = subtotal + deliveryFee + serviceFee;
+    const total = subtotal + deliveryFee + serviceFee + vat;
 
     return {
       subtotal,
       deliveryFee,
       serviceFee,
+      vat,
       total
     };
   };
@@ -206,6 +211,9 @@ export default function CheckoutPage() {
 
       // Create orders and update quantities
       for (const item of cartItems) {
+        const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
+        const serviceFee = itemSubtotal * 0.03; // Calculate 3% service fee
+        
         // Create order
         const { error: orderError } = await supabase
           .from('orders')
@@ -213,15 +221,30 @@ export default function CheckoutPage() {
             user_id: session.user.id,
             product_id: item.product_id,
             quantity: item.quantity,
-            total_price: item.quantity * item.price,
-            platform_fee: (item.quantity * item.price) * 0.03, // Store platform fee
-            service_fee: (item.quantity * item.price) * 0.00, // Store service fee
-            ethiopia_tax: (item.quantity * item.price) * 0.15, // Store VAT
-            delivery_fee: fees.deliveryFee / cartItems.length, // Split delivery fee among items
+            total_price: itemSubtotal,
+            platform_fee: 0, // Set to 0 explicitly
+            service_fee: serviceFee, // Store the 3% service fee
+            ethiopia_tax: 0, // Set to 0 explicitly
+            delivery_fee: item.delivery_method === 'delivery' ? (item.product.delivery_fee || 0) : 0,
             order_status: 'pending'
           });
 
         if (orderError) throw orderError;
+
+        // Create transaction record
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            order_id: item.id, // Assuming you have the order ID
+            subtotal: itemSubtotal, // Original product price * quantity
+            platform_fee: 0, // Set to 0 explicitly
+            service_fee: serviceFee, // Same 3% service fee as order
+            vat_amount: 0, // Set to 0 explicitly
+            delivery_fee: item.delivery_method === 'delivery' ? (item.product.delivery_fee || 0) : 0,
+            total_amount: itemSubtotal + (item.delivery_method === 'delivery' ? (item.product.delivery_fee || 0) : 0)
+          });
+
+        if (transactionError) throw transactionError;
 
         // Update product quantity
         const { error: updateError } = await supabase
@@ -325,22 +348,14 @@ export default function CheckoutPage() {
           subtotal: 0,
           deliveryFee: 0,
           serviceFee: 0,
+          vat: 0,
           total: 0,
-          owner: {
-            ...item.product.owner,
-            payment_settings: item.product.owner.payment_settings
-          },
-          products: [],
-          hasPaymentSettings: Boolean(
-            item.product.owner.payment_settings?.telebirr_settings?.is_active ||
-            item.product.owner.payment_settings?.bank_settings?.is_active ||
-            item.product.owner.payment_settings?.cbe_birr_settings?.is_active ||
-            item.product.owner.payment_settings?.amole_settings?.is_active ||
-            item.product.owner.payment_settings?.chapa_settings?.is_active
-          )
+          owner: item.product.owner,
+          products: [] // Array to hold multiple products from same seller
         };
       }
       
+      // Add the item to the seller's items and products array
       acc[sellerId].items.push(item);
       acc[sellerId].products.push({
         id: item.product.id,
@@ -350,6 +365,7 @@ export default function CheckoutPage() {
         images: item.product.images
       });
       
+      // Calculate prices
       const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
       acc[sellerId].subtotal += itemSubtotal;
       
@@ -357,11 +373,8 @@ export default function CheckoutPage() {
         acc[sellerId].deliveryFee += (item.delivery_fee || 0);
       }
       
-      acc[sellerId].serviceFee += itemSubtotal * 0.03;
-      
-      acc[sellerId].total = acc[sellerId].subtotal + 
-                           acc[sellerId].deliveryFee + 
-                           acc[sellerId].serviceFee;
+      // Calculate total
+      acc[sellerId].total = acc[sellerId].subtotal + acc[sellerId].deliveryFee;
       
       return acc;
     }, {} as Record<string, any>);
@@ -471,8 +484,12 @@ export default function CheckoutPage() {
                       </div>
                     )}
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Service Fee (3%)</span>
+                      <span className="text-gray-600">Service Fee (0%)</span>
                       <span className="text-gray-900">ETB {seller.serviceFee.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">VAT (0%)</span>
+                      <span className="text-gray-900">ETB {seller.vat.toFixed(2)}</span>
                     </div>
                     <div className="pt-3 border-t border-gray-100">
                       <div className="flex justify-between text-base font-medium">
@@ -509,8 +526,13 @@ export default function CheckoutPage() {
                       : []
                     ),
                     { 
-                      label: 'Service Fee (3%)', 
+                      label: 'Service Fee (0%)',
                       value: fees.serviceFee,
+                      className: 'text-gray-600'
+                    },
+                    {
+                      label: 'VAT (0%)',
+                      value: fees.vat,
                       className: 'text-gray-600'
                     }
                   ].map((item, index) => (
@@ -581,19 +603,19 @@ export default function CheckoutPage() {
         onSelectMethod={handlePaymentMethodSelect}
         isProcessing={isProcessing}
         sellers={sellers.map(seller => ({
-          ...seller,
-          product: {
-            id: seller.products[0].id,
-            title: seller.products[0].title,
-            price: seller.products[0].price,
-            images: seller.products[0].images,
-            owner: {
-              id: seller.owner.id,
-              full_name: seller.owner.full_name,
-              store_settings: seller.owner.store_settings,
-              payment_settings: seller.owner.payment_settings
-            }
-          }
+          sellerId: seller.sellerId,
+          sellerName: seller.sellerName,
+          products: seller.products.map(product => ({
+            ...product,
+            owner: seller.owner // Include owner with payment settings for each product
+          })),
+          subtotal: seller.subtotal,
+          total: seller.total,
+          platformFee: seller.platformFee,
+          serviceFee: seller.serviceFee,
+          ethiopiaTax: seller.ethiopiaTax,
+          deliveryFee: seller.deliveryFee,
+          owner: seller.owner // Keep the original owner object with payment settings
         }))}
       />
     </div>

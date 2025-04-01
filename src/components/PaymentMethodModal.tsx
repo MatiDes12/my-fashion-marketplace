@@ -44,10 +44,25 @@ interface PaymentSettings {
   };
 }
 
+interface Product {
+  id: string;
+  quantity: number;
+  price: number;
+  owner: {
+    id: string;
+    store_settings?: {
+      phone?: string;
+    };
+  };
+  delivery_method: 'home_delivery' | 'store_pickup';
+  delivery_address: any; // Or create a proper type for the address
+}
+
 interface SellerProduct {
   id: string;
   title: string;
   price: number;
+  quantity: number;
   owner: {
     id: string;
     full_name: string;
@@ -62,14 +77,30 @@ interface SellerProduct {
 interface SellerOrder {
   sellerId: string;
   sellerName: string;
-  product: SellerProduct;
-  quantity: number;
+  products: {
+    id: string;
+    title: string;
+    price: number;
+    quantity: number;
+    images?: any[];
+    delivery_method: 'home_delivery' | 'store_pickup';
+    delivery_address: any;
+    owner: {
+      id: string;
+      full_name: string;
+      store_settings?: {
+        name?: string;
+        phone?: string;
+      };
+      payment_settings?: PaymentSettings;
+    };
+  }[];
+  subtotal: number;
   total: number;
   platformFee: number;
   serviceFee: number;
   ethiopiaTax: number;
   deliveryFee: number;
-  // ... other fields
 }
 
 const paymentMethods: PaymentMethod[] = [
@@ -167,6 +198,45 @@ const updateProductQuantity = async (productId: string, orderedQuantity: number)
   }
 };
 
+// Add this function at the top level
+const pollPaymentStatus = async (txRef: string, maxAttempts = 10) => {
+  console.log('[PAYMENT POLLING] Starting payment status polling for:', txRef);
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const response = await fetch(`/api/payments/chapa/verify?tx_ref=${txRef}`);
+      const data = await response.json();
+      
+      console.log(`[PAYMENT POLLING] Attempt ${i + 1}:`, data);
+      
+      if (data.status === 'success') {
+        console.log('[PAYMENT POLLING] Payment verified successfully');
+        return true;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between attempts
+    } catch (error) {
+      console.error('[PAYMENT POLLING] Error:', error);
+    }
+  }
+  
+  return false;
+};
+
+// Add this function at the top level
+const getCartItemDetails = async (userId: string, productId: string) => {
+  const supabase = createClientComponent();
+  const { data, error } = await supabase
+    .from('cart_items')
+    .select('delivery_method, delivery_address, delivery_fee')
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
 export default function PaymentMethodModal({
   isOpen,
   onClose,
@@ -193,7 +263,7 @@ export default function PaymentMethodModal({
 
     // Get the first seller's payment settings
     const seller = sellers[0];
-    const paymentSettings = seller.product?.owner?.payment_settings;
+    const paymentSettings = seller.products[0]?.owner?.payment_settings;
 
     console.log('Payment Settings:', paymentSettings); // Add this for debugging
 
@@ -221,63 +291,79 @@ export default function PaymentMethodModal({
         const supabase = createClientComponent();
         const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // First create the order
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            user_id: userDetails?.id,
-            product_id: sellers[0].product.id,
-            quantity: sellers[0].quantity,
-            total_price: sellers[0].total,
-            platform_fee: sellers[0].platformFee,
-            service_fee: sellers[0].serviceFee,
-            ethiopia_tax: sellers[0].ethiopiaTax,
-            delivery_fee: sellers[0].deliveryFee,
-            order_status: 'pending',
-            payment_status: 'pending',
-            payment_reference: txRef,
-            tx_ref: txRef
-          })
-          .select()
-          .single();
+        // Process each seller's orders
+        for (const seller of sellers) {
+          for (const product of seller.products) {
+            // Get delivery info from cart_items
+            const cartItemDetails = await getCartItemDetails(userDetails?.id!, product.id);
+            
+            const itemSubtotal = product.quantity * product.price;
+            const serviceFee = itemSubtotal * 0.03;
+            const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
+            const itemTotal = itemSubtotal + itemDeliveryFee;
 
-        if (orderError) throw orderError;
+            // Create order with cart delivery info
+            const { data: order, error: orderError } = await supabase
+              .from('orders')
+              .insert({
+                user_id: userDetails?.id,
+                product_id: product.id,
+                quantity: product.quantity,
+                total_price: itemTotal,
+                platform_fee: 0,
+                service_fee: serviceFee,
+                ethiopia_tax: 0,
+                delivery_fee: itemDeliveryFee,
+                order_status: 'confirmed',
+                payment_status: 'pending',
+                payment_reference: txRef,
+                tx_ref: txRef,
+                receipt_url: `/api/receipts/cash/${txRef}`,
+                delivery_method: cartItemDetails.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+                delivery_address: cartItemDetails.delivery_address,
+              })
+              .select()
+              .single();
 
-        // Then create the transaction record
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .insert({
-            order_id: order.id,
-            payment_method: 'CASH',
-            payment_status: 'pending',
-            subtotal: sellers[0].quantity * sellers[0].product.price,
-            vat_amount: sellers.reduce((sum, seller) => sum + seller.ethiopiaTax, 0),
-            platform_fee: sellers.reduce((sum, seller) => sum + seller.platformFee, 0),
-            service_fee: sellers.reduce((sum, seller) => sum + seller.serviceFee, 0),
-            delivery_fee: sellers.reduce((sum, seller) => sum + seller.deliveryFee, 0),
-            total_amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
-            seller_id: sellers[0].product.owner.id,
-            customer_name: userDetails?.full_name,
-            customer_email: userDetails?.email,
-            customer_phone: sellers[0].product.owner.store_settings?.phone || null,
-            seller_payout_amount: sellers[0].quantity * sellers[0].product.price - 
-              (sellers[0].platformFee + sellers[0].serviceFee + sellers[0].ethiopiaTax)
-          });
+            if (orderError) throw orderError;
 
-        if (transactionError) throw transactionError;
+            // Create transaction with pending status
+            const { error: transactionError } = await supabase
+              .from('transactions')
+              .insert({
+                order_id: order.id,
+                payment_method: 'CASH',
+                payment_status: 'pending',
+                subtotal: itemSubtotal,
+                platform_fee: 0,
+                service_fee: serviceFee,
+                vat_amount: 0,
+                delivery_fee: itemDeliveryFee,
+                total_amount: itemTotal,
+                seller_id: product.owner.id,
+                customer_name: userDetails?.full_name,
+                customer_email: userDetails?.email,
+                customer_phone: product.owner.store_settings?.phone || null,
+                seller_payout_amount: itemTotal - serviceFee,
+                seller_payout_status: 'pending',
+                platform_payout_status: 'pending'
+              });
 
-        // Update product quantities
-        await updateProductQuantity(sellers[0].product.id, sellers[0].quantity);
+            if (transactionError) throw transactionError;
+          }
+        }
 
         // Clear cart after successful order creation
         if (userDetails?.id) {
           await clearCart(userDetails.id);
         }
 
-        // Close modal and redirect to orders page with tx_ref
+        // Close modal
         onClose();
         toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
-        router.push(`/orders?payment_success=true&tx_ref=${txRef}`);
+        
+        // Redirect to receipt page first
+        window.location.href = `/api/receipts/cash/${txRef}?redirect=/orders?payment_success=true%26tx_ref=${txRef}`;
 
       } catch (error) {
         console.error('Order creation error:', error);
@@ -319,7 +405,9 @@ export default function PaymentMethodModal({
         // After successful payment (in both CHAPA and TELEBIRR cases)
         // Update product quantities
         for (const seller of sellers) {
-          await updateProductQuantity(seller.product.id, seller.quantity);
+          for (const product of seller.products) {
+            await updateProductQuantity(product.id, product.quantity);
+          }
         }
         
         // Clear cart after successful payment
@@ -356,34 +444,71 @@ export default function PaymentMethodModal({
       }
 
       setLocalProcessing(true);
-      const totalAmount = sellers.reduce((sum, seller) => sum + seller.total, 0);
+      const totalAmount = sellers.reduce((sum, seller) => 
+        sum + seller.subtotal + seller.deliveryFee, 0
+      );
       const txRef = `tx-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       
       const supabase = createClientComponent();
 
       // Create orders first
       for (const seller of sellers) {
-        const { error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            user_id: userDetails.id,
-            product_id: seller.product.id,
-            quantity: seller.quantity,
-            total_price: seller.total,
-            platform_fee: seller.platformFee,
-            service_fee: seller.serviceFee,
-            ethiopia_tax: seller.ethiopiaTax,
-            delivery_fee: seller.deliveryFee,
-            tx_ref: txRef,
-            payment_status: 'pending',
-            order_status: 'pending',
-            payment_reference: null,
-            receipt_url: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+        for (const product of seller.products) {
+          // Get delivery info from cart_items
+          const cartItemDetails = await getCartItemDetails(userDetails.id, product.id);
+          
+          const itemSubtotal = product.quantity * product.price;
+          const serviceFee = itemSubtotal * 0.03;
+          const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
+          const itemTotal = itemSubtotal + itemDeliveryFee;
 
-        if (orderError) throw orderError;
+          // First create the order
+          const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+              user_id: userDetails.id,
+              product_id: product.id,
+              quantity: product.quantity,
+              total_price: itemTotal,
+              platform_fee: 0,
+              service_fee: serviceFee,
+              ethiopia_tax: 0,
+              delivery_fee: itemDeliveryFee,
+              tx_ref: txRef,
+              payment_status: 'pending',
+              order_status: 'pending',
+              payment_reference: null,
+              receipt_url: null,
+              delivery_method: cartItemDetails.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+              delivery_address: cartItemDetails.delivery_address,
+            })
+            .select()
+            .single();
+
+          if (orderError) throw orderError;
+
+          // Then create the transaction
+          const { error: transactionError } = await supabase
+            .from('transactions')
+            .insert({
+              order_id: order.id,
+              payment_method: 'CHAPA',
+              payment_status: 'pending',
+              subtotal: itemSubtotal,
+              platform_fee: 0,
+              service_fee: serviceFee,
+              vat_amount: 0,
+              delivery_fee: itemDeliveryFee,
+              total_amount: itemTotal,
+              seller_id: product.owner.id,
+              customer_name: userDetails.full_name,
+              customer_email: userDetails.email,
+              customer_phone: product.owner.store_settings?.phone || null,
+              seller_payout_amount: itemTotal - serviceFee
+            });
+
+          if (transactionError) throw transactionError;
+        }
       }
 
       // Initialize Chapa payment
@@ -395,7 +520,7 @@ export default function PaymentMethodModal({
           email: userDetails.email,
           tx_ref: txRef,
           callback_url: `${window.location.origin}/api/payments/chapa/callback`,
-          return_url: `${window.location.origin}/orders?payment_success=true&tx_ref=${txRef}`,
+          return_url: `${window.location.origin}/api/payments/chapa/callback?trx_ref=${txRef}&status=success`,
           customization: {
             title: 'Order Payment',
             description: `Payment for order from ${sellers.length} sellers`
@@ -410,38 +535,17 @@ export default function PaymentMethodModal({
         localStorage.setItem('pendingPayment', JSON.stringify({
           tx_ref: txRef,
           amount: totalAmount,
-          items: sellers,
-          checkout_url: data.data.checkout_url
+          items: sellers
         }));
 
-        // Close modal first
+        // Close modal and clear cart
         onClose();
-
-        // Clear cart after storing order
         if (userDetails?.id) {
           await clearCart(userDetails.id);
         }
 
-        if (isMobile()) {
-          // Mobile: Open in new tab and show tracking
-          const newWindow = window.open(data.data.checkout_url, '_blank');
-          
-          if (!newWindow) {
-            const link = document.createElement('a');
-            link.href = data.data.checkout_url;
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.click();
-          }
-
-          setTimeout(() => {
-            router.push(`/payment/mobile-tracking?tx_ref=${txRef}`);
-          }, 100);
-        } else {
-          // Desktop: Use current window
-          window.location.href = data.data.checkout_url;
-          // No need to redirect to orders page as Chapa callback will handle it
-        }
+        // Redirect to Chapa checkout
+        window.location.href = data.data.checkout_url;
       } else {
         throw new Error(data.message || 'Payment initialization failed');
       }
@@ -490,42 +594,59 @@ export default function PaymentMethodModal({
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Order Summary</h4>
                     {sellers?.map((seller) => (
-                      <div key={seller.product.id || 'temp-key'} className="mb-4 border rounded-lg p-4">
-                        <div className="flex justify-between mb-2">
-                          <div>
-                            <span className="font-medium">
-                              {seller?.product?.title || 'Product'}
-                            </span>
-                            <p className="text-sm text-gray-500">
-                              Quantity: {seller?.quantity || 0}
-                            </p>
-                          </div>
+                      <div key={seller.sellerId} className="mb-4 border rounded-lg p-4">
+                        {seller.sellerName && (
+                          <p className="text-sm font-medium text-gray-700 mb-2">
+                            Seller: {seller.sellerName}
+                          </p>
+                        )}
+                        
+                        {/* Products list */}
+                        <div className="space-y-2 mb-4">
+                          {seller.products.map((product) => (
+                            <div key={product.id} className="flex justify-between items-center">
+                              <div>
+                                <span className="font-medium">
+                                  {product.title}
+                                </span>
+                                <p className="text-sm text-gray-500">
+                                  Quantity: {product.quantity}
+                                </p>
+                              </div>
+                              <span className="text-gray-600">
+                                ETB {(product.price * product.quantity).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                         
-                        <div className="space-y-1 text-sm">
+                        {/* Fee breakdown */}
+                        <div className="space-y-1 text-sm border-t pt-2">
                           <div className="flex justify-between">
                             <span className="text-gray-500">Subtotal</span>
-                            <span>ETB {((seller?.quantity || 0) * (seller?.product?.price || 0)).toFixed(2)}</span>
+                            <span>ETB {seller.subtotal.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Platform Fee (5%)</span>
-                            <span>ETB {(seller?.platformFee || 0).toFixed(2)}</span>
+                            <span className="text-gray-500">Platform Fee</span>
+                            <span>ETB 0.00</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">Service Fee (2%)</span>
-                            <span>ETB {(seller?.serviceFee || 0).toFixed(2)}</span>
+                            <span className="text-gray-500">Service Fee</span>
+                            <span>ETB 0.00</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">VAT (15%)</span>
-                            <span>ETB {(seller?.ethiopiaTax || 0).toFixed(2)}</span>
+                            <span className="text-gray-500">VAT</span>
+                            <span>ETB 0.00</span>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500">Delivery Fee</span>
-                            <span>ETB {(seller?.deliveryFee || 0).toFixed(2)}</span>
-                          </div>
+                          {seller.deliveryFee > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">Delivery Fee</span>
+                              <span>ETB {seller.deliveryFee.toFixed(2)}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between pt-2 border-t font-medium">
                             <span>Total</span>
-                            <span>ETB {(seller?.total || 0).toFixed(2)}</span>
+                            <span>ETB {(seller.subtotal + seller.deliveryFee).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -534,7 +655,9 @@ export default function PaymentMethodModal({
                     <div className="border-t pt-4 mt-4">
                       <div className="flex justify-between font-medium text-lg">
                         <span>Grand Total</span>
-                        <span>ETB {sellers.reduce((sum, seller) => sum + seller.total, 0).toFixed(2)}</span>
+                        <span>ETB {sellers.reduce((sum, seller) => 
+                          sum + seller.subtotal + seller.deliveryFee, 0
+                        ).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

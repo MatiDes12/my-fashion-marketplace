@@ -219,7 +219,7 @@ export default withSellerVerification(function DashboardPage() {
           return orderDate.getMonth() === now.getMonth() &&
                  orderDate.getFullYear() === now.getFullYear();
         })
-        .reduce((sum, order) => sum + order.total_price, 0);
+        .reduce((sum, order) => sum + (order.total_price || 0), 0);
 
       setStats({
         totalProducts: products.length,
@@ -377,11 +377,7 @@ export default withSellerVerification(function DashboardPage() {
                 <div className="ml-3">
                   <p className="text-sm text-red-100">Monthly Revenue</p>
                   <p className="text-2xl font-bold text-white">
-                    {stats.monthlyRevenue.toLocaleString('en-ET', {
-                      style: 'currency',
-                      currency: 'ETB',
-                      minimumFractionDigits: 2
-                    })}
+                    {formatCurrency(stats.monthlyRevenue)}
                   </p>
                 </div>
               </div>
@@ -426,11 +422,7 @@ export default withSellerVerification(function DashboardPage() {
                       </span>
                     </div>
                     <div className="ml-4 text-sm font-medium text-gray-900">
-                      {order.total_price.toLocaleString('en-ET', {
-                        style: 'currency',
-                        currency: 'ETB',
-                        minimumFractionDigits: 2
-                      })}
+                      {formatCurrency(order.total_price)}
                     </div>
                   </div>
                 ))}
@@ -473,11 +465,7 @@ export default withSellerVerification(function DashboardPage() {
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-medium text-gray-900">{product.title}</p>
                             <p className="text-sm font-medium text-red-600">
-                              {product.price.toLocaleString('en-ET', {
-                                style: 'currency',
-                                currency: 'ETB',
-                                minimumFractionDigits: 2
-                              })}
+                              {formatCurrency(product.price)}
                             </p>
                           </div>
                           <div className="flex items-center text-sm text-gray-500">

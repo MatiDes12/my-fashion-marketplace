@@ -17,57 +17,14 @@ const supabase = createClient(
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const tx_ref = searchParams.get('trx_ref');
+  const tx_ref = searchParams.get('trx_ref') || searchParams.get('tx_ref');
   const status = searchParams.get('status');
 
+  console.log('[CHAPA CALLBACK] Starting callback processing:', { tx_ref, status });
+
   try {
-    console.log('[CHAPA CALLBACK] Starting callback processing:', { tx_ref, status });
-
-    if (!tx_ref || status !== 'success') {
-      throw new Error('Invalid callback parameters');
-    }
-
-    // First, get the order to get customer name and owner's phone
-    let { data: orders, error: ordersError } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        customer:users!orders_user_id_fkey (
-          id,
-          full_name,
-          email,
-          store_settings
-        ),
-        product:products (
-          id,
-          owner:users (
-            id,
-            store_settings
-          )
-        )
-      `)
-      .eq('tx_ref', tx_ref)
-      .single();
-
-    if (ordersError || !orders) {
-      throw new Error('Order not found');
-    }
-
-    // Split customer name
-    const fullName = orders.customer?.full_name || 'Unknown Customer';
-    const [firstName, ...lastNameParts] = fullName.split(' ');
-    const lastName = lastNameParts.join(' ') || 'Unknown';
-
-    // Get owner's alternative phone
-    let customerPhone = null;
-    if (orders.product?.owner?.store_settings) {
-      const ownerSettings = orders.product.owner.store_settings;
-      if (typeof ownerSettings === 'string') {
-        const settings = JSON.parse(ownerSettings);
-        customerPhone = settings.alternativePhone;
-      } else {
-        customerPhone = ownerSettings.alternativePhone;
-      }
+    if (!tx_ref) {
+      throw new Error('Missing transaction reference');
     }
 
     // Verify with Chapa
@@ -83,65 +40,71 @@ export async function GET(request: Request) {
 
     if (verifyResponse.ok && verifyData.status === 'success') {
       const reference = verifyData.data?.reference;
-      const receiptUrl = verifyData.data?.receipt_url || 
-                        verifyData.data?.receipt ||
-                        (reference ? `https://checkout.chapa.co/checkout/test-payment-receipt/${reference}` : null);
+      const receiptUrl = reference 
+        ? `https://checkout.chapa.co/checkout/test-payment-receipt/${reference}`
+        : null;
 
-      // Calculate fees
-      const platformFee = orders.platform_fee || 0;    // 5%
-      const serviceFee = orders.service_fee || 0;      // 2%
-      const vatAmount = orders.ethiopia_tax || 0;      // 15%
-      const deliveryFee = orders.delivery_fee || 0;
-      const sellerAmount = orders.total_price - (platformFee + serviceFee + vatAmount + deliveryFee);
-
-      // Create transaction record
-      const { error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          order_id: orders.id,
-          payment_method: 'CHAPA',
-          payment_status: 'paid',
-          subtotal: orders.total_price,
-          vat_amount: vatAmount,
-          platform_fee: platformFee,
-          service_fee: serviceFee,
-          delivery_fee: deliveryFee,
-          total_amount: orders.total_price,
-          seller_id: orders.product?.owner?.id,
-          seller_payout_amount: sellerAmount,
-          platform_revenue: platformFee + serviceFee,
-          seller_payout_status: 'pending',     // Waiting for admin approval
-          platform_payout_status: 'completed', // Platform fees already received
-          customer_name: fullName,
-          customer_email: orders.customer?.email,
-          customer_phone: customerPhone
-        });
-
-      if (transactionError) {
-        console.error('[CHAPA CALLBACK] Transaction error:', transactionError);
-        throw transactionError;
-      }
-
-      // Update orders
-      const { error: updateError } = await supabase
+      // Get orders
+      const { data: orders, error: ordersError } = await supabase
         .from('orders')
-        .update({ 
-          payment_status: 'paid',
-          order_status: 'confirmed',
-          payment_reference: reference,
-          receipt_url: receiptUrl,
-          updated_at: new Date().toISOString()
-        })
+        .select(`
+          *,
+          customer:users!orders_user_id_fkey (
+            id,
+            full_name,
+            email,
+            store_settings
+          ),
+          product:products (
+            id,
+            owner:users (
+              id,
+              store_settings
+            )
+          )
+        `)
         .eq('tx_ref', tx_ref);
 
-      if (updateError) {
-        console.error('[CHAPA CALLBACK] Update error:', updateError);
-        throw updateError;
+      if (ordersError || !orders?.length) {
+        throw new Error('Orders not found');
       }
 
-      console.log('[CHAPA CALLBACK] Order and transaction updated successfully');
+      // Process each order
+      for (const order of orders) {
+        // Update order status
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ 
+            payment_status: 'paid',
+            order_status: 'confirmed',
+            payment_reference: reference,
+            receipt_url: receiptUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', order.id);
 
-      // Redirect to orders page
+        if (updateError) {
+          console.error('[CHAPA CALLBACK] Error updating order:', updateError);
+        }
+
+        // Update transaction status
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .update({
+            payment_status: 'paid',
+            platform_payout_status: 'completed',
+            seller_payout_status: 'pending',
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', order.id);
+
+        if (transactionError) {
+          console.error('[CHAPA CALLBACK] Error updating transaction:', transactionError);
+        }
+      }
+
+      console.log('[CHAPA CALLBACK] Successfully processed all orders and transactions');
+
       return new Response(null, {
         status: 302,
         headers: {
@@ -151,6 +114,7 @@ export async function GET(request: Request) {
     }
 
     throw new Error('Payment verification failed');
+
   } catch (error) {
     console.error('[CHAPA CALLBACK] Error:', error);
     return new Response(null, {

@@ -15,11 +15,11 @@ export function convertUSDtoETB(usdAmount: number): number {
 /**
  * Format a number as Ethiopian Birr (ETB) currency
  */
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-ET', {
+export const formatCurrency = (amount: number | null | undefined): string => {
+  const value = amount ?? 0;
+  return value.toLocaleString('en-ET', {
     style: 'currency',
     currency: 'ETB',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount);
+    minimumFractionDigits: 2
+  });
 }; 

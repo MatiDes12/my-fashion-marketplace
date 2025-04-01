@@ -12,6 +12,28 @@ import AddressSelectionModal from '@/components/AddressSelectionModal';
 import StoreLocationMap from '@/components/StoreLocationMap';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
+interface CartItem {
+  id: string;
+  delivery_method: 'home_delivery' | 'store_pickup';
+  product: {
+    id: string;
+    title: string;
+    price: number;
+    owner: {
+      store_settings?: {
+        address?: {
+          street?: string;
+          city?: string;
+          subCity?: string;
+          wereda?: string;
+          kebele?: string;
+        }
+      }
+    }
+  };
+  quantity: number;
+}
+
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -201,6 +223,7 @@ export default function CartPage() {
     let subtotal = 0;
     let deliveryFee = 0;
     let serviceFee = 0;
+    let vat = 0;
 
     cartItems.forEach(item => {
       const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
@@ -211,17 +234,21 @@ export default function CartPage() {
         deliveryFee += (item.product.delivery_fee || 0);
       }
 
-      // Calculate service fee (3%)
-      serviceFee += itemSubtotal * 0.03;
+      // Service fee is now 0% for customers
+      serviceFee = 0;
+      
+      // VAT at 0%
+      vat = 0;
     });
 
     // Calculate total
-    const total = subtotal + deliveryFee + serviceFee;
+    const total = subtotal + deliveryFee + serviceFee + vat;
 
     return {
       subtotal,
       deliveryFee,
       serviceFee,
+      vat,
       total
     };
   };
@@ -258,18 +285,26 @@ export default function CartPage() {
   
   const handleDeliveryMethodSelect = async (itemId: string, method: 'delivery' | 'pickup') => {
     try {
-      // Update local state
-      setSelectedDeliveryMethods(prev => ({
-        ...prev,
-        [itemId]: method
-      }));
+      // Get the cart item
+      const cartItem = cartItems.find(item => item.id === itemId);
+      if (!cartItem) return;
+
+      // Determine the address based on delivery method
+      let deliveryAddress = null;
+      if (method === 'delivery') {
+        // Use user's delivery address
+        deliveryAddress = userAddress;
+      } else if (method === 'pickup') {
+        // Use store's address
+        deliveryAddress = cartItem.product.owner?.store_settings?.address;
+      }
 
       // Update database
       const { error } = await supabase
         .from('cart_items')
         .update({ 
           delivery_method: method,
-          // Only set delivery fee if delivery is selected
+          delivery_address: deliveryAddress,
           delivery_fee: method === 'delivery' ? 
             cartItems.find(item => item.id === itemId)?.product.delivery_fee || 0 : 
             0
@@ -278,42 +313,27 @@ export default function CartPage() {
 
       if (error) throw error;
 
-      // If delivery is selected and we don't have user's address, fetch it
-      if (method === 'delivery') {
-        if (!userAddress) {
-          await fetchUserAddress();
-        }
+      // Update local state
+      setSelectedDeliveryMethods(prev => ({
+        ...prev,
+        [itemId]: method
+      }));
 
-        // If we have the address, update cart item with it
-        if (userAddress) {
-          setCartItems(prev => prev.map(item => 
-            item.id === itemId
-              ? { ...item, deliveryAddress: userAddress }
-              : item
-          ));
-        } else {
-          // If no address, show the modal
-          setActiveProductId(itemId);
-          setShowAddressModal(true);
-        }
-      } else {
-        // If switching to pickup, remove delivery address
-        setCartItems(prev => prev.map(item => 
-          item.id === itemId
-            ? { ...item, deliveryAddress: undefined }
-            : item
-        ));
-      }
+      // Update cart items with new delivery address
+      setCartItems(prev => prev.map(item => 
+        item.id === itemId
+          ? { 
+              ...item, 
+              delivery_method: method,
+              delivery_address: deliveryAddress,
+              delivery_fee: method === 'delivery' ? item.product.delivery_fee || 0 : 0
+            }
+          : item
+      ));
 
     } catch (err) {
       console.error('Error updating delivery method:', err);
       toast.error('Failed to update delivery method');
-      // Revert local state on error
-      setSelectedDeliveryMethods(prev => {
-        const newState = { ...prev };
-        delete newState[itemId];
-        return newState;
-      });
     }
   };
 
@@ -338,6 +358,22 @@ export default function CartPage() {
       default:
         return time;
     }
+  };
+
+  // When creating the order, include the delivery information
+  const createOrder = async (cartItem: CartItem) => {
+    const { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        // ... existing order fields ...
+        delivery_method: cartItem.delivery_method,
+        delivery_address: cartItem.delivery_method === 'home_delivery'
+          ? userAddress // Use existing userAddress state
+          : cartItem.product.owner?.store_settings?.address, // Use store address from product owner
+        delivery_fee: cartItem.delivery_method === 'home_delivery' ? 12.00 : 0,
+      })
+      .select()
+      .single();
   };
 
   return (
@@ -513,63 +549,35 @@ export default function CartPage() {
                                       className="h-4 w-4 text-green-600 focus:ring-green-500"
                                     />
                                     <label htmlFor={`delivery-${item.id}`} className="text-sm text-gray-700">
-                                      Home Delivery
-                                      {item.product.delivery_fee ? (
-                                        <span className="ml-1 text-gray-500">
-                                          (ETB {item.product.delivery_fee.toFixed(2)})
-                                        </span>
-                                      ) : (
-                                        <span className="ml-1 text-green-600">(Free)</span>
-                                      )}
+                                      Home Delivery (ETB {item.product.delivery_fee?.toFixed(2) || '0.00'})
                                     </label>
                                   </div>
 
+                                  {/* Show delivery address when home delivery is selected */}
                                   {selectedDeliveryMethods[item.id] === 'delivery' && (
                                     <div className="ml-7 mt-2">
-                                      {/* Delivery Time */}
-                                      {item.product.delivery_options?.delivery_time && (
-                                        <div className="mb-2">
-                                          <p className="text-sm text-gray-600">
-                                            Estimated delivery time: {getDeliveryTimeText(item.product.delivery_options.delivery_time)}
-                                          </p>
-                                        </div>
-                                      )}
-
-                                      {/* Address Section */}
-                                      {item.deliveryAddress ? (
+                                      {item.delivery_address ? (
                                         <div className="bg-gray-50 p-3 rounded-lg">
                                           <div className="flex justify-between items-start">
                                             <div>
-                                              {console.log('Trying to get full address:', item.deliveryAddress)}
-                                              {getFullAddress(item.deliveryAddress) && (
-                                                <p className="text-sm text-gray-900 font-medium">
-                                                  {getFullAddress(item.deliveryAddress)}
+                                              <p className="text-sm text-gray-900">Delivery Address:</p>
+                                              {/* Handle numbered array format */}
+                                              {Object.keys(item.delivery_address).some(key => !isNaN(Number(key))) ? (
+                                                <p className="text-sm text-gray-600">
+                                                  {getFullAddress(item.delivery_address)}
                                                 </p>
-                                              )}
-                                              <p className="text-sm text-gray-900">
-                                                {item.deliveryAddress.subCity}, {item.deliveryAddress.city}
+                                              ) : null}
+                                              <p className="text-sm text-gray-600">
+                                                {item.delivery_address.city}
                                               </p>
                                               <p className="text-sm text-gray-500">
-                                                Wereda {item.deliveryAddress.wereda}, Kebele {item.deliveryAddress.kebele}
+                                                Wereda {item.delivery_address.wereda}, 
+                                                Kebele {item.delivery_address.kebele}
                                               </p>
-                                              <p className="text-sm text-gray-500">
-                                                House No: {item.deliveryAddress.houseNo}
-                                              </p>
-                                              {item.deliveryAddress.landmark && (
+                                              {item.delivery_address.houseNo && (
                                                 <p className="text-sm text-gray-500">
-                                                  Landmark: {item.deliveryAddress.landmark}
+                                                  House No: {item.delivery_address.houseNo}
                                                 </p>
-                                              )}
-                                              {item.deliveryAddress.mapLink && (
-                                                <a
-                                                  href={item.deliveryAddress.mapLink}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className="inline-flex items-center text-sm text-green-600 hover:text-green-700 mt-1"
-                                                >
-                                                  <span>View on Google Maps</span>
-                                                  <ArrowTopRightOnSquareIcon className="ml-1 h-4 w-4" />
-                                                </a>
                                               )}
                                             </div>
                                             <button
@@ -685,8 +693,13 @@ export default function CartPage() {
                       : []
                     ),
                     { 
-                      label: 'Service Fee (3%)',
+                      label: 'Service Fee (0%)',
                       value: fees.serviceFee,
+                      className: 'text-gray-600'
+                    },
+                    {
+                      label: 'VAT (0%)',
+                      value: fees.vat,
                       className: 'text-gray-600'
                     }
                   ].map((item, index) => (

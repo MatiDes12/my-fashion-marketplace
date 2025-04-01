@@ -73,14 +73,24 @@ export default function OrdersPage() {
   
   useEffect(() => {
     if (paymentSuccess === 'true' && tx_ref) {
-      toast.success('Payment successful! Your order has been placed.');
+      if (tx_ref.startsWith('CASH-')) {
+        toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
+      } else {
+        toast.success('Payment successful! Your order has been placed.');
+      }
     }
   }, [paymentSuccess, tx_ref]);
   
-  // Add polling for desktop payment completion
+  // Update the useEffect for payment verification
   useEffect(() => {
     const tx_ref = searchParams.get('tx_ref');
     if (!tx_ref || isPaymentConfirmed) return;
+
+    // Don't poll for cash payments
+    if (tx_ref.startsWith('CASH-')) {
+      setIsPaymentConfirmed(true);
+      return;
+    }
 
     const checkPaymentStatus = async () => {
       try {
@@ -102,6 +112,7 @@ export default function OrdersPage() {
       }
     };
 
+    // Only set up polling for non-cash payments
     const pollInterval = setInterval(checkPaymentStatus, 3000);
 
     return () => {
