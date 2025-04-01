@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -6,10 +6,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET(request: Request) {
+// Add export config to explicitly mark this as a dynamic route
+export const dynamic = 'force-dynamic';
+
+// Use NextRequest instead of Request
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const tx_ref = searchParams.get('tx_ref');
+    // Use NextRequest's nextUrl property instead of URL constructor
+    const tx_ref = request.nextUrl.searchParams.get('tx_ref');
 
     if (!tx_ref) {
       throw new Error('Missing transaction reference');

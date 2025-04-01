@@ -257,54 +257,69 @@ export default function CartPage() {
   const fees = calculateFees();
   
   const getFullAddress = (address: any) => {
-    // Debug logs
-    console.log('Input address:', address);
-    
-    if (!address || !('0' in address)) {
-      console.log('No numbered address found');
+    if (!address) {
       return null;
     }
-    
-    const numberedKeys = Object.keys(address).filter(key => !isNaN(Number(key)));
-    console.log('Numbered keys:', numberedKeys);
-    
-    const sortedKeys = numberedKeys.sort((a, b) => Number(a) - Number(b));
-    console.log('Sorted keys:', sortedKeys);
-    
-    const addressChars = sortedKeys.map(key => {
-      console.log(`Key ${key}:`, address[key]);
-      return address[key];
-    });
-    console.log('Address chars:', addressChars);
-    
-    const result = addressChars.join('');
-    console.log('Final result:', result);
-    
-    return result;
+
+    // If address is a string, try to parse it
+    const addressObj = typeof address === 'string' ? JSON.parse(address) : address;
+
+    // Handle numbered street address first
+    let streetNumber = '';
+    if (Object.keys(addressObj).some(key => !isNaN(Number(key)))) {
+      streetNumber = Object.keys(addressObj)
+        .filter(key => !isNaN(Number(key)))
+        .sort((a, b) => Number(a) - Number(b))
+        .map(key => addressObj[key])
+        .join('');
+    }
+
+    // Format the address components
+    const addressParts = [
+      streetNumber,                                    // Street number and name
+      addressObj.city,                                // City
+      addressObj.subCity,                             // Sub-city
+      addressObj.wereda && `Wereda ${addressObj.wereda}`,    // Wereda
+      addressObj.kebele && `Kebele ${addressObj.kebele}`,    // Kebele
+      addressObj.houseNo && `House No: ${addressObj.houseNo}`, // House number
+      addressObj.landmark && `Near ${addressObj.landmark}`     // Landmark
+    ].filter(Boolean);
+
+    // Group Wereda and Kebele together
+    const formattedAddress = addressParts.reduce((acc: string[], part, index) => {
+      if (part.startsWith('Wereda') && index + 1 < addressParts.length && addressParts[index + 1].startsWith('Kebele')) {
+        acc.push(`${part}, ${addressParts[index + 1]}`);
+        addressParts[index + 1] = ''; // Mark the Kebele part as used
+      } else if (part !== '') {
+        acc.push(part);
+      }
+      return acc;
+    }, []);
+
+    return formattedAddress.join('\n');
   };
   
   const handleDeliveryMethodSelect = async (itemId: string, method: 'delivery' | 'pickup') => {
     try {
-      // Get the cart item
       const cartItem = cartItems.find(item => item.id === itemId);
       if (!cartItem) return;
 
       // Determine the address based on delivery method
       let deliveryAddress = null;
       if (method === 'delivery') {
-        // Use user's delivery address
+        // Store address as an object, not a string
         deliveryAddress = userAddress;
       } else if (method === 'pickup') {
-        // Use store's address
         deliveryAddress = cartItem.product.owner?.store_settings?.address;
       }
 
-      // Update database
+      // Update database with stringified address
       const { error } = await supabase
         .from('cart_items')
         .update({ 
           delivery_method: method,
-          delivery_address: deliveryAddress,
+          delivery_address: typeof deliveryAddress === 'object' ? 
+            JSON.stringify(deliveryAddress) : deliveryAddress,
           delivery_fee: method === 'delivery' ? 
             cartItems.find(item => item.id === itemId)?.product.delivery_fee || 0 : 
             0
@@ -313,19 +328,18 @@ export default function CartPage() {
 
       if (error) throw error;
 
-      // Update local state
+      // Update local state with object address
       setSelectedDeliveryMethods(prev => ({
         ...prev,
         [itemId]: method
       }));
 
-      // Update cart items with new delivery address
       setCartItems(prev => prev.map(item => 
         item.id === itemId
           ? { 
               ...item, 
               delivery_method: method,
-              delivery_address: deliveryAddress,
+              delivery_address: deliveryAddress, // Keep as object in state
               delivery_fee: method === 'delivery' ? item.product.delivery_fee || 0 : 0
             }
           : item
@@ -377,14 +391,14 @@ export default function CartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-24">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-16 sm:pt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
-        {/* Cart Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-bold text-gray-900">Shopping Cart</h1>
+        {/* Cart Header - Make it stack on mobile */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Shopping Cart</h1>
           <button
             onClick={() => router.push('/products')}
-            className="flex items-center text-green-600 hover:text-green-700 transition-colors"
+            className="inline-flex items-center text-green-600 hover:text-green-700 transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
@@ -420,16 +434,16 @@ export default function CartPage() {
             </button>
           </div>
         ) : (
-          <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start">
+          <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start space-y-8 lg:space-y-0">
             {/* Cart Items Section */}
             <div className="lg:col-span-8">
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <ul role="list" className="divide-y divide-gray-100">
                   {cartItems.map((item) => (
-                    <li key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex gap-6">
+                    <li key={item.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
+                      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                         {/* Product Image */}
-                        <div className="flex-shrink-0 w-32 h-32 bg-gray-100 rounded-lg overflow-hidden">
+                        <div className="w-full sm:w-32 h-48 sm:h-32 bg-gray-100 rounded-lg overflow-hidden">
                           {item.product?.images && item.product.images.length > 0 ? (
                             <Image
                               src={item.product.images[0].image_url}
@@ -447,11 +461,11 @@ export default function CartPage() {
                           )}
                         </div>
 
-                        {/* Product Details */}
+                        {/* Product Details - Stack on mobile */}
                         <div className="flex-1 flex flex-col">
-                          <div className="flex justify-between">
+                          <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-0">
                             <div>
-                              <h3 className="text-xl font-medium text-gray-900 mb-1">
+                              <h3 className="text-lg sm:text-xl font-medium text-gray-900 mb-1">
                                 <button 
                                   onClick={() => router.push(`/products/${item.product.id}`)}
                                   className="hover:text-green-600 transition-colors"
@@ -459,8 +473,8 @@ export default function CartPage() {
                                   {item.product.title}
                                 </button>
                               </h3>
-                              {/* Price Display */}
-                              <div className="flex items-baseline gap-2 mb-4">
+                              {/* Price Display - Adjust spacing for mobile */}
+                              <div className="flex flex-wrap items-baseline gap-2 mb-4">
                                 {item.flash_sale_price ? (
                                   <>
                                     <span className="text-2xl font-bold text-red-600">
@@ -482,9 +496,9 @@ export default function CartPage() {
                             </div>
                           </div>
 
-                          {/* Quantity Controls and Subtotal */}
-                          <div className="mt-auto flex items-end justify-between">
-                            <div className="flex items-center gap-4">
+                          {/* Quantity Controls and Subtotal - Stack on mobile */}
+                          <div className="mt-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 sm:gap-0">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                               <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden">
                                 <button
                                   onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -510,17 +524,13 @@ export default function CartPage() {
                               </div>
                               <button
                                 onClick={() => removeItem(item.id)}
-                                disabled={isUpdating[item.id]}
-                                className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors"
+                                className="text-sm font-medium text-red-600 hover:text-red-700"
                               >
-                                {isUpdating[item.id] && item.quantity === 0 ? (
-                                  <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  'Remove'
-                                )}
+                                Remove
                               </button>
                             </div>
-                            <div className="text-right">
+                            {/* Subtotal - Right align on desktop */}
+                            <div className="text-left sm:text-right">
                               <p className="text-sm text-gray-500 mb-1">Subtotal</p>
                               <p className="text-lg font-semibold text-gray-900">
                                 ETB {item.subtotal.toFixed(2)}
@@ -533,7 +543,7 @@ export default function CartPage() {
                             </div>
                           </div>
 
-                          {/* Delivery Method Selection */}
+                          {/* Delivery Method Selection - Full width on mobile */}
                           <div className="mt-4 border-t border-gray-100 pt-4">
                             <h4 className="text-sm font-medium text-gray-900">Delivery Method</h4>
                             <div className="mt-2 space-y-3">
@@ -672,9 +682,9 @@ export default function CartPage() {
               </div>
             </div>
 
-            {/* Order Summary Section */}
+            {/* Order Summary Section - Sticky on desktop, fixed bottom on mobile */}
             <div className="lg:col-span-4">
-              <div className="bg-white rounded-xl shadow-sm p-6 sticky top-24">
+              <div className="bg-white rounded-xl shadow-sm p-6 lg:sticky lg:top-24">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
                 
                 <div className="space-y-4">
@@ -721,7 +731,7 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  {/* Checkout Button */}
+                  {/* Checkout Button - Full width on mobile */}
                   <button
                     onClick={proceedToCheckout}
                     disabled={isCheckingOut || !Object.keys(selectedDeliveryMethods).length}
