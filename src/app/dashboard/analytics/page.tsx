@@ -6,72 +6,463 @@ import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { formatCurrency } from '@/utils/currency';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
+
+interface AnalyticsData {
+  revenueByMonth: {
+    labels: string[];
+    data: number[];
+  };
+  ordersByStatus: {
+    labels: string[];
+    data: number[];
+  };
+  paymentMethods: {
+    labels: string[];
+    data: number[];
+  };
+  summary: {
+    totalOrders: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+    pendingPayouts: number;
+  };
+  recentTransactions: Array<{
+    id: string;
+    created_at: string;
+    total_amount: number;
+    payment_status: string;
+    customer_name: string;
+  }>;
+}
 
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [timeRange, setTimeRange] = useState('30days'); // '7days', '30days', '90days', 'year'
   const router = useRouter();
   const supabase = createClientComponent();
 
   useEffect(() => {
-    const checkAccess = async () => {
+    fetchAnalyticsData();
+  }, [timeRange]);
+
+  const fetchAnalyticsData = async () => {
       try {
-        // Get session
+      setLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          router.push('/login?message=Please login to access the dashboard');
+        router.push('/login?message=Please login to access analytics');
           return;
         }
         
-        // Check role
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (error || data?.role !== 'owner') {
-          router.push('/');
-          return;
-        }
+      // Get date range
+      const now = new Date();
+      let startDate = new Date();
+      switch (timeRange) {
+        case '7days':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case '30days':
+          startDate.setDate(now.getDate() - 30);
+          break;
+        case '90days':
+          startDate.setDate(now.getDate() - 90);
+          break;
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+      }
+
+      // Fetch revenue by month
+      const { data: revenueData } = await supabase
+        .from('transactions')
+        .select(`
+          id,
+          created_at,
+          total_amount,
+          seller_payout_amount,
+          seller_payout_status,
+          payment_status,
+          customer_name
+        `)
+        .eq('seller_id', session.user.id)
+        .gte('created_at', startDate.toISOString())
+        .order('created_at');
+
+      // Fetch orders by status
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('id, order_status')
+        .eq('user_id', session.user.id)
+        .gte('created_at', startDate.toISOString());
+
+      // Fetch payment methods distribution
+      const { data: paymentsData } = await supabase
+        .from('transactions')
+        .select('payment_method')
+        .eq('seller_id', session.user.id)
+        .gte('created_at', startDate.toISOString());
+
+      // Process data for charts
+      const processedData = processAnalyticsData(revenueData, ordersData, paymentsData);
+      setAnalyticsData(processedData);
+
       } catch (error) {
-        setError('Failed to verify access permissions');
+      console.error('Error fetching analytics:', error);
+      setError('Failed to load analytics data');
       } finally {
         setLoading(false);
       }
     };
     
-    checkAccess();
-  }, [router]);
+  const processAnalyticsData = (revenueData: any[] | null, ordersData: any[] | null, paymentsData: any[] | null) => {
+    // Initialize data structures
+    const revenueByMonth: { labels: string[]; data: number[] } = {
+      labels: [],
+      data: []
+    };
+
+    // Process revenue by month
+    if (revenueData && revenueData.length > 0) {
+      const monthlyRevenue = revenueData.reduce((acc: { [key: string]: number }, item) => {
+        const date = new Date(item.created_at);
+        const monthYear = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+        acc[monthYear] = (acc[monthYear] || 0) + (item.total_amount || 0);
+        return acc;
+      }, {});
+
+      revenueByMonth.labels = Object.keys(monthlyRevenue);
+      revenueByMonth.data = Object.values(monthlyRevenue);
+    }
+
+    // Process orders by status
+    const ordersByStatus = {
+      labels: ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
+      data: [0, 0, 0, 0, 0]
+    };
+
+    if (ordersData && ordersData.length > 0) {
+      ordersData.forEach(order => {
+        switch (order.order_status) {
+          case 'pending':
+            ordersByStatus.data[0]++;
+            break;
+          case 'confirmed':
+            ordersByStatus.data[1]++;
+            break;
+          case 'shipped':
+            ordersByStatus.data[2]++;
+            break;
+          case 'delivered':
+            ordersByStatus.data[3]++;
+            break;
+          case 'cancelled':
+            ordersByStatus.data[4]++;
+            break;
+        }
+      });
+    }
+
+    // Process payment methods
+    const paymentMethodsMap = new Map<string, number>();
+    if (paymentsData && paymentsData.length > 0) {
+      paymentsData.forEach(payment => {
+        const method = payment.payment_method || 'Unknown';
+        paymentMethodsMap.set(method, (paymentMethodsMap.get(method) || 0) + 1);
+      });
+    }
+
+    const paymentMethods = {
+      labels: Array.from(paymentMethodsMap.keys()),
+      data: Array.from(paymentMethodsMap.values())
+    };
+
+    // Calculate summary metrics
+    const summary = {
+      totalOrders: ordersData?.length || 0,
+      totalRevenue: revenueData?.reduce((sum, item) => sum + (item.total_amount || 0), 0) || 0,
+      averageOrderValue: revenueData?.length ? 
+        (revenueData.reduce((sum, item) => sum + (item.total_amount || 0), 0) / revenueData.length) : 0,
+      pendingPayouts: revenueData?.reduce((sum, item) => {
+        if (item.seller_payout_status === 'pending') {
+          return sum + (item.seller_payout_amount || 0);
+        }
+        return sum;
+      }, 0) || 0
+    };
+
+    // Get recent transactions
+    const recentTransactions = (revenueData || [])
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5)
+      .map(transaction => ({
+        id: transaction.id,
+        created_at: transaction.created_at,
+        total_amount: transaction.total_amount || 0,
+        payment_status: transaction.payment_status || 'pending',
+        customer_name: transaction.customer_name || 'Anonymous'
+      }));
+
+    return {
+      revenueByMonth,
+      ordersByStatus,
+      paymentMethods,
+      summary,
+      recentTransactions
+    };
+  };
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage message={error} />;
 
   return (
     <div className="py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+        <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-gray-900">Analytics Dashboard</h1>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-8">
-        {loading ? (
-          <LoadingSpinner />
-        ) : error ? (
-          <ErrorMessage message={error} />
-        ) : (
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Analytics Coming Soon</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Our advanced analytics dashboard is currently under development.
-              </p>
-              <p className="mt-3 text-sm text-gray-500">
-                Check back soon for insights on your sales, customer behavior, and product performance.
-              </p>
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
+            className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            <option value="7days">Last 7 Days</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="90days">Last 90 Days</option>
+            <option value="year">Last Year</option>
+          </select>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Total Orders */}
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                  </svg>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Orders</dt>
+                    <dd className="text-lg font-semibold text-gray-900">{analyticsData?.summary.totalOrders}</dd>
+                  </dl>
+                </div>
+              </div>
             </div>
           </div>
-        )}
+
+          {/* Total Revenue */}
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Total Revenue</dt>
+                    <dd className="text-lg font-semibold text-gray-900">
+                      {formatCurrency(analyticsData?.summary.totalRevenue || 0)}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Average Order Value */}
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Average Order Value</dt>
+                    <dd className="text-lg font-semibold text-gray-900">
+                      {formatCurrency(analyticsData?.summary.averageOrderValue || 0)}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+      </div>
+      
+          {/* Pending Payouts */}
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Pending Payouts</dt>
+                    <dd className="text-lg font-semibold text-gray-900">
+                      {formatCurrency(analyticsData?.summary.pendingPayouts || 0)}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {/* Revenue Chart */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900">Revenue Over Time</h3>
+            <div className="mt-6" style={{ height: '300px' }}>
+              <Line
+                data={{
+                  labels: analyticsData?.revenueByMonth.labels || [],
+                  datasets: [
+                    {
+                      label: 'Revenue',
+                      data: analyticsData?.revenueByMonth.data || [],
+                      borderColor: 'rgb(75, 192, 192)',
+                      tension: 0.1
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Orders by Status */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900">Orders by Status</h3>
+            <div className="mt-6" style={{ height: '300px' }}>
+              <Bar
+                data={{
+                  labels: analyticsData?.ordersByStatus.labels || [],
+                  datasets: [
+                    {
+                      label: 'Orders',
+                      data: analyticsData?.ordersByStatus.data || [],
+                      backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                        'rgba(75, 192, 192, 0.5)',
+                        'rgba(153, 102, 255, 0.5)',
+                      ],
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Payment Methods */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900">Payment Methods</h3>
+            <div className="mt-6" style={{ height: '300px' }}>
+              <Doughnut
+                data={{
+                  labels: analyticsData?.paymentMethods.labels || [],
+                  datasets: [
+                    {
+                      data: analyticsData?.paymentMethods.data || [],
+                      backgroundColor: [
+                        'rgba(255, 99, 132, 0.5)',
+                        'rgba(54, 162, 235, 0.5)',
+                        'rgba(255, 206, 86, 0.5)',
+                      ],
+                    }
+                  ]
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="bg-white shadow rounded-lg p-6">
+            <h3 className="text-lg font-medium text-gray-900">Recent Transactions</h3>
+            <div className="mt-6">
+              <div className="flow-root">
+                <ul role="list" className="-my-5 divide-y divide-gray-200">
+                  {analyticsData?.recentTransactions.map((transaction) => (
+                    <li key={transaction.id} className="py-4">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {transaction.customer_name}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(transaction.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            transaction.payment_status === 'completed' 
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {transaction.payment_status}
+                          </span>
+                        </div>
+                        <div className="flex-shrink-0 text-sm font-medium text-gray-900">
+                          {formatCurrency(transaction.total_amount)}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

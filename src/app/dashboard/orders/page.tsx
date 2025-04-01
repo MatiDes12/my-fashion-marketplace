@@ -824,16 +824,21 @@ export default function OrdersPage() {
       </div>
 
       {/* View Details Modal */}
-      <div className={`fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity ${isViewModalOpen ? 'block' : 'hidden'}`}>
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <div className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-              {selectedOrder && (
-                <div>
-                  <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+      <div className={`fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity ${isViewModalOpen ? 'block' : 'hidden'} z-[100]`}>
+        <div className="fixed inset-0 z-[101] overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+              {/* Modal Header - Fixed */}
+              <div className="bg-white px-4 py-3 border-b border-gray-200 sticky top-0 z-[102]">
+                <h3 className="text-lg font-semibold leading-6 text-gray-900">
                     Order Details
                   </h3>
-                  <div className="space-y-3">
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="max-h-[calc(100vh-16rem)] overflow-y-auto px-4 py-4">
+                {selectedOrder && (
+                  <div className="space-y-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Order ID</p>
                       <p className="text-sm text-gray-900">{selectedOrder.id}</p>
@@ -939,64 +944,204 @@ export default function OrdersPage() {
                         Delivered on {new Date(selectedOrder.created_at).toLocaleString()}
                       </p>
                     )}
+
+                    {/* Delivery Information Section */}
+                    <div className="bg-gray-50 p-4 rounded-lg mt-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-3">Delivery Information</h4>
+                      <div className="space-y-3">
+                        {/* Delivery Method */}
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm text-gray-500">Delivery Method</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {selectedOrder?.delivery_method === 'home_delivery' 
+                                ? 'Home Delivery' 
+                                : selectedOrder?.delivery_method === 'store_pickup'
+                                ? 'Store Pickup'
+                                : 'Not specified'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Delivery Fee */}
+                        {selectedOrder?.delivery_method === 'home_delivery' && (
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <p className="text-sm text-gray-500">Delivery Fee</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                {formatCurrency(selectedOrder.delivery_fee || 0)}
+                              </p>
                   </div>
                 </div>
               )}
-              {selectedOrder?.delivery_proof_image && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Delivery Proof</h4>
-                  <div className="mt-2 border rounded-lg overflow-hidden">
-                    <img
-                      src={selectedOrder.delivery_proof_image || ''}
-                      alt="Delivery Proof"
-                      className="w-full h-auto object-contain max-h-96"
-                      onError={(e) => {
-                        console.error('Image load error:', e);
-                        e.currentTarget.src = ''; // Set a fallback image or leave empty
-                      }}
-                    />
+
+                        {/* Delivery Address */}
+                        {selectedOrder?.delivery_address && (
+                          <div className="border-t border-gray-200 pt-3">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 mt-1">
+                                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </div>
+                              <div className="ml-3">
+                                <p className="text-sm text-gray-500">Delivery Address</p>
+                                {(() => {
+                                  try {
+                                    const addressObj = typeof selectedOrder.delivery_address === 'string' 
+                                      ? JSON.parse(selectedOrder.delivery_address)
+                                      : selectedOrder.delivery_address;
+
+                                    return (
+                                      <div className="mt-1 space-y-1">
+                                        {/* Street Address */}
+                                        <p className="text-sm font-medium text-gray-900">
+                                          {Object.entries(addressObj)
+                                            .filter(([key]) => !isNaN(Number(key)))
+                                            .map(([_, value]) => value)
+                                            .join('')}
+                                        </p>
+                                        
+                                        {/* City and Sub-City */}
+                                        <p className="text-sm text-gray-700">
+                                          {addressObj.city}
+                                          {addressObj.subCity && `, ${addressObj.subCity}`}
+                                        </p>
+
+                                        {/* Additional Details */}
+                                        <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
+                                          {addressObj.wereda && (
+                                            <span>Wereda: {addressObj.wereda}</span>
+                                          )}
+                                          {addressObj.kebele && (
+                                            <span>Kebele: {addressObj.kebele}</span>
+                                          )}
+                                          {addressObj.houseNo && (
+                                            <span>House No: {addressObj.houseNo}</span>
+                                          )}
+                                          {addressObj.landmark && (
+                                            <span>Landmark: {addressObj.landmark}</span>
+                                          )}
+                                        </div>
+
+                                        {/* Map Link */}
+                                        {addressObj.mapLink && (
+                                          <a 
+                                            href={addressObj.mapLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-500 mt-2"
+                                          >
+                                            <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                            View on Google Maps
+                                          </a>
+                                        )}
+                                      </div>
+                                    );
+                                  } catch (e) {
+                                    // Fallback for non-JSON address
+                                    return (
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {selectedOrder.delivery_address}
+                                      </p>
+                                    );
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {selectedOrder.updated_at ? 
-                      `Uploaded on ${new Date(selectedOrder.updated_at).toLocaleString()}` :
-                      'Upload date not available'
-                    }
-                  </p>
-                </div>
-              )}
-              <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                <p className="text-sm font-medium text-gray-500 mb-2">Delivery Information</p>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-900">
-                    Method: {' '}
-                    <span className="font-medium">
-                      {selectedOrder?.delivery_method === 'home_delivery' 
-                        ? 'Home Delivery' 
-                        : selectedOrder?.delivery_method === 'store_pickup'
-                        ? 'Store Pickup'
-                        : 'Not specified'}
-                    </span>
-                  </p>
-                  <p className="text-sm text-gray-900">
-                    Address: {' '}
-                    <span className="font-medium">
-                      {selectedOrder?.delivery_address || 'Not specified'}
-                    </span>
-                  </p>
-                  {selectedOrder?.delivery_method === 'home_delivery' && (
-                    <p className="text-sm text-gray-500">
-                      Delivery Fee: {formatCurrency(selectedOrder.delivery_fee || 0)}
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
-              <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+
+              {/* Modal Footer - Fixed */}
+              <div className="bg-white px-4 py-3 border-t border-gray-200 sticky bottom-0 z-[102] sm:flex sm:flex-row-reverse sm:px-6">
                 <button
                   type="button"
                   onClick={() => setIsViewModalOpen(false)}
-                  className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+                  className="inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
                 >
                   Close
+                </button>
+                {/* Add Download Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Create a text version of the order details
+                    const orderDetails = `
+Order ID: ${selectedOrder?.id}
+Product: ${selectedOrder?.product?.title}
+Customer: ${selectedOrder?.user?.full_name}
+Email: ${selectedOrder?.user?.email}
+Order Date: ${new Date(selectedOrder?.created_at || '').toLocaleString()}
+Status: ${selectedOrder?.order_status}
+Total Amount: ${formatCurrency(selectedOrder?.total_price || 0)}
+Payment Status: ${selectedOrder?.payment_status}
+
+Delivery Information:
+Method: ${selectedOrder?.delivery_method === 'home_delivery' ? 'Home Delivery' : 'Store Pickup'}
+${selectedOrder?.delivery_fee ? `Delivery Fee: ${formatCurrency(selectedOrder?.delivery_fee)}` : ''}
+
+${(() => {
+  try {
+    const address = JSON.parse(selectedOrder?.delivery_address || '{}');
+    return `
+Delivery Address:
+${Object.entries(address)
+  .filter(([key]) => !isNaN(Number(key)))
+  .map(([_, value]) => value)
+  .join('')}
+${address.city}${address.subCity ? `, ${address.subCity}` : ''}
+${address.wereda ? `Wereda: ${address.wereda}` : ''}
+${address.kebele ? `Kebele: ${address.kebele}` : ''}
+${address.houseNo ? `House No: ${address.houseNo}` : ''}
+${address.landmark ? `Landmark: ${address.landmark}` : ''}`;
+  } catch (e) {
+    return selectedOrder?.delivery_address || '';
+  }
+})()}
+
+Financial Details:
+Subtotal: ${formatCurrency(selectedOrder?.transaction?.subtotal || 0)}
+Platform Fee: ${formatCurrency(selectedOrder?.transaction?.platform_fee || 0)}
+Service Fee: ${formatCurrency(selectedOrder?.transaction?.service_fee || 0)}
+VAT: ${formatCurrency(selectedOrder?.transaction?.vat_amount || 0)}
+Total Amount: ${formatCurrency(selectedOrder?.transaction?.total_amount || 0)}
+`;
+
+                    // Create and download the file
+                    const blob = new Blob([orderDetails], { type: 'text/plain' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `order-${selectedOrder?.id.substring(0, 8)}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  }}
+                  className="mr-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                >
+                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download Details
                 </button>
               </div>
             </div>

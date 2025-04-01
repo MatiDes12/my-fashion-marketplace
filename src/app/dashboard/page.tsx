@@ -42,9 +42,11 @@ interface Order {
     full_name: string;
     email: string;
   };
-  product?: {
+  product: {
+    id: string;
     title: string;
     price: number;
+    owner_id: string;
   };
 }
 
@@ -138,7 +140,7 @@ export default withSellerVerification(function DashboardPage() {
         }
         // If verified, fetch dashboard data
         if (userData?.is_verified) {
-          await fetchDashboardData(session.user.id);
+          await fetchDashboardStats();
         }
 
       } catch (error) {
@@ -152,89 +154,123 @@ export default withSellerVerification(function DashboardPage() {
     checkAccessAndLoadData();
   }, [router]);
 
-  async function fetchDashboardData(ownerId: string) {
+  const fetchDashboardStats = async () => {
     try {
-      // Fetch products with their orders and images
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('No session');
+      }
+
+      // Get products with orders and images
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select(`
-          *,
-          product_images (*),
-          orders (
+          id,
+          title,
+          price,
+          category,
+          is_active,
+          product_images (
             id,
-            quantity,
-            total_price,
-            order_status,
-            created_at,
-            user_id,
-            user:users (
-              id,
-              full_name,
-              email
-            )
+            image_url,
+            is_model_picture
+          ),
+          orders (
+            id
           )
         `)
-        .eq('owner_id', ownerId)
-        .order('created_at', { ascending: false })
-        .returns<ProductWithRelations[]>();
-
-      console.log('Fetched products:', products); // Debug log
+        .eq('owner_id', session.user.id);
 
       if (productsError) throw productsError;
 
-      // Transform the data to include product info in orders
-      const allOrders: Order[] = products.flatMap(product => 
-        product.orders?.map((order: Order) => ({
-          ...order,
-          product: {  // Add product info to each order
-            title: product.title,
-            price: product.price
-          }
-        })) || []
-      );
+      // Get recent orders with user and product details
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          created_at,
+          quantity,
+          total_price,
+          order_status,
+          user:users!orders_user_id_fkey (
+            id,
+            full_name,
+            email
+          ),
+          product:products!orders_product_id_fkey (
+            id,
+            title,
+            price,
+            owner_id
+          )
+        `)
+        .eq('product.owner_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
 
-      // Sort orders by created_at date
-      const recentOrders = allOrders
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        .slice(0, 5);
+      if (ordersError) throw ordersError;
 
-      // Calculate product sales and get top products
-      const productSales = products
-        .map(product => ({
+      // Get transactions for revenue calculation
+      const { data: transactions, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('total_amount, seller_payout_amount')
+        .eq('seller_id', session.user.id);
+
+      if (transactionsError) throw transactionsError;
+
+      // Update the totalSales calculation
+      const { data: totalOrdersData, error: totalOrdersError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          product:products!orders_product_id_fkey (
+            owner_id
+          )
+        `)
+        .eq('product.owner_id', session.user.id);
+
+      if (totalOrdersError) throw totalOrdersError;
+
+      // Calculate stats
+      const totalProducts = products?.length || 0;
+      const activeProducts = products?.filter(p => p.is_active)?.length || 0;
+      const totalSales = totalOrdersData?.length || 0;
+      
+      // Calculate total revenue from transactions
+      const totalRevenue = transactions?.reduce((sum, transaction) => {
+        return sum + (transaction.total_amount || 0);
+      }, 0) || 0;
+
+      // Process products to include sales count
+      const topProducts = products
+        ?.map(product => ({
           ...product,
           total_sales: product.orders?.length || 0
         }))
         .sort((a, b) => (b.total_sales - a.total_sales))
-        .slice(0, 4);
+        .slice(0, 5) || [];
 
-      console.log('Top products with images:', productSales); // Debug log
-
-      // Calculate stats
-      const activeProducts = products.filter(p => p.is_active).length;
-      const totalSales = allOrders.length;
-      const monthlyRevenue = allOrders
-        .filter(order => {
-          const orderDate = new Date(order.created_at);
-          const now = new Date();
-          return orderDate.getMonth() === now.getMonth() &&
-                 orderDate.getFullYear() === now.getFullYear();
-        })
-        .reduce((sum, order) => sum + (order.total_price || 0), 0);
+      // Get recent orders
+      const recentOrders = (orders as unknown as Order[]) || [];
 
       setStats({
-        totalProducts: products.length,
+        totalProducts,
         activeProducts,
         totalSales,
-        monthlyRevenue,
-        recentOrders,  // These orders now include product info
-        topProducts: productSales
+        monthlyRevenue: totalRevenue,
+        recentOrders,
+        topProducts: topProducts as Product[]
       });
 
     } catch (error) {
-      setError('Failed to load dashboard data');
-      console.error('Dashboard data error:', error);
+      console.error('Error fetching dashboard stats:', error);
+      setError('Failed to load dashboard statistics');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   // Show loading state while checking auth or loading data
   if (loading) {
@@ -375,7 +411,7 @@ export default withSellerVerification(function DashboardPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-100">Monthly Revenue</p>
+                  <p className="text-sm text-red-100">Total Revenue</p>
                   <p className="text-2xl font-bold text-white">
                     {formatCurrency(stats.monthlyRevenue)}
                   </p>
@@ -497,8 +533,18 @@ export default withSellerVerification(function DashboardPage() {
         </div>
 
         {/* AI Assistant Section - Mobile responsive */}
-        <div className="mt-6 sm:mt-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-lg p-4 sm:p-8 text-white">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+        <div className="mt-6 sm:mt-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-lg p-4 sm:p-8 text-white relative overflow-hidden">
+          {/* Blur overlay */}
+          <div className="absolute inset-0 backdrop-blur-[2px] bg-black/20 z-10" />
+          
+          {/* Coming soon badge */}
+          <div className="absolute top-4 right-4 z-20">
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-200 border border-red-500/30">
+              Coming Soon
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 relative z-[5] opacity-75">
             <div className="flex-shrink-0">
               <svg className="h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -507,16 +553,16 @@ export default withSellerVerification(function DashboardPage() {
             <div className="ml-6">
               <h3 className="text-xl font-semibold">AI Business Assistant</h3>
               <p className="mt-2 text-gray-300">
-                Leverage our AI tools to optimize your business operations and boost sales performance.
+                Our advanced AI tools are currently under development to help optimize your business operations and boost sales performance.
               </p>
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-red-600 hover:bg-red-700 transition-colors">
+                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-red-600/50 cursor-not-allowed">
                   Generate Descriptions
                 </button>
-                <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-blue-600 hover:bg-blue-700 transition-colors">
+                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-blue-600/50 cursor-not-allowed">
                   Optimize Pricing
                 </button>
-                <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-purple-600 hover:bg-purple-700 transition-colors">
+                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-purple-600/50 cursor-not-allowed">
                   Market Analysis
                 </button>
               </div>

@@ -22,7 +22,7 @@ interface UserData {
 
 const UnverifiedHeader = () => {
   return (
-    <div className="fixed top-0 left-0 right-0 z-[30] bg-white shadow-sm backdrop-blur-sm bg-white/90">
+    <div className="fixed top-0 left-0 right-0 z-[40] bg-white shadow-sm backdrop-blur-sm bg-white/90">
       <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="p-1">
@@ -203,7 +203,7 @@ export default function DashboardLayout({
 
   const DashboardHeader = () => {
     return (
-      <div className="fixed top-0 left-0 right-0 z-[30] bg-white shadow-sm backdrop-blur-sm bg-white/90">
+      <div className="fixed top-0 left-0 right-0 z-[40] bg-white shadow-sm backdrop-blur-sm bg-white/90">
         <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <button
@@ -275,7 +275,7 @@ export default function DashboardLayout({
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar - Hidden on mobile by default */}
       <div className={`
-        fixed inset-y-0 left-0 z-30 transform transition duration-300 ease-in-out
+        fixed inset-y-0 left-0 z-[50] transform transition duration-300 ease-in-out
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:relative md:translate-x-0 md:w-64 md:flex-shrink-0
       `}>

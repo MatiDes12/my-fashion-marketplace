@@ -80,6 +80,26 @@ export default function SellerVerificationForm() {
   const currentStepIndex = steps.indexOf(currentStep);
 
   const goToNextStep = () => {
+    let isValid = false;
+    
+    switch (currentStep) {
+      case 'business':
+        isValid = validateBusinessStep();
+        break;
+      case 'address':
+        isValid = validateAddressStep();
+        break;
+      case 'documents':
+        isValid = validateDocumentsStep();
+        break;
+    }
+
+    if (!isValid) {
+      setError('Please fill in all required fields before proceeding');
+      return;
+    }
+
+    setError(''); // Clear any existing error
     const nextIndex = currentStepIndex + 1;
     if (nextIndex < steps.length) {
       setCurrentStep(steps[nextIndex]);
@@ -440,8 +460,56 @@ export default function SellerVerificationForm() {
     }
   };
 
+  const validateBusinessStep = () => {
+    const requiredFields = [
+      'businessName',
+      'businessEmail',
+      'businessPhone',
+      'legalBusinessName',
+      'businessRegistrationNo',
+      'tinNumber',
+      'idDocumentType'
+    ];
+
+    const missingFields = requiredFields.filter(field => !formData[field as keyof FormData]);
+    
+    if (formData.isVatRegistered && !formData.vatNumber) {
+      missingFields.push('vatNumber');
+    }
+
+    return missingFields.length === 0;
+  };
+
+  const validateAddressStep = () => {
+    const requiredFields = [
+      'region',
+      'kifleKetema',
+      'woreda',
+      'houseNo'
+    ];
+
+    return requiredFields.every(field => formData[field as keyof FormData]);
+  };
+
+  const validateDocumentsStep = () => {
+    const requiredFiles = [
+      'tradeLicense',
+      'tinCertificate',
+      'idDocument'
+    ];
+
+    return requiredFiles.every(file => files[file as keyof FileData]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate all steps before submission
+    if (!validateBusinessStep() || !validateAddressStep() || !validateDocumentsStep()) {
+      setError('Please fill in all required fields before submitting');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -514,8 +582,7 @@ export default function SellerVerificationForm() {
 
       router.push('/dashboard/verification-pending');
     } catch (error) {
-      setError('Failed to submit verification form');
-      console.error(error);
+      setError(error instanceof Error ? error.message : 'Failed to submit verification');
     } finally {
       setLoading(false);
     }
@@ -537,6 +604,12 @@ export default function SellerVerificationForm() {
             {currentStep === 'address' && renderAddressInfo()}
             {currentStep === 'documents' && renderDocumentUpload()}
           </AnimatePresence>
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
 
           <div className="mt-8 flex justify-between">
             <button
@@ -569,22 +642,6 @@ export default function SellerVerificationForm() {
               </button>
             )}
           </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="rounded-lg bg-red-50 p-4 mt-6">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-red-800">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </form>
