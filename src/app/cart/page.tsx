@@ -711,7 +711,11 @@ export default function CartPage() {
                                         {/* Store Location Map */}
                                         {item.product.owner?.store_settings?.address && (
                                           <StoreLocationMap 
-                                            address={item.product.owner.store_settings.address}
+                                            address={{
+                                              ...item.product.owner.store_settings.address,
+                                              mapLink: null,
+                                              coordinates: { lat: 0, lng: 0 }
+                                            }}
                                           />
                                         )}
                                       </div>
