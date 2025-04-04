@@ -870,7 +870,7 @@ function ProductsContent() {
                           </span>
                         </div>
                         
-                        <div className="absolute top-8 left-0 z-10">
+                        <div className="absolute top-3 left-0 z-10">
                           <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/90 text-gray-800 shadow-sm">
                             {product.category}
                           </span>

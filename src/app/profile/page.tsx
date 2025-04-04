@@ -73,7 +73,7 @@ interface PaymentMethods {
   AMOLE: boolean;
   CHAPA: boolean;
   BANK: boolean;
-  [key: string]: boolean;
+  MPESA: boolean;
 }
 
 interface StoreSettings {
@@ -464,7 +464,8 @@ export default function ProfilePage() {
             CBE: paymentSettings?.cbe_birr_settings?.is_active || false,
             AMOLE: paymentSettings?.amole_settings?.is_active || false,
             CHAPA: paymentSettings?.chapa_settings?.is_active || false,
-            BANK: paymentSettings?.bank_settings?.is_active || false
+            BANK: paymentSettings?.bank_settings?.is_active || false,
+            MPESA: paymentSettings?.mpesa_settings?.is_active || false
           }
         };
 
@@ -918,6 +919,20 @@ export default function ProfilePage() {
                         <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                           <span className="text-lg mr-2">🏦</span>
                           <span>Bank Transfer</span>
+                        </div>
+                      )}
+
+                      {/* Show M-PESA if active */}
+                      {profile.store_settings.payment_methods.MPESA && (
+                        <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                          <Image 
+                            src="/images/payment-methods/mpesa-logo.png" 
+                            alt="M-PESA" 
+                            width={24} 
+                            height={24} 
+                            className="mr-2"
+                          />
+                          <span>M-PESA</span>
                         </div>
                       )}
                     </div>

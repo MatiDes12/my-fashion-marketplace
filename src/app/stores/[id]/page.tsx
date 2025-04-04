@@ -52,6 +52,7 @@ interface StoreSettings {
     AMOLE: boolean;
     CHAPA: boolean;
     BANK: boolean;
+    MPESA: boolean;
   };
   delivery_options: {
     delivery: boolean;
@@ -558,6 +559,20 @@ export default function StorePage() {
                       style={{ objectFit: 'contain' }}
                     />
                     <span>Chapa</span>
+                  </div>
+                )}
+
+                {/* Show M-PESA if active */}
+                {store.payment_methods.MPESA && (
+                  <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                    <Image 
+                      src="/images/payment-methods/mpesa-logo.png" 
+                      alt="M-PESA" 
+                      width={24} 
+                      height={24} 
+                      className="mr-2"
+                    />
+                    <span>M-PESA</span>
                   </div>
                 )}
 

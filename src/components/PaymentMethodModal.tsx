@@ -12,6 +12,7 @@ import { useUserDetails } from '@/hooks/useUserDetails';
 import { createClientComponent } from '@/lib/supabase';
 import { isMobile } from '@/utils/deviceDetection';
 import { useRouter } from 'next/navigation';
+import { MpesaService } from '@/lib/mpesa';
 
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
@@ -41,6 +42,9 @@ interface PaymentSettings {
     public_key?: string;
     secret_key?: string;
     callback_url?: string;
+  };
+  mpesa_settings?: {
+    is_active: boolean;
   };
 }
 
@@ -85,6 +89,9 @@ interface SellerOrder {
     images?: any[];
     delivery_method: 'home_delivery' | 'store_pickup';
     delivery_address: any;
+    selected_size?: string | null;
+    selected_color?: string | null;
+    selected_variant_sku?: string | null;
     owner: {
       id: string;
       full_name: string;
@@ -136,7 +143,14 @@ const paymentMethods: PaymentMethod[] = [
     logo: '/images/payment-methods/cash-icon.jpg', // Add this icon to your public folder
     isAvailable: true,
     description: 'Pay with cash when your order is delivered or during pickup'
-  }
+  },
+  {
+    id: 'MPESA',
+    name: 'M-PESA',
+    logo: '/images/payment-methods/mpesa-logo.png',
+    isAvailable: true,
+    description: 'Pay with M-PESA mobile money'
+  },
 ];
 
 interface PaymentMethodModalProps {
@@ -237,6 +251,54 @@ const getCartItemDetails = async (userId: string, productId: string) => {
   return data;
 };
 
+// Add this function at the top of the component
+const updateProductQuantities = async (
+  productId: string, 
+  orderQuantity: number,
+  selectedSize?: string | null,
+  selectedColor?: string | null,
+  selectedSku?: string | null
+) => {
+  const supabase = createClientComponent();
+
+  // Get current product data
+  const { data: product, error: fetchError } = await supabase
+    .from('products')
+    .select('quantity, available_variants')
+    .eq('id', productId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  // Update main quantity
+  const newQuantity = Math.max(0, (product.quantity || 0) - orderQuantity);
+
+  // Update variant quantity if applicable
+  let newVariants = product.available_variants || [];
+  if (selectedSku && Array.isArray(newVariants)) {
+    newVariants = newVariants.map((variant: any) => {
+      if (variant.sku === selectedSku) {
+        return {
+          ...variant,
+          quantity: Math.max(0, (variant.quantity || 0) - orderQuantity)
+        };
+      }
+      return variant;
+    });
+  }
+
+  // Update product
+  const { error: updateError } = await supabase
+    .from('products')
+    .update({
+      quantity: newQuantity,
+      available_variants: newVariants
+    })
+    .eq('id', productId);
+
+  if (updateError) throw updateError;
+};
+
 export default function PaymentMethodModal({
   isOpen,
   onClose,
@@ -270,9 +332,10 @@ export default function PaymentMethodModal({
     return Object.values(PAYMENT_METHODS).filter(method => 
       method.id === 'CASH' || // Cash is always available
       (method.id === 'TELEBIRR' && paymentSettings?.telebirr_settings?.is_active) ||
-      (method.id === 'CBE' && paymentSettings?.bank_settings?.is_active) ||
+      (method.id === 'CBE' && paymentSettings?.cbe_birr_settings?.is_active) ||
       (method.id === 'AMOLE' && paymentSettings?.amole_settings?.is_active) ||
-      (method.id === 'CHAPA' && paymentSettings?.chapa_settings?.is_active)
+      (method.id === 'CHAPA' && paymentSettings?.chapa_settings?.is_active) ||
+      (method.id === 'MPESA' && paymentSettings?.mpesa_settings?.is_active)
     );
   };
 
@@ -294,15 +357,31 @@ export default function PaymentMethodModal({
         // Process each seller's orders
         for (const seller of sellers) {
           for (const product of seller.products) {
-            // Get delivery info from cart_items
-            const cartItemDetails = await getCartItemDetails(userDetails?.id!, product.id);
-            
+            // Get cart item details first
+            const { data: cartItem, error: cartError } = await supabase
+              .from('cart_items')
+              .select('*')
+              .eq('user_id', userDetails?.id)
+              .eq('product_id', product.id)
+              .single();
+
+            if (cartError) throw cartError;
+
+            // Update product quantities first
+            await updateProductQuantities(
+              product.id,
+              product.quantity,
+              cartItem.selected_size,
+              cartItem.selected_color,
+              cartItem.selected_variant_sku
+            );
+
             const itemSubtotal = product.quantity * product.price;
             const serviceFee = itemSubtotal * 0.03;
-            const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
+            const itemDeliveryFee = cartItem.delivery_fee || 0;
             const itemTotal = itemSubtotal + itemDeliveryFee;
 
-            // Create order with cart delivery info
+            // Create order with cart item details
             const { data: order, error: orderError } = await supabase
               .from('orders')
               .insert({
@@ -319,8 +398,11 @@ export default function PaymentMethodModal({
                 payment_reference: txRef,
                 tx_ref: txRef,
                 receipt_url: `/api/receipts/cash/${txRef}`,
-                delivery_method: cartItemDetails.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
-                delivery_address: cartItemDetails.delivery_address,
+                delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+                delivery_address: cartItem.delivery_address,
+                selected_size: cartItem.selected_size,
+                selected_color: cartItem.selected_color,
+                selected_variant_sku: cartItem.selected_variant_sku
               })
               .select()
               .single();
@@ -427,6 +509,119 @@ export default function PaymentMethodModal({
       return;
     }
 
+    if (selectedMethod === 'MPESA') {
+      try {
+        setLocalProcessing(true);
+        const supabase = createClientComponent();
+        const txRef = `MPESA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Create orders first
+        for (const seller of sellers) {
+          for (const product of seller.products) {
+            const cartItemDetails = await getCartItemDetails(userDetails?.id!, product.id);
+            
+            const itemSubtotal = product.quantity * product.price;
+            const serviceFee = itemSubtotal * 0.03;
+            const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
+            const itemTotal = itemSubtotal + itemDeliveryFee;
+
+            // Map the delivery method to match the constraint
+            const mappedDeliveryMethod = cartItemDetails.delivery_method === 'delivery' 
+              ? 'home_delivery' 
+              : 'store_pickup';
+
+            // Create order
+            const { data: order, error: orderError } = await supabase
+              .from('orders')
+              .insert({
+                user_id: userDetails?.id,
+                product_id: product.id,
+                quantity: product.quantity,
+                total_price: itemTotal,
+                platform_fee: 0,
+                service_fee: serviceFee,
+                ethiopia_tax: 0,
+                delivery_fee: itemDeliveryFee,
+                tx_ref: txRef,
+                payment_status: 'pending',
+                order_status: 'pending',
+                delivery_method: mappedDeliveryMethod, // Use the mapped value
+                delivery_address: cartItemDetails.delivery_address,
+              })
+              .select()
+              .single();
+
+            if (orderError) throw orderError;
+
+            // Create transaction with payment_method
+            const { error: transactionError } = await supabase
+              .from('transactions')
+              .insert({
+                order_id: order.id,
+                payment_method: 'MPESA',
+                payment_status: 'pending',
+                subtotal: itemSubtotal,
+                platform_fee: 0,
+                service_fee: serviceFee,
+                vat_amount: 0,
+                delivery_fee: itemDeliveryFee,
+                total_amount: itemTotal,
+                seller_id: product.owner.id,
+                customer_name: userDetails?.full_name,
+                customer_email: userDetails?.email,
+                customer_phone: phoneNumber,
+                seller_payout_amount: itemTotal - serviceFee
+              });
+
+            if (transactionError) throw transactionError;
+          }
+        }
+
+        // Initiate M-PESA payment
+        const totalAmount = sellers.reduce((sum, seller) => 
+          sum + seller.total, 0
+        );
+
+        // Format phone number for sandbox (should be Ethiopian number format)
+        const formattedPhone = phoneNumber.startsWith('+251') 
+          ? phoneNumber.substring(1) 
+          : phoneNumber.startsWith('251') 
+            ? phoneNumber 
+            : `251${phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber}`;
+
+        // First initiate the STK push
+        const mpesaResponse = await MpesaService.initiateSTKPush(
+          formattedPhone,
+          totalAmount,
+          txRef
+        );
+
+        if (mpesaResponse.ResponseCode === '0') {
+          // Store payment info
+          localStorage.setItem('pendingPayment', JSON.stringify({
+            tx_ref: txRef,
+            amount: totalAmount,
+            items: sellers
+          }));
+
+          // Clear cart
+          if (userDetails?.id) {
+            await clearCart(userDetails.id);
+          }
+
+          toast.success('Please check your phone for the M-PESA prompt');
+          onClose();
+        } else {
+          throw new Error(mpesaResponse.ResponseDescription);
+        }
+      } catch (error) {
+        console.error('M-PESA payment error:', error);
+        toast.error(error instanceof Error ? error.message : 'Payment failed');
+      } finally {
+        setLocalProcessing(false);
+      }
+    }
+    
     // Handle other payment methods...
     try {
       await onSelectMethod(selectedMethod);
@@ -560,7 +755,7 @@ export default function PaymentMethodModal({
 
   return (
     <Transition.Root show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog as="div" className="fixed inset-0 z-[100] mt-16 sm:mt-0" onClose={onClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -573,8 +768,8 @@ export default function PaymentMethodModal({
           <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
         </Transition.Child>
 
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -584,7 +779,7 @@ export default function PaymentMethodModal({
               leaveFrom="opacity-100 translate-y-0 sm:scale-100"
               leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
             >
-              <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+              <Dialog.Panel className="relative transform overflow-y-auto rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6 max-h-[calc(100vh-8rem)]">
                 <div>
                   <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900 mb-4">
                     {step === 'method' ? 'Select Payment Method' : 

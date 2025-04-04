@@ -61,6 +61,18 @@ interface ChapaSettings {
   callback_url?: string;
 }
 
+// Add M-PESA settings interface
+interface MpesaSettings {
+  is_active: boolean;
+  consumer_key?: string;
+  consumer_secret?: string;
+  shortcode?: string;
+  passkey?: string;
+  initiator_name?: string;
+  security_credential?: string;
+  callback_url?: string;
+}
+
 interface PaymentSettings {
   id?: string;
   user_id?: string;
@@ -69,6 +81,7 @@ interface PaymentSettings {
   cbe_birr_settings: CBEBirrSettings;
   amole_settings: AmoleSettings;
   chapa_settings: ChapaSettings;
+  mpesa_settings: MpesaSettings;
 }
 
 type ToastType = 'success' | 'error' | 'loading' | 'blank' | 'custom';
@@ -698,6 +711,138 @@ const AmoleSettings = ({ settings, onChange }: {
   );
 };
 
+// Add M-PESA settings component
+const MpesaSettings = ({ 
+  settings,
+  onChange
+}: { 
+  settings: MpesaSettings;
+  onChange: (mpesa_settings: MpesaSettings) => void;
+}) => {
+  return (
+    <div className="mt-8 bg-white rounded-lg shadow">
+      <div className="px-4 py-5 sm:p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium leading-6 text-gray-900">
+            M-PESA Payment Settings
+          </h3>
+          <Switch
+            id="mpesa-active"
+            checked={settings.is_active}
+            onCheckedChange={(checked: boolean) => {
+              onChange({ ...settings, is_active: checked });
+            }}
+          />
+        </div>
+
+        {settings.is_active && (
+          <div className="mt-6 space-y-6">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div>
+                <label htmlFor="mpesa-consumer-key" className="block text-sm font-medium text-gray-700">
+                  Consumer Key
+                </label>
+                <input
+                  type="text"
+                  id="mpesa-consumer-key"
+                  value={settings.consumer_key || ''}
+                  onChange={(e) => onChange({ ...settings, consumer_key: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                  placeholder="Enter your M-PESA consumer key"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="mpesa-consumer-secret" className="block text-sm font-medium text-gray-700">
+                  Consumer Secret
+                </label>
+                <input
+                  type="password"
+                  id="mpesa-consumer-secret"
+                  value={settings.consumer_secret || ''}
+                  onChange={(e) => onChange({ ...settings, consumer_secret: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                  placeholder="Enter your M-PESA consumer secret"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="mpesa-shortcode" className="block text-sm font-medium text-gray-700">
+                  Shortcode
+                </label>
+                <input
+                  type="text"
+                  id="mpesa-shortcode"
+                  value={settings.shortcode || ''}
+                  onChange={(e) => onChange({ ...settings, shortcode: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                  placeholder="Enter your M-PESA shortcode"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="mpesa-passkey" className="block text-sm font-medium text-gray-700">
+                  Passkey
+                </label>
+                <input
+                  type="password"
+                  id="mpesa-passkey"
+                  value={settings.passkey || ''}
+                  onChange={(e) => onChange({ ...settings, passkey: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                  placeholder="Enter your M-PESA passkey"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="mpesa-initiator-name" className="block text-sm font-medium text-gray-700">
+                  Initiator Name
+                </label>
+                <input
+                  type="text"
+                  id="mpesa-initiator-name"
+                  value={settings.initiator_name || ''}
+                  onChange={(e) => onChange({ ...settings, initiator_name: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                  placeholder="Enter your M-PESA initiator name"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="mpesa-security-credential" className="block text-sm font-medium text-gray-700">
+                  Security Credential
+                </label>
+                <input
+                  type="password"
+                  id="mpesa-security-credential"
+                  value={settings.security_credential || ''}
+                  onChange={(e) => onChange({ ...settings, security_credential: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                  placeholder="Enter your M-PESA security credential"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="mpesa-callback-url" className="block text-sm font-medium text-gray-700">
+                  Callback URL
+                </label>
+                <input
+                  type="url"
+                  id="mpesa-callback-url"
+                  value={settings.callback_url || ''}
+                  onChange={(e) => onChange({ ...settings, callback_url: e.target.value })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                  placeholder="https://your-domain.com/api/mpesa/callback"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const PaymentSettingsPage = () => {
   const [activeTab, setActiveTab] = useState('telebirr');
   const [loading, setLoading] = useState(true);
@@ -707,7 +852,8 @@ const PaymentSettingsPage = () => {
     bank_settings: { is_active: false },
     cbe_birr_settings: { is_active: false },
     amole_settings: { is_active: false },
-    chapa_settings: { is_active: false, public_key: '', secret_key: '', callback_url: '' }
+    chapa_settings: { is_active: false, public_key: '', secret_key: '', callback_url: '' },
+    mpesa_settings: { is_active: false },
   });
 
   const supabase = createClientComponentClient();
@@ -740,7 +886,8 @@ const PaymentSettingsPage = () => {
             bank_settings: { is_active: false },
             cbe_birr_settings: { is_active: false },
             amole_settings: { is_active: false },
-            chapa_settings: { is_active: false, public_key: '', secret_key: '', callback_url: '' }
+            chapa_settings: { is_active: false, public_key: '', secret_key: '', callback_url: '' },
+            mpesa_settings: { is_active: false },
           };
 
           // Use upsert instead of insert to handle potential race conditions
@@ -855,6 +1002,12 @@ const PaymentSettingsPage = () => {
             className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
           >
             Chapa
+          </TabsTrigger>
+          <TabsTrigger 
+            value="mpesa" 
+            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+          >
+            M-PESA
           </TabsTrigger>
         </TabsList>
 
@@ -977,7 +1130,14 @@ const PaymentSettingsPage = () => {
                         </div>
                       </div>
           </TabsContent>
-                    </div>
+
+          <TabsContent value="mpesa">
+            <MpesaSettings 
+              settings={settings.mpesa_settings}
+              onChange={(mpesa_settings) => setSettings({ ...settings, mpesa_settings })}
+            />
+          </TabsContent>
+        </div>
       </Tabs>
 
       <div className="mt-6 flex justify-end">

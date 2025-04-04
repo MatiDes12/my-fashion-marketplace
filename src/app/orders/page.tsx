@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -8,6 +8,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { Dialog, Transition } from '@headlessui/react';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -19,6 +21,12 @@ export default function OrdersPage() {
   const paymentSuccess = searchParams.get('payment_success');
   const tx_ref = searchParams.get('tx_ref');
   const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [orderStatus, setOrderStatus] = useState<string>('all');
+  const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
+  const ordersPerPage = 10;
   
   useEffect(() => {
     const fetchOrders = async () => {
@@ -128,6 +136,20 @@ export default function OrdersPage() {
     }
   }, [searchParams]);
   
+  useEffect(() => {
+    // Filter orders based on status
+    const filtered = orders.filter(order => 
+      orderStatus === 'all' ? true : order.order_status === orderStatus
+    );
+    setFilteredOrders(filtered);
+  }, [orders, orderStatus]);
+  
+  // Add this pagination calculation
+  const indexOfLastOrder = currentPage * ordersPerPage;
+  const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+  const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+  
   // Helper function to format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -221,6 +243,27 @@ export default function OrdersPage() {
           </p>
         </div>
         
+        <div className="mb-6">
+          <div className="flex items-center space-x-4">
+            <label className="text-sm text-gray-600">Filter by status:</label>
+            <select
+              value={orderStatus}
+              onChange={(e) => {
+                setOrderStatus(e.target.value);
+                setCurrentPage(1); // Reset to first page when filter changes
+              }}
+              className="rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+            >
+              <option value="all">All Orders</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+        
         {loading ? (
           <div className="flex justify-center py-20">
             <LoadingSpinner />
@@ -247,7 +290,7 @@ export default function OrdersPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {orders.map((order) => (
+            {currentOrders.map((order) => (
               <div key={order.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex flex-wrap items-center justify-between">
@@ -395,6 +438,16 @@ export default function OrdersPage() {
                     </div>
                     
                     <div className="flex space-x-3">
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setIsDetailsModalOpen(true);
+                        }}
+                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                      >
+                        View Details
+                      </button>
+
                       {order.order_status !== 'cancelled' && order.order_status !== 'delivered' && (
                         <button
                           onClick={() => router.push(`/support?order=${order.id}`)}
@@ -426,7 +479,146 @@ export default function OrdersPage() {
             ))}
           </div>
         )}
+
+        {filteredOrders.length > ordersPerPage && (
+          <div className="mt-6 flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
+                  <span className="font-medium">
+                    {Math.min(indexOfLastOrder, filteredOrders.length)}
+                  </span>{' '}
+                  of <span className="font-medium">{filteredOrders.length}</span> results
+                </p>
+              </div>
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                        page === currentPage
+                          ? 'z-10 bg-green-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      <Transition.Root show={isDetailsModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={setIsDetailsModalOpen}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                  <div className="absolute right-0 top-0 pr-4 pt-4">
+                    <button
+                      type="button"
+                      className="rounded-md bg-white text-gray-400 hover:text-gray-500"
+                      onClick={() => setIsDetailsModalOpen(false)}
+                    >
+                      <XMarkIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+                  
+                  {selectedOrder && (
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900">Order Details</h3>
+                        <p className="text-sm text-gray-500">Order #{selectedOrder.id.substring(0, 8)}</p>
+                      </div>
+
+                      <div className="border-t border-gray-200 pt-4">
+                        <div className="space-y-3">
+                          <div>
+                            <h4 className="font-medium">Product Information</h4>
+                            <p className="text-gray-600">{selectedOrder.product?.title}</p>
+                            {selectedOrder.selected_size && (
+                              <p className="text-sm text-gray-500">Size: {selectedOrder.selected_size}</p>
+                            )}
+                            {selectedOrder.selected_color && (
+                              <p className="text-sm text-gray-500">Color: {selectedOrder.selected_color}</p>
+                            )}
+                            {selectedOrder.selected_variant_sku && (
+                              <p className="text-sm text-gray-500">SKU: {selectedOrder.selected_variant_sku}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium">Delivery Details</h4>
+                            <p className="text-sm text-gray-500">Method: {selectedOrder.delivery_method?.replace('_', ' ').toUpperCase()}</p>
+                            {selectedOrder.delivery_address && (
+                              <div className="text-sm text-gray-500">
+                                {typeof selectedOrder.delivery_address === 'string' 
+                                  ? JSON.parse(selectedOrder.delivery_address)?.city
+                                  : selectedOrder.delivery_address?.city}
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <h4 className="font-medium">Payment Information</h4>
+                            <p className="text-sm text-gray-500">Status: {selectedOrder.payment_status?.toUpperCase()}</p>
+                            <p className="text-sm text-gray-500">Total: ETB {selectedOrder.total_price}</p>
+                            {selectedOrder.delivery_fee > 0 && (
+                              <p className="text-sm text-gray-500">Delivery Fee: ETB {selectedOrder.delivery_fee}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
     </div>
   );
 } 

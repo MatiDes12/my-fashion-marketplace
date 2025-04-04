@@ -55,7 +55,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       CBE: paymentSettings?.cbe_birr_settings?.is_active || false,
       AMOLE: paymentSettings?.amole_settings?.is_active || false,
       CHAPA: paymentSettings?.chapa_settings?.is_active || false,
-      BANK: paymentSettings?.bank_settings?.is_active || false
+      BANK: paymentSettings?.bank_settings?.is_active || false,
+      MPESA: paymentSettings?.mpesa_settings?.is_active || false
     };
 
     // Include payment methods in the store settings

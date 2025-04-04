@@ -8,7 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
 import { getFlashSalePrices } from '@/utils/flashSales';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
-import { CartItem, PaymentSettings } from '@/types/cart';
+import { PaymentSettings as IPaymentSettings } from '@/types/cart';
 import { PAYMENT_METHODS } from '@/utils/constants';
 import { getTelebirrConfig, createOrder, applyFabricToken } from '@/lib/telebirr';
 
@@ -21,7 +21,7 @@ interface ProductOwner {
   store_settings?: {
     name?: string;
   };
-  payment_settings?: PaymentSettings;
+  payment_settings?: IPaymentSettings;
 }
 
 interface SellerOrder {
@@ -42,6 +42,57 @@ interface SellerOrder {
   deliveryFee: number;
   total: number;
   hasPaymentSettings: boolean;
+}
+
+interface CartItem {
+  id: string;
+  user_id: string;
+  product_id: string;
+  quantity: number;
+  price: number;
+  delivery_fee?: number;
+  delivery_method?: 'delivery' | 'pickup';
+  delivery_address?: {
+    street?: string;
+    city?: string;
+    subCity?: string;
+    wereda?: string;
+    kebele?: string;
+    houseNo?: string;
+    [key: string]: string | undefined;
+  };
+  selected_size?: string;
+  selected_color?: string;
+  selected_variant_sku?: string;
+  notes?: string;
+  product: {
+    id: string;
+    title: string;
+    price: number;
+    delivery_fee?: number;
+    images?: Array<{
+      image_url: string;
+    }>;
+    owner?: {
+      id: string;
+      full_name: string;
+      store_settings?: {
+        name?: string;
+      };
+    };
+  };
+  flash_sale_price?: number;
+}
+
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  quantity: number;
+  images?: Array<{
+    image_url: string;
+  }>;
+  owner: ProductOwner;
 }
 
 export default function CheckoutPage() {
@@ -436,9 +487,29 @@ export default function CheckoutPage() {
                         <h3 className="text-base font-medium text-gray-900">
                           {item.product?.title || 'Product Not Found'}
                         </h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                          Quantity: {item.quantity}
-                        </p>
+                        
+                        {/* Product Options */}
+                        <div className="mt-1 space-y-1">
+                          <p className="text-sm text-gray-500">
+                            Quantity: {item.quantity}
+                          </p>
+                          {item.selected_size && (
+                            <p className="text-sm text-gray-500">
+                              Size: <span className="font-medium">{item.selected_size}</span>
+                            </p>
+                          )}
+                          {item.selected_color && (
+                            <p className="text-sm text-gray-500">
+                              Color: <span className="font-medium">{item.selected_color}</span>
+                            </p>
+                          )}
+                          {item.selected_variant_sku && (
+                            <p className="text-sm text-gray-500">
+                              SKU: <span className="font-medium">{item.selected_variant_sku}</span>
+                            </p>
+                          )}
+                        </div>
+
                         {item.product?.owner?.store_settings?.name && (
                           <p className="mt-1 text-sm text-gray-500">
                             Seller: {item.product.owner.store_settings.name}
@@ -605,9 +676,9 @@ export default function CheckoutPage() {
         sellers={sellers.map(seller => ({
           sellerId: seller.sellerId,
           sellerName: seller.sellerName,
-          products: seller.products.map(product => ({
+          products: seller.products.map((product: Product) => ({
             ...product,
-            owner: seller.owner // Include owner with payment settings for each product
+            owner: seller.owner
           })),
           subtotal: seller.subtotal,
           total: seller.total,
@@ -615,7 +686,7 @@ export default function CheckoutPage() {
           serviceFee: seller.serviceFee,
           ethiopiaTax: seller.ethiopiaTax,
           deliveryFee: seller.deliveryFee,
-          owner: seller.owner // Keep the original owner object with payment settings
+          owner: seller.owner
         }))}
       />
     </div>

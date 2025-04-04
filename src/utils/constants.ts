@@ -49,10 +49,17 @@ export const PAYMENT_METHODS = {
     description: 'Secure online payment with Chapa',
     logo: '/images/payment-methods/chapa-logo.png',
     isAvailable: false, // Will be set dynamically
+  },  
+  MPESA: {
+    id: 'MPESA',
+    name: 'M-PESA',
+    description: 'Pay with M-PESA mobile money',
+    logo: '/images/payment-methods/mpesa-logo.png',
+    isAvailable: false, // Will be set dynamically
   },
 } as const;
 
-export type PaymentMethodType = keyof typeof PAYMENT_METHODS;
+export type PaymentMethodType = 'CASH' | 'TELEBIRR' | 'CBE' | 'AMOLE' | 'CHAPA' | 'MPESA';
 
 export const REGIONS = [
   'አዲስ አበባ', // Addis Ababa

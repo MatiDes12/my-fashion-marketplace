@@ -14,11 +14,23 @@ import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
 interface CartItem {
   id: string;
-  delivery_method: 'home_delivery' | 'store_pickup';
+  delivery_method: 'delivery' | 'pickup';
   product: {
     id: string;
     title: string;
     price: number;
+    delivery_fee?: number;
+    delivery_options?: {
+      delivery: boolean;
+      pickup: boolean;
+    };
+    shipping_info?: {
+      processing_time: string;
+      return_policy?: string;
+    };
+    images?: Array<{
+      image_url: string;
+    }>;
     owner: {
       store_settings?: {
         address?: {
@@ -28,14 +40,30 @@ interface CartItem {
           wereda?: string;
           kebele?: string;
         }
+        name?: string;
       }
     }
   };
   quantity: number;
+  selected_size?: string;
+  selected_color?: string;
+  selected_variant_sku?: string;
+  delivery_fee?: number;
+  delivery_address?: {
+    street?: string;
+    city?: string;
+    subCity?: string;
+    wereda?: string;
+    kebele?: string;
+    houseNo?: string;
+    [key: string]: string | undefined;
+  };
+  flash_sale_price?: number;
+  subtotal?: number;
 }
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState<any[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState<Record<string, boolean>>({});
@@ -381,10 +409,10 @@ export default function CartPage() {
       .insert({
         // ... existing order fields ...
         delivery_method: cartItem.delivery_method,
-        delivery_address: cartItem.delivery_method === 'home_delivery'
-          ? userAddress // Use existing userAddress state
-          : cartItem.product.owner?.store_settings?.address, // Use store address from product owner
-        delivery_fee: cartItem.delivery_method === 'home_delivery' ? 12.00 : 0,
+        delivery_address: cartItem.delivery_method === 'delivery'  // Changed from 'home_delivery'
+          ? userAddress 
+          : cartItem.product.owner?.store_settings?.address,
+        delivery_fee: cartItem.delivery_method === 'delivery' ? 12.00 : 0,  // Changed from 'home_delivery'
       })
       .select()
       .single();
@@ -496,6 +524,25 @@ export default function CartPage() {
                             </div>
                           </div>
 
+                          {/* Add size and color information */}
+                          <div className="mt-1 space-y-1">
+                            {item.selected_size && (
+                              <p className="text-sm text-gray-500">
+                                Size: <span className="font-medium">{item.selected_size}</span>
+                              </p>
+                            )}
+                            {item.selected_color && (
+                              <p className="text-sm text-gray-500">
+                                Color: <span className="font-medium">{item.selected_color}</span>
+                              </p>
+                            )}
+                            {item.selected_variant_sku && (
+                              <p className="text-sm text-gray-500">
+                                SKU: <span className="font-medium">{item.selected_variant_sku}</span>
+                              </p>
+                            )}
+                          </div>
+
                           {/* Quantity Controls and Subtotal - Stack on mobile */}
                           <div className="mt-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 sm:gap-0">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -533,9 +580,9 @@ export default function CartPage() {
                             <div className="text-left sm:text-right">
                               <p className="text-sm text-gray-500 mb-1">Subtotal</p>
                               <p className="text-lg font-semibold text-gray-900">
-                                ETB {item.subtotal.toFixed(2)}
+                                ETB {item.subtotal?.toFixed(2) || '0.00'}
                               </p>
-                              {item.delivery_fee > 0 && (
+                              {item.delivery_fee && (
                                 <div className="text-sm text-gray-500">
                                   +ETB {item.delivery_fee.toFixed(2)} delivery
                                 </div>
