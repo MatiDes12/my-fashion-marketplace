@@ -26,6 +26,7 @@ interface StoreSettings {
   logo_url: string;
   banner_url: string;
   description: string;
+  shortDescription: string;
   payment_methods: {
     cash: boolean;
     telebirr: boolean;
@@ -404,7 +405,7 @@ export default function StoresPage() {
                   </div>
                   
                   <p className="mt-2 text-sm text-gray-500 line-clamp-2">
-                    {seller.store_settings?.description || 'Ethiopian Store'}
+                    {seller.store_settings?.shortDescription || seller.store_settings?.description || 'Ethiopian Store'}
                   </p>
 
                   {/* Metrics */}

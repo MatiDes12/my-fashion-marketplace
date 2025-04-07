@@ -14,9 +14,10 @@ type SubscriptionPlan = {
   period: 'month' | 'year';
   features: string[];
   productLimit: number;
-  aiCredits: number;
-  analyticsAccess: boolean;
+  aiCredits?: number;
+  analyticsAccess: 'standard' | 'detailed' | 'advanced';
   highlighted?: boolean;
+  storageLimit: number;
 };
 
 const subscriptionPlans: SubscriptionPlan[] = [
@@ -27,13 +28,14 @@ const subscriptionPlans: SubscriptionPlan[] = [
     period: 'month',
     features: [
       'List up to 20 products',
-      'Basic AI product description generation',
+      '5GB storage',
       'Standard analytics',
       'Email support'
     ],
     productLimit: 20,
-    aiCredits: 50,
-    analyticsAccess: false
+    storageLimit: 5,
+    aiCredits: 0,
+    analyticsAccess: 'standard'
   },
   {
     id: 'pro',
@@ -41,15 +43,16 @@ const subscriptionPlans: SubscriptionPlan[] = [
     price: 999.99,
     period: 'month',
     features: [
-      'List up to 100 products',
-      'Advanced AI product descriptions & SEO',
-      'AI-powered pricing suggestions',
+      'List up to 75 products',
+      '15GB storage',
       'Detailed analytics dashboard',
-      'Priority support'
+      'Priority support',
+      'AI features'
     ],
-    productLimit: 100,
-    aiCredits: 200,
-    analyticsAccess: true,
+    productLimit: 75,
+    storageLimit: 15,
+    aiCredits: 100,
+    analyticsAccess: 'detailed',
     highlighted: true
   },
   {
@@ -59,15 +62,16 @@ const subscriptionPlans: SubscriptionPlan[] = [
     period: 'month',
     features: [
       'Unlimited products',
-      'Full AI suite with custom model training',
-      'Advanced analytics with market insights',
-      'Dedicated account manager',
-      'API access',
-      'Custom branding'
+      'Unlimited storage',
+      'Advanced AI & SEO features',
+      'Custom branding',
+      'Email support',
+      'Advanced analytics'
     ],
-    productLimit: 999999,
+    productLimit: Infinity,
+    storageLimit: Infinity,
     aiCredits: 500,
-    analyticsAccess: true
+    analyticsAccess: 'advanced'
   }
 ];
 
@@ -176,6 +180,73 @@ export default function SubscriptionPage() {
     }
   };
 
+  const handleSubscribe = async (plan: SubscriptionPlan) => {
+    try {
+      setLoading(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+      
+      // Get admin payment settings
+      const { data: adminSettings, error: settingsError } = await supabase
+        .from('admin_payment_settings')
+        .select('*')
+        .eq('is_active', true)
+        .single();
+
+      if (settingsError || !adminSettings) {
+        throw new Error('Payment system currently unavailable');
+      }
+
+      // Generate unique transaction reference
+      const txRef = `SUB-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Create subscription order
+      const { data: order, error: orderError } = await supabase
+        .from('subscription_orders')
+        .insert({
+          user_id: session?.user.id,
+          plan_id: plan.id,
+          amount: plan.price,
+          period: plan.period,
+          status: 'pending',
+          tx_ref: txRef
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Initialize Telebirr payment
+      const response = await fetch('/api/payments/telebirr/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: plan.price,
+          tx_ref: txRef,
+          subscription: true,
+          plan_id: plan.id
+        })
+      });
+
+      const paymentData = await response.json();
+
+      if (paymentData.error) throw new Error(paymentData.error);
+
+      // Redirect to Telebirr payment page
+      window.location.href = paymentData.data.toPayUrl;
+
+    } catch (error) {
+      console.error('Subscription error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to process subscription');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getPriceDisplay = (plan: SubscriptionPlan) => {
     // Calculate yearly price with proper rounding to avoid floating point issues
     const yearlyPrice = Math.round(plan.price * 10 * 100) / 100; // 10 months (2 months free) with 2 decimal precision
@@ -250,8 +321,8 @@ export default function SubscriptionPage() {
                     </p>
                     
                     <button
-                      onClick={() => handleChangePlan(plan.id)}
-                      disabled={currentPlan === plan.id}
+                      onClick={() => handleSubscribe(plan)}
+                      disabled={currentPlan === plan.id || loading}
                       className={`${
                         currentPlan === plan.id
                           ? 'bg-gray-100 text-gray-800 cursor-default'
@@ -260,7 +331,7 @@ export default function SubscriptionPage() {
                             : 'bg-gray-800 text-white hover:bg-gray-900'
                       } mt-8 block w-full py-3 px-6 border border-transparent rounded-md text-center font-medium`}
                     >
-                      {currentPlan === plan.id ? 'Current Plan' : 'Upgrade'}
+                      {loading ? 'Processing...' : currentPlan === plan.id ? 'Current Plan' : 'Subscribe'}
                     </button>
                   </div>
                   <div className="pt-6 pb-8 px-6">

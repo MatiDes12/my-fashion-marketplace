@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import Image from 'next/image';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
 // Add these type definitions at the top of the file
 type WorkingHours = {
@@ -378,44 +379,44 @@ export default function StoreSettingsPage() {
         return;
       }
 
-      // Prepare settings data without images first
+      // Get user's email if store email is not provided
+      if (!storeData.email) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userError) throw userError;
+        storeData.email = userData.email;
+      }
+
+      // Prepare settings data
       const settingsData = {
-        name: storeData.name,
-        email: storeData.email,
-        phone: storeData.phone,
-        description: storeData.description,
-        address: storeData.address,
-        logo_url: storeData.currentLogo,
-        banner_url: storeData.currentBanner,
-        payment_methods: storeData.payment_methods,
-        delivery_options: storeData.delivery_options,
-        updated_at: new Date().toISOString(),
-        shortDescription: storeData.shortDescription,
-        alternativePhone: storeData.alternativePhone,
-        socialMedia: storeData.socialMedia,
-        businessType: storeData.businessType,
-        tinNumber: storeData.tinNumber,
-        businessLicense: storeData.businessLicense,
-        vatRegistered: storeData.vatRegistered,
-        workingHours: storeData.workingHours,
-        languages: storeData.languages,
-        features: storeData.features,
-        seo: storeData.seo,
+        ...storeData,
+        logo_url: storeData.currentLogo || '',
+        banner_url: storeData.currentBanner || '',
+        updated_at: new Date().toISOString()
       };
 
       // Handle logo upload if there's a new file
-      if (storeData.logo) {
+      if (storeData.logo && storeData.logo instanceof File) {
         try {
+          const fileExt = storeData.logo.name.split('.').pop();
+          const filePath = `store-logos/${session.user.id}/logo.${fileExt}`;
+
           const { error: uploadError } = await supabase.storage
             .from('stores')
-            .upload(`${session.user.id}/logo`, storeData.logo);
+            .upload(filePath, storeData.logo, {
+              upsert: true,
+              cacheControl: '3600'
+            });
 
           if (uploadError) throw uploadError;
 
-          // Get the public URL for the uploaded logo
           const { data: { publicUrl } } = supabase.storage
             .from('stores')
-            .getPublicUrl(`${session.user.id}/logo`);
+            .getPublicUrl(filePath);
 
           settingsData.logo_url = publicUrl;
         } catch (error) {
@@ -425,18 +426,23 @@ export default function StoreSettingsPage() {
       }
 
       // Handle banner upload if there's a new file
-      if (storeData.bannerImage) {
+      if (storeData.bannerImage && storeData.bannerImage instanceof File) {
         try {
+          const fileExt = storeData.bannerImage.name.split('.').pop();
+          const filePath = `store-banners/${session.user.id}/banner.${fileExt}`;
+
           const { error: uploadError } = await supabase.storage
             .from('stores')
-            .upload(`${session.user.id}/banner`, storeData.bannerImage);
+            .upload(filePath, storeData.bannerImage, {
+              upsert: true,
+              cacheControl: '3600'
+            });
 
           if (uploadError) throw uploadError;
 
-          // Get the public URL for the uploaded banner
           const { data: { publicUrl } } = supabase.storage
             .from('stores')
-            .getPublicUrl(`${session.user.id}/banner`);
+            .getPublicUrl(filePath);
 
           settingsData.banner_url = publicUrl;
         } catch (error) {
@@ -445,7 +451,7 @@ export default function StoreSettingsPage() {
         }
       }
 
-      // Update store settings
+      // Update store settings in users table
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -456,7 +462,7 @@ export default function StoreSettingsPage() {
       if (updateError) throw updateError;
 
       setSuccess(true);
-      // Update the current values
+      toast.success('Store settings saved successfully!');
       setStoreData(prev => ({
         ...prev,
         currentLogo: settingsData.logo_url,
@@ -653,21 +659,44 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                         </div>
 
                         <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                          {/* Store Name */}
-                          <div className="sm:col-span-4">
-                            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                              Store Name *
-                            </label>
-                            <div className="mt-1">
-                              <input
-                                type="text"
-                                name="name"
-                                id="name"
-                                required
-                                value={storeData.name}
-                                onChange={handleInputChange}
-                                className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                              />
+                          {/* Store Name and Email - Full width container */}
+                          <div className="sm:col-span-6">
+                            <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-6">
+                              {/* Store Name */}
+                              <div className="sm:col-span-1">
+                                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                                  Store Name
+                                </label>
+                                <div className="mt-1">
+                                  <input
+                                    type="text"
+                                    name="name"
+                                    id="name"
+                                    value={storeData.name}
+                                    onChange={handleInputChange}
+                                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                    placeholder="Your store name"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Store Email */}
+                              <div className="sm:col-span-1">
+                                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                                  Store Email
+                                </label>
+                                <div className="mt-1">
+                                  <input
+                                    type="email"
+                                    name="email"
+                                    id="email"
+                                    value={storeData.email}
+                                    onChange={handleInputChange}
+                                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                    placeholder="store@example.com"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           </div>
 

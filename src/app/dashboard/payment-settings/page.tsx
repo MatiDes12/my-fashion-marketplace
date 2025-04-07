@@ -843,6 +843,59 @@ const MpesaSettings = ({
   );
 };
 
+const PaymentMethodCard = ({ 
+  title, 
+  description, 
+  icon, 
+  isActive, 
+  onClick 
+}: { 
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  isActive: boolean;
+  onClick: () => void;
+}) => (
+  <div
+    onClick={onClick}
+    className={`relative rounded-lg border-2 p-6 cursor-pointer transition-all duration-200 ${
+      isActive 
+        ? 'border-green-500 bg-green-50' 
+        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+    }`}
+  >
+    <div className="flex items-start gap-4">
+      <div className={`p-3 rounded-full ${isActive ? 'bg-green-100' : 'bg-gray-100'}`}>
+        {icon}
+      </div>
+      <div className="flex-1">
+        <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+        <p className="mt-1 text-sm text-gray-500">{description}</p>
+      </div>
+      <div className={`h-5 w-5 rounded-full border-2 ${
+        isActive 
+          ? 'border-green-500 bg-green-500' 
+          : 'border-gray-300'
+      }`}>
+        {isActive && (
+          <svg className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        )}
+      </div>
+    </div>
+    {isActive && (
+      <div className="absolute -top-2 -right-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-800 text-xs font-medium">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </span>
+      </div>
+    )}
+  </div>
+);
+
 const PaymentSettingsPage = () => {
   const [activeTab, setActiveTab] = useState('telebirr');
   const [loading, setLoading] = useState(true);
@@ -974,180 +1027,248 @@ const PaymentSettingsPage = () => {
   if (error) return <ErrorMessage message={error} />;
 
     return (
-    <main className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Payment Settings</h1>
+    <main className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Payment Settings</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Configure your payment methods to start accepting payments from customers.
+          </p>
+        </div>
 
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-gray-100 p-1 rounded-lg">
-          <TabsTrigger 
-            value="telebirr" 
-            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-          >
-            Telebirr
-          </TabsTrigger>
-          <TabsTrigger 
-            value="cbe" 
-            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-          >
-            CBE Account
-          </TabsTrigger>
-          <TabsTrigger 
-            value="amole" 
-            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-          >
-            Amole
-          </TabsTrigger>
-          <TabsTrigger 
-            value="chapa" 
-            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-          >
-            Chapa
-          </TabsTrigger>
-          <TabsTrigger 
-            value="mpesa" 
-            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
-          >
-            M-PESA
-          </TabsTrigger>
-        </TabsList>
-
-        <div className="mt-4 bg-white rounded-lg shadow-sm border border-gray-200">
-        <TabsContent value="telebirr">
-          <TelebirrSettings 
-            settings={settings.telebirr_settings}
-            onChange={(telebirr_settings) => setSettings({ ...settings, telebirr_settings })}
+        {/* Payment Methods Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <PaymentMethodCard
+            title="Telebirr"
+            description="Accept payments via Telebirr mobile money"
+            icon={
+              <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+            isActive={activeTab === 'telebirr'}
+            onClick={() => setActiveTab('telebirr')}
           />
-        </TabsContent>
 
-          <TabsContent value="cbe">
-            <CBESettings 
-            settings={settings.bank_settings}
-            onChange={(bank_settings) => setSettings({ ...settings, bank_settings })}
+          <PaymentMethodCard
+            title="CBE Bank"
+            description="Accept payments via Commercial Bank of Ethiopia"
+            icon={
+              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            }
+            isActive={activeTab === 'cbe'}
+            onClick={() => setActiveTab('cbe')}
           />
-        </TabsContent>
 
-          <TabsContent value="amole">
-            <AmoleSettings 
-              settings={settings.amole_settings}
-              onChange={(amole_settings) => setSettings({ ...settings, amole_settings })}
-            />
-          </TabsContent>
+          <PaymentMethodCard
+            title="Amole"
+            description="Accept payments via Amole digital wallet"
+            icon={
+              <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            }
+            isActive={activeTab === 'amole'}
+            onClick={() => setActiveTab('amole')}
+          />
 
-          <TabsContent value="chapa">
-            <div className="mt-8 bg-white rounded-lg shadow">
-              <div className="px-4 py-5 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium leading-6 text-gray-900">
-                    Chapa Payment Settings
-                  </h3>
-                  <Switch
-                    id="chapa-active"
-                    checked={settings.chapa_settings.is_active}
-                    onCheckedChange={(checked: boolean) => {
-                      setSettings(prev => ({
-                        ...prev,
-                        chapa_settings: { ...prev.chapa_settings, is_active: checked }
-                      }));
-                    }}
+          <PaymentMethodCard
+            title="Chapa"
+            description="Accept payments via Chapa payment gateway"
+            icon={
+              <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            }
+            isActive={activeTab === 'chapa'}
+            onClick={() => setActiveTab('chapa')}
+          />
+        </div>
+
+        {/* Settings Panel */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="p-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="inline-flex p-1 bg-gray-100 rounded-lg mb-6">
+                <TabsTrigger 
+                  value="telebirr" 
+                  className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                >
+                  Telebirr
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="cbe" 
+                  className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                >
+                  CBE Account
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="amole" 
+                  className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                >
+                  Amole
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="chapa" 
+                  className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                >
+                  Chapa
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="mpesa" 
+                  className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+                >
+                  M-PESA
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="mt-8 space-y-6">
+                <TabsContent value="telebirr">
+                  <TelebirrSettings 
+                    settings={settings.telebirr_settings}
+                    onChange={(telebirr_settings) => setSettings({ ...settings, telebirr_settings })}
                   />
-                </div>
+                </TabsContent>
 
-                {settings.chapa_settings.is_active && (
-                  <div className="mt-6 space-y-6">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      <div>
-                        <label htmlFor="chapa-public-key" className="block text-sm font-medium text-gray-700">
-                          Public Key
-                  </label>
-                        <input
-                          type="text"
-                          id="chapa-public-key"
-                          value={settings.chapa_settings.public_key || ''}
-                          onChange={(e) => setSettings(prev => ({
-                            ...prev,
-                            chapa_settings: { ...prev.chapa_settings, public_key: e.target.value }
-                          }))}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-                          placeholder="CHAPUBK_TEST-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                <TabsContent value="cbe">
+                  <CBESettings 
+                  settings={settings.bank_settings}
+                  onChange={(bank_settings) => setSettings({ ...settings, bank_settings })}
+                />
+                </TabsContent>
+
+                <TabsContent value="amole">
+                  <AmoleSettings 
+                    settings={settings.amole_settings}
+                    onChange={(amole_settings) => setSettings({ ...settings, amole_settings })}
                   />
-                  <p className="mt-2 text-sm text-gray-500">
-                          Your Chapa public key from the dashboard
-                  </p>
-                </div>
+                </TabsContent>
 
-                    <div>
-                        <label htmlFor="chapa-secret-key" className="block text-sm font-medium text-gray-700">
-                          Secret Key
-                      </label>
-                          <input
-                          type="password"
-                          id="chapa-secret-key"
-                          value={settings.chapa_settings.secret_key || ''}
-                          onChange={(e) => setSettings(prev => ({
-                            ...prev,
-                            chapa_settings: { ...prev.chapa_settings, secret_key: e.target.value }
-                          }))}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-                          placeholder="CHASECK_TEST-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                <TabsContent value="chapa">
+                  <div className="mt-8 bg-white rounded-lg shadow">
+                    <div className="px-4 py-5 sm:p-6">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium leading-6 text-gray-900">
+                          Chapa Payment Settings
+                        </h3>
+                        <Switch
+                          id="chapa-active"
+                          checked={settings.chapa_settings.is_active}
+                          onCheckedChange={(checked: boolean) => {
+                            setSettings(prev => ({
+                              ...prev,
+                              chapa_settings: { ...prev.chapa_settings, is_active: checked }
+                            }));
+                          }}
                         />
-                        <p className="mt-2 text-sm text-gray-500">
-                          Your Chapa secret key (keep this secure)
+                      </div>
+
+                      {settings.chapa_settings.is_active && (
+                        <div className="mt-6 space-y-6">
+                          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            <div>
+                              <label htmlFor="chapa-public-key" className="block text-sm font-medium text-gray-700">
+                                Public Key
+                      </label>
+                              <input
+                                type="text"
+                                id="chapa-public-key"
+                                value={settings.chapa_settings.public_key || ''}
+                                onChange={(e) => setSettings(prev => ({
+                                  ...prev,
+                                  chapa_settings: { ...prev.chapa_settings, public_key: e.target.value }
+                                }))}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                placeholder="CHAPUBK_TEST-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                      />
+                      <p className="mt-2 text-sm text-gray-500">
+                              Your Chapa public key from the dashboard
                       </p>
                     </div>
 
-                      <div className="sm:col-span-2">
-                        <label htmlFor="chapa-callback-url" className="block text-sm font-medium text-gray-700">
-                          Callback URL
-                      </label>
-                          <input
-                          type="url"
-                          id="chapa-callback-url"
-                          value={settings.chapa_settings.callback_url || ''}
-                          onChange={(e) => setSettings(prev => ({
-                            ...prev,
-                            chapa_settings: { ...prev.chapa_settings, callback_url: e.target.value }
-                          }))}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
-                          placeholder="https://your-domain.com/api/chapa/webhook"
-                        />
-                        <p className="mt-2 text-sm text-gray-500">
-                          The URL where Chapa will send payment notifications
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                          <button
-                            type="button"
-                        onClick={testChapaConnection}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                      >
-                        Test Connection
-                          </button>
+                        <div>
+                            <label htmlFor="chapa-secret-key" className="block text-sm font-medium text-gray-700">
+                              Secret Key
+                          </label>
+                              <input
+                              type="password"
+                              id="chapa-secret-key"
+                              value={settings.chapa_settings.secret_key || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                chapa_settings: { ...prev.chapa_settings, secret_key: e.target.value }
+                              }))}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                              placeholder="CHASECK_TEST-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+                            />
+                            <p className="mt-2 text-sm text-gray-500">
+                              Your Chapa secret key (keep this secure)
+                          </p>
                         </div>
-                  </div>
-                          )}
+
+                          <div className="sm:col-span-2">
+                            <label htmlFor="chapa-callback-url" className="block text-sm font-medium text-gray-700">
+                              Callback URL
+                          </label>
+                              <input
+                              type="url"
+                              id="chapa-callback-url"
+                              value={settings.chapa_settings.callback_url || ''}
+                              onChange={(e) => setSettings(prev => ({
+                                ...prev,
+                                chapa_settings: { ...prev.chapa_settings, callback_url: e.target.value }
+                              }))}
+                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                              placeholder="https://your-domain.com/api/chapa/webhook"
+                            />
+                            <p className="mt-2 text-sm text-gray-500">
+                              The URL where Chapa will send payment notifications
+                            </p>
+                          </div>
                         </div>
+
+                        <div className="flex justify-end">
+                              <button
+                                type="button"
+                            onClick={testChapaConnection}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                          >
+                            Test Connection
+                              </button>
+                            </div>
                       </div>
-          </TabsContent>
+                              )}
+                            </div>
+                          </div>
+                </TabsContent>
 
-          <TabsContent value="mpesa">
-            <MpesaSettings 
-              settings={settings.mpesa_settings}
-              onChange={(mpesa_settings) => setSettings({ ...settings, mpesa_settings })}
-            />
-          </TabsContent>
-        </div>
-      </Tabs>
-
-      <div className="mt-6 flex justify-end">
-            <button
-          onClick={handleSave}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-            >
-          Save Settings
-            </button>
+                <TabsContent value="mpesa">
+                  <MpesaSettings 
+                    settings={settings.mpesa_settings}
+                    onChange={(mpesa_settings) => setSettings({ ...settings, mpesa_settings })}
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
           </div>
+        </div>
+
+        {/* Save Button */}
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={handleSave}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Save Settings
+          </button>
+        </div>
+      </div>
     </main>
   );
 };

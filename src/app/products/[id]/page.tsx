@@ -685,19 +685,19 @@ export default function ProductDetailPage() {
   };
   
   const addToCart = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      toast.error('Please sign in to add items to cart');
-      router.push('/login');
-      return;
-    }
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Please sign in to add items to cart');
+        router.push('/login');
+        return;
+      }
 
     if (!product) {
       toast.error('Product not found');
       return;
     }
-
+      
     // Clear previous validation errors
     setValidationError(null);
 
@@ -743,9 +743,9 @@ export default function ProductDetailPage() {
     
     try {
       const cartItem = {
-        user_id: session.user.id,
-        product_id: productId,
-        quantity: quantity,
+            user_id: session.user.id,
+            product_id: productId,
+            quantity: quantity,
         price: product.flash_sale_price || product.price,
         delivery_fee: product.delivery_fee || 0,
         selected_size: selectedSize || null,
@@ -758,9 +758,9 @@ export default function ProductDetailPage() {
         .upsert(cartItem, {
           onConflict: 'user_id,product_id',
           ignoreDuplicates: false
-        });
-      
-      if (insertError) throw insertError;
+          });
+        
+        if (insertError) throw insertError;
       
       toast.success('Added to cart');
       router.push('/cart'); // Changed from /checkout to /cart
@@ -1071,24 +1071,24 @@ export default function ProductDetailPage() {
                           </svg>
                         </div>
                       )}
-                    </div>
                   </div>
                 </div>
               </div>
-
+            </div>
+            
               {/* Right column - Brief Description */}
-              <div>
+                <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-2">About this item</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
                   {product.description}
                 </p>
               </div>
-            </div>
-
+                </div>
+                
             {/* Grid container for Delivery & Size/Color options */}
             <div className="grid grid-cols-2 gap-x-6 mt-6">
               {/* Left column - Size/Color Selection */}
-              <div>
+                  <div>
                 {product.available_variants && product.available_variants.length > 0 && (
                   <div>
                     {/* Size Selector */}
@@ -1099,7 +1099,7 @@ export default function ProductDetailPage() {
                           {validationError && !selectedSize && (
                             <span className="text-sm text-red-600">* Required</span>
                           )}
-                        </div>
+                  </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {product.sizes.map((size) => (
                             <button
@@ -1116,8 +1116,8 @@ export default function ProductDetailPage() {
                               {size}
                             </button>
                           ))}
-                        </div>
-                      </div>
+                  </div>
+                  </div>
                     )}
 
                     {/* Color Selector */}
@@ -1128,7 +1128,7 @@ export default function ProductDetailPage() {
                           {validationError && !selectedColor && (
                             <span className="text-sm text-red-600">* Required</span>
                           )}
-                        </div>
+                </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {product.colors.map((color) => (
                             <button
@@ -1178,7 +1178,7 @@ export default function ProductDetailPage() {
                 <DeliveryOptions options={product.delivery_options} product={product} />
               </div>
             </div>
-
+            
             {/* Quantity selector and buy buttons */}
             <div className="space-y-6 mt-6">
               {/* Available quantity */}
@@ -1317,7 +1317,7 @@ export default function ProductDetailPage() {
           <div className="mt-6">
             {/* Details Tab */}
             {activeTab === 'details' && (
-              <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="bg-white rounded-lg shadow-sm p-8">
                 <div className="space-y-8">
                   {/* Basic Information */}
                   <div className="bg-gray-50 rounded-xl p-6">
@@ -1344,12 +1344,12 @@ export default function ProductDetailPage() {
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Detailed Description</h3>
                     <div className="prose prose-sm max-w-none text-gray-500">
-                      {product.detailed_description && (
+                  {product.detailed_description && (
                         <p className="whitespace-pre-line">{product.detailed_description}</p>
-                      )}
-                    </div>
-                  </div>
-
+                  )}
+                </div>
+              </div>
+              
                   {/* Highlights */}
                   {product.highlights && product.highlights.length > 0 && (
                     <div className="bg-gray-50 rounded-xl p-6">
@@ -1374,7 +1374,7 @@ export default function ProductDetailPage() {
             {activeTab === 'specifications' && (
               <div className="bg-white rounded-lg shadow-sm p-8">
                 <div className="space-y-8">
-                  {/* Specifications */}
+              {/* Specifications */}
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Technical Specifications</h3>
                     <dl className="grid grid-cols-2 gap-4">
@@ -1429,7 +1429,7 @@ export default function ProductDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Style Notes */}
                       {product.style_notes && (
-                        <div>
+              <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Style Notes</h4>
                           <p className="text-sm text-gray-900">{product.style_notes}</p>
                         </div>
@@ -1437,10 +1437,10 @@ export default function ProductDetailPage() {
                       
                       {/* Fit Information */}
                       {product.fit_info && (
-                        <div>
+                  <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Fit Information</h4>
                           <p className="text-sm text-gray-900">{product.fit_info}</p>
-                        </div>
+                  </div>
                       )}
                     </div>
                   </div>
@@ -1451,7 +1451,7 @@ export default function ProductDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Sizes */}
                       {product.sizes && product.sizes.length > 0 && (
-                        <div>
+                  <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Available Sizes</h4>
                           <div className="flex flex-wrap gap-2">
                             {product.sizes.map((size, index) => (
@@ -1459,13 +1459,13 @@ export default function ProductDetailPage() {
                                 {size}
                               </span>
                             ))}
-                          </div>
+                  </div>
                         </div>
                       )}
 
                       {/* Colors */}
                       {product.colors && product.colors.length > 0 && (
-                        <div>
+                  <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Available Colors</h4>
                           <div className="flex flex-wrap gap-2">
                             {product.colors.map((color, index) => (
@@ -1473,7 +1473,7 @@ export default function ProductDetailPage() {
                                 {color}
                               </span>
                             ))}
-                          </div>
+                  </div>
                         </div>
                       )}
                     </div>
@@ -1504,7 +1504,7 @@ export default function ProductDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Occasions */}
                       {product.occasion && product.occasion.length > 0 && (
-                        <div>
+                  <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Perfect For</h4>
                           <div className="flex flex-wrap gap-2">
                             {product.occasion.map((occ, index) => (
@@ -1572,29 +1572,29 @@ export default function ProductDetailPage() {
                         <>
                           <div>
                             <dt className="text-sm font-medium text-gray-500">Processing Time</dt>
-                            <dd className="mt-1 text-sm text-gray-900">
+                    <dd className="mt-1 text-sm text-gray-900">
                               {product.shipping_info.processing_time}
-                            </dd>
-                          </div>
-                          <div>
+                    </dd>
+                  </div>
+                  <div>
                             <dt className="text-sm font-medium text-gray-500">Return Policy</dt>
-                            <dd className="mt-1 text-sm text-gray-900">
+                    <dd className="mt-1 text-sm text-gray-900">
                               {product.shipping_info.return_policy || 'Contact seller for return policy'}
-                            </dd>
-                          </div>
+                    </dd>
+                  </div>
                         </>
                       )}
-                    </dl>
-                  </div>
+                </dl>
+              </div>
 
                   {/* Warranty Information */}
                   {product.warranty_info && (
                     <div className="bg-gray-50 rounded-xl p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Warranty</h3>
                       <p className="text-sm text-gray-600">{product.warranty_info}</p>
-                    </div>
+            </div>
                   )}
-                </div>
+          </div>
               </div>
             )}
 
@@ -1611,11 +1611,11 @@ export default function ProductDetailPage() {
                         {product.average_rating?.toFixed(1) || '0.0'}
                       </div>
                       <div className="flex justify-center mb-2">
-                        <ProductRating
-                          productId={product.id}
-                          initialRating={product.average_rating}
-                          readonly={true}
-                        />
+                      <ProductRating
+                        productId={product.id}
+                        initialRating={product.average_rating}
+                        readonly={true}
+                      />
                       </div>
                       <p className="text-sm text-gray-500">
                         Based on {product.total_ratings} reviews
@@ -1742,11 +1742,11 @@ export default function ProductDetailPage() {
                               <button className="text-sm text-gray-500 hover:text-gray-700">
                                 Report
                               </button>
-                            </div>
+              </div>
                           </div>
                         ))}
-                      </div>
-
+            </div>
+            
                       {/* Pagination */}
                       <div className="mt-8 flex justify-center">
                         <nav className="flex items-center gap-2">
@@ -1763,7 +1763,7 @@ export default function ProductDetailPage() {
                             Next
                           </button>
                         </nav>
-                      </div>
+            </div>
                     </>
                   ) : (
                     <div className="text-center py-12 bg-gray-50 rounded-xl">
@@ -1774,7 +1774,7 @@ export default function ProductDetailPage() {
                       <p className="mt-1 text-sm text-gray-500">
                         Be the first to review this product
                       </p>
-                    </div>
+          </div>
                   )}
                 </div>
               </div>

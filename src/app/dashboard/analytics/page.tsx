@@ -41,6 +41,7 @@ interface AnalyticsData {
   ordersByStatus: {
     labels: string[];
     data: number[];
+    backgroundColor: string[];
   };
   paymentMethods: {
     labels: string[];
@@ -74,15 +75,15 @@ export default function AnalyticsPage() {
   }, [timeRange]);
 
   const fetchAnalyticsData = async () => {
-      try {
+    try {
       setLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
         router.push('/login?message=Please login to access analytics');
-          return;
-        }
-        
+        return;
+      }
+
       // Get date range
       const now = new Date();
       let startDate = new Date();
@@ -101,7 +102,22 @@ export default function AnalyticsPage() {
           break;
       }
 
-      // Fetch revenue by month
+      // First get all products owned by the seller
+      const { data: products } = await supabase
+        .from('products')
+        .select('id')
+        .eq('owner_id', session.user.id);
+
+      const productIds = products?.map(p => p.id) || [];
+
+      // Fetch orders for these products
+      const { data: ordersData } = await supabase
+        .from('orders')
+        .select('*')
+        .in('product_id', productIds)
+        .gte('created_at', startDate.toISOString());
+
+      // Fetch revenue data
       const { data: revenueData } = await supabase
         .from('transactions')
         .select(`
@@ -114,14 +130,6 @@ export default function AnalyticsPage() {
           customer_name
         `)
         .eq('seller_id', session.user.id)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at');
-
-      // Fetch orders by status
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('id, order_status')
-        .eq('user_id', session.user.id)
         .gte('created_at', startDate.toISOString());
 
       // Fetch payment methods distribution
@@ -135,14 +143,14 @@ export default function AnalyticsPage() {
       const processedData = processAnalyticsData(revenueData, ordersData, paymentsData);
       setAnalyticsData(processedData);
 
-      } catch (error) {
+    } catch (error) {
       console.error('Error fetching analytics:', error);
       setError('Failed to load analytics data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   const processAnalyticsData = (revenueData: any[] | null, ordersData: any[] | null, paymentsData: any[] | null) => {
     // Initialize data structures
     const revenueByMonth: { labels: string[]; data: number[] } = {
@@ -155,7 +163,7 @@ export default function AnalyticsPage() {
       const monthlyRevenue = revenueData.reduce((acc: { [key: string]: number }, item) => {
         const date = new Date(item.created_at);
         const monthYear = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-        acc[monthYear] = (acc[monthYear] || 0) + (item.total_amount || 0);
+        acc[monthYear] = (acc[monthYear] || 0) + (item.seller_payout_amount || 0);
         return acc;
       }, {});
 
@@ -163,33 +171,37 @@ export default function AnalyticsPage() {
       revenueByMonth.data = Object.values(monthlyRevenue);
     }
 
-    // Process orders by status
+    // Process orders by status - match exactly with database schema
     const ordersByStatus = {
       labels: ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
-      data: [0, 0, 0, 0, 0]
+      data: Array(5).fill(0) // Initialize array with zeros
+    };
+
+    const statusMap = {
+      'pending': 0,
+      'confirmed': 1,
+      'shipped': 2,
+      'delivered': 3,
+      'cancelled': 4
     };
 
     if (ordersData && ordersData.length > 0) {
       ordersData.forEach(order => {
-        switch (order.order_status) {
-          case 'pending':
-            ordersByStatus.data[0]++;
-            break;
-          case 'confirmed':
-            ordersByStatus.data[1]++;
-            break;
-          case 'shipped':
-            ordersByStatus.data[2]++;
-            break;
-          case 'delivered':
-            ordersByStatus.data[3]++;
-            break;
-          case 'cancelled':
-            ordersByStatus.data[4]++;
-            break;
+        const statusIndex = statusMap[order.order_status as keyof typeof statusMap];
+        if (typeof statusIndex === 'number') {
+          ordersByStatus.data[statusIndex]++;
         }
       });
     }
+
+    // Update the Bar chart colors to match status meanings
+    const statusColors = [
+      'rgba(251, 191, 36, 0.5)',  // amber-400 for pending
+      'rgba(59, 130, 246, 0.5)',  // blue-500 for confirmed
+      'rgba(139, 92, 246, 0.5)',  // purple-500 for shipped
+      'rgba(34, 197, 94, 0.5)',   // green-500 for delivered
+      'rgba(239, 68, 68, 0.5)',   // red-500 for cancelled
+    ];
 
     // Process payment methods
     const paymentMethodsMap = new Map<string, number>();
@@ -208,9 +220,11 @@ export default function AnalyticsPage() {
     // Calculate summary metrics
     const summary = {
       totalOrders: ordersData?.length || 0,
-      totalRevenue: revenueData?.reduce((sum, item) => sum + (item.total_amount || 0), 0) || 0,
+      totalRevenue: revenueData?.reduce((sum, item) => {
+        return sum + (item.seller_payout_amount || 0);
+      }, 0) || 0,
       averageOrderValue: revenueData?.length ? 
-        (revenueData.reduce((sum, item) => sum + (item.total_amount || 0), 0) / revenueData.length) : 0,
+        (revenueData.reduce((sum, item) => sum + (item.seller_payout_amount || 0), 0) / revenueData.length) : 0,
       pendingPayouts: revenueData?.reduce((sum, item) => {
         if (item.seller_payout_status === 'pending') {
           return sum + (item.seller_payout_amount || 0);
@@ -233,7 +247,10 @@ export default function AnalyticsPage() {
 
     return {
       revenueByMonth,
-      ordersByStatus,
+      ordersByStatus: {
+        ...ordersByStatus,
+        backgroundColor: statusColors
+      },
       paymentMethods,
       summary,
       recentTransactions
@@ -382,19 +399,21 @@ export default function AnalyticsPage() {
                     {
                       label: 'Orders',
                       data: analyticsData?.ordersByStatus.data || [],
-                      backgroundColor: [
-                        'rgba(255, 99, 132, 0.5)',
-                        'rgba(54, 162, 235, 0.5)',
-                        'rgba(255, 206, 86, 0.5)',
-                        'rgba(75, 192, 192, 0.5)',
-                        'rgba(153, 102, 255, 0.5)',
-                      ],
+                      backgroundColor: analyticsData?.ordersByStatus.backgroundColor || [],
                     }
                   ]
                 }}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        stepSize: 1
+                      }
+                    }
+                  }
                 }}
               />
             </div>

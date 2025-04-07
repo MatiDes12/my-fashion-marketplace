@@ -685,8 +685,6 @@ export default function CartPage() {
                                       <div className="bg-gray-50 p-3 rounded-lg space-y-3">
                                         <div>
                                           <p className="text-sm text-gray-900 font-medium">Pickup Location:</p>
-                                          {/* Debug log */}
-                                          {console.log('Store address:', item.product.owner?.store_settings?.address)}
                                           {item.product.owner?.store_settings?.address && 
                                             getFullAddress(item.product.owner.store_settings.address) && (
                                             <p className="text-sm text-gray-900">

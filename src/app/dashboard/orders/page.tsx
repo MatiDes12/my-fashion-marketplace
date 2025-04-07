@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { formatCurrency } from '@/utils/currency';
+import { toast } from 'react-hot-toast';
 
 interface User {
   id: string;
@@ -105,6 +106,21 @@ export default function OrdersPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [orderStats, setOrderStats] = useState({
+    totalRevenue: 0,
+    totalOrders: 0,
+    averageOrderValue: 0,
+    ordersByStatus: {
+      pending: 0,
+      confirmed: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0,
+    }
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -222,6 +238,7 @@ export default function OrdersPage() {
     };
     
     fetchOrders();
+    fetchOrderStats();
   }, [router]);
 
   useEffect(() => {
@@ -319,6 +336,12 @@ export default function OrdersPage() {
   const handleUpdateStatus = async (newStatus: Order['order_status']) => {
     if (!selectedOrder) return;
     
+    // Prevent changing status if already delivered
+    if (selectedOrder.order_status === 'delivered') {
+      toast.error("Cannot change status once order is marked as delivered");
+      return;
+    }
+    
     setUpdatingStatus(true);
     try {
       const isCashPayment = selectedOrder.transaction?.payment_method === 'CASH';
@@ -337,6 +360,10 @@ export default function OrdersPage() {
         deliveryProofUrl = await handleImageUpload(selectedImage);
       }
 
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
+
       // Update order with image URL and status
       const { data: orderUpdate, error: orderError } = await supabase
         .from('orders')
@@ -351,6 +378,26 @@ export default function OrdersPage() {
         .single();
 
       if (orderError) throw orderError;
+
+      // If status is delivered, update the transaction with seller_id
+      if (isMarkingDelivered) {
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .update({
+            payment_status: 'paid',
+            platform_payout_status: 'completed',
+            seller_payout_status: 'pending',
+            updated_at: new Date().toISOString(),
+            seller_id: session.user.id  // Add seller_id for RLS
+          })
+          .eq('order_id', selectedOrder.id)
+          .eq('seller_id', session.user.id); // Add this condition for RLS
+
+        if (transactionError) {
+          console.error('Transaction update error:', transactionError);
+          throw transactionError;
+        }
+      }
 
       // Update the local state with the new order data
       setOrders(orders.map(order => 
@@ -375,9 +422,11 @@ export default function OrdersPage() {
 
       setIsUpdateModalOpen(false);
       setSelectedOrder(null);
+      toast.success(`Order status updated to ${newStatus}`);
 
     } catch (error) {
       console.error('Error updating order status:', error);
+      toast.error('Failed to update order status');
     } finally {
       setUpdatingStatus(false);
     }
@@ -415,12 +464,97 @@ export default function OrdersPage() {
 
   const indexOfLastOrder = currentPage * itemsPerPage;
   const indexOfFirstOrder = indexOfLastOrder - itemsPerPage;
-  const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
-  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const paginatedOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
   };
+
+  const fetchOrderStats = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      // Get transactions for this seller to calculate actual revenue
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('seller_payout_amount, created_at')
+        .eq('seller_id', session.user.id)
+        .gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
+
+      // Calculate total revenue using seller_payout_amount
+      const totalRevenue = transactions?.reduce((sum, transaction) => {
+        return sum + (transaction.seller_payout_amount || 0);
+      }, 0) || 0;
+
+      // First get all products owned by the seller
+      const { data: products } = await supabase
+        .from('products')
+        .select('id')
+        .eq('owner_id', session.user.id);
+
+      const productIds = products?.map(p => p.id) || [];
+
+      // Then get orders for these products
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('order_status, created_at')
+        .in('product_id', productIds)
+        .gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
+
+      const stats = {
+        totalRevenue,
+        totalOrders: orders?.length || 0,
+        averageOrderValue: orders?.length ? totalRevenue / orders.length : 0,
+        ordersByStatus: {
+          pending: orders?.filter(o => o.order_status === 'pending').length || 0,
+          confirmed: orders?.filter(o => o.order_status === 'confirmed').length || 0,
+          shipped: orders?.filter(o => o.order_status === 'shipped').length || 0,
+          delivered: orders?.filter(o => o.order_status === 'delivered').length || 0,
+          cancelled: orders?.filter(o => o.order_status === 'cancelled').length || 0,
+        }
+      };
+
+      setOrderStats(stats);
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
+      toast.error('Failed to load order statistics');
+    }
+  };
+
+  useEffect(() => {
+    if (!orders) return;
+
+    let result = [...orders];
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(order => order.order_status === statusFilter);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      result = result.filter(order => 
+        // Search in order info
+        order.id.toLowerCase().includes(searchLower) ||
+        order.order_status.toLowerCase().includes(searchLower) ||
+        formatCurrency(order.total_price).toLowerCase().includes(searchLower) ||
+        // Search in customer info
+        order.user?.full_name?.toLowerCase().includes(searchLower) ||
+        order.user?.email?.toLowerCase().includes(searchLower) ||
+        // Search in product info
+        order.product?.title?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setFilteredOrders(result);
+  }, [orders, searchTerm, statusFilter]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -430,24 +564,24 @@ export default function OrdersPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-indigo-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-indigo-600">Total Orders</h3>
-              <p className="text-2xl font-bold text-indigo-900">{orders.length}</p>
+              <p className="text-2xl font-bold text-indigo-900">{orderStats.totalOrders}</p>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-green-600">Completed Orders</h3>
               <p className="text-2xl font-bold text-green-900">
-                {orders.filter(o => o.order_status === 'delivered').length}
+                {orderStats.ordersByStatus.delivered}
               </p>
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-yellow-600">Pending Orders</h3>
               <p className="text-2xl font-bold text-yellow-900">
-                {orders.filter(o => o.order_status === 'pending').length}
+                {orderStats.ordersByStatus.pending}
               </p>
             </div>
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-blue-600">Total Revenue</h3>
               <p className="text-2xl font-bold text-blue-900">
-                {formatCurrency(orders.reduce((sum, order) => sum + (order.total_price || 0), 0))}
+                {formatCurrency(orderStats.totalRevenue)}
               </p>
             </div>
           </div>
@@ -474,14 +608,17 @@ export default function OrdersPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Filters and Search - New Addition */}
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="relative flex-1">
+            {/* Search and Filters */}
+            <div className="mb-6 flex flex-col sm:flex-row gap-4">
+              {/* Search Bar */}
+              <div className="flex-1">
+                <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search orders..."
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Search orders, customers, or products..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -489,22 +626,22 @@ export default function OrdersPage() {
                     </svg>
                   </div>
                 </div>
-                <div className="flex gap-4">
-                  <select className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                  <select className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    <option value="">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                  </select>
-                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div className="sm:w-48">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
               </div>
             </div>
 
@@ -532,7 +669,7 @@ export default function OrdersPage() {
                   </tr>
                 </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {currentOrders.map((order) => (
+                    {paginatedOrders.map((order) => (
                       <tr key={order.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-3">
@@ -606,28 +743,20 @@ export default function OrdersPage() {
             </div>
 
             {/* Add Pagination Controls */}
-            <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-              <div className="flex items-center justify-between">
+            {totalPages > 1 && (
+              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                 <div className="flex-1 flex justify-between sm:hidden">
                   <button
-                    onClick={() => handlePageChange(currentPage - 1)}
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
                   >
                     Previous
                   </button>
                   <button
-                    onClick={() => handlePageChange(currentPage + 1)}
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === totalPages
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
                   >
                     Next
                   </button>
@@ -635,60 +764,45 @@ export default function OrdersPage() {
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-gray-700">
-                      Showing{' '}
-                      <span className="font-medium">{indexOfFirstOrder + 1}</span>
-                      {' '}-{' '}
+                      Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
                       <span className="font-medium">
-                        {Math.min(indexOfLastOrder, orders.length)}
+                        {Math.min(indexOfLastOrder, filteredOrders.length)}
                       </span>{' '}
-                      of{' '}
-                      <span className="font-medium">{orders.length}</span>{' '}
-                      results
+                      of <span className="font-medium">{filteredOrders.length}</span> results
                     </p>
                   </div>
                   <div>
                     <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                       <button
-                        onClick={() => handlePageChange(currentPage - 1)}
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                         disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                          currentPage === 1
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-500 hover:bg-gray-50'
-                        }`}
+                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
                       >
                         <span className="sr-only">Previous</span>
-                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </button>
-                      
-                      {/* Page Numbers */}
-                      {[...Array(totalPages)].map((_, index) => (
+                      {[...Array(totalPages)].map((_, i) => (
                         <button
-                          key={index + 1}
-                          onClick={() => handlePageChange(index + 1)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium
-                            ${currentPage === index + 1
+                          key={i + 1}
+                          onClick={() => handlePageChange(i + 1)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            currentPage === i + 1
                               ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
                               : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
+                          }`}
                         >
-                          {index + 1}
+                          {i + 1}
                         </button>
                       ))}
-
                       <button
-                        onClick={() => handlePageChange(currentPage + 1)}
+                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                         disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                          currentPage === totalPages
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-500 hover:bg-gray-50'
-                        }`}
+                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
                       >
                         <span className="sr-only">Next</span>
-                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                         </svg>
                       </button>
@@ -696,7 +810,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -781,20 +895,15 @@ export default function OrdersPage() {
                         onClick={() => handleUpdateStatus(status as Order['order_status'])}
                         disabled={
                           updatingStatus || 
-                          (status === 'delivered' && 
-                           !selectedImage && 
-                           !selectedOrder?.delivery_proof_image && 
-                           selectedOrder?.order_status !== 'delivered')
+                          selectedOrder?.order_status === 'delivered' ||
+                          (selectedOrder?.order_status === status)
                         }
-                        className={`w-full text-left px-4 py-2 rounded ${
+                        className={`px-4 py-2 text-sm font-medium rounded-md ${
                           selectedOrder?.order_status === status
-                            ? 'bg-indigo-100 text-indigo-700'
-                            : status === 'delivered' && 
-                              !selectedImage && 
-                              !selectedOrder?.delivery_proof_image && 
-                              selectedOrder?.order_status !== 'delivered'
+                            ? 'bg-gray-100 text-gray-800'
+                            : selectedOrder?.order_status === 'delivered'
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'hover:bg-gray-50'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
                         {status.charAt(0).toUpperCase() + status.slice(1)}

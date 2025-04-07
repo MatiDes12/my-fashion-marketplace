@@ -11,6 +11,8 @@ import { PieChart } from '@/components/charts/PieChart';
 import { BarChart } from '@/components/charts/BarChart';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import Link from 'next/link';
+import { ResponsiveLine } from '@nivo/line';
+import { format } from 'date-fns';
 
 interface DashboardStats {
   totalUsers: number;
@@ -51,10 +53,14 @@ interface Transaction {
   customer_email: string;
   customer_phone: string;
   order_id: string;
-  seller: {
+  seller?: {
     id: string;
     full_name: string;
     email: string;
+    store_settings?: {
+      name: string;
+      // ... other store settings fields
+    };
   } | null;
   order: {
     id: string;
@@ -117,7 +123,8 @@ export default function AdminDashboardPage() {
           seller:users!transactions_seller_id_fkey (
             id,
             full_name,
-            email
+            email,
+            store_settings
           ),
           order:orders!transactions_order_id_fkey (
             id,
@@ -140,14 +147,16 @@ export default function AdminDashboardPage() {
       // Calculate daily revenue
       const dailyRevenue = transactions?.reduce((acc, t) => {
         const date = new Date(t.created_at).toISOString().split('T')[0];
+        const platformProfit = (t.service_fee || 0) + (t.platform_fee || 0); // Calculate platform profit
+        
         const existing = acc.find((d: { date: string }) => d.date === date);
         if (existing) {
-          existing.revenue += t.total_amount || 0;
+          existing.revenue += platformProfit;
           existing.transactions += 1;
         } else {
           acc.push({
             date,
-            revenue: t.total_amount || 0,
+            revenue: platformProfit,
             transactions: 1
           });
         }
@@ -183,7 +192,8 @@ export default function AdminDashboardPage() {
         totalUsers: userCount || 0,
         totalProducts: productCount || 0,
         totalOrders: transactions?.length || 0,
-        totalRevenue: transactions?.reduce((sum, t) => sum + (t.total_amount || 0), 0) || 0,
+        totalRevenue: transactions?.reduce((sum, t) => 
+          sum + ((t.service_fee || 0) + (t.platform_fee || 0)), 0) || 0, // Update total revenue to show platform profit
         pendingPayouts: transactions?.reduce((sum, t) => 
           t.seller_payout_status === 'pending' ? sum + (t.seller_payout_amount || 0) : sum, 0) || 0,
         completedPayouts: transactions?.reduce((sum, t) => 
@@ -223,6 +233,100 @@ export default function AdminDashboardPage() {
 
   if (loading) return <LoadingSpinner />;
 
+  // Update the columns array
+  const columns = [
+    {
+      header: 'Transaction ID',
+      accessorKey: 'id',
+      cell: ({ row }: { row: { original: Transaction } }) => (
+        <div className="text-sm">
+          <div className="font-medium text-gray-900">#{row.original.id.slice(0, 8)}</div>
+          <div className="text-gray-500">{format(new Date(row.original.created_at), 'MMM d, yyyy')}</div>
+        </div>
+      ),
+    },
+    {
+      header: 'Order Info',
+      accessorKey: 'order',
+      cell: ({ row }: { row: { original: Transaction } }) => (
+        <div className="text-sm">
+          <div className="text-gray-900 relative group">
+            <span 
+              className="truncate block max-w-[200px] cursor-help"
+              data-tip={row.original.order?.product?.title || 'N/A'}
+            >
+              {row.original.order?.product?.title || 'N/A'}
+            </span>
+            <div className="opacity-0 bg-black text-white text-xs rounded py-1 px-2 absolute z-10 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap">
+              {row.original.order?.product?.title || 'N/A'}
+              <svg className="absolute text-black h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+            </div>
+          </div>
+          <div className="text-gray-500">Ref: {row.original.order?.payment_reference?.slice(0, 8) || 'N/A'}</div>
+        </div>
+      ),
+    },
+    {
+      header: 'Customer',
+      accessorKey: 'customer',
+      cell: ({ row }: { row: { original: Transaction } }) => (
+        <div className="text-sm">
+          <div className="text-gray-900">{row.original.customer_name || 'N/A'}</div>
+          <div className="text-gray-500">{row.original.customer_email || 'N/A'}</div>
+        </div>
+      ),
+    },
+    {
+      header: 'Payment Details',
+      accessorKey: 'payment_details',
+      cell: ({ row }: { row: { original: Transaction } }) => (
+        <div className="text-sm">
+          <div className="font-medium text-gray-900">Total: {formatCurrency(row.original.total_amount)}</div>
+          <div className="text-gray-500">Method: {row.original.payment_method}</div>
+          <div className="text-gray-500">Status: {row.original.payment_status}</div>
+        </div>
+      ),
+    },
+    {
+      header: 'Status',
+      accessorKey: 'payment_status',
+      cell: ({ row }: { row: { original: Transaction } }) => (
+        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
+          row.original.payment_status === 'paid'
+            ? 'bg-green-100 text-green-800'
+            : 'bg-yellow-100 text-yellow-800'
+        }`}>
+          {row.original.payment_status}
+        </span>
+      ),
+    },
+    {
+      header: 'Seller Info',
+      accessorKey: 'seller',
+      cell: ({ row }: { row: { original: Transaction } }) => {
+        const storeSettings = row.original.seller?.store_settings as any; // Cast to any to access JSON
+        return (
+          <div className="text-sm">
+            <div className="text-gray-900">
+              {storeSettings?.name || 'Unknown Store'}
+            </div>
+            <div className="text-gray-500">{row.original.seller?.email || 'No email'}</div>
+          </div>
+        );
+      },
+    },
+    {
+      header: 'Fees & VAT',
+      accessorKey: 'fees',
+      cell: ({ row }: { row: { original: Transaction } }) => (
+        <div className="text-sm">
+          <div className="text-gray-900">Service: {formatCurrency(row.original.service_fee)}</div>
+          <div className="text-gray-500">VAT: {formatCurrency(row.original.vat_amount)}</div>
+        </div>
+      ),
+    }
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="sm:flex sm:items-center sm:justify-between">
@@ -261,19 +365,41 @@ export default function AdminDashboardPage() {
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Revenue Trend */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Revenue Trend</h2>
-          <LineChart
-            data={[
-              {
-                id: "revenue",
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-medium text-gray-900">Platform Revenue Trend</h2>
+            <div className="text-sm text-gray-500">
+              Service Fee + Platform Fee
+            </div>
+          </div>
+          <div style={{ height: 300 }}>
+            <ResponsiveLine
+              data={[{
+                id: "Platform Revenue",
                 data: stats.dailyRevenue.map(d => ({
-                  x: d.date,
+                  x: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                   y: d.revenue
                 }))
-              }
-            ]}
-            height={300}
-          />
+              }]}
+              colors={['#ef4444']}
+              margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
+              enableArea={true}
+              areaBaselineValue={0}
+              areaOpacity={0.1}
+              pointSize={8}
+              pointColor="#ffffff"
+              pointBorderWidth={2}
+              pointBorderColor="#ef4444"
+              yFormat={value => `ETB ${value.toLocaleString()}`}
+              curve="monotoneX"
+              useMesh={true}
+              tooltip={({ point }) => (
+                <div className="bg-gray-800 text-white p-2 text-sm rounded-lg shadow-lg">
+                  <div className="font-bold">{point.data.xFormatted}</div>
+                  <div>Revenue: ETB {point.data.yFormatted}</div>
+                </div>
+              )}
+            />
+          </div>
         </div>
 
         {/* Payment Methods */}
@@ -303,122 +429,95 @@ export default function AdminDashboardPage() {
 
       {/* Recent Transactions Table */}
       <div className="mt-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-medium text-gray-900">Recent Transactions</h2>
           <Link href="/admin/transactions" className="text-red-600 hover:text-red-700">
             View all
           </Link>
         </div>
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order Info</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product & Seller</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment Details</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fees & VAT</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {stats.recentTransactions.map((transaction) => (
-                  <tr key={transaction.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="text-sm font-medium text-gray-900">
-                        #{transaction.id.substring(0, 8)}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(transaction.created_at).toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        Order #{transaction.order_id ? transaction.order_id.substring(0, 8) : 'N/A'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Ref: {transaction.order?.payment_reference || 'N/A'}
-                        {transaction.order_id && !transaction.order && 
-                          <span className="text-red-500"> (Order exists but not found)</span>
-                        }
-                        {!transaction.order_id && 
-                          <span className="text-red-500"> (No order ID)</span>
-                        }
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Tx: {transaction.order?.tx_ref || 'N/A'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Product: {transaction.order?.product?.title || 'N/A'}
-                        {transaction.order && !transaction.order.product && 
-                          <span className="text-red-500"> (No product info)</span>
-                        }
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        Transaction #{transaction.id.substring(0, 8)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Seller: {transaction.seller?.full_name || 'Unknown'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {transaction.seller?.email || 'No email'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        Total: {formatCurrency(transaction.total_amount)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Method: {transaction.payment_method}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Status: {transaction.payment_status}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        Platform: {formatCurrency(transaction.platform_fee || 0)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Service: {formatCurrency(transaction.service_fee || 0)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        VAT: {formatCurrency(transaction.vat_amount || 0)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Delivery: {formatCurrency(transaction.delivery_fee || 0)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                        ${transaction.seller_payout_status === 'completed' ? 
-                          'bg-green-100 text-green-800' : 
-                          'bg-yellow-100 text-yellow-800'}`}>
-                        {transaction.seller_payout_status}
+        <div className="bg-white shadow rounded-lg overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Transaction ID
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Order Info
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Customer
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payment Details
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Payout Status
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Seller Info
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fees & VAT
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {stats.recentTransactions.map((transaction) => (
+                <tr key={transaction.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    <div className="font-medium text-gray-900">#{transaction.id.slice(0, 8)}</div>
+                    <div className="text-gray-500">{new Date(transaction.created_at).toLocaleDateString()}</div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    <div className="text-gray-900 relative group">
+                      <span 
+                        className="truncate block max-w-[200px] cursor-help"
+                        data-tip={transaction.order?.product?.title || 'N/A'}
+                      >
+                        {transaction.order?.product?.title || 'N/A'}
                       </span>
-                      <div className="text-xs text-gray-500 mt-1">
-                        Order: {transaction.order?.order_status || 'Unknown'}
+                      <div className="opacity-0 bg-black text-white text-xs rounded py-1 px-2 absolute z-10 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap">
+                        {transaction.order?.product?.title || 'N/A'}
+                        <svg className="absolute text-black h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      {transaction.seller_payout_status === 'pending' && (
-                        <button
-                          onClick={() => approvePayout(transaction.id)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          Approve Payout
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                    <div className="text-gray-500">Ref: {transaction.order?.payment_reference?.slice(0, 8) || 'N/A'}</div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    <div className="text-gray-900">{transaction.customer_name || 'N/A'}</div>
+                    <div className="text-gray-500">{transaction.customer_email || 'N/A'}</div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    <div className="font-medium text-gray-900">Total: {formatCurrency(transaction.total_amount)}</div>
+                    <div className="text-gray-500">Method: {transaction.payment_method}</div>
+                    <div className="text-gray-500">Status: {transaction.payment_status}</div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                      ${transaction.seller_payout_status === 'completed' ? 
+                        'bg-green-100 text-green-800' : 
+                        'bg-yellow-100 text-yellow-800'}`}>
+                      {transaction.seller_payout_status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    <div className="text-gray-900">
+                      {(() => {
+                        const storeSettings = transaction.seller?.store_settings as any;
+                        return storeSettings?.name || 'Unknown Store';
+                      })()}
+                    </div>
+                    <div className="text-gray-500">{transaction.seller?.email || 'No email'}</div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                    <div className="text-gray-900">Service: {formatCurrency(transaction.service_fee)}</div>
+                    <div className="text-gray-500">VAT: {formatCurrency(transaction.vat_amount)}</div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

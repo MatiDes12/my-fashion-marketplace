@@ -13,6 +13,7 @@ import { classNames } from '@/utils/classNames';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import SellerVerificationForm from '@/components/SellerVerificationForm';
 import { withSellerVerification } from '@/components/withSellerVerification';
+import { toast } from 'react-hot-toast';
 
 interface Product {
   id: string;
@@ -35,8 +36,6 @@ interface Order {
   quantity: number;
   total_price: number;
   order_status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  user_id: string;
-  product_id: string;
   user: {
     id: string;
     full_name: string;
@@ -57,6 +56,7 @@ interface DashboardStats {
   monthlyRevenue: number;
   recentOrders: Order[];
   topProducts: Product[];
+  totalRevenue?: number;
 }
 
 type ProductImage = {
@@ -163,7 +163,7 @@ export default withSellerVerification(function DashboardPage() {
         throw new Error('No session');
       }
 
-      // Get products with orders and images
+      // First get the original product and order data
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select(`
@@ -177,16 +177,35 @@ export default withSellerVerification(function DashboardPage() {
             image_url,
             is_model_picture
           ),
-          orders (
-            id
+          orders!inner (
+            id,
+            created_at,
+            quantity,
+            total_price,
+            order_status,
+            user:users!orders_user_id_fkey (
+              id,
+              full_name,
+              email
+            )
           )
         `)
         .eq('owner_id', session.user.id);
 
       if (productsError) throw productsError;
 
-      // Get recent orders with user and product details
-      const { data: orders, error: ordersError } = await supabase
+      // Get transactions for actual revenue calculation
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('seller_payout_amount')
+        .eq('seller_id', session.user.id);
+
+      // Calculate actual revenue from seller payouts
+      const actualRevenue = transactions?.reduce((sum, t) => 
+        sum + (t.seller_payout_amount || 0), 0) || 0;
+
+      // Get recent orders for current owner's products
+      const { data: recentOrders, error: ordersError } = await supabase
         .from('orders')
         .select(`
           id,
@@ -199,7 +218,7 @@ export default withSellerVerification(function DashboardPage() {
             full_name,
             email
           ),
-          product:products!orders_product_id_fkey (
+          product:products!inner (
             id,
             title,
             price,
@@ -212,35 +231,16 @@ export default withSellerVerification(function DashboardPage() {
 
       if (ordersError) throw ordersError;
 
-      // Get transactions for revenue calculation
-      const { data: transactions, error: transactionsError } = await supabase
-        .from('transactions')
-        .select('total_amount, seller_payout_amount')
-        .eq('seller_id', session.user.id);
+      // Calculate total sales from orders
+      const totalSales = products?.reduce((sum, product) => {
+        return sum + (product.orders?.length || 0);
+      }, 0) || 0;
 
-      if (transactionsError) throw transactionsError;
-
-      // Update the totalSales calculation
-      const { data: totalOrdersData, error: totalOrdersError } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          product:products!orders_product_id_fkey (
-            owner_id
-          )
-        `)
-        .eq('product.owner_id', session.user.id);
-
-      if (totalOrdersError) throw totalOrdersError;
-
-      // Calculate stats
-      const totalProducts = products?.length || 0;
-      const activeProducts = products?.filter(p => p.is_active)?.length || 0;
-      const totalSales = totalOrdersData?.length || 0;
-      
-      // Calculate total revenue from transactions
-      const totalRevenue = transactions?.reduce((sum, transaction) => {
-        return sum + (transaction.total_amount || 0);
+      // Calculate monthly revenue
+      const monthlyRevenue = products?.reduce((sum, product) => {
+        return sum + product.orders.reduce((orderSum, order) => {
+          return orderSum + (order.total_price || 0);
+        }, 0);
       }, 0) || 0;
 
       // Process products to include sales count
@@ -252,16 +252,14 @@ export default withSellerVerification(function DashboardPage() {
         .sort((a, b) => (b.total_sales - a.total_sales))
         .slice(0, 5) || [];
 
-      // Get recent orders
-      const recentOrders = (orders as unknown as Order[]) || [];
-
       setStats({
-        totalProducts,
-        activeProducts,
+        totalProducts: products?.length || 0,
+        activeProducts: products?.filter(p => p.is_active)?.length || 0,
         totalSales,
-        monthlyRevenue: totalRevenue,
-        recentOrders,
-        topProducts: topProducts as Product[]
+        monthlyRevenue,
+        recentOrders: (recentOrders || []) as unknown as Order[],
+        topProducts: topProducts as unknown as Product[],
+        totalRevenue: actualRevenue
       });
 
     } catch (error) {
@@ -413,7 +411,7 @@ export default withSellerVerification(function DashboardPage() {
                 <div className="ml-3">
                   <p className="text-sm text-red-100">Total Revenue</p>
                   <p className="text-2xl font-bold text-white">
-                    {formatCurrency(stats.monthlyRevenue)}
+                    {formatCurrency(stats.totalRevenue || 0)}
                   </p>
                 </div>
               </div>

@@ -55,6 +55,11 @@ function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasPaymentSettings, setHasPaymentSettings] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stockFilter, setStockFilter] = useState('all'); // 'all', 'in-stock', 'low-stock', 'out-of-stock'
+  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'price-high', 'price-low'
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [activeTab, setActiveTab] = useState<'all' | 'categories' | 'out-of-stock'>('all');
   const router = useRouter();
   const supabase = createClientComponent();
 
@@ -154,6 +159,52 @@ function ProductsPage() {
     return url.startsWith('@') ? url.substring(1) : url;
   };
 
+  // Add this function to handle sorting
+  const getSortedProducts = (products: Product[]) => {
+    return [...products].sort((a, b) => {
+      switch (sortBy) {
+        case 'price-high':
+          return b.price - a.price;
+        case 'price-low':
+          return a.price - b.price;
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        default: // 'newest'
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+  };
+
+  // Add this function to handle filtering
+  const getFilteredProducts = (products: Product[]) => {
+    return products.filter(product => {
+      const matchesSearch = 
+        product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStock = () => {
+        switch (stockFilter) {
+          case 'in-stock':
+            return product.quantity > 10;
+          case 'low-stock':
+            return product.quantity <= 10 && product.quantity > 0;
+          case 'out-of-stock':
+            return product.quantity === 0;
+          default:
+            return true;
+        }
+      };
+
+      return matchesSearch && matchesStock();
+    });
+  };
+
+  // Add a function to get out of stock products
+  const getOutOfStockProducts = () => {
+    return products.filter(product => product.quantity === 0);
+  };
+
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
@@ -203,101 +254,333 @@ function ProductsPage() {
           </div>
         )}
 
-        {/* Category Navigation */}
+        {/* Tabs */}
         <div className="mb-8">
-          <div className="flex flex-wrap gap-4">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-4 py-2 rounded-lg ${
-                !selectedCategory 
-                  ? 'bg-green-600 text-white' 
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              All Categories
-            </button>
-            {Object.keys(categoryGroups).map((category) => (
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-lg ${
-                  selectedCategory === category 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
+                onClick={() => setActiveTab('all')}
+                className={`${
+                  activeTab === 'all'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
-                {category} ({categoryGroups[category].length})
+                All Products
               </button>
-            ))}
+            <button
+                onClick={() => setActiveTab('categories')}
+                className={`${
+                  activeTab === 'categories'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              >
+                Categories
+            </button>
+              <button
+                onClick={() => setActiveTab('out-of-stock')}
+                className={`${
+                  activeTab === 'out-of-stock'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm relative`}
+              >
+                Out of Stock
+                {getOutOfStockProducts().length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {getOutOfStockProducts().length}
+                  </span>
+                )}
+              </button>
+            </nav>
           </div>
         </div>
 
-        {/* Products Grid */}
-        <div className="space-y-8">
-          {(selectedCategory ? [selectedCategory] : Object.keys(categoryGroups)).map((category) => (
-            <div key={category} className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">{category}</h2>
+        {/* Conditional Rendering based on active tab */}
+        {activeTab === 'all' ? (
+          <>
+            {/* Controls Section */}
+            <div className="mb-8 bg-white rounded-lg shadow p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Search */}
+                <div className="flex-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filters */}
+                <div className="flex gap-4">
+                  <select
+                    value={stockFilter}
+                    onChange={(e) => setStockFilter(e.target.value)}
+                    className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="all">All Stock</option>
+                    <option value="in-stock">In Stock</option>
+                    <option value="low-stock">Low Stock</option>
+                    <option value="out-of-stock">Out of Stock</option>
+                  </select>
+
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="price-low">Price: Low to High</option>
+                  </select>
+
+                  {/* View Toggle */}
+                  <div className="flex rounded-lg border">
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`px-4 py-2 ${viewMode === 'grid' ? 'bg-green-50 text-green-600' : 'text-gray-600'}`}
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`px-4 py-2 ${viewMode === 'list' ? 'bg-green-50 text-green-600' : 'text-gray-600'}`}
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* Products Display */}
+            <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+              {getFilteredProducts(getSortedProducts(products)).map((product) => (
+                <div key={product.id} className={`bg-white rounded-lg shadow-sm overflow-hidden
+                  ${viewMode === 'list' ? 'flex' : ''}`}>
+                  {/* Product Image */}
+                  <div className={viewMode === 'list' ? 'w-48 h-48' : 'aspect-w-3 aspect-h-2'}>
+                    {product.product_images && product.product_images.length > 0 ? (
+                      <Image
+                        src={cleanImageUrl(product.product_images[0].image_url)}
+                        alt={product.title}
+                        width={300}
+                        height={200}
+                        className="object-cover h-full w-full"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-400">No image</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="p-4 flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900">{product.title}</h3>
+                        <p className="mt-1 text-sm text-gray-500 line-clamp-2">{product.description}</p>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        product.quantity > 10 ? 'bg-green-100 text-green-800' :
+                        product.quantity > 0 ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {product.quantity > 10 ? 'In Stock' :
+                         product.quantity > 0 ? 'Low Stock' :
+                         'Out of Stock'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-xl font-medium text-green-600">
+                        {formatCurrency(product.price)}
+                      </span>
+                      <Link
+                        href={`/dashboard/products/edit/${product.id}`}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                      >
+                        Edit
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : activeTab === 'categories' ? (
+        <div className="space-y-8">
+            {Object.entries(categoryGroups).map(([category, products]) => (
+              <div key={category} className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">{category}</h2>
+                    <p className="text-sm text-gray-500">{products.length} products</p>
+                  </div>
+                  <Link
+                    href="/dashboard/products/new"
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
+                  >
+                    Add to {category}
+                  </Link>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {products.map((product) => (
+                      <div key={product.id} className="group relative bg-white border rounded-lg flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-200">
+                        {/* Product Image */}
+                        <div className="aspect-w-3 aspect-h-2 bg-gray-200 group-hover:opacity-75">
+                          {product.product_images && product.product_images.length > 0 ? (
+                            <Image
+                              src={cleanImageUrl(product.product_images[0].image_url)}
+                              alt={product.title}
+                              width={300}
+                              height={200}
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-gray-400">No image</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Product Details */}
+                        <div className="flex-1 p-4 space-y-2 flex flex-col">
+                          <h3 className="text-sm font-medium text-gray-900">
+                            <Link href={`/dashboard/products/edit/${product.id}`}>
+                              <span aria-hidden="true" className="absolute inset-0" />
+                              {product.title}
+                            </Link>
+                          </h3>
+
+                          <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
+
+                          <div className="flex-1 flex flex-col justify-end">
+                            <div className="flex items-center justify-between">
+                              <p className="text-base font-medium text-gray-900">
+                                {formatCurrency(product.price)}
+                              </p>
+                              <div className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                product.quantity > 10 ? 'bg-green-100 text-green-800' :
+                                product.quantity > 0 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {product.quantity} in stock
+                              </div>
+                            </div>
+
+                            {/* Product Attributes */}
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {product.sizes?.map((size) => (
+                                <span key={size} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                  {size}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {product.colors?.map((color) => (
+                                <span key={color} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                  {color}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Out of Stock View */
+          <div className="space-y-6">
+            <div className="bg-red-50 border-l-4 border-red-400 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">
+                    You have {getOutOfStockProducts().length} products that need restocking.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">Out of Stock Products</h2>
+              </div>
+
               <div className="p-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {categoryGroups[category].map((product) => (
-                    <div key={product.id} className="bg-white rounded-lg border shadow-sm">
-                      <div className="aspect-w-3 aspect-h-2">
+                  {getOutOfStockProducts().map((product) => (
+                    <div key={product.id} className="group relative bg-white border rounded-lg flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-200">
+                      {/* Product Image */}
+                      <div className="aspect-w-3 aspect-h-2 bg-gray-200 group-hover:opacity-75 relative">
                         {product.product_images && product.product_images.length > 0 ? (
                           <Image
                             src={cleanImageUrl(product.product_images[0].image_url)}
                             alt={product.title}
                             width={300}
                             height={200}
-                            className="object-cover rounded-t-lg"
+                            className="object-cover w-full h-full opacity-50"
                           />
                         ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <div className="w-full h-full flex items-center justify-center">
                             <span className="text-gray-400">No image</span>
                           </div>
                         )}
+                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                          <span className="text-white text-lg font-bold">Out of Stock</span>
+                        </div>
                       </div>
-                      <div className="p-4">
-                        <h3 className="text-lg font-medium text-gray-900">{product.title}</h3>
-                        <p className="mt-1 text-gray-500 line-clamp-2">{product.description}</p>
-                        <div className="mt-2 flex justify-between items-center">
-                          <span className="text-green-600 font-medium">
+
+                      {/* Product Details */}
+                      <div className="flex-1 p-4 space-y-2">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          <Link href={`/dashboard/products/edit/${product.id}`}>
+                            {product.title}
+                          </Link>
+                        </h3>
+                        <p className="text-sm text-gray-500">{product.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-medium text-gray-900">
                             {formatCurrency(product.price)}
                           </span>
-                          <span className={`text-sm ${
-                            product.quantity > 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {product.quantity} in stock
-                          </span>
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {product.colors?.map((color) => (
-                            <span
-                              key={color}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100"
-                            >
-                              {color}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {product.sizes?.map((size) => (
-                            <span
-                              key={size}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100"
-                            >
-                              {size}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-4 flex justify-end space-x-2">
                           <Link
                             href={`/dashboard/products/edit/${product.id}`}
-                            className="text-indigo-600 hover:text-indigo-900 text-sm"
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
                           >
-                            Edit
+                            Restock
                           </Link>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Category: {product.category}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -305,8 +588,8 @@ function ProductsPage() {
                 </div>
               </div>
             </div>
-          ))}
         </div>
+        )}
       </div>
     </div>
   );

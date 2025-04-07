@@ -1,14 +1,18 @@
-export function classNames(...classes: (string | boolean | undefined | {[key: string]: boolean})[]): string {
-  return classes
-    .filter(Boolean)
-    .map(className => {
-      if (typeof className === 'object') {
-        return Object.entries(className)
-          .filter(([_, value]) => value)
-          .map(([key]) => key)
-          .join(' ');
-      }
-      return className;
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function classNames(...inputs: (string | Record<string, boolean>)[]) {
+  return inputs
+    .flatMap(input => {
+      if (typeof input === 'string') return input;
+      return Object.entries(input)
+        .filter(([, value]) => value)
+        .map(([key]) => key);
     })
+    .filter(Boolean)
     .join(' ');
+}
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 } 

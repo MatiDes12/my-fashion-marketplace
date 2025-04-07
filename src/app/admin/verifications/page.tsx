@@ -91,6 +91,10 @@ function VerificationsPage() {
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [selectedVerificationId, setSelectedVerificationId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 5;
   const supabase = createClientComponentClient();
 
   useEffect(() => {
@@ -222,89 +226,183 @@ function VerificationsPage() {
     }
   };
 
+  const filteredVerifications = verifications
+    .filter(v => {
+      if (filterStatus === 'all') return true;
+      return v.status === filterStatus;
+    })
+    .filter(v => {
+      if (!searchTerm) return true;
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        v.business_name.toLowerCase().includes(searchLower) ||
+        v.business_email.toLowerCase().includes(searchLower) ||
+        v.tin_number.toLowerCase().includes(searchLower)
+      );
+    });
+
+  const paginatedVerifications = filteredVerifications.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredVerifications.length / itemsPerPage);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this verification? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('seller_verification')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Verification deleted successfully');
+      fetchVerifications();
+    } catch (error) {
+      console.error('Error deleting verification:', error);
+      toast.error('Failed to delete verification');
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-6">Seller Verifications</h1>
-      
-      <div className="bg-white shadow-sm rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Business Information
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tax Information
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Address
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Documents
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status & Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {verifications.map((verification) => (
-                <tr key={verification.id}>
-                  {/* Business Information */}
-                  <td className="px-6 py-4">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+        <h1 className="text-2xl font-semibold text-gray-900">Seller Verifications</h1>
+        <div className="mt-4 sm:mt-0">
+          <div className="flex space-x-4">
+            <select 
+              className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <div className="relative">
+              <input
+                type="search"
+                placeholder="Search sellers..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pl-10"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        {['all', 'pending', 'approved', 'rejected'].map((status) => {
+          const count = verifications.filter(v => 
+            status === 'all' ? true : v.status === status
+          ).length;
+          
+          return (
+            <div key={status} className="bg-white rounded-lg shadow px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-gray-500">
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-gray-900">
+                    {count}
+                  </div>
+                </div>
+                <div className={`rounded-full p-3 ${
+                  status === 'approved' ? 'bg-green-100' :
+                  status === 'pending' ? 'bg-yellow-100' :
+                  status === 'rejected' ? 'bg-red-100' :
+                  'bg-gray-100'
+                }`}>
+                  {/* Add appropriate icon for each status */}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-white shadow-sm rounded-lg">
+        {paginatedVerifications.map((verification) => (
+          <div key={verification.id} className="border-b border-gray-200 last:border-0">
+            <div className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
+                  {/* Business Info Section */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Business Information</h3>
                     <div className="space-y-2">
                       <div>
-                        <span className="text-sm font-medium text-gray-900">Business Name:</span>
-                        <p className="text-sm text-gray-600">{verification.business_name}</p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Legal Name:</span>
+                        <p className="text-base font-semibold text-gray-900">{verification.business_name}</p>
                         <p className="text-sm text-gray-600">{verification.legal_business_name}</p>
                       </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Email:</span>
-                        <p className="text-sm text-gray-600">{verification.business_email}</p>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        {verification.business_email}
                       </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Phone:</span>
-                        <p className="text-sm text-gray-600">{verification.business_phone}</p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Registration No:</span>
-                        <p className="text-sm text-gray-600">{verification.business_registration_no}</p>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        {verification.business_phone}
                       </div>
                     </div>
-                  </td>
+                  </div>
 
-                  {/* Tax Information */}
-                  <td className="px-6 py-4">
-                    <div className="space-y-2">
+                  {/* Tax Info Section */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Tax Information</h3>
+                    <div className="space-y-2 bg-gray-50 p-3 rounded-md">
                       <div>
-                        <span className="text-sm font-medium text-gray-900">TIN Number:</span>
-                        <p className="text-sm text-gray-600">{verification.tin_number}</p>
+                        <span className="text-xs text-gray-500">TIN Number</span>
+                        <p className="text-sm font-medium text-gray-900">{verification.tin_number}</p>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-900">VAT Registered:</span>
-                        <p className="text-sm text-gray-600">
-                          {verification.is_vat_registered ? 'Yes' : 'No'}
+                        <span className="text-xs text-gray-500">VAT Status</span>
+                        <p className="text-sm font-medium text-gray-900">
+                          {verification.is_vat_registered ? (
+                            <span className="text-green-600">VAT Registered</span>
+                          ) : (
+                            <span className="text-gray-600">Not VAT Registered</span>
+                          )}
                         </p>
                       </div>
                       {verification.is_vat_registered && (
                         <div>
-                          <span className="text-sm font-medium text-gray-900">VAT Number:</span>
-                          <p className="text-sm text-gray-600">{verification.vat_number}</p>
+                          <span className="text-xs text-gray-500">VAT Number</span>
+                          <p className="text-sm font-medium text-gray-900">{verification.vat_number}</p>
                         </div>
                       )}
                     </div>
-                  </td>
+                  </div>
 
-                  {/* Address */}
-                  <td className="px-6 py-4">
+                  {/* Address Section */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Address</h3>
                     <div className="space-y-2">
                       <div>
                         <span className="text-sm font-medium text-gray-900">Region:</span>
@@ -329,95 +427,101 @@ function VerificationsPage() {
                         <p className="text-sm text-gray-600">{verification.house_no}</p>
                       </div>
                     </div>
-                  </td>
+                  </div>
 
-                  {/* Documents */}
-                  <td className="px-6 py-4">
-                    <div className="space-y-2">
+                  {/* Documents Section */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Documents</h3>
+                    <div className="grid grid-cols-2 gap-2">
                       <button 
                         onClick={() => handleDocumentClick(verification.trade_license_url, 'Trade License')}
-                        className="block text-sm text-blue-600 hover:text-blue-800"
+                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
                       >
-                        Trade License
+                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-sm text-gray-700">Trade License</span>
                       </button>
                       <button 
                         onClick={() => handleDocumentClick(verification.tin_certificate_url, 'TIN Certificate')}
-                        className="block text-sm text-blue-600 hover:text-blue-800"
+                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
                       >
-                        TIN Certificate
+                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-sm text-gray-700">TIN Certificate</span>
                       </button>
                       <button 
                         onClick={() => handleDocumentClick(verification.memorandum_url, 'Memorandum')}
-                        className="block text-sm text-blue-600 hover:text-blue-800"
+                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
                       >
-                        Memorandum
+                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-sm text-gray-700">Memorandum</span>
                       </button>
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">ID Type:</span>
-                        <p className="text-sm text-gray-600">{verification.id_document_type}</p>
-                      </div>
                       <button 
                         onClick={() => handleDocumentClick(verification.id_document_url, 'ID Document')}
-                        className="block text-sm text-blue-600 hover:text-blue-800"
+                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
                       >
-                        ID Document
+                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="text-sm text-gray-700">ID Document</span>
                       </button>
                     </div>
-                  </td>
+                  </div>
 
-                  {/* Status & Actions */}
-                  <td className="px-6 py-4">
-                    <div className="space-y-4">
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Created:</span>
-                        <p className="text-sm text-gray-600">
+                  {/* Status & Actions Section */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-3">Status & Actions</h3>
+                    <div className="bg-gray-50 p-4 rounded-md">
+                      <div className="flex items-center justify-between mb-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                          ${verification.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            verification.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'}`
+                        }>
+                          {verification.status.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-gray-500">
                           {format(new Date(verification.created_at), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      <div>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          verification.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          verification.status === 'approved' ? 'bg-green-100 text-green-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {verification.status}
                         </span>
                       </div>
-                      <div className="space-y-2">
-                        {verification.status === 'pending' ? (
-                          <div className="space-y-2">
-                            <button
-                              onClick={() => handleStatusUpdate(verification.id, 'approved')}
-                              className="w-full bg-green-600 text-white px-3 py-1 rounded-md text-sm hover:bg-green-700"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedVerificationId(verification.id);
-                                setShowReasonInput(true);
-                              }}
-                              className="w-full bg-red-600 text-white px-3 py-1 rounded-md text-sm hover:bg-red-700"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
+                      
+                      {verification.status === 'pending' ? (
+                        <div className="space-y-2">
                           <button
-                            onClick={() => handleStatusUpdate(verification.id, 'pending')}
-                            className="w-full bg-yellow-600 text-white px-3 py-1 rounded-md text-sm hover:bg-yellow-700"
+                            onClick={() => handleStatusUpdate(verification.id, 'approved')}
+                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                           >
-                            Reconsider
+                            Approve
                           </button>
-                        )}
-                      </div>
+                          <button
+                            onClick={() => {
+                              setSelectedVerificationId(verification.id);
+                              setShowReasonInput(true);
+                            }}
+                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleStatusUpdate(verification.id, 'pending')}
+                          className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                        >
+                          Reconsider
+                        </button>
+                      )}
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {selectedDocument && (
@@ -457,6 +561,40 @@ function VerificationsPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-6 flex justify-center">
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            {[...Array(totalPages)].map((_, i) => (
+              <button
+                key={i + 1}
+                onClick={() => setCurrentPage(i + 1)}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                  currentPage === i + 1
+                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+            >
+              Next
+            </button>
+          </nav>
         </div>
       )}
     </div>
