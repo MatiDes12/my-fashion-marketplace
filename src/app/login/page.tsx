@@ -22,7 +22,7 @@ function LoginContent() {
   const returnUrl = searchParams?.get('returnUrl') || null;
 
   useEffect(() => {
-    // Check for message in URL
+    //Check for message in URL
     const urlMessage = searchParams?.get('message');
     if (urlMessage) {
       setMessage(urlMessage);
