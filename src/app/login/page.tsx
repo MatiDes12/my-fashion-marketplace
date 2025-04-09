@@ -155,44 +155,17 @@ function LoginContent() {
         return;
       }
 
-      // Check local storage for last reset attempt
-      const lastResetAttempt = localStorage.getItem('lastResetAttempt');
-      const lastResetEmail = localStorage.getItem('lastResetEmail');
-      const now = Date.now();
-
-      if (lastResetAttempt && lastResetEmail === resetEmail) {
-        const timeElapsed = now - parseInt(lastResetAttempt);
-        if (timeElapsed < RESET_TIMEOUT) {
-          const minutesLeft = Math.ceil((RESET_TIMEOUT - timeElapsed) / 60000);
-          toast.error(`Please wait ${minutesLeft} minutes before requesting another reset link`);
-          return;
-        }
-      }
-
-      setLoading(true);
-
-      const { data, error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password?type=recovery`
       });
 
-      if (error) {
-        console.error('Reset password error:', error);
-        throw error;
-      }
-
-      // Store the reset attempt time and email
-      localStorage.setItem('lastResetAttempt', now.toString());
-      localStorage.setItem('lastResetEmail', resetEmail);
-
-      console.log('Reset password response:', data);
-      toast.success('If an account exists with this email, you will receive reset instructions shortly');
+      if (error) throw error;
+      toast.success('Password reset instructions sent to your email');
       setForgotPasswordModal(false);
       setResetEmail('');
     } catch (error) {
       console.error('Error sending reset password email:', error);
-      toast.error('Failed to send reset password email. Please try again later.');
-    } finally {
-      setLoading(false);
+      toast.error('Failed to send reset password email');
     }
   };
 

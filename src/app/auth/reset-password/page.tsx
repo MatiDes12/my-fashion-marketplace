@@ -16,18 +16,18 @@ export default function ResetPasswordPage() {
     const handleCode = async () => {
       try {
         const code = searchParams?.get('code');
-        const type = searchParams?.get('type');
-
-        if (!code || type !== 'recovery') {
+        
+        if (!code) {
           toast.error('Invalid password reset link');
           router.push('/login');
           return;
         }
 
-        // Get the session directly instead of exchanging the code
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // Exchange the code for a session
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-        if (error || !session) {
+        if (error || !data.session) {
+          console.error('Session error:', error);
           toast.error('Invalid or expired reset link');
           router.push('/login');
           return;
