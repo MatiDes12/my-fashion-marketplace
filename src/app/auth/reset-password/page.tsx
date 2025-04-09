@@ -41,15 +41,23 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
+      // Password validation
+      if (newPassword.length < 8) {
+        toast.error('Password must be at least 8 characters long');
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
       if (error) throw error;
 
+      // Force sign out after password reset
       await supabase.auth.signOut();
+      
       toast.success('Password updated successfully!');
-      router.push('/login?message=Password has been reset successfully. Please login with your new password.');
+      router.replace('/login?message=Password has been reset. Please sign in with your new password.');
     } catch (error) {
       console.error('Error resetting password:', error);
       toast.error('Failed to reset password. Please try again.');

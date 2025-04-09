@@ -26,6 +26,8 @@ function LoginContent() {
   const [forgotPasswordModal, setForgotPasswordModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
 
+  const RESET_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+
   useEffect(() => {
     //Check for message in URL
     const urlMessage = searchParams?.get('message');
@@ -153,6 +155,20 @@ function LoginContent() {
         return;
       }
 
+      // Check local storage for last reset attempt
+      const lastResetAttempt = localStorage.getItem('lastResetAttempt');
+      const lastResetEmail = localStorage.getItem('lastResetEmail');
+      const now = Date.now();
+
+      if (lastResetAttempt && lastResetEmail === resetEmail) {
+        const timeElapsed = now - parseInt(lastResetAttempt);
+        if (timeElapsed < RESET_TIMEOUT) {
+          const minutesLeft = Math.ceil((RESET_TIMEOUT - timeElapsed) / 60000);
+          toast.error(`Please wait ${minutesLeft} minutes before requesting another reset link`);
+          return;
+        }
+      }
+
       setLoading(true);
 
       const { data, error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
@@ -163,6 +179,10 @@ function LoginContent() {
         console.error('Reset password error:', error);
         throw error;
       }
+
+      // Store the reset attempt time and email
+      localStorage.setItem('lastResetAttempt', now.toString());
+      localStorage.setItem('lastResetEmail', resetEmail);
 
       console.log('Reset password response:', data);
       toast.success('If an account exists with this email, you will receive reset instructions shortly');
