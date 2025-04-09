@@ -153,11 +153,15 @@ function LoginContent() {
         return;
       }
 
+      // Make sure we're using the full URL with https
+      const resetPasswordURL = new URL('/auth/reset-password', 'https://www.avrioxshop.com').toString();
+
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: 'https://www.avrioxshop.com/auth/reset-password'
+        redirectTo: resetPasswordURL
       });
 
       if (error) {
+        console.error('Reset email error:', error);
         if (error.message.includes('rate limit')) {
           throw new Error('Too many reset attempts. Please try again later.');
         }
