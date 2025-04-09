@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClientComponent } from '@/lib/supabase';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import LoadingPage from '@/components/LoadingPage';
+import { EMAIL_CONFIG } from '@/config/email';
 
 function CallbackContent() {
   const router = useRouter();
@@ -45,8 +46,8 @@ function CallbackContent() {
         // Sign out the user after verification
         await supabase.auth.signOut();
 
-        // Redirect to login with success message
-        router.push('/login?message=Email verified successfully! Please sign in.');
+        // Redirect to login with success message and the correct email for support
+        router.push(`/login?message=Email verified successfully! Please sign in. If you need help, contact ${EMAIL_CONFIG.SUPPORT}`);
 
       } catch (error) {
         console.error('Error during email confirmation:', error);

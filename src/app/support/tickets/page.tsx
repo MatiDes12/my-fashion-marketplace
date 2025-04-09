@@ -5,6 +5,7 @@ import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { EMAIL_CONFIG } from '@/config/email';
 
 interface SupportTicket {
   id: string;
@@ -15,6 +16,8 @@ interface SupportTicket {
   created_at: string;
   updated_at: string;
 }
+
+const SUPPORT_EMAIL = EMAIL_CONFIG.SUPPORT;
 
 export default function SupportTicketsPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -69,7 +72,18 @@ export default function SupportTicketsPage() {
 
           {tickets.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
-              No support tickets found.
+              <div>
+                <p>No support tickets found.</p>
+                <p className="mt-2">
+                  You can also reach us directly at{' '}
+                  <a 
+                    href={`mailto:${SUPPORT_EMAIL}`}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    {SUPPORT_EMAIL}
+                  </a>
+                </p>
+              </div>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">

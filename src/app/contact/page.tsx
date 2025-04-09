@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { EMAIL_CONFIG } from '@/config/email';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -74,7 +75,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-white">Email</h3>
-                  <p className="text-gray-300">info@avrio.et</p>
+                  <p className="text-gray-300">{EMAIL_CONFIG.SUPPORT}</p>
                 </div>
               </div>
             </div>

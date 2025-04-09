@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { EMAIL_CONFIG } from '@/config/email';
 
 type Role = 'customer' | 'owner';
 
@@ -93,7 +94,7 @@ export default function SignupPage() {
           data: {
             full_name: fullName,
             role: role,
-            email_sender: 'avriosignup@avrioxshop.com',
+            email_sender: EMAIL_CONFIG.SIGNUP,
             email_name: 'Avrio'
           }
         }

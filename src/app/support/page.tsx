@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { EMAIL_CONFIG } from '@/config/email';
 
 interface SupportTicket {
   id: string;
@@ -16,6 +17,8 @@ interface SupportTicket {
   created_at: string;
   admin_response: string | null;
 }
+
+const SUPPORT_EMAIL = EMAIL_CONFIG.SUPPORT;
 
 export default function SupportPage() {
   const [subject, setSubject] = useState('');
@@ -67,7 +70,8 @@ export default function SupportPage() {
           user_id: session.user.id,
           subject,
           message,
-          status: 'open'
+          status: 'open',
+          contact_email: SUPPORT_EMAIL
         });
 
       if (error) throw error;

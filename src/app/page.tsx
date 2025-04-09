@@ -24,6 +24,7 @@ import ScrollProgress from '@/components/ScrollProgress';
 import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import { EMAIL_CONFIG } from '@/config/email';
 
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3ELoading...%3C/text%3E%3C/svg%3E';
 
@@ -2854,8 +2855,8 @@ export default function HomePage() {
                   </a>
                 </li>
                 <li>
-                  <a href="mailto: avrioxshop@gmail.com" className="text-gray-400 hover:text-white transition-colors">
-                    avrioxshop@gmail.com
+                  <a href={`mailto:${EMAIL_CONFIG.SUPPORT}`} className="text-gray-400 hover:text-white transition-colors">
+                    {EMAIL_CONFIG.SUPPORT}
                   </a>
                 </li>
               </ul>

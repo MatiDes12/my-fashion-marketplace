@@ -8,6 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Suspense } from 'react';
 import LoadingPage from '@/components/LoadingPage';
+import { EMAIL_CONFIG } from '@/config/email';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 
 function LoginContent() {
   const [email, setEmail] = useState('');
@@ -20,6 +23,8 @@ function LoginContent() {
   const supabase = createClientComponent();
   const { setUser } = useAuth();
   const returnUrl = searchParams?.get('returnUrl') || null;
+  const [forgotPasswordModal, setForgotPasswordModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
 
   useEffect(() => {
     //Check for message in URL
@@ -141,6 +146,27 @@ function LoginContent() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    try {
+      if (!resetEmail) {
+        toast.error('Please enter your email address');
+        return;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`
+      });
+
+      if (error) throw error;
+      toast.success('Password reset instructions sent to your email');
+      setForgotPasswordModal(false);
+      setResetEmail('');
+    } catch (error) {
+      console.error('Error sending reset password email:', error);
+      toast.error('Failed to send reset password email');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50">
       {/* Decorative Elements */}
@@ -229,22 +255,26 @@ function LoginContent() {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                   Password
                 </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
+                <div className="flex items-center justify-between">
+                  <div className="mt-1 relative flex-grow">
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setForgotPasswordModal(true)}
+                    className="ml-2 text-sm font-medium text-red-600 hover:text-red-500"
+                  >
+                    Forgot?
+                  </button>
                 </div>
               </div>
 
@@ -290,9 +320,93 @@ function LoginContent() {
                 </Link>
               </div>
             </div>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">
+                    Need help? Contact us at{' '}
+                    <a 
+                      href={`mailto:${EMAIL_CONFIG.SUPPORT}`}
+                      className="font-medium text-red-600 hover:text-red-500"
+                    >
+                      {EMAIL_CONFIG.SUPPORT}
+                    </a>
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <Transition appear show={forgotPasswordModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setForgotPasswordModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
+                    Reset Password
+                  </Dialog.Title>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Enter your email address and we'll send you instructions to reset your password.
+                    </p>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="mt-4 block w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-red-500"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+
+                  <div className="mt-4 flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-transparent bg-red-100 px-4 py-2 text-sm font-medium text-red-900 hover:bg-red-200"
+                      onClick={handleForgotPassword}
+                    >
+                      Send Instructions
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      onClick={() => setForgotPasswordModal(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }
