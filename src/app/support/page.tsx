@@ -70,8 +70,7 @@ export default function SupportPage() {
           user_id: session.user.id,
           subject,
           message,
-          status: 'open',
-          contact_email: SUPPORT_EMAIL
+          status: 'open'
         });
 
       if (error) throw error;
@@ -79,7 +78,7 @@ export default function SupportPage() {
       toast.success('Support ticket submitted successfully');
       setSubject('');
       setMessage('');
-      fetchTickets(); // Refresh tickets list
+      fetchTickets();
 
     } catch (error) {
       console.error('Error submitting support ticket:', error);

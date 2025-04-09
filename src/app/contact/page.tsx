@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { EMAIL_CONFIG } from '@/config/email';
+import { createClientComponent } from '@/lib/supabase';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -12,16 +13,31 @@ export default function ContactPage() {
     message: ''
   });
   const [loading, setLoading] = useState(false);
+  const supabase = createClientComponent();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Message sent successfully!');
+      // Insert into contact_messages table
+      const { error } = await supabase
+        .from('contact_messages')
+        .insert({
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message,
+          to_email: EMAIL_CONFIG.SIGNUP, // Messages will be sent to this email
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      toast.success('Message sent successfully! We will get back to you soon.');
       setFormData({ name: '', email: '', subject: '', message: '' });
     } catch (error) {
+      console.error('Failed to send message:', error);
       toast.error('Failed to send message. Please try again.');
     } finally {
       setLoading(false);

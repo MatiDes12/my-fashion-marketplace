@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
@@ -11,6 +11,30 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
+
+  // Handle the auth code on page load
+  useEffect(() => {
+    const handleCode = async () => {
+      const code = searchParams?.get('code');
+      
+      if (!code) {
+        toast.error('Invalid reset link');
+        router.push('/login');
+        return;
+      }
+
+      try {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error processing reset link:', error);
+        toast.error('Invalid or expired reset link');
+        router.push('/login');
+      }
+    };
+
+    handleCode();
+  }, [searchParams]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +47,7 @@ export default function ResetPasswordPage() {
 
       if (error) throw error;
 
+      await supabase.auth.signOut();
       toast.success('Password updated successfully!');
       router.push('/login?message=Password has been reset successfully. Please login with your new password.');
     } catch (error) {
@@ -58,6 +83,7 @@ export default function ResetPasswordPage() {
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
                 placeholder="Enter your new password"
+                minLength={8}
               />
             </div>
           </div>
