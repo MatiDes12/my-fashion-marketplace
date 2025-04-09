@@ -157,13 +157,19 @@ function LoginContent() {
         redirectTo: 'https://www.avrioxshop.com/auth/reset-password'
       });
 
-      if (error) throw error;
-      toast.success('Password reset instructions sent to your email. Please check your inbox.');
+      if (error) {
+        if (error.message.includes('rate limit')) {
+          throw new Error('Too many reset attempts. Please try again later.');
+        }
+        throw error;
+      }
+
+      toast.success('Password reset instructions sent to your email. Please check your inbox and spam folder.');
       setForgotPasswordModal(false);
       setResetEmail('');
     } catch (error) {
       console.error('Error sending reset password email:', error);
-      toast.error('Failed to send reset password email');
+      toast.error(error instanceof Error ? error.message : 'Failed to send reset password email');
     }
   };
 

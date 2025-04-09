@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
@@ -13,38 +13,43 @@ export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
 
-  useEffect(() => {
-    // Check if we have a valid session from the reset link
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login?error=Invalid or expired reset link');
-      }
-    };
-    checkSession();
-  }, []);
-
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const { error } = await supabase.auth.updateUser({
+      // Get the recovery token from URL
+      const code = searchParams?.get('code');
+      
+      if (!code) {
+        throw new Error('No recovery code found in URL');
+      }
+
+      // First exchange the recovery token for a session
+      const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
+      
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      // Now update the password
+      const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      // Sign out after password reset
+      // Sign out after successful password reset
       await supabase.auth.signOut();
 
       toast.success('Password updated successfully!');
       router.push('/login?message=Password has been reset successfully. Please login with your new password.');
     } catch (error) {
       console.error('Error resetting password:', error);
-      setError('Failed to reset password. Please try again.');
+      setError('Failed to reset password. Please try again or request a new reset link.');
       toast.error('Failed to reset password. Please try again.');
+      router.push('/login?error=Invalid or expired reset link. Please request a new one.');
     } finally {
       setLoading(false);
     }
