@@ -153,17 +153,26 @@ function LoginContent() {
         return;
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      setLoading(true);
+
+      const { data, error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password`
       });
 
-      if (error) throw error;
-      toast.success('Password reset instructions sent to your email');
+      if (error) {
+        console.error('Reset password error:', error);
+        throw error;
+      }
+
+      console.log('Reset password response:', data);
+      toast.success('If an account exists with this email, you will receive reset instructions shortly');
       setForgotPasswordModal(false);
       setResetEmail('');
     } catch (error) {
       console.error('Error sending reset password email:', error);
-      toast.error('Failed to send reset password email');
+      toast.error('Failed to send reset password email. Please try again later.');
+    } finally {
+      setLoading(false);
     }
   };
 
