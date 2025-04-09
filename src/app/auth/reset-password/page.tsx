@@ -8,63 +8,42 @@ import { toast } from 'react-hot-toast';
 export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
 
   useEffect(() => {
-    const handleCode = async () => {
-      try {
-        const code = searchParams?.get('code');
-        
-        if (!code) {
-          toast.error('Invalid password reset link');
-          router.push('/login');
-          return;
-        }
-
-        // Exchange the code for a session
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-        if (error || !data.session) {
-          console.error('Session error:', error);
-          toast.error('Invalid or expired reset link');
-          router.push('/login');
-          return;
-        }
-
-      } catch (error) {
-        console.error('Error processing reset link:', error);
-        toast.error('Invalid or expired reset link');
-        router.push('/login');
+    // Check if we have a valid session from the reset link
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login?error=Invalid or expired reset link');
       }
     };
-
-    handleCode();
-  }, [searchParams]);
+    checkSession();
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
-      if (newPassword.length < 8) {
-        toast.error('Password must be at least 8 characters long');
-        setLoading(false);
-        return;
-      }
-
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
       if (error) throw error;
 
+      // Sign out after password reset
       await supabase.auth.signOut();
+
       toast.success('Password updated successfully!');
-      router.replace('/login?message=Password has been reset. Please sign in with your new password.');
+      router.push('/login?message=Password has been reset successfully. Please login with your new password.');
     } catch (error) {
       console.error('Error resetting password:', error);
+      setError('Failed to reset password. Please try again.');
       toast.error('Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
@@ -99,6 +78,9 @@ export default function ResetPasswordPage() {
                 minLength={8}
               />
             </div>
+            {error && (
+              <p className="mt-2 text-sm text-red-600">{error}</p>
+            )}
           </div>
 
           <div>

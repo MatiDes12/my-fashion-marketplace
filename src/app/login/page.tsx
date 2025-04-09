@@ -26,8 +26,6 @@ function LoginContent() {
   const [forgotPasswordModal, setForgotPasswordModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
 
-  const RESET_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
-
   useEffect(() => {
     //Check for message in URL
     const urlMessage = searchParams?.get('message');
@@ -156,11 +154,11 @@ function LoginContent() {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/reset-password?type=recovery`
+        redirectTo: 'https://www.avrioxshop.com/auth/reset-password'
       });
 
       if (error) throw error;
-      toast.success('Password reset instructions sent to your email');
+      toast.success('Password reset instructions sent to your email. Please check your inbox.');
       setForgotPasswordModal(false);
       setResetEmail('');
     } catch (error) {
