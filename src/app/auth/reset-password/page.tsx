@@ -12,20 +12,27 @@ export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
 
-  // Handle the auth code on page load
   useEffect(() => {
     const handleCode = async () => {
-      const code = searchParams?.get('code');
-      
-      if (!code) {
-        toast.error('Invalid reset link');
-        router.push('/login');
-        return;
-      }
-
       try {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
+        const code = searchParams?.get('code');
+        const type = searchParams?.get('type');
+
+        if (!code || type !== 'recovery') {
+          toast.error('Invalid password reset link');
+          router.push('/login');
+          return;
+        }
+
+        // Get the session directly instead of exchanging the code
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error || !session) {
+          toast.error('Invalid or expired reset link');
+          router.push('/login');
+          return;
+        }
+
       } catch (error) {
         console.error('Error processing reset link:', error);
         toast.error('Invalid or expired reset link');
@@ -41,9 +48,9 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      // Password validation
       if (newPassword.length < 8) {
         toast.error('Password must be at least 8 characters long');
+        setLoading(false);
         return;
       }
 
@@ -53,9 +60,7 @@ export default function ResetPasswordPage() {
 
       if (error) throw error;
 
-      // Force sign out after password reset
       await supabase.auth.signOut();
-      
       toast.success('Password updated successfully!');
       router.replace('/login?message=Password has been reset. Please sign in with your new password.');
     } catch (error) {
