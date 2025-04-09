@@ -13,22 +13,37 @@ export default function ResetPasswordPage() {
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
 
-  // Add debugging on mount
+  // Handle the initial recovery token
   useEffect(() => {
-    const code = searchParams?.get('code');
-    const type = searchParams?.get('type');
-    
-    console.log('URL Parameters:', {
-      code: code ? 'exists' : 'missing',
-      type,
-      fullURL: window.location.href
-    });
+    const handleRecoveryToken = async () => {
+      try {
+        // Get the hash fragment from the URL
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
 
-    if (!code) {
-      router.push('/login?error=Missing reset code. Please request a new password reset link.');
-      return;
-    }
-  }, [searchParams]);
+        if (type === 'recovery' && accessToken) {
+          // Set the session using the recovery tokens
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || ''
+          });
+
+          if (error) {
+            throw error;
+          }
+
+          console.log('Recovery session established:', !!data.session);
+        }
+      } catch (error) {
+        console.error('Error handling recovery:', error);
+        router.push('/login?error=Invalid recovery link. Please request a new one.');
+      }
+    };
+
+    handleRecoveryToken();
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,31 +51,11 @@ export default function ResetPasswordPage() {
     setError(null);
 
     try {
-      const code = searchParams?.get('code');
-      
-      if (!code) {
-        throw new Error('No recovery code found in URL');
-      }
-
-      // First exchange the recovery token for a session
-      const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
-      
-      if (sessionError) {
-        console.error('Session Error:', sessionError);
-        throw sessionError;
-      }
-
-      console.log('Session established:', sessionData ? 'yes' : 'no');
-
-      // Now update the password
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (updateError) {
-        console.error('Update Error:', updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       // Sign out after successful password reset
       await supabase.auth.signOut();

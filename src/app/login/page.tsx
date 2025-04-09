@@ -153,11 +153,8 @@ function LoginContent() {
         return;
       }
 
-      // Make sure we're using the full URL with https
-      const resetPasswordURL = new URL('/auth/reset-password', 'https://www.avrioxshop.com').toString();
-
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: resetPasswordURL
+        redirectTo: 'https://www.avrioxshop.com/auth/reset-password'
       });
 
       if (error) {
