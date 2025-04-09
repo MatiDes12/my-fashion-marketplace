@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { formatCurrency } from '@/utils/currency';
+import { createChapaPayment } from '@/lib/chapa';
+import SubscriptionPaymentSelector from '@/components/SubscriptionPaymentSelector';
 
 type SubscriptionPlan = {
   id: string;
@@ -80,8 +82,15 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'month' | 'year'>('month');
+  const [paymentMethods, setPaymentMethods] = useState<{ [key: string]: 'telebirr' | 'chapa' }>({
+    basic: 'telebirr',
+    pro: 'telebirr',
+    enterprise: 'telebirr'
+  });
   const router = useRouter();
   const supabase = createClientComponent();
+  const searchParams = useSearchParams();
+  const message = searchParams.get('message');
 
   useEffect(() => {
     const checkAccessAndLoadData = async () => {
@@ -183,6 +192,7 @@ export default function SubscriptionPage() {
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     try {
       setLoading(true);
+      const paymentMethod = paymentMethods[plan.id]; // Get plan-specific payment method
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -190,54 +200,73 @@ export default function SubscriptionPage() {
         return;
       }
       
-      // Get admin payment settings
-      const { data: adminSettings, error: settingsError } = await supabase
-        .from('admin_payment_settings')
-        .select('*')
-        .eq('is_active', true)
-        .single();
-
-      if (settingsError || !adminSettings) {
-        throw new Error('Payment system currently unavailable');
-      }
-
       // Generate unique transaction reference
       const txRef = `SUB-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Calculate subscription end date
+      const endDate = new Date();
+      if (billingPeriod === 'month') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      }
 
       // Create subscription order
       const { data: order, error: orderError } = await supabase
         .from('subscription_orders')
         .insert({
-          user_id: session?.user.id,
+          user_id: session.user.id,
           plan_id: plan.id,
           amount: plan.price,
-          period: plan.period,
+          period: billingPeriod,
           status: 'pending',
-          tx_ref: txRef
+          tx_ref: txRef,
+          subscription_end_date: endDate.toISOString(),
+          payment_method: paymentMethod
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
 
-      // Initialize Telebirr payment
-      const response = await fetch('/api/payments/telebirr/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: plan.price,
+      if (paymentMethod === 'telebirr') {
+        // Initialize Telebirr payment
+        const response = await fetch('/api/telebirr/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: plan.price,
+            description: `Subscription Plan - ${plan.name}`,
+            tx_ref: txRef,
+            subscription: true
+          })
+        });
+
+        const paymentData = await response.json();
+        if (!paymentData.success) {
+          throw new Error(paymentData.error || 'Failed to initialize payment');
+        }
+        window.location.href = paymentData.paymentUrl;
+
+      } else {
+        // Initialize Chapa payment
+        const response = await createChapaPayment({
+          amount: plan.price.toString(),
+          email: session.user.email!,
           tx_ref: txRef,
-          subscription: true,
-          plan_id: plan.id
-        })
-      });
+          callback_url: `${window.location.origin}/api/payments/chapa/subscription-callback`,
+          return_url: `${window.location.origin}/dashboard/subscription/status?tx_ref=${txRef}`,
+          customization: {
+            title: `${plan.name} Plan`,
+            description: `${billingPeriod}ly plan`
+          }
+        });
 
-      const paymentData = await response.json();
-
-      if (paymentData.error) throw new Error(paymentData.error);
-
-      // Redirect to Telebirr payment page
-      window.location.href = paymentData.data.toPayUrl;
+        if (!response.data?.checkout_url) {
+          throw new Error(response.message || 'Failed to initialize Chapa payment');
+        }
+        window.location.href = response.data.checkout_url;
+      }
 
     } catch (error) {
       console.error('Subscription error:', error);
@@ -264,6 +293,20 @@ export default function SubscriptionPage() {
 
   return (
     <div className="py-6">
+      {message && (
+        <div className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">{message}</p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mb-6">
         <div className="rounded-md bg-yellow-50 p-4">
           <div className="flex">
@@ -342,6 +385,16 @@ export default function SubscriptionPage() {
                           : 'For established businesses'}
                     </p>
                     
+                    <div className="mt-8">
+                      <SubscriptionPaymentSelector
+                        selectedMethod={paymentMethods[plan.id]}
+                        onSelect={(method) => setPaymentMethods(prev => ({
+                          ...prev,
+                          [plan.id]: method as 'telebirr' | 'chapa'
+                        }))}
+                      />
+                    </div>
+
                     <button
                       onClick={() => handleSubscribe(plan)}
                       disabled={currentPlan === plan.id || loading}

@@ -48,6 +48,48 @@ type CategoryGroup = {
   [key: string]: Product[];
 };
 
+// Add subscription plan type
+interface SubscriptionLimits {
+  productLimit: number;
+  storageLimit: number;
+  aiCredits: number;
+  analyticsAccess: 'standard' | 'detailed' | 'advanced';
+}
+
+const PLAN_LIMITS: { [key: string]: SubscriptionLimits } = {
+  basic: {
+    productLimit: 20,
+    storageLimit: 5,
+    aiCredits: 0,
+    analyticsAccess: 'standard'
+  },
+  pro: {
+    productLimit: 75,
+    storageLimit: 15,
+    aiCredits: 100,
+    analyticsAccess: 'detailed'
+  },
+  enterprise: {
+    productLimit: Infinity,
+    storageLimit: Infinity,
+    aiCredits: 500,
+    analyticsAccess: 'advanced'
+  }
+};
+
+
+// Update the usageStats state to match the data structure
+interface UsageStats {
+  totalProducts: number;
+  storageUsed: number;
+  totalImages: number;
+  imageDetails: Array<{
+    url: string;
+    product: string;
+    estimated_size: string;
+  }>;
+}
+
 function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup>({});
@@ -60,6 +102,13 @@ function ProductsPage() {
   const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'price-high', 'price-low'
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'all' | 'categories' | 'out-of-stock'>('all');
+  const [currentPlan, setCurrentPlan] = useState<string>('basic');
+  const [usageStats, setUsageStats] = useState<UsageStats>({
+    totalProducts: 0,
+    storageUsed: 0,
+    totalImages: 0,
+    imageDetails: []
+  });
   const router = useRouter();
   const supabase = createClientComponent();
 
@@ -153,6 +202,45 @@ function ProductsPage() {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    const fetchUserPlanAndUsage = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      try {
+        // Get user's plan
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('subscription_plan')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userError) throw userError;
+        setCurrentPlan(userData.subscription_plan || 'basic');
+
+        // Get storage stats using the function we created
+        const { data: storageData, error: storageError } = await supabase
+          .rpc('calculate_user_storage_usage', { user_id: session.user.id });
+
+        if (storageError) throw storageError;
+
+        if (storageData && storageData.length > 0) {
+          setUsageStats({
+            totalProducts: products.length,
+            storageUsed: Number(storageData[0].total_size_mb),
+            totalImages: storageData[0].total_images,
+            imageDetails: storageData[0].image_details || []
+          });
+        }
+
+      } catch (error) {
+        console.error('Error fetching usage stats:', error);
+      }
+    };
+
+    fetchUserPlanAndUsage();
+  }, [products.length]); // Add products.length as dependency
+
   // Clean image URL helper
   const cleanImageUrl = (url: string | undefined): string => {
     if (!url) return '';
@@ -205,22 +293,97 @@ function ProductsPage() {
     return products.filter(product => product.quantity === 0);
   };
 
+  // Add this before the return statement
+  const currentLimits = PLAN_LIMITS[currentPlan];
+  const canAddMoreProducts = usageStats.totalProducts < currentLimits.productLimit;
+
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Plan Usage Stats */}
+        <div className="mb-8 bg-white rounded-lg shadow p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Current Plan</h3>
+              <p className="mt-1 text-xl font-semibold text-indigo-600 capitalize">{currentPlan}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Products Used</h3>
+              <p className="mt-1 text-xl font-semibold text-gray-900">
+                {usageStats.totalProducts} / {currentLimits.productLimit === Infinity ? '∞' : currentLimits.productLimit}
+              </p>
+              <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-indigo-600 h-2 rounded-full" 
+                  style={{ 
+                    width: `${(usageStats.totalProducts / (currentLimits.productLimit === Infinity ? usageStats.totalProducts + 5 : currentLimits.productLimit)) * 100}%` 
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Storage Used</h3>
+              <p className="mt-1 text-xl font-semibold text-gray-900">
+                {usageStats.storageUsed.toFixed(2)} MB / {currentLimits.storageLimit === Infinity ? '∞' : `${currentLimits.storageLimit * 1024} MB`}
+              </p>
+              <p className="text-sm text-gray-500">
+                {usageStats.totalImages} images uploaded
+              </p>
+              {currentLimits.storageLimit !== Infinity && (
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      usageStats.storageUsed >= currentLimits.storageLimit * 1024 
+                        ? 'bg-red-600' 
+                        : usageStats.storageUsed >= currentLimits.storageLimit * 1024 * 0.8 
+                          ? 'bg-yellow-600' 
+                          : 'bg-indigo-600'
+                    }`}
+                    style={{ 
+                      width: `${Math.min((usageStats.storageUsed / (currentLimits.storageLimit * 1024)) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+              )}
+              {usageStats.storageUsed >= currentLimits.storageLimit * 1024 * 0.8 && (
+                <p className="mt-1 text-sm text-yellow-600">
+                  Storage limit {usageStats.storageUsed >= currentLimits.storageLimit * 1024 ? 'reached' : 'approaching'}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Products by Category</h1>
           {hasPaymentSettings ? (
-            <Link
-              href="/dashboard/products/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-            >
-              Add New Product
-            </Link>
+            canAddMoreProducts ? (
+              <Link
+                href="/dashboard/products/new"
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+              >
+                Add New Product
+              </Link>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <button
+                  disabled
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-400 cursor-not-allowed"
+                >
+                  Product Limit Reached
+                </button>
+                <Link
+                  href="/dashboard/subscription"
+                  className="text-indigo-600 hover:text-indigo-500 text-sm font-medium"
+                >
+                  Upgrade Plan →
+                </Link>
+              </div>
+            )
           ) : (
             <Link
               href="/dashboard/payment-settings"
@@ -247,6 +410,27 @@ function ProductsPage() {
                     className="font-medium text-yellow-700 underline ml-2"
                   >
                     Set up now
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Show warning when close to limit */}
+        {usageStats.totalProducts >= currentLimits.productLimit * 0.8 && usageStats.totalProducts < currentLimits.productLimit && (
+          <div className="mt-4 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  You're approaching your product limit. Consider upgrading your plan to add more products.
+                  <Link href="/dashboard/subscription" className="ml-2 font-medium underline">
+                    Upgrade Now
                   </Link>
                 </p>
               </div>
@@ -589,6 +773,23 @@ function ProductsPage() {
               </div>
             </div>
         </div>
+        )}
+
+        {/* Add this debug section to your JSX */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700">Storage Debug Info</h4>
+            <p className="text-sm text-gray-600">Total Images: {usageStats.totalImages}</p>
+            <div className="mt-2 max-h-40 overflow-auto">
+              {usageStats.imageDetails.map((detail, index) => (
+                <div key={index} className="text-xs text-gray-500 mb-1">
+                  <span className="font-medium">{detail.product}</span>: {detail.estimated_size}
+                  <br />
+                  <span className="text-gray-400">{detail.url}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

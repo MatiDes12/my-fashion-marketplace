@@ -71,6 +71,7 @@ export async function createOrder(params: {
   fabricToken: string;
   title: string;
   amount: string;
+  isSubscription?: boolean;
 }) {
   try {
     const { config, fabricToken, title, amount } = params;
@@ -144,10 +145,11 @@ export async function createOrder(params: {
   }
 }
 
-function createRequestObject({ title, amount, config }: {
+function createRequestObject({ title, amount, config, isSubscription = false }: {
   title: string;
   amount: string;
   config: any;
+  isSubscription?: boolean;
 }) {
   const timestamp = Math.ceil(Date.now() / 1000).toString();
   const nonceStr = tools.createNonceStr();
@@ -158,11 +160,11 @@ function createRequestObject({ title, amount, config }: {
     method: "payment.preorder",
     version: "1.0",
     biz_content: {
-      notify_url: config.notifyUrl,
-      redirect_url: config.redirectUrl,
+      notify_url: isSubscription ? config.subscription_notify_url : config.notify_url,
+      redirect_url: config.redirect_url,
       appid: config.merchantAppId,
       merch_code: config.shortCode,
-      merch_order_id: `ORD${Date.now()}`,
+      merch_order_id: `${isSubscription ? 'SUB' : 'ORD'}${Date.now()}`,
       trade_type: "Checkout",
       title: title,
       total_amount: Number(amount).toFixed(2),

@@ -61,6 +61,16 @@ export default function Sidebar() {
       name: 'Flash Sales', 
       href: '/admin/marketing/flash-sales', 
       icon: BoltIcon
+    },    
+    { 
+      name: 'Subscription', 
+      href: '/admin/subscriptions', 
+      icon: BoltIcon
+    },
+    { 
+      name: 'payment settings', 
+      href: '/admin/payment-settings', 
+      icon: BoltIcon
     },
     { 
       name: 'Settings', 

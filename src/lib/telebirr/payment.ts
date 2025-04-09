@@ -36,6 +36,12 @@ interface TelebirrRequest {
   sign_type?: string;
 }
 
+interface CreateOrderParams {
+  title: string;
+  amount: string;
+  isSubscription?: boolean;
+}
+
 export class TelebirrPayment {
   private config: TelebirrConfig;
 
@@ -43,9 +49,9 @@ export class TelebirrPayment {
     this.config = config;
   }
 
-  async createOrder(params: { title: string; amount: string }) {
-    const { title, amount } = params;
-
+  async createOrder(params: CreateOrderParams) {
+    const { title, amount, isSubscription } = params;
+    
     // Get fabric token
     const tokenResult = await applyFabricToken({
       baseUrl: this.config.baseUrl,
@@ -59,6 +65,7 @@ export class TelebirrPayment {
       fabricToken: tokenResult.token,
       title,
       amount,
+      isSubscription
     });
 
     return paymentUrl;

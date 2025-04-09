@@ -16,62 +16,41 @@ function CallbackContent() {
     const handleEmailConfirmation = async () => {
       try {
         if (!searchParams) {
-          return; // Exit silently if no search params
-        }
-
-        const code = searchParams.get('code');
-        // If no code is present, check if user is already authenticated
-        if (!code) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            // User is already authenticated, redirect based on role
-            const { data: userData } = await supabase
-              .from('users')
-              .select('role')
-              .eq('id', session.user.id)
-              .single();
-
-            if (userData?.role === 'owner') {
-              router.push('/dashboard');
-            } else {
-              router.push('/products');
-            }
-          } else {
-            router.push('/login');
-          }
+          router.push('/login');
           return;
         }
 
-        // Process verification code
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
+        const code = searchParams.get('code');
 
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        // Check if the user exists and get their role
-        if (user) {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-          // Redirect based on user role
-          if (userData?.role === 'owner') {
-            router.push('/dashboard');
-          } else {
-            router.push('/products');
-          }
-        } else {
-          throw new Error('User not found');
+        // If no code is present, redirect to login
+        if (!code) {
+          router.push('/login');
+          return;
         }
+
+        // Exchange the code for a session
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (error) {
+          console.error('Error exchanging code:', error);
+          router.push('/login?error=Failed to verify email');
+          return;
+        }
+
+        if (!data.session) {
+          router.push('/login?error=No session found');
+          return;
+        }
+
+        // Sign out the user after verification
+        await supabase.auth.signOut();
+
+        // Redirect to login with success message
+        router.push('/login?message=Email verified successfully! Please sign in.');
 
       } catch (error) {
         console.error('Error during email confirmation:', error);
-        // Only redirect to login with error if there was a code but verification failed
-        if (searchParams.get('code')) {
-          router.push('/login?error=Verification failed');
-        }
+        router.push('/login?error=Verification failed');
       }
     };
 
@@ -79,8 +58,8 @@ function CallbackContent() {
   }, [router, searchParams]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-pink-50">
+      <div className="bg-white/70 backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
         <LoadingSpinner />
         <h2 className="mt-4 text-2xl font-bold text-gray-900">Verifying your email...</h2>
         <p className="mt-2 text-gray-600">Please wait while we confirm your email address.</p>

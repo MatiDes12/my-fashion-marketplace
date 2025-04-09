@@ -33,6 +33,7 @@ export default function SignupPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(10);
   const router = useRouter();
 
   useEffect(() => {
@@ -46,16 +47,24 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setPasswordError(null); // Reset password error
-
-    // Check password strength
-    if (!isPasswordStrong(password)) {
-        setPasswordError('Password must be at least 8 characters long and include uppercase letters, lowercase letters, numbers, and special characters.');
-        setLoading(false);
-        return;
-    }
+    setPasswordError(null);
 
     try {
+      // Add rate limit check
+      const storedAttempts = localStorage.getItem('signupAttempts');
+      const attempts = storedAttempts ? JSON.parse(storedAttempts) : { count: 0, timestamp: Date.now() };
+      
+      // Reset attempts if more than an hour has passed
+      if (Date.now() - attempts.timestamp > 3600000) {
+        attempts.count = 0;
+        attempts.timestamp = Date.now();
+      }
+
+      if (attempts.count >= 10) {
+        setError('Too many signup attempts. Please try again in an hour.');
+        return;
+      }
+
       // Check if the email already exists
       const { data: existingUser, error: userError } = await supabase
         .from('users')
@@ -63,19 +72,19 @@ export default function SignupPage() {
         .eq('email', email)
         .single();
 
-      // Handle the case where no user is found
       if (userError && userError.code !== 'PGRST116') {
         console.error('Error checking existing user:', userError);
         throw userError;
       }
 
-      // If existingUser is not null, it means the email exists
       if (existingUser) {
         setError('An account with this email already exists. Please log in instead.');
         return;
       }
 
       // Sign up with Supabase Auth
+      console.log('Starting signup process with:', { email, fullName, role });
+      
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -83,34 +92,75 @@ export default function SignupPage() {
           emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
           data: {
             full_name: fullName,
-            role: role
+            role: role,
+            email_sender: 'avriosignup@avrioxshop.com',
+            email_name: 'Avrio'
           }
         }
       });
 
       if (signUpError) {
-        console.error('Signup error:', signUpError);
+        // Handle rate limit error specifically
+        if (signUpError.message.includes('rate limit')) {
+          setError('Too many signup attempts. Please try again in an hour.');
+          return;
+        }
         throw signUpError;
       }
 
       if (data.user) {
-        console.log('User created with metadata:', data.user.user_metadata);
-        // Check if the user role is 'owner' and handle accordingly
-        if (role === 'owner') {
-          // Optionally, you can redirect to a specific page for sellers
-          router.push('/auth/verify-email');
-        } else {
-          router.push('/auth/verify-email');
+        // Update attempts counter
+        attempts.count += 1;
+        localStorage.setItem('signupAttempts', JSON.stringify(attempts));
+
+        console.log('Signup successful:', {
+          userId: data.user.id,
+          email: data.user.email,
+          metadata: data.user.user_metadata
+        });
+
+        // Update the existing user record instead of creating a new one
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            full_name: fullName,
+            role: role,
+            email: email
+          })
+          .eq('id', data.user.id);
+
+        if (updateError && updateError.code !== '23505') { // Ignore duplicate key errors
+          console.error('Error updating user profile:', updateError);
+          throw updateError;
         }
+
+        setMessage('Account created successfully! Please check your email for verification.');
+        
+        setTimeout(() => {
+          router.push('/auth/verify-email');
+        }, 2000);
       }
     } catch (error) {
-      console.error('Signup error:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred during signup');
+      console.error('Signup process error:', error);
+      
+      // Handle different types of errors
+      if (error instanceof Error) {
+        if (error.message.includes('rate limit')) {
+          setError('Too many signup attempts. Please try again in an hour.');
+        } else if (error.message.includes('duplicate key value')) {
+          setMessage('Account created successfully! Please check your email for verification.');
+          setTimeout(() => {
+            router.push('/auth/verify-email');
+          }, 2000);
+        } else {
+          setError(error.message);
+        }
+      } else {
+        setError('An error occurred during signup');
+      }
     } finally {
       setLoading(false);
     }
-
-    console.log('NEXT_PUBLIC_SITE_URL:', process.env.NEXT_PUBLIC_SITE_URL);
   }
 
   return (
@@ -170,6 +220,14 @@ export default function SignupPage() {
                     <p className="text-sm font-medium text-green-800">{message}</p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {rateLimitRemaining < 3 && (
+              <div className="mb-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                <p className="text-sm text-yellow-700">
+                  Warning: You have {rateLimitRemaining} signup attempts remaining. Please wait an hour if you reach the limit.
+                </p>
               </div>
             )}
 

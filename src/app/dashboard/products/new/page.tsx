@@ -8,8 +8,9 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { PRODUCT_CATEGORIES, CATEGORY_SPECIFIC_FIELDS } from '@/utils/constants';
 import Link from 'next/link';
 import DynamicProductFields from '@/components/DynamicProductFields';
+import { withSubscriptionLimits } from '@/components/withSubscriptionLimits';
 
-export default function NewProductPage() {
+function NewProductPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -1257,4 +1258,6 @@ export default function NewProductPage() {
       </div>
     </div>
   );
-} 
+}
+
+export default withSubscriptionLimits(NewProductPage, 'products'); 

@@ -3,8 +3,8 @@ import { getTelebirrConfig, TelebirrPayment } from '@/lib/telebirr';
 
 export async function POST(request: Request) {
   try {
-    const { amount, description } = await request.json();
-    console.log('Received request:', { amount, description });
+    const { amount, description, subscription = false } = await request.json();
+    console.log('Received request:', { amount, description, subscription });
 
     // Get Telebirr config
     const config = await getTelebirrConfig();
@@ -21,7 +21,8 @@ export async function POST(request: Request) {
     // Create order and get payment URL
     const paymentUrl = await telebirr.createOrder({
       title: description,
-      amount: amount.toString()
+      amount: amount.toString(),
+      isSubscription: subscription
     });
 
     console.log('Successfully created order with URL:', paymentUrl);
@@ -30,17 +31,10 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Detailed Telebirr payment error:', error);
-    let errorMessage = 'Payment initialization failed';
-    
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-
     return NextResponse.json(
       { 
         success: false, 
-        error: errorMessage,
-        details: error instanceof Error ? error.stack : undefined
+        error: error instanceof Error ? error.message : 'Payment initialization failed'
       },
       { status: 500 }
     );
