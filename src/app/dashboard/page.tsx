@@ -82,6 +82,44 @@ interface VerificationStatus {
   is_verified: boolean;
 }
 
+interface SubscriptionLimits {
+  productLimit: number;
+  storageLimit: number;
+  aiCredits: number;
+  analyticsAccess: 'standard' | 'detailed' | 'advanced';
+}
+
+interface SupportTicket {
+  id: string;
+  subject: string;
+  message: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  admin_response: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const PLAN_LIMITS: { [key: string]: SubscriptionLimits } = {
+  basic: {
+    productLimit: 20,
+    storageLimit: 5,
+    aiCredits: 0,
+    analyticsAccess: 'standard'
+  },
+  pro: {
+    productLimit: 75,
+    storageLimit: 15,
+    aiCredits: 100,
+    analyticsAccess: 'detailed'
+  },
+  enterprise: {
+    productLimit: Infinity,
+    storageLimit: Infinity,
+    aiCredits: 500,
+    analyticsAccess: 'advanced'
+  }
+};
+
 export default withSellerVerification(function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +130,14 @@ export default withSellerVerification(function DashboardPage() {
   const pathname = usePathname();
   const supabase = createClientComponent();
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<string>('basic');
+  const [usageStats, setUsageStats] = useState({
+    totalProducts: 0,
+    storageUsed: 0,
+    totalImages: 0,
+    imageDetails: []
+  });
+  const [recentTickets, setRecentTickets] = useState<SupportTicket[]>([]);
 
   useEffect(() => {
     const checkAccessAndLoadData = async () => {
@@ -140,7 +186,10 @@ export default withSellerVerification(function DashboardPage() {
         }
         // If verified, fetch dashboard data
         if (userData?.is_verified) {
-          await fetchDashboardStats();
+          await Promise.all([
+            fetchDashboardStats(),
+            fetchRecentTickets()
+          ]);
         }
 
       } catch (error) {
@@ -270,6 +319,65 @@ export default withSellerVerification(function DashboardPage() {
     }
   };
 
+  const fetchRecentTickets = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: tickets, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setRecentTickets(tickets || []);
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchUserPlanAndUsage = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        // Get user's plan
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('subscription_plan')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userError) throw userError;
+        setCurrentPlan(userData.subscription_plan || 'basic');
+
+        // Get storage stats
+        const { data: storageData, error: storageError } = await supabase
+          .rpc('calculate_user_storage_usage', { user_id: session.user.id });
+
+        if (storageError) throw storageError;
+
+        if (storageData && storageData.length > 0) {
+          setUsageStats({
+            totalProducts: stats?.totalProducts || 0,
+            storageUsed: Number(storageData[0].total_size_mb),
+            totalImages: storageData[0].total_images,
+            imageDetails: storageData[0].image_details || []
+          });
+        }
+
+      } catch (error) {
+        console.error('Error fetching usage stats:', error);
+        toast.error('Failed to load subscription information');
+      }
+    };
+
+    fetchUserPlanAndUsage();
+  }, [stats?.totalProducts]);
+
   // Show loading state while checking auth or loading data
   if (loading) {
     return (
@@ -330,9 +438,60 @@ export default withSellerVerification(function DashboardPage() {
     );
   };
 
+  const currentLimits = PLAN_LIMITS[currentPlan as keyof typeof PLAN_LIMITS];
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Subscription Plan Stats */}
+        <div className="mb-8 bg-white rounded-lg shadow p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Current Plan</h3>
+              <p className="mt-1 text-xl font-semibold text-indigo-600 capitalize">{currentPlan}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Products Used</h3>
+              <p className="mt-1 text-xl font-semibold text-gray-900">
+                {usageStats.totalProducts} / {currentLimits.productLimit === Infinity ? '∞' : currentLimits.productLimit}
+              </p>
+              <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-indigo-600 h-2 rounded-full" 
+                  style={{ 
+                    width: `${(usageStats.totalProducts / (currentLimits.productLimit === Infinity ? usageStats.totalProducts + 5 : currentLimits.productLimit)) * 100}%` 
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Storage Used</h3>
+              <p className="mt-1 text-xl font-semibold text-gray-900">
+                {usageStats.storageUsed.toFixed(2)} MB / {currentLimits.storageLimit === Infinity ? '∞' : `${currentLimits.storageLimit * 1024} MB`}
+              </p>
+              <p className="text-sm text-gray-500">
+                {usageStats.totalImages} images uploaded
+              </p>
+              {currentLimits.storageLimit !== Infinity && (
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      usageStats.storageUsed >= currentLimits.storageLimit * 1024 
+                        ? 'bg-red-600' 
+                        : usageStats.storageUsed >= currentLimits.storageLimit * 1024 * 0.8 
+                          ? 'bg-yellow-600' 
+                          : 'bg-indigo-600'
+                    }`}
+                    style={{ 
+                      width: `${Math.min((usageStats.storageUsed / (currentLimits.storageLimit * 1024)) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Welcome Section with Quick Stats */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between text-white">
@@ -565,6 +724,62 @@ export default withSellerVerification(function DashboardPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Recent Support Tickets */}
+        <div className="mt-8 bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-gray-900">Recent Support Tickets</h3>
+              <Link
+                href="/support"
+                className="text-sm font-medium text-red-600 hover:text-red-500"
+              >
+                View all tickets
+              </Link>
+            </div>
+          </div>
+          <div className="px-6 py-4">
+            {recentTickets.length > 0 ? (
+              <div className="space-y-4">
+                {recentTickets.map((ticket) => (
+                  <div key={ticket.id} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-900">{ticket.subject}</h4>
+                      <span className={classNames(
+                        'px-2.5 py-0.5 rounded-full text-xs font-medium',
+                        {
+                          'bg-yellow-100 text-yellow-800': ticket.status === 'open',
+                          'bg-blue-100 text-blue-800': ticket.status === 'in_progress',
+                          'bg-green-100 text-green-800': ticket.status === 'resolved',
+                          'bg-gray-100 text-gray-800': ticket.status === 'closed',
+                        }
+                      )}>
+                        {ticket.status}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-600">{ticket.message}</p>
+                    {ticket.admin_response && (
+                      <div className="mt-3 bg-gray-50 rounded p-3">
+                        <p className="text-sm font-medium text-gray-900">Admin Response:</p>
+                        <p className="mt-1 text-sm text-gray-600">{ticket.admin_response}</p>
+                      </div>
+                    )}
+                    <div className="mt-2 text-xs text-gray-500">
+                      {new Date(ticket.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">
+                No support tickets yet.{' '}
+                <Link href="/support" className="text-red-600 hover:text-red-500">
+                  Create one
+                </Link>
+              </p>
+            )}
           </div>
         </div>
 
