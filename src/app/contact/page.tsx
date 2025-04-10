@@ -29,7 +29,8 @@ export default function ContactPage() {
           subject: formData.subject,
           message: formData.message,
           to_email: EMAIL_CONFIG.SIGNUP, // Messages will be sent to this email
-          status: 'pending'
+          status: 'pending',
+          sent_at: new Date().toISOString() // Add sent_at timestamp
         });
 
       if (error) throw error;

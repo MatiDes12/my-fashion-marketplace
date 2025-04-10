@@ -1021,10 +1021,10 @@ export default function ProductDetailPage() {
               {product.flash_sale_price ? (
                 <div className="flex flex-col">
                   <span className="text-3xl font-bold text-red-600">
-                    ${product.flash_sale_price.toFixed(2)}
+                    ETB {product.flash_sale_price.toFixed(2)}
                   </span>
                   <span className="text-lg text-gray-500 line-through">
-                    ${product.price.toFixed(2)}
+                    ETB {product.price.toFixed(2)}
                   </span>
                   <span className="text-sm text-red-600 font-medium">
                     {Math.round(((product.price - product.flash_sale_price) / product.price) * 100)}% OFF
@@ -1032,7 +1032,7 @@ export default function ProductDetailPage() {
                 </div>
               ) : (
                 <span className="text-3xl font-bold text-gray-900">
-                  ${product.price.toFixed(2)}
+                  ETB {product.price.toFixed(2)}
                 </span>
               )}
             </div>
@@ -1974,7 +1974,7 @@ const RelatedProducts = ({ currentProductId, category }: { currentProductId: str
             </div>
             <h3 className="mt-2 text-sm text-gray-700">{product.title}</h3>
             <p className="mt-1 text-sm font-medium text-gray-900">
-              ${product.price.toFixed(2)}
+              ETB {product.price.toFixed(2)}
             </p>
           </Link>
         ))}

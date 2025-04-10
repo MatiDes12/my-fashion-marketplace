@@ -11,9 +11,11 @@ import {
   ChartBarIcon,
   CalculatorIcon,
   CreditCardIcon,
-  CogIcon,
+  Cog6ToothIcon,
   BoltIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  CurrencyDollarIcon,
+  WrenchScrewdriverIcon
 } from '@heroicons/react/24/outline';
 
 export default function Sidebar() {
@@ -65,17 +67,22 @@ export default function Sidebar() {
     { 
       name: 'Subscription', 
       href: '/admin/subscriptions', 
-      icon: BoltIcon
+      icon: CurrencyDollarIcon
     },
     { 
-      name: 'payment settings', 
+      name: 'Payment Settings', 
       href: '/admin/payment-settings', 
-      icon: BoltIcon
+      icon: WrenchScrewdriverIcon
     },
     { 
       name: 'Settings', 
       href: '/admin/settings', 
-      icon: CogIcon
+      icon: Cog6ToothIcon
+    },
+    {
+      name: 'Messages',
+      href: '/admin/messages',
+      icon: ChatBubbleLeftRightIcon
     }
   ];
 
