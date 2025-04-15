@@ -397,11 +397,10 @@ export default function Navigation({ userDetails }: NavigationProps) {
         await router.push(`/products?category=${formattedCategory}`);
       } else {
         // If already on products page, just update the query
-        const params = new URLSearchParams(searchParams.toString());
+        const params = new URLSearchParams(searchParams?.toString() || '');
         params.set('category', formattedCategory);
         router.push(`/products?${params.toString()}`);
       }
-      
       // Close dropdown if open
       setIsDropdownOpen(false);
     } catch (error) {
@@ -471,7 +470,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const shouldShowSearch = () => {
     // Add cart to the list of paths where search should be hidden
     const noSearchPaths = ['/cart', '/checkout', '/login', '/signup', '/auth'];
-    return !noSearchPaths.some(path => pathname.startsWith(path));
+    return !noSearchPaths.some(path => pathname?.startsWith(path));
   };
 
   // Update the search function
@@ -485,7 +484,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
 
     setIsSearching(true);
     try {
-      if (pathname.startsWith('/stores')) {
+      if (pathname?.startsWith('/stores')) {
         // Search for stores using JSONB containment
         const { data: stores, error } = await supabase
           .from('users')
@@ -1199,7 +1198,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
             <div className="relative" ref={searchRef}>
               <input
                 type="text"
-                placeholder={pathname.startsWith('/stores') ? "Search brands..." : "What are you looking for?"}
+                placeholder={pathname?.startsWith('/stores') ? "Search brands..." : "What are you looking for?"}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-full px-4 py-2 pl-10 pr-12 border-2 border-gray-200 rounded-full focus:outline-none focus:border-red-500 transition-colors"

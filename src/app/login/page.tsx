@@ -165,7 +165,7 @@ function LoginContent() {
         throw error;
       }
 
-      toast.success('Password reset instructions sent to your email. Please check your inbox and spam folder.');
+      toast.success('If an account exists with this email, you will receive a password reset link. Please check your inbox and spam folder. The email might take 4-6 minutes to arrive.');
       setForgotPasswordModal(false);
       setResetEmail('');
     } catch (error) {
@@ -390,6 +390,10 @@ function LoginContent() {
                       className="mt-4 block w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-red-500"
                       placeholder="Enter your email"
                     />
+                    <div className="mt-4 text-xs text-gray-600 text-center space-y-2">
+                      <p>It might take 4 to 6 minutes for the reset link to arrive in your inbox. Please be patient.</p>
+                      <p className="font-medium">የይለፍ ቃል ማደስ አገናኝ ከ 4 እስከ 6 ደቂቃ ያህል ሊወርድ ይችላል። እባክዎ ይጠብቁ።</p>
+                    </div>
                   </div>
 
                   <div className="mt-4 flex justify-end space-x-2">

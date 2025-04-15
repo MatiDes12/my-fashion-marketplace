@@ -36,11 +36,12 @@ export default function SignupPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(10);
   const router = useRouter();
-
   useEffect(() => {
-    const roleParam = searchParams.get('role');
-    if (roleParam === 'owner') {
-      setRole('owner');
+    if (searchParams) {
+      const roleParam = searchParams.get('role');
+      if (roleParam === 'owner') {
+        setRole('owner');
+      }
     }
   }, [searchParams]);
 

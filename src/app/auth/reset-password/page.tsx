@@ -114,6 +114,10 @@ export default function ResetPasswordPage() {
             </button>
           </div>
         </form>
+        <div className="mt-4 text-sm text-gray-600 text-center">
+          It might take 4 to 6 minutes for the reset link to arrive in your inbox. Please be patient.<br />
+          የይለፍ ቃል ማደስ አገናኝ ከ 4 እስከ 6 ደቂቃ ያህል ሊወርድ ይችላል። እባክዎ ይጠብቁ።
+        </div>
       </div>
     </div>
   );
