@@ -18,8 +18,8 @@ export default function OrdersPage() {
   const router = useRouter();
   const supabase = createClientComponent();
   const searchParams = useSearchParams();
-  const paymentSuccess = searchParams.get('payment_success');
-  const tx_ref = searchParams.get('tx_ref');
+  const paymentSuccess = searchParams?.get('payment_success') ?? null;
+  const tx_ref = searchParams?.get('tx_ref') ?? null;
   const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -91,6 +91,7 @@ export default function OrdersPage() {
   
   // Update the useEffect for payment verification
   useEffect(() => {
+    if (!searchParams) return;
     const tx_ref = searchParams.get('tx_ref');
     if (!tx_ref || isPaymentConfirmed) return;
 
@@ -130,6 +131,7 @@ export default function OrdersPage() {
   
   // Reset payment confirmation when tx_ref changes
   useEffect(() => {
+    if (!searchParams) return;
     const tx_ref = searchParams.get('tx_ref');
     if (!tx_ref) {
       setIsPaymentConfirmed(false);

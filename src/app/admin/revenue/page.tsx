@@ -80,7 +80,7 @@ export default function RevenuePage() {
       setLoading(true);
 
       const { data: transactions, error } = await supabase
-        .from('transactions')
+      .from('transactions')
         .select(`
           *,
           seller:users!transactions_seller_id_fkey (
@@ -302,8 +302,8 @@ export default function RevenuePage() {
             </div>
           ))}
         </div>
-      </div>
-
+        </div>
+        
       {/* Charts */}
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Revenue Trend */}
@@ -364,7 +364,7 @@ export default function RevenuePage() {
             />
           </div>
         </div>
-
+        
         {/* Payment Methods */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-lg font-medium text-gray-900 mb-4">Revenue by Payment Method</h2>
@@ -492,12 +492,12 @@ export default function RevenuePage() {
 
       {/* Top Sellers Table */}
       <div className="mt-8">
-        <div className="bg-white shadow rounded-lg">
+      <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 sm:px-6">
             <h3 className="text-lg font-medium text-gray-900">Top Performing Sellers</h3>
           </div>
           <div className="border-t border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
@@ -528,7 +528,7 @@ export default function RevenuePage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+        </table>
           </div>
         </div>
       </div>

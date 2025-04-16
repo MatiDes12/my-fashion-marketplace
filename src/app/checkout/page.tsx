@@ -230,9 +230,35 @@ export default function CheckoutPage() {
     return true;
   };
 
+  const validateCheckoutData = (items: CartItem[]) => {
+    for (const item of items) {
+      if (item.quantity <= 0) {
+        throw new Error('Invalid quantity for product: ' + item.product?.title);
+      }
+      
+      const price = item.flash_sale_price || item.product.price;
+      if (price <= 0) {
+        throw new Error('Invalid price for product: ' + item.product?.title);
+      }
+
+      if (item.delivery_fee && item.delivery_fee < 0) {
+        throw new Error('Invalid delivery fee for product: ' + item.product?.title);
+      }
+    }
+    return true;
+  };
+
   const handleCheckout = async () => {
     try {
       setIsProcessing(true);
+
+      // Validate checkout data
+      try {
+        validateCheckoutData(cartItems);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Invalid checkout data');
+        return;
+      }
 
       // Validate delivery methods
       if (!validateCheckout(cartItems)) {

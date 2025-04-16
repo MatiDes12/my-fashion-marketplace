@@ -29,7 +29,7 @@ interface Order {
   product_id: string;
   quantity: number;
   total_price: number;
-  order_status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  order_status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' | 'picked up';
   service_fee: number;
   payment_status?: string;
   payment_reference?: string;
@@ -55,6 +55,9 @@ interface Order {
     platform_revenue?: number;
     seller_payout_status?: string;
   };
+  selected_size?: string;
+  selected_color?: string;
+  selected_variant_sku?: string;
 }
 
 interface OrderWithUser {
@@ -157,6 +160,9 @@ export default function OrdersPage() {
               delivery_proof_image,
               delivery_method,
               delivery_address,
+              selected_size,
+              selected_color,
+              selected_variant_sku,
               user:users!user_id (
                 id,
                 full_name,
@@ -205,6 +211,9 @@ export default function OrdersPage() {
             delivery_proof_image: order.delivery_proof_image,
             delivery_method: order.delivery_method,
             delivery_address: order.delivery_address,
+            selected_size: order.selected_size,
+            selected_color: order.selected_color,
+            selected_variant_sku: order.selected_variant_sku,
             product: {
               id: product.id,
               title: product.title,
@@ -336,9 +345,9 @@ export default function OrdersPage() {
   const handleUpdateStatus = async (newStatus: Order['order_status']) => {
     if (!selectedOrder) return;
     
-    // Prevent changing status if already delivered
-    if (selectedOrder.order_status === 'delivered') {
-      toast.error("Cannot change status once order is marked as delivered");
+    // Prevent changing status if already delivered/picked up
+    if (selectedOrder.order_status === 'delivered' || selectedOrder.order_status === 'picked up') {
+      toast.error("Cannot change status once order is marked as delivered/picked up");
       return;
     }
     
@@ -346,17 +355,19 @@ export default function OrdersPage() {
     try {
       const isCashPayment = selectedOrder.transaction?.payment_method === 'CASH';
       const isMarkingDelivered = newStatus === 'delivered';
+      const isMarkingPickedUp = newStatus === 'picked up';
+      const isPickupOrder = selectedOrder.delivery_method === 'store_pickup';
 
-      // If marking as delivered, require image (unless already delivered)
-      if (isMarkingDelivered && !selectedImage && !selectedOrder.delivery_proof_image) {
+      // Only require image for delivery orders being marked as delivered
+      if (isMarkingDelivered && !isPickupOrder && !selectedImage && !selectedOrder.delivery_proof_image) {
         alert('Please upload delivery proof image before marking as delivered');
         return;
       }
 
       let deliveryProofUrl = selectedOrder.delivery_proof_image;
 
-      // Upload new image if provided
-      if (isMarkingDelivered && selectedImage) {
+      // Only upload image for delivery orders
+      if (isMarkingDelivered && !isPickupOrder && selectedImage) {
         deliveryProofUrl = await handleImageUpload(selectedImage);
       }
 
@@ -371,7 +382,8 @@ export default function OrdersPage() {
           order_status: newStatus,
           updated_at: new Date().toISOString(),
           delivery_proof_image: deliveryProofUrl,
-          ...(isCashPayment && isMarkingDelivered ? { payment_status: 'paid' } : {})
+          // Only update payment_status to paid for delivered or picked up orders
+          ...((isMarkingDelivered || isMarkingPickedUp) ? { payment_status: 'paid' } : {})
         })
         .eq('id', selectedOrder.id)
         .select('*')
@@ -379,8 +391,8 @@ export default function OrdersPage() {
 
       if (orderError) throw orderError;
 
-      // If status is delivered, update the transaction with seller_id
-      if (isMarkingDelivered) {
+      // If status is delivered or picked up, update the transaction
+      if (isMarkingDelivered || isMarkingPickedUp) {
         const { error: transactionError } = await supabase
           .from('transactions')
           .update({
@@ -407,13 +419,13 @@ export default function OrdersPage() {
               order_status: newStatus,
               delivery_proof_image: deliveryProofUrl,
               updated_at: new Date().toISOString(),
-              ...(isCashPayment && isMarkingDelivered ? {
+              ...((isMarkingDelivered || isMarkingPickedUp) ? {
                 payment_status: 'paid',
                 transaction: {
                   ...order.transaction,
                   payment_status: 'paid',
                   platform_payout_status: 'completed',
-                  seller_payout_status: 'completed'
+                  seller_payout_status: 'pending'
                 }
               } : {})
             }
@@ -706,11 +718,12 @@ export default function OrdersPage() {
                       </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                          ${order.order_status === 'delivered' ? 'bg-green-100 text-green-800' : 
+                          ${order.order_status === 'delivered' || order.order_status === 'picked up' ? 'bg-green-100 text-green-800' : 
                             order.order_status === 'cancelled' ? 'bg-red-100 text-red-800' : 
                             order.order_status === 'shipped' ? 'bg-blue-100 text-blue-800' : 
                               'bg-yellow-100 text-yellow-800'}`}>
-                          {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
+                          {order.order_status === 'picked up' ? 'Picked Up' : 
+                            order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
                         </span>
                       </td>
                         <td className="px-6 py-4 text-right">
@@ -827,81 +840,86 @@ export default function OrdersPage() {
                   </h3>
                   
                   {/* Add Image Upload Section */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Delivery Proof Image
-                      {selectedOrder?.order_status !== 'delivered' && (
-                        <span className="text-red-500 ml-1">*</span>
-                      )}
-                    </label>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-                      <div className="space-y-1 text-center">
-                        {imagePreview || (selectedOrder?.delivery_proof_image || '') ? (
-                          <div className="relative">
-                            <img
-                              src={imagePreview || (selectedOrder?.delivery_proof_image || '')}
-                              alt="Delivery Proof"
-                              className="mx-auto h-32 w-auto object-contain"
-                            />
-                            {selectedOrder?.order_status !== 'delivered' && (
-                              <button
-                                onClick={() => {
-                                  setSelectedImage(null);
-                                  setImagePreview(null);
-                                }}
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
-                              >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        ) : (
-                          <>
-                            <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                              <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            {selectedOrder?.order_status !== 'delivered' && (
-                              <>
-                                <div className="flex text-sm text-gray-600">
-                                  <label className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                                    <span>Upload a file</span>
-                                    <input
-                                      type="file"
-                                      className="sr-only"
-                                      accept="image/*"
-                                      onChange={handleImageSelect}
-                                    />
-                                  </label>
-                                  <p className="pl-1">or drag and drop</p>
-                                </div>
-                                <p className="text-xs text-gray-500">
-                                  PNG, JPG, GIF up to 10MB
-                                </p>
-                              </>
-                            )}
-                          </>
+                  {selectedOrder?.delivery_method === 'home_delivery' && (
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Delivery Proof Image
+                        {selectedOrder?.order_status !== 'delivered' && (
+                          <span className="text-red-500 ml-1">*</span>
                         )}
+                      </label>
+                      <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                        <div className="space-y-1 text-center">
+                          {imagePreview || (selectedOrder?.delivery_proof_image || '') ? (
+                            <div className="relative">
+                              <img
+                                src={imagePreview || (selectedOrder?.delivery_proof_image || '')}
+                                alt="Delivery Proof"
+                                className="mx-auto h-32 w-auto object-contain"
+                              />
+                              {selectedOrder?.order_status !== 'delivered' && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedImage(null);
+                                    setImagePreview(null);
+                                  }}
+                                  className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                              {selectedOrder?.order_status !== 'delivered' && (
+                                <>
+                                  <div className="flex text-sm text-gray-600">
+                                    <label className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                      <span>Upload a file</span>
+                                      <input
+                                        type="file"
+                                        className="sr-only"
+                                        accept="image/*"
+                                        onChange={handleImageSelect}
+                                      />
+                                    </label>
+                                    <p className="pl-1">or drag and drop</p>
+                                  </div>
+                                  <p className="text-xs text-gray-500">
+                                    PNG, JPG, GIF up to 10MB
+                                  </p>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Status Buttons */}
                   <div className="mt-2 space-y-3">
-                    {['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map((status) => (
+                    {['pending', 'confirmed', 'shipped', 
+                      selectedOrder?.delivery_method === 'store_pickup' ? 'picked up' : 'delivered', 
+                      'cancelled'].map((status) => (
                       <button
                         key={status}
                         onClick={() => handleUpdateStatus(status as Order['order_status'])}
                         disabled={
                           updatingStatus || 
                           selectedOrder?.order_status === 'delivered' ||
+                          selectedOrder?.order_status === 'picked up' ||
                           (selectedOrder?.order_status === status)
                         }
                         className={`px-4 py-2 text-sm font-medium rounded-md ${
                           selectedOrder?.order_status === status
                             ? 'bg-gray-100 text-gray-800'
-                            : selectedOrder?.order_status === 'delivered'
+                            : (selectedOrder?.order_status === 'delivered' || selectedOrder?.order_status === 'picked up')
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
@@ -1173,6 +1191,36 @@ export default function OrdersPage() {
                             </div>
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Product Information */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm font-medium text-gray-500 mb-2">Product Information</p>
+                      <p className="text-sm text-gray-900">{selectedOrder.product?.title}</p>
+                      
+                      {/* Variant Information */}
+                      <div className="mt-3 grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Size</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {selectedOrder.selected_size || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Color</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {selectedOrder.selected_color || 'N/A'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">SKU</p>
+                          <p className="text-sm font-medium text-gray-900 font-mono">
+                            {selectedOrder.selected_variant_sku 
+                              ? selectedOrder.selected_variant_sku.split('-').slice(-2).join('-')
+                              : 'N/A'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>

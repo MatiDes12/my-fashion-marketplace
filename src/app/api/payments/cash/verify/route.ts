@@ -9,6 +9,17 @@ const supabase = createClient(
 // Add export config to explicitly mark this as a dynamic route
 export const dynamic = 'force-dynamic';
 
+// Add validation function at the top
+const validateOrderUpdate = (order: any) => {
+  if (!order) throw new Error('Invalid order data');
+  if (order.quantity <= 0) throw new Error('Invalid quantity');
+  if (order.total_price <= 0) throw new Error('Invalid total price');
+  if (order.service_fee < 0) throw new Error('Invalid service fee');
+  if (order.platform_fee < 0) throw new Error('Invalid platform fee');
+  if (order.delivery_fee < 0) throw new Error('Invalid delivery fee');
+  return true;
+};
+
 // Use NextRequest instead of Request
 export async function GET(request: NextRequest) {
   try {
@@ -27,6 +38,17 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Add validation after fetching order
+    try {
+      validateOrderUpdate(order);
+    } catch (error) {
+      console.error('[CASH VERIFY] Validation error:', error);
+      return NextResponse.json({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Order validation failed'
+      }, { status: 400 });
+    }
 
     return NextResponse.json({
       status: 'success',

@@ -44,6 +44,12 @@ type Product = {
   season?: string[];
 };
 
+const formatImageUrl = (url: string) => {
+  if (!url) return '/placeholder.png';
+  if (url.startsWith('http')) return url;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${url}`;
+};
+
 export default function EditProductPage({ params }: { params: { id: string } }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -200,9 +206,17 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         return;
       }
 
-      const totalImages = existingImages.length - imagesToDelete.length + images.length;
+      // Calculate total images after changes
+      const remainingExistingImages = existingImages.filter(
+        img => !imagesToDelete.includes(img.image_url)
+      ).length;
+      const newImagesCount = images.length;
+      const totalImages = remainingExistingImages + newImagesCount;
+
+      // Validate total image count
       if (totalImages < 4 || totalImages > 8) {
-        setError(`Please maintain between 4-8 images (you have ${totalImages})`);
+        setError(`Please maintain between 4-8 images (you currently have ${totalImages}). 
+          ${remainingExistingImages} existing + ${newImagesCount} new images`);
         setLoading(false);
         return;
       }
@@ -219,6 +233,31 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         return;
       }
 
+      // First, handle image deletions
+      if (imagesToDelete.length > 0) {
+        // Delete from storage
+        const { error: storageError } = await supabase.storage
+          .from('products')
+          .remove(imagesToDelete);
+
+        if (storageError) {
+          console.error('Storage deletion error:', storageError);
+          // Continue with the process even if storage deletion fails
+        }
+
+        // Delete from database
+        const { error: dbError } = await supabase
+          .from('product_images')
+          .delete()
+          .in('image_url', imagesToDelete);
+
+        if (dbError) {
+          console.error('Database deletion error:', dbError);
+          throw dbError;
+        }
+      }
+
+      // Update product details
       const { error: updateError } = await supabase
         .from('products')
         .update({
@@ -259,43 +298,80 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
 
       if (updateError) throw updateError;
 
-      if (imagesToDelete.length > 0) {
-        const { error: deleteError } = await supabase.storage
-          .from('products')
-          .remove(imagesToDelete);
-
-        if (deleteError) throw deleteError;
-      }
-
+      // Handle new image uploads
       if (images.length > 0) {
-        for (const image of images) {
+        try {
+          for (const image of images) {
             const fileExt = image.name.split('.').pop();
-          const fileName = `${params.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt?.toLowerCase() || '')) {
+              continue;
+            }
             
-            const { error: uploadError } = await supabase.storage
+            const fileName = `${params.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
               .from('products')
-              .upload(fileName, image);
+              .upload(fileName, image, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: `image/${fileExt}`
+              });
 
-          if (uploadError) throw uploadError;
+            if (uploadError) {
+              console.error('Upload error:', uploadError);
+              continue;
+            }
 
             const { error: imageError } = await supabase
               .from('product_images')
               .insert({
                 product_id: params.id,
-              image_url: fileName,
+                image_url: fileName,
                 is_model_picture: false
               });
 
-          if (imageError) throw imageError;
+            if (imageError) {
+              console.error('Database error:', imageError);
+            }
+          }
+        } catch (error) {
+          console.error('Image processing error:', error);
+          toast.error('Some images failed to upload');
         }
       }
 
-        router.push('/dashboard/products');
+      router.push('/dashboard/products');
       toast.success('Product updated successfully');
     } catch (error) {
+      console.error('Update error:', error);
       setError('Failed to update product');
       setLoading(false);
     }
+  };
+
+  const ExistingImage = ({ image }: { image: ProductImage }) => {
+    const [imageError, setImageError] = useState(false);
+    const imageUrl = imageError ? '/placeholder.png' : formatImageUrl(image.image_url);
+
+    return (
+      <div className="relative">
+        <Image
+          src={imageUrl}
+          alt="Product"
+          width={96}
+          height={96}
+          className="h-24 w-24 object-cover rounded-lg"
+          onError={() => setImageError(true)}
+        />
+        <button
+          type="button"
+          onClick={() => handleRemoveExistingImage(image.image_url)}
+          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+        >
+          X
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -808,20 +884,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                   {existingImages.length > 0 && (
                     <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                       {existingImages.map((image) => (
-                        <div key={image.id} className="relative">
-                          <img
-                            src={image.image_url}
-                            alt="Product"
-                            className="h-24 w-24 object-cover rounded-lg"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveExistingImage(image.image_url)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
-                          >
-                            X
-                          </button>
-                        </div>
+                        <ExistingImage key={image.id} image={image} />
                       ))}
                     </div>
                   )}

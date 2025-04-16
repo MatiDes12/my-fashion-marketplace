@@ -242,7 +242,14 @@ const getCartItemDetails = async (userId: string, productId: string) => {
   const supabase = createClientComponent();
   const { data, error } = await supabase
     .from('cart_items')
-    .select('delivery_method, delivery_address, delivery_fee')
+    .select(`
+      delivery_method, 
+      delivery_address, 
+      delivery_fee,
+      selected_size,
+      selected_color,
+      selected_variant_sku
+    `)
     .eq('user_id', userId)
     .eq('product_id', productId)
     .single();
@@ -299,6 +306,26 @@ const updateProductQuantities = async (
   if (updateError) throw updateError;
 };
 
+// Add this validation function
+const validateOrderData = (sellers: SellerOrder[]) => {
+  for (const seller of sellers) {
+    // Validate totals
+    if (seller.subtotal <= 0) throw new Error('Invalid subtotal amount');
+    if (seller.total <= 0) throw new Error('Invalid total amount');
+    if (seller.serviceFee < 0) throw new Error('Invalid service fee');
+    if (seller.platformFee < 0) throw new Error('Invalid platform fee');
+    if (seller.deliveryFee < 0) throw new Error('Invalid delivery fee');
+    if (seller.ethiopiaTax < 0) throw new Error('Invalid tax amount');
+
+    // Validate products
+    for (const product of seller.products) {
+      if (product.quantity <= 0) throw new Error('Invalid product quantity');
+      if (product.price <= 0) throw new Error('Invalid product price');
+    }
+  }
+  return true;
+};
+
 export default function PaymentMethodModal({
   isOpen,
   onClose,
@@ -343,289 +370,311 @@ export default function PaymentMethodModal({
   const availablePaymentMethods = getAvailablePaymentMethods();
 
   const handleSubmit = async () => {
-    if (!selectedMethod) {
-      setError('Please select a payment method');
-      return;
-    }
+    try {
+      if (!selectedMethod) {
+        setError('Please select a payment method');
+        return;
+      }
 
-    if (selectedMethod === 'CASH') {
+      // Validate order data before proceeding
       try {
-        setLocalProcessing(true);
-        const supabase = createClientComponent();
-        const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        validateOrderData(sellers);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Invalid order data');
+        return;
+      }
 
-        // Process each seller's orders
-        for (const seller of sellers) {
-          for (const product of seller.products) {
-            // Get cart item details first
-            const { data: cartItem, error: cartError } = await supabase
-              .from('cart_items')
-              .select('*')
-              .eq('user_id', userDetails?.id)
-              .eq('product_id', product.id)
-              .single();
+      if (selectedMethod === 'CASH') {
+        try {
+          setLocalProcessing(true);
+          const supabase = createClientComponent();
+          const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-            if (cartError) throw cartError;
+          // Process each seller's orders
+          for (const seller of sellers) {
+            for (const product of seller.products) {
+              // Get cart item details first
+              const { data: cartItem, error: cartError } = await supabase
+                .from('cart_items')
+                .select('*')
+                .eq('user_id', userDetails?.id)
+                .eq('product_id', product.id)
+                .single();
 
-            // Update product quantities first
-            await updateProductQuantities(
-              product.id,
-              product.quantity,
-              cartItem.selected_size,
-              cartItem.selected_color,
-              cartItem.selected_variant_sku
-            );
+              if (cartError) throw cartError;
 
-            const itemSubtotal = product.quantity * product.price;
-            const serviceFee = itemSubtotal * 0.03;
-            const itemDeliveryFee = cartItem.delivery_fee || 0;
-            const itemTotal = itemSubtotal + itemDeliveryFee;
+              // Update product quantities first
+              await updateProductQuantities(
+                product.id,
+                product.quantity,
+                cartItem.selected_size,
+                cartItem.selected_color,
+                cartItem.selected_variant_sku
+              );
 
-            // Create order with cart item details
-            const { data: order, error: orderError } = await supabase
-              .from('orders')
-              .insert({
-                user_id: userDetails?.id,
-                product_id: product.id,
-                quantity: product.quantity,
-                total_price: itemTotal,
-                platform_fee: 0,
-                service_fee: serviceFee,
-                ethiopia_tax: 0,
-                delivery_fee: itemDeliveryFee,
-                order_status: 'confirmed',
-                payment_status: 'pending',
-                payment_reference: txRef,
-                tx_ref: txRef,
-                receipt_url: `/api/receipts/cash/${txRef}`,
-                delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
-                delivery_address: cartItem.delivery_address,
-                selected_size: cartItem.selected_size,
-                selected_color: cartItem.selected_color,
-                selected_variant_sku: cartItem.selected_variant_sku
-              })
-              .select()
-              .single();
+              const itemSubtotal = product.quantity * product.price;
+              const serviceFee = itemSubtotal * 0.03;
+              const itemDeliveryFee = cartItem.delivery_fee || 0;
+              const itemTotal = itemSubtotal + itemDeliveryFee;
 
-            if (orderError) throw orderError;
-
-            // Create transaction with pending status
-            const { error: transactionError } = await supabase
-              .from('transactions')
-              .insert({
-                order_id: order.id,
-                payment_method: 'CASH',
-                payment_status: 'pending',
+              // Add debug log
+              console.log('Transaction amounts:', {
                 subtotal: itemSubtotal,
-                platform_fee: 0,
-                service_fee: serviceFee,
-                vat_amount: 0,
                 delivery_fee: itemDeliveryFee,
+                service_fee: serviceFee,
                 total_amount: itemTotal,
-                seller_id: product.owner.id,
-                customer_name: userDetails?.full_name,
-                customer_email: userDetails?.email,
-                customer_phone: product.owner.store_settings?.phone || null,
-                seller_payout_amount: itemTotal - serviceFee,
-                seller_payout_status: 'pending',
-                platform_payout_status: 'pending'
-              });
-
-            if (transactionError) throw transactionError;
-          }
-        }
-
-        // Clear cart after successful order creation
-        if (userDetails?.id) {
-          await clearCart(userDetails.id);
-        }
-
-        // Close modal
-        onClose();
-        toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
-        
-        // Redirect to receipt page first
-        window.location.href = `/api/receipts/cash/${txRef}?redirect=/orders?payment_success=true%26tx_ref=${txRef}`;
-
-      } catch (error) {
-        console.error('Order creation error:', error);
-        setError(error instanceof Error ? error.message : 'Failed to create order');
-      } finally {
-        setLocalProcessing(false);
-      }
-      return;
-    }
-
-    if (selectedMethod === 'CHAPA') {
-      try {
-        await handleChapaPayment();
-      } catch (error) {
-        console.error('Payment error:', error);
-        setError(error instanceof Error ? error.message : 'Payment failed');
-      }
-      return;
-    }
-
-    if (selectedMethod === 'TELEBIRR') {
-      try {
-        setLocalProcessing(true);
-        const response = await fetch('/api/telebirr/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
-            description: `Order payment for ${sellers.length} seller(s)`,
-          }),
-        });
-
-        const data = await response.json();
-
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to initialize payment');
-        }
-
-        // After successful payment (in both CHAPA and TELEBIRR cases)
-        // Update product quantities
-        for (const seller of sellers) {
-          for (const product of seller.products) {
-            await updateProductQuantity(product.id, product.quantity);
-          }
-        }
-        
-        // Clear cart after successful payment
-        if (userDetails?.id) {
-          await clearCart(userDetails.id);
-        }
-
-        // Redirect to Telebirr payment page
-        window.location.href = data.paymentUrl;
-
-      } catch (error) {
-        console.error('Payment error:', error);
-        setError(error instanceof Error ? error.message : 'Payment failed');
-      } finally {
-        setLocalProcessing(false);
-      }
-      return;
-    }
-
-    if (selectedMethod === 'MPESA') {
-      try {
-        setLocalProcessing(true);
-        const supabase = createClientComponent();
-        const txRef = `MPESA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Create orders first
-        for (const seller of sellers) {
-          for (const product of seller.products) {
-            const cartItemDetails = await getCartItemDetails(userDetails?.id!, product.id);
-            
-            const itemSubtotal = product.quantity * product.price;
-            const serviceFee = itemSubtotal * 0.03;
-            const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
-            const itemTotal = itemSubtotal + itemDeliveryFee;
-
-            // Map the delivery method to match the constraint
-            const mappedDeliveryMethod = cartItemDetails.delivery_method === 'delivery' 
-              ? 'home_delivery' 
-              : 'store_pickup';
-
-            // Create order
-            const { data: order, error: orderError } = await supabase
-              .from('orders')
-              .insert({
-                user_id: userDetails?.id,
-                product_id: product.id,
-                quantity: product.quantity,
-                total_price: itemTotal,
-                platform_fee: 0,
-                service_fee: serviceFee,
-                ethiopia_tax: 0,
-                delivery_fee: itemDeliveryFee,
-                tx_ref: txRef,
-                payment_status: 'pending',
-                order_status: 'pending',
-                delivery_method: mappedDeliveryMethod, // Use the mapped value
-                delivery_address: cartItemDetails.delivery_address,
-              })
-              .select()
-              .single();
-
-            if (orderError) throw orderError;
-
-            // Create transaction with payment_method
-            const { error: transactionError } = await supabase
-              .from('transactions')
-              .insert({
-                order_id: order.id,
-                payment_method: 'MPESA',
-                payment_status: 'pending',
-                subtotal: itemSubtotal,
-                platform_fee: 0,
-                service_fee: serviceFee,
-                vat_amount: 0,
-                delivery_fee: itemDeliveryFee,
-                total_amount: itemTotal,
-                seller_id: product.owner.id,
-                customer_name: userDetails?.full_name,
-                customer_email: userDetails?.email,
-                customer_phone: phoneNumber,
                 seller_payout_amount: itemTotal - serviceFee
               });
 
-            if (transactionError) throw transactionError;
+              // Create order with cart item details
+              const { data: order, error: orderError } = await supabase
+                .from('orders')
+                .insert({
+                  user_id: userDetails?.id,
+                  product_id: product.id,
+                  quantity: product.quantity,
+                  total_price: itemTotal,
+                  platform_fee: 0,
+                  service_fee: serviceFee,
+                  ethiopia_tax: 0,
+                  delivery_fee: itemDeliveryFee,
+                  order_status: 'confirmed',
+                  payment_status: 'pending',
+                  payment_reference: txRef,
+                  tx_ref: txRef,
+                  receipt_url: `/api/receipts/cash/${txRef}`,
+                  delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+                  delivery_address: cartItem.delivery_address,
+                  selected_size: cartItem.selected_size,
+                  selected_color: cartItem.selected_color,
+                  selected_variant_sku: cartItem.selected_variant_sku
+                })
+                .select()
+                .single();
+
+              if (orderError) throw orderError;
+
+              // Create transaction with pending status
+              const { error: transactionError } = await supabase
+                .from('transactions')
+                .insert({
+                  order_id: order.id,
+                  payment_method: 'CASH',
+                  payment_status: 'pending',
+                  subtotal: itemSubtotal,
+                  platform_fee: 0,
+                  service_fee: serviceFee,
+                  vat_amount: 0,
+                  delivery_fee: itemDeliveryFee,
+                  total_amount: itemTotal,
+                  seller_id: product.owner.id,
+                  customer_name: userDetails?.full_name,
+                  customer_email: userDetails?.email,
+                  customer_phone: product.owner.store_settings?.phone || null,
+                  seller_payout_amount: itemTotal - serviceFee,
+                  seller_payout_status: 'pending',
+                  platform_payout_status: 'pending'
+                });
+
+              if (transactionError) throw transactionError;
+            }
           }
-        }
 
-        // Initiate M-PESA payment
-        const totalAmount = sellers.reduce((sum, seller) => 
-          sum + seller.total, 0
-        );
-
-        // Format phone number for sandbox (should be Ethiopian number format)
-        const formattedPhone = phoneNumber.startsWith('+251') 
-          ? phoneNumber.substring(1) 
-          : phoneNumber.startsWith('251') 
-            ? phoneNumber 
-            : `251${phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber}`;
-
-        // First initiate the STK push
-        const mpesaResponse = await MpesaService.initiateSTKPush(
-          formattedPhone,
-          totalAmount,
-          txRef
-        );
-
-        if (mpesaResponse.ResponseCode === '0') {
-          // Store payment info
-          localStorage.setItem('pendingPayment', JSON.stringify({
-            tx_ref: txRef,
-            amount: totalAmount,
-            items: sellers
-          }));
-
-          // Clear cart
+          // Clear cart after successful order creation
           if (userDetails?.id) {
             await clearCart(userDetails.id);
           }
 
-          toast.success('Please check your phone for the M-PESA prompt');
+          // Close modal
           onClose();
-        } else {
-          throw new Error(mpesaResponse.ResponseDescription);
+          toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
+          
+          // Redirect to receipt page first
+          window.location.href = `/api/receipts/cash/${txRef}?redirect=/orders?payment_success=true%26tx_ref=${txRef}`;
+
+        } catch (error) {
+          console.error('Order creation error:', error);
+          setError(error instanceof Error ? error.message : 'Failed to create order');
+        } finally {
+          setLocalProcessing(false);
         }
-      } catch (error) {
-        console.error('M-PESA payment error:', error);
-        toast.error(error instanceof Error ? error.message : 'Payment failed');
-      } finally {
-        setLocalProcessing(false);
+        return;
       }
-    }
-    
-    // Handle other payment methods...
-    try {
-      await onSelectMethod(selectedMethod);
-      onClose();
+
+      if (selectedMethod === 'CHAPA') {
+        try {
+          await handleChapaPayment();
+        } catch (error) {
+          console.error('Payment error:', error);
+          setError(error instanceof Error ? error.message : 'Payment failed');
+        }
+        return;
+      }
+
+      if (selectedMethod === 'TELEBIRR') {
+        try {
+          setLocalProcessing(true);
+          const response = await fetch('/api/telebirr/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
+              description: `Order payment for ${sellers.length} seller(s)`,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (!data.success) {
+            throw new Error(data.error || 'Failed to initialize payment');
+          }
+
+          // After successful payment (in both CHAPA and TELEBIRR cases)
+          // Update product quantities
+          for (const seller of sellers) {
+            for (const product of seller.products) {
+              await updateProductQuantity(product.id, product.quantity);
+            }
+          }
+          
+          // Clear cart after successful payment
+          if (userDetails?.id) {
+            await clearCart(userDetails.id);
+          }
+
+          // Redirect to Telebirr payment page
+          window.location.href = data.paymentUrl;
+
+        } catch (error) {
+          console.error('Payment error:', error);
+          setError(error instanceof Error ? error.message : 'Payment failed');
+        } finally {
+          setLocalProcessing(false);
+        }
+        return;
+      }
+
+      if (selectedMethod === 'MPESA') {
+        try {
+          setLocalProcessing(true);
+          const supabase = createClientComponent();
+          const txRef = `MPESA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          // Create orders first
+          for (const seller of sellers) {
+            for (const product of seller.products) {
+              const cartItemDetails = await getCartItemDetails(userDetails?.id!, product.id);
+              
+              const itemSubtotal = product.quantity * product.price;
+              const serviceFee = itemSubtotal * 0.03;
+              const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
+              const itemTotal = itemSubtotal + itemDeliveryFee;
+
+              // Map the delivery method to match the constraint
+              const mappedDeliveryMethod = cartItemDetails.delivery_method === 'delivery' 
+                ? 'home_delivery' 
+                : 'store_pickup';
+
+              // Create order
+              const { data: order, error: orderError } = await supabase
+                .from('orders')
+                .insert({
+                  user_id: userDetails?.id,
+                  product_id: product.id,
+                  quantity: product.quantity,
+                  total_price: itemTotal,
+                  platform_fee: 0,
+                  service_fee: serviceFee,
+                  ethiopia_tax: 0,
+                  delivery_fee: itemDeliveryFee,
+                  tx_ref: txRef,
+                  payment_status: 'pending',
+                  order_status: 'pending',
+                  delivery_method: mappedDeliveryMethod, // Use the mapped value
+                  delivery_address: cartItemDetails.delivery_address,
+                })
+                .select()
+                .single();
+
+              if (orderError) throw orderError;
+
+              // Create transaction with payment_method
+              const { error: transactionError } = await supabase
+                .from('transactions')
+                .insert({
+                  order_id: order.id,
+                  payment_method: 'MPESA',
+                  payment_status: 'pending',
+                  subtotal: itemSubtotal,
+                  platform_fee: 0,
+                  service_fee: serviceFee,
+                  vat_amount: 0,
+                  delivery_fee: itemDeliveryFee,
+                  total_amount: itemTotal,
+                  seller_id: product.owner.id,
+                  customer_name: userDetails?.full_name,
+                  customer_email: userDetails?.email,
+                  customer_phone: phoneNumber,
+                  seller_payout_amount: itemTotal - serviceFee
+                });
+
+              if (transactionError) throw transactionError;
+            }
+          }
+
+          // Initiate M-PESA payment
+          const totalAmount = sellers.reduce((sum, seller) => 
+            sum + seller.total, 0
+          );
+
+          // Format phone number for sandbox (should be Ethiopian number format)
+          const formattedPhone = phoneNumber.startsWith('+251') 
+            ? phoneNumber.substring(1) 
+            : phoneNumber.startsWith('251') 
+              ? phoneNumber 
+              : `251${phoneNumber.startsWith('0') ? phoneNumber.substring(1) : phoneNumber}`;
+
+          // First initiate the STK push
+          const mpesaResponse = await MpesaService.initiateSTKPush(
+            formattedPhone,
+            totalAmount,
+            txRef
+          );
+
+          if (mpesaResponse.ResponseCode === '0') {
+            // Store payment info
+            localStorage.setItem('pendingPayment', JSON.stringify({
+              tx_ref: txRef,
+              amount: totalAmount,
+              items: sellers
+            }));
+
+            // Clear cart
+            if (userDetails?.id) {
+              await clearCart(userDetails.id);
+            }
+
+            toast.success('Please check your phone for the M-PESA prompt');
+            onClose();
+          } else {
+            throw new Error(mpesaResponse.ResponseDescription);
+          }
+        } catch (error) {
+          console.error('M-PESA payment error:', error);
+          toast.error(error instanceof Error ? error.message : 'Payment failed');
+        } finally {
+          setLocalProcessing(false);
+        }
+      }
+      
+      // Handle other payment methods...
+      try {
+        await onSelectMethod(selectedMethod);
+        onClose();
+      } catch (error) {
+        console.error('Payment error:', error);
+        setError(error instanceof Error ? error.message : 'Payment failed');
+      }
     } catch (error) {
       console.error('Payment error:', error);
       setError(error instanceof Error ? error.message : 'Payment failed');
@@ -639,6 +688,7 @@ export default function PaymentMethodModal({
       }
 
       setLocalProcessing(true);
+      // Calculate total amount (only product price + delivery fee)
       const totalAmount = sellers.reduce((sum, seller) => 
         sum + seller.subtotal + seller.deliveryFee, 0
       );
@@ -653,11 +703,21 @@ export default function PaymentMethodModal({
           const cartItemDetails = await getCartItemDetails(userDetails.id, product.id);
           
           const itemSubtotal = product.quantity * product.price;
+          // Always calculate service fee as 3% of subtotal
           const serviceFee = itemSubtotal * 0.03;
           const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
           const itemTotal = itemSubtotal + itemDeliveryFee;
 
-          // First create the order
+          // Add debug log
+          console.log('Transaction details:', {
+            itemSubtotal,
+            serviceFee,
+            itemDeliveryFee,
+            itemTotal,
+            seller_payout_amount: itemTotal - serviceFee
+          });
+
+          // Create the order with correct fee structure
           const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert({
@@ -676,13 +736,16 @@ export default function PaymentMethodModal({
               receipt_url: null,
               delivery_method: cartItemDetails.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
               delivery_address: cartItemDetails.delivery_address,
+              selected_size: cartItemDetails.selected_size || null,
+              selected_color: cartItemDetails.selected_color || null,
+              selected_variant_sku: cartItemDetails.selected_variant_sku || null
             })
             .select()
             .single();
 
           if (orderError) throw orderError;
 
-          // Then create the transaction
+          // Create transaction with correct fee structure
           const { error: transactionError } = await supabase
             .from('transactions')
             .insert({
@@ -706,12 +769,12 @@ export default function PaymentMethodModal({
         }
       }
 
-      // Initialize Chapa payment
+      // Initialize Chapa payment with the correct total amount
       const response = await fetch('/api/payments/chapa/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: totalAmount.toString(),
+          amount: totalAmount.toString(), // This should match sum of components
           email: userDetails.email,
           tx_ref: txRef,
           callback_url: `${window.location.origin}/api/payments/chapa/callback`,

@@ -67,6 +67,12 @@ export default function SignupPage() {
         return;
       }
 
+      // Validate role
+      if (role !== 'customer' && role !== 'owner') {
+        setError('Invalid role selected');
+        return;
+      }
+
       // Check if the email already exists
       const { data: existingUser, error: userError } = await supabase
         .from('users')
@@ -84,9 +90,7 @@ export default function SignupPage() {
         return;
       }
 
-      // Sign up with Supabase Auth
-      console.log('Starting signup process with:', { email, fullName, role });
-      
+      // Sign up with Supabase Auth with explicitly set non-admin values
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -94,9 +98,13 @@ export default function SignupPage() {
           emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
           data: {
             full_name: fullName,
-            role: role,
+            role: role as Role, // Type assertion to ensure only valid roles
             email_sender: EMAIL_CONFIG.SIGNUP,
-            email_name: 'Avrio'
+            email_name: 'Avrio',
+            is_admin: false, // Explicitly set to false
+            is_verified: false,
+            verification_status: 'pending',
+            subscription_plan: 'basic'
           }
         }
       });

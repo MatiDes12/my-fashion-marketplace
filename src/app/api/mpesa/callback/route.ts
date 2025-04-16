@@ -2,6 +2,17 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+// Add validation function at the top
+const validateOrderUpdate = (order: any) => {
+  if (!order) throw new Error('Invalid order data');
+  if (order.quantity <= 0) throw new Error('Invalid quantity');
+  if (order.total_price <= 0) throw new Error('Invalid total price');
+  if (order.service_fee < 0) throw new Error('Invalid service fee');
+  if (order.platform_fee < 0) throw new Error('Invalid platform fee');
+  if (order.delivery_fee < 0) throw new Error('Invalid delivery fee');
+  return true;
+};
+
 export async function POST(request: Request) {
   try {
     const payload = await request.json();
@@ -21,6 +32,23 @@ export async function POST(request: Request) {
     } = payload;
 
     if (ResultCode === 0) {
+      // Get order data first
+      const { data: order, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('tx_ref', MerchantRequestID.split('-')[1])
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Validate order before updating
+      try {
+        validateOrderUpdate(order);
+      } catch (error) {
+        console.error('[MPESA CALLBACK] Validation error:', error);
+        throw error;
+      }
+
       // Payment successful
       const amount = CallbackMetadata.Item.find((item: any) => item.Name === 'Amount')?.Value;
       const mpesaReceiptNumber = CallbackMetadata.Item.find((item: any) => item.Name === 'MpesaReceiptNumber')?.Value;

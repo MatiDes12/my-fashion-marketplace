@@ -90,6 +90,32 @@ interface UsageStats {
   }>;
 }
 
+// Add this utility function near the top of the file
+const formatImageUrl = (url: string) => {
+  if (!url) return '/placeholder.png';
+  if (url.startsWith('http')) return url;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${url}`;
+};
+
+// Update the ProductImage component in the products page
+const ProductImage = ({ imageUrl, title }: { imageUrl: string; title: string }) => {
+  const [imageError, setImageError] = useState(false);
+  const formattedUrl = imageError ? '/placeholder.png' : formatImageUrl(imageUrl);
+
+  return (
+    <div className="relative aspect-w-3 aspect-h-2 bg-gray-100">
+      <Image
+        src={formattedUrl}
+        alt={title}
+        fill
+        className="object-cover"
+        onError={() => setImageError(true)}
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      />
+    </div>
+  );
+};
+
 function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup>({});
@@ -560,13 +586,7 @@ function ProductsPage() {
                   {/* Product Image */}
                   <div className={viewMode === 'list' ? 'w-48 h-48' : 'aspect-w-3 aspect-h-2'}>
                     {product.product_images && product.product_images.length > 0 ? (
-                      <Image
-                        src={cleanImageUrl(product.product_images[0].image_url)}
-                        alt={product.title}
-                        width={300}
-                        height={200}
-                        className="object-cover h-full w-full"
-                      />
+                      <ProductImage imageUrl={cleanImageUrl(product.product_images[0].image_url)} title={product.title} />
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                         <span className="text-gray-400">No image</span>
@@ -632,13 +652,7 @@ function ProductsPage() {
                         {/* Product Image */}
                         <div className="aspect-w-3 aspect-h-2 bg-gray-200 group-hover:opacity-75">
                           {product.product_images && product.product_images.length > 0 ? (
-                            <Image
-                              src={cleanImageUrl(product.product_images[0].image_url)}
-                              alt={product.title}
-                              width={300}
-                              height={200}
-                              className="object-cover w-full h-full"
-                            />
+                            <ProductImage imageUrl={cleanImageUrl(product.product_images[0].image_url)} title={product.title} />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <span className="text-gray-400">No image</span>
@@ -725,13 +739,7 @@ function ProductsPage() {
                       {/* Product Image */}
                       <div className="aspect-w-3 aspect-h-2 bg-gray-200 group-hover:opacity-75 relative">
                         {product.product_images && product.product_images.length > 0 ? (
-                          <Image
-                            src={cleanImageUrl(product.product_images[0].image_url)}
-                            alt={product.title}
-                            width={300}
-                            height={200}
-                            className="object-cover w-full h-full opacity-50"
-                          />
+                          <ProductImage imageUrl={cleanImageUrl(product.product_images[0].image_url)} title={product.title} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <span className="text-gray-400">No image</span>

@@ -35,7 +35,7 @@ interface Order {
   created_at: string;
   quantity: number;
   total_price: number;
-  order_status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  order_status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled' | 'picked up';
   user: {
     id: string;
     full_name: string;

@@ -15,6 +15,17 @@ const supabase = createClient(
   }
 );
 
+// Add validation function
+const validateOrderUpdate = (order: any) => {
+  if (!order) throw new Error('Invalid order data');
+  if (order.quantity <= 0) throw new Error('Invalid quantity');
+  if (order.total_price <= 0) throw new Error('Invalid total price');
+  if (order.service_fee < 0) throw new Error('Invalid service fee');
+  if (order.platform_fee < 0) throw new Error('Invalid platform fee');
+  if (order.delivery_fee < 0) throw new Error('Invalid delivery fee');
+  return true;
+};
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tx_ref = searchParams.get('trx_ref') || searchParams.get('tx_ref');
@@ -69,8 +80,15 @@ export async function GET(request: Request) {
         throw new Error('Orders not found');
       }
 
-      // Process each order
+      // Process each order with validation
       for (const order of orders) {
+        try {
+          validateOrderUpdate(order);
+        } catch (error) {
+          console.error('[CHAPA CALLBACK] Validation error:', error);
+          continue; // Skip invalid orders
+        }
+
         // Update order status
         const { error: updateError } = await supabase
           .from('orders')

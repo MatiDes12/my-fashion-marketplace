@@ -20,6 +20,17 @@ interface TelebirrCallback {
   timestamp: string;
 }
 
+// Add validation function at the top
+const validateOrderUpdate = (order: any) => {
+  if (!order) throw new Error('Invalid order data');
+  if (order.quantity <= 0) throw new Error('Invalid quantity');
+  if (order.total_price <= 0) throw new Error('Invalid total price');
+  if (order.service_fee < 0) throw new Error('Invalid service fee');
+  if (order.platform_fee < 0) throw new Error('Invalid platform fee');
+  if (order.delivery_fee < 0) throw new Error('Invalid delivery fee');
+  return true;
+};
+
 export async function POST(request: Request) {
   try {
     console.log('Received Telebirr callback');
@@ -87,6 +98,14 @@ export async function POST(request: Request) {
 
     if (orderError || !order) {
       throw new Error('Order not found');
+    }
+
+    // Add validation before updating order
+    try {
+      validateOrderUpdate(order);
+    } catch (error) {
+      console.error('[TELEBIRR CALLBACK] Validation error:', error);
+      throw error;
     }
 
     // Create transaction record with initial state
