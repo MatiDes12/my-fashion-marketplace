@@ -390,6 +390,19 @@ export default function PaymentMethodModal({
           const supabase = createClientComponent();
           const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+          // Get customer's store settings to access their phone number
+          const { data: customerData, error: customerError } = await supabase
+            .from('users')
+            .select('store_settings')
+            .eq('id', userDetails?.id)
+            .single();
+
+          if (customerError) {
+            console.error('Error fetching customer data:', customerError);
+          }
+
+          const customerPhone = customerData?.store_settings?.phone || null;
+
           // Process each seller's orders
           for (const seller of sellers) {
             for (const product of seller.products) {
@@ -416,15 +429,6 @@ export default function PaymentMethodModal({
               const serviceFee = itemSubtotal * 0.03;
               const itemDeliveryFee = cartItem.delivery_fee || 0;
               const itemTotal = itemSubtotal + itemDeliveryFee;
-
-              // Add debug log
-              console.log('Transaction amounts:', {
-                subtotal: itemSubtotal,
-                delivery_fee: itemDeliveryFee,
-                service_fee: serviceFee,
-                total_amount: itemTotal,
-                seller_payout_amount: itemTotal - serviceFee
-              });
 
               // Create order with cart item details
               const { data: order, error: orderError } = await supabase
@@ -454,7 +458,7 @@ export default function PaymentMethodModal({
 
               if (orderError) throw orderError;
 
-              // Create transaction with pending status
+              // Create transaction with customer's phone number
               const { error: transactionError } = await supabase
                 .from('transactions')
                 .insert({
@@ -470,7 +474,7 @@ export default function PaymentMethodModal({
                   seller_id: product.owner.id,
                   customer_name: userDetails?.full_name,
                   customer_email: userDetails?.email,
-                  customer_phone: product.owner.store_settings?.phone || null,
+                  customer_phone: customerPhone,
                   seller_payout_amount: itemTotal - serviceFee,
                   seller_payout_status: 'pending',
                   platform_payout_status: 'pending'
@@ -688,13 +692,25 @@ export default function PaymentMethodModal({
       }
 
       setLocalProcessing(true);
-      // Calculate total amount (only product price + delivery fee)
       const totalAmount = sellers.reduce((sum, seller) => 
         sum + seller.subtotal + seller.deliveryFee, 0
       );
       const txRef = `tx-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       
       const supabase = createClientComponent();
+
+      // Get customer's store settings to access their phone number
+      const { data: customerData, error: customerError } = await supabase
+        .from('users')
+        .select('store_settings')
+        .eq('id', userDetails.id)
+        .single();
+
+      if (customerError) {
+        console.error('Error fetching customer data:', customerError);
+      }
+
+      const customerPhone = customerData?.store_settings?.phone || null;
 
       // Create orders first
       for (const seller of sellers) {
@@ -703,19 +719,9 @@ export default function PaymentMethodModal({
           const cartItemDetails = await getCartItemDetails(userDetails.id, product.id);
           
           const itemSubtotal = product.quantity * product.price;
-          // Always calculate service fee as 3% of subtotal
           const serviceFee = itemSubtotal * 0.03;
           const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
           const itemTotal = itemSubtotal + itemDeliveryFee;
-
-          // Add debug log
-          console.log('Transaction details:', {
-            itemSubtotal,
-            serviceFee,
-            itemDeliveryFee,
-            itemTotal,
-            seller_payout_amount: itemTotal - serviceFee
-          });
 
           // Create the order with correct fee structure
           const { data: order, error: orderError } = await supabase
@@ -745,7 +751,7 @@ export default function PaymentMethodModal({
 
           if (orderError) throw orderError;
 
-          // Create transaction with correct fee structure
+          // Create transaction with customer's phone number
           const { error: transactionError } = await supabase
             .from('transactions')
             .insert({
@@ -761,7 +767,7 @@ export default function PaymentMethodModal({
               seller_id: product.owner.id,
               customer_name: userDetails.full_name,
               customer_email: userDetails.email,
-              customer_phone: product.owner.store_settings?.phone || null,
+              customer_phone: customerPhone,
               seller_payout_amount: itemTotal - serviceFee
             });
 

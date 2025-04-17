@@ -165,8 +165,11 @@ export default function CartPage() {
         return;
       }
 
+      // Set user role
+      setUserRole(userData?.role || null);
+
+      // Extract address from store_settings
       if (userData?.store_settings?.address) {
-        console.log('Found user address:', userData.store_settings.address);
         setUserAddress(userData.store_settings.address);
       }
     } catch (err) {
@@ -289,42 +292,66 @@ export default function CartPage() {
       return null;
     }
 
-    // If address is a string, try to parse it
-    const addressObj = typeof address === 'string' ? JSON.parse(address) : address;
+    try {
+      // If address is a string, try to parse it
+      const addressObj = typeof address === 'string' ? JSON.parse(address) : address;
 
-    // Handle numbered street address first
-    let streetNumber = '';
-    if (Object.keys(addressObj).some(key => !isNaN(Number(key)))) {
-      streetNumber = Object.keys(addressObj)
-        .filter(key => !isNaN(Number(key)))
-        .sort((a, b) => Number(a) - Number(b))
-        .map(key => addressObj[key])
-        .join('');
-    }
-
-    // Format the address components
-    const addressParts = [
-      streetNumber,                                    // Street number and name
-      addressObj.city,                                // City
-      addressObj.subCity,                             // Sub-city
-      addressObj.wereda && `Wereda ${addressObj.wereda}`,    // Wereda
-      addressObj.kebele && `Kebele ${addressObj.kebele}`,    // Kebele
-      addressObj.houseNo && `House No: ${addressObj.houseNo}`, // House number
-      addressObj.landmark && `Near ${addressObj.landmark}`     // Landmark
-    ].filter(Boolean);
-
-    // Group Wereda and Kebele together
-    const formattedAddress = addressParts.reduce((acc: string[], part, index) => {
-      if (part.startsWith('Wereda') && index + 1 < addressParts.length && addressParts[index + 1].startsWith('Kebele')) {
-        acc.push(`${part}, ${addressParts[index + 1]}`);
-        addressParts[index + 1] = ''; // Mark the Kebele part as used
-      } else if (part !== '') {
-        acc.push(part);
+      if (!addressObj) {
+        return null;
       }
-      return acc;
-    }, []);
 
-    return formattedAddress.join('\n');
+      // Handle numbered street address first
+      let streetNumber = '';
+      if (addressObj && Object.keys(addressObj).some(key => !isNaN(Number(key)))) {
+        streetNumber = Object.keys(addressObj)
+          .filter(key => !isNaN(Number(key)))
+          .sort((a, b) => Number(a) - Number(b))
+          .map(key => addressObj[key])
+          .join('');
+      }
+
+      // Format the address components
+      const addressParts = [
+        streetNumber,
+        addressObj.city,
+        addressObj.subCity,
+        addressObj.wereda && `Wereda ${addressObj.wereda}`,
+        addressObj.kebele && `Kebele ${addressObj.kebele}`,
+        addressObj.houseNo && `House No: ${addressObj.houseNo}`,
+        addressObj.landmark && `Near ${addressObj.landmark}`
+      ].filter(Boolean);
+
+      // Group Wereda and Kebele together
+      const formattedAddress = addressParts.reduce((acc: string[], part, index) => {
+        if (part.startsWith('Wereda') && index + 1 < addressParts.length && addressParts[index + 1].startsWith('Kebele')) {
+          acc.push(`${part}, ${addressParts[index + 1]}`);
+          addressParts[index + 1] = ''; // Mark the Kebele part as used
+        } else if (part !== '') {
+          acc.push(part);
+        }
+        return acc;
+      }, []);
+
+      return formattedAddress.join('\n');
+    } catch (error) {
+      console.error('Error formatting address:', error);
+      return null;
+    }
+  };
+  
+  const handleAddressPrompt = () => {
+    toast.error(
+      <div>
+        <p>Please add your delivery address to continue.</p>
+        <button
+          onClick={() => router.push('/profile/settings')}
+          className="mt-2 text-green-600 hover:text-green-500 underline"
+        >
+          Add Address
+        </button>
+      </div>,
+      { duration: 5000 }
+    );
   };
   
   const handleDeliveryMethodSelect = async (itemId: string, method: 'delivery' | 'pickup') => {
@@ -332,10 +359,15 @@ export default function CartPage() {
       const cartItem = cartItems.find(item => item.id === itemId);
       if (!cartItem) return;
 
+      // Check if user has address when selecting home delivery
+      if (method === 'delivery' && !userAddress) {
+        handleAddressPrompt();
+        return;
+      }
+
       // Determine the address based on delivery method
       let deliveryAddress = null;
       if (method === 'delivery') {
-        // Store address as an object, not a string
         deliveryAddress = userAddress;
       } else if (method === 'pickup') {
         deliveryAddress = cartItem.product.owner?.store_settings?.address;
@@ -356,7 +388,7 @@ export default function CartPage() {
 
       if (error) throw error;
 
-      // Update local state with object address
+      // Update local state
       setSelectedDeliveryMethods(prev => ({
         ...prev,
         [itemId]: method
@@ -367,7 +399,7 @@ export default function CartPage() {
           ? { 
               ...item, 
               delivery_method: method,
-              delivery_address: deliveryAddress, // Keep as object in state
+              delivery_address: deliveryAddress,
               delivery_fee: method === 'delivery' ? item.product.delivery_fee || 0 : 0
             }
           : item
@@ -623,18 +655,26 @@ export default function CartPage() {
                                                 <p className="text-sm text-gray-600">
                                                   {getFullAddress(item.delivery_address)}
                                                 </p>
-                                              ) : null}
-                                              <p className="text-sm text-gray-600">
-                                                {item.delivery_address.city}
-                                              </p>
-                                              <p className="text-sm text-gray-500">
-                                                Wereda {item.delivery_address.wereda}, 
-                                                Kebele {item.delivery_address.kebele}
-                                              </p>
-                                              {item.delivery_address.houseNo && (
-                                                <p className="text-sm text-gray-500">
-                                                  House No: {item.delivery_address.houseNo}
-                                                </p>
+                                              ) : (
+                                                <div className="space-y-1">
+                                                  <p className="text-sm text-gray-900">{item.delivery_address.city}</p>
+                                                  {item.delivery_address.subCity && (
+                                                    <p className="text-sm text-gray-600">{item.delivery_address.subCity}</p>
+                                                  )}
+                                                  <p className="text-sm text-gray-600">
+                                                    Wereda {item.delivery_address.wereda}, Kebele {item.delivery_address.kebele}
+                                                  </p>
+                                                  {item.delivery_address.houseNo && (
+                                                    <p className="text-sm text-gray-600">
+                                                      House No: {item.delivery_address.houseNo}
+                                                    </p>
+                                                  )}
+                                                  {item.delivery_address.landmark && (
+                                                    <p className="text-sm text-gray-600">
+                                                      Landmark: {item.delivery_address.landmark}
+                                                    </p>
+                                                  )}
+                                                </div>
                                               )}
                                             </div>
                                             <button
