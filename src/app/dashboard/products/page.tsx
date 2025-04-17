@@ -584,9 +584,17 @@ function ProductsPage() {
                 <div key={product.id} className={`bg-white rounded-lg shadow-sm overflow-hidden
                   ${viewMode === 'list' ? 'flex' : ''}`}>
                   {/* Product Image */}
-                  <div className={viewMode === 'list' ? 'w-48 h-48' : 'aspect-w-3 aspect-h-2'}>
+                  <div className={viewMode === 'list' ? 'w-48 h-48 flex-shrink-0' : 'relative h-48'}>
                     {product.product_images && product.product_images.length > 0 ? (
-                      <ProductImage imageUrl={cleanImageUrl(product.product_images[0].image_url)} title={product.title} />
+                      <div className="w-full h-full">
+                        <Image
+                          src={formatImageUrl(product.product_images[0].image_url)}
+                          alt={product.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        />
+                      </div>
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                         <span className="text-gray-400">No image</span>
@@ -595,11 +603,11 @@ function ProductsPage() {
                   </div>
 
                   {/* Product Info */}
-                  <div className="p-4 flex-1">
+                  <div className="p-3 flex-1">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900">{product.title}</h3>
-                        <p className="mt-1 text-sm text-gray-500 line-clamp-2">{product.description}</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-1">{product.title}</h3>
+                        <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
                       </div>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                         product.quantity > 10 ? 'bg-green-100 text-green-800' :
@@ -612,7 +620,7 @@ function ProductsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between">
+                    <div className="mt-2 flex items-center justify-between">
                       <span className="text-xl font-medium text-green-600">
                         {formatCurrency(product.price)}
                       </span>
@@ -650,18 +658,26 @@ function ProductsPage() {
                     {products.map((product) => (
                       <div key={product.id} className="group relative bg-white border rounded-lg flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-200">
                         {/* Product Image */}
-                        <div className="aspect-w-3 aspect-h-2 bg-gray-200 group-hover:opacity-75">
+                        <div className="relative h-48">
                           {product.product_images && product.product_images.length > 0 ? (
-                            <ProductImage imageUrl={cleanImageUrl(product.product_images[0].image_url)} title={product.title} />
+                            <div className="w-full h-full">
+                              <Image
+                                src={formatImageUrl(cleanImageUrl(product.product_images[0].image_url))}
+                                alt={product.title}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              />
+                            </div>
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center">
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                               <span className="text-gray-400">No image</span>
                             </div>
                           )}
                         </div>
 
                         {/* Product Details */}
-                        <div className="flex-1 p-4 space-y-2 flex flex-col">
+                        <div className="flex-1 p-3 space-y-2 flex flex-col">
                           <h3 className="text-sm font-medium text-gray-900">
                             <Link href={`/dashboard/products/edit/${product.id}`}>
                               <span aria-hidden="true" className="absolute inset-0" />
@@ -737,21 +753,29 @@ function ProductsPage() {
                   {getOutOfStockProducts().map((product) => (
                     <div key={product.id} className="group relative bg-white border rounded-lg flex flex-col overflow-hidden hover:shadow-lg transition-shadow duration-200">
                       {/* Product Image */}
-                      <div className="aspect-w-3 aspect-h-2 bg-gray-200 group-hover:opacity-75 relative">
+                      <div className="relative h-48">
                         {product.product_images && product.product_images.length > 0 ? (
-                          <ProductImage imageUrl={cleanImageUrl(product.product_images[0].image_url)} title={product.title} />
+                          <div className="w-full h-full">
+                            <Image
+                              src={formatImageUrl(cleanImageUrl(product.product_images[0].image_url))}
+                              alt={product.title}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                              <span className="text-white text-lg font-bold">Out of Stock</span>
+                            </div>
+                          </div>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                             <span className="text-gray-400">No image</span>
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                          <span className="text-white text-lg font-bold">Out of Stock</span>
-                        </div>
                       </div>
 
                       {/* Product Details */}
-                      <div className="flex-1 p-4 space-y-2">
+                      <div className="flex-1 p-3 space-y-2">
                         <h3 className="text-lg font-medium text-gray-900">
                           <Link href={`/dashboard/products/edit/${product.id}`}>
                             {product.title}

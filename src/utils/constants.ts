@@ -253,7 +253,7 @@ type CategoryConfig = {
 };
 
 export const CATEGORY_SPECIFIC_FIELDS: { [key: string]: CategoryConfig } = {
-  // Update each category to include specifications
+  // Traditional Wear Categories
   'Traditional Wear': {
     requiresSizing: true,
     requiresColors: true,
@@ -261,6 +261,22 @@ export const CATEGORY_SPECIFIC_FIELDS: { [key: string]: CategoryConfig } = {
     specifications: ['Material Type', 'Style', 'Pattern'],
     specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
   },
+  'Habesha Kemis': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Chest', 'Length', 'Shoulder', 'Sleeve'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
+  },
+  'Tilfi': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Length', 'Width'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'style_notes'],
+  },
+
+  // Modern Fashion Categories
   'Modern Fashion': {
     requiresSizing: true,
     requiresColors: true,
@@ -268,39 +284,43 @@ export const CATEGORY_SPECIFIC_FIELDS: { [key: string]: CategoryConfig } = {
     specifications: ['Material Type', 'Style', 'Pattern'],
     specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
   },
-
-  // Electronics Categories
-  'Electronics': {
-    requiresSizing: false,
+  'Dresses': {
+    requiresSizing: true,
     requiresColors: true,
-    specifications: [
-      'Model Number',
-      'Operating System',
-      'Screen Size',
-      'Battery Life',
-      'Storage',
-      'RAM',
-      'Processor',
-      'Warranty Period'
-    ],
-    specificFields: ['warranty_info', 'technical_specifications', 'power_requirements'],
+    measurements: ['Chest', 'Waist', 'Hip', 'Length'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
+  },
+  'Tops': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Chest', 'Length', 'Shoulder', 'Sleeve'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
+  },
+  'Pants & Skirts': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Waist', 'Hip', 'Length', 'Inseam'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
+  },
+  'Outerwear': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Chest', 'Length', 'Shoulder', 'Sleeve'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes', 'occasion', 'season'],
+  },
+  'Shoes': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Length', 'Width'],
+    specifications: ['Material Type', 'Style', 'Heel Height'],
+    specificFields: ['material', 'care_instructions', 'fit_info', 'style_notes'],
   },
 
-  // Beauty & Personal Care
-  'Beauty & Personal Care': {
-    requiresSizing: false,
-    requiresColors: false,
-    specifications: [
-      'Volume/Weight',
-      'Ingredients',
-      'Skin Type',
-      'Expiration Date',
-      'Usage Instructions'
-    ],
-    specificFields: ['ingredients', 'usage_instructions', 'warnings', 'shelf_life'],
-  },
-
-  // Home & Living
+  // Home & Living Categories
   'Home & Living': {
     requiresSizing: true,
     requiresColors: true,
@@ -308,47 +328,51 @@ export const CATEGORY_SPECIFIC_FIELDS: { [key: string]: CategoryConfig } = {
     specifications: ['Material Type', 'Style', 'Pattern'],
     specificFields: ['material', 'care_instructions', 'assembly_required'],
   },
-
-  // Books & Media
-  'Books & Media': {
-    requiresSizing: false,
-    requiresColors: false,
-    specifications: [
-      'ISBN',
-      'Publisher',
-      'Publication Date',
-      'Language',
-      'Pages',
-      'Format'
-    ],
-    specificFields: ['author', 'publisher', 'language', 'format'],
-  },
-
-  // Food & Beverages
-  'Food & Beverages': {
-    requiresSizing: false,
-    requiresColors: false,
-    specifications: [
-      'Weight/Volume',
-      'Ingredients',
-      'Nutritional Info',
-      'Storage Instructions',
-      'Expiration Date'
-    ],
-    specificFields: ['ingredients', 'allergens', 'storage_instructions', 'expiration_date'],
-  },
-
-  // Musical Instruments
-  'Musical Instruments': {
-    requiresSizing: false,
+  'Furniture': {
+    requiresSizing: true,
     requiresColors: true,
-    specifications: [
-      'Instrument Type',
-      'Material',
-      'Dimensions',
-      'Weight'
-    ],
-    specificFields: ['material', 'care_instructions', 'included_accessories'],
+    measurements: ['Length', 'Width', 'Height', 'Weight'],
+    specifications: ['Material Type', 'Style', 'Assembly Required'],
+    specificFields: ['material', 'care_instructions', 'assembly_required'],
+  },
+  'Rugs & Carpets': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Length', 'Width'],
+    specifications: ['Material Type', 'Style', 'Pattern'],
+    specificFields: ['material', 'care_instructions'],
+  },
+  'Bedding': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Length', 'Width'],
+    specifications: ['Material Type', 'Thread Count', 'Pattern'],
+    specificFields: ['material', 'care_instructions'],
+  },
+
+  // Kids & Baby Categories
+  'Kids & Baby': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Age Range', 'Height', 'Weight'],
+    specifications: ['Material Type', 'Age Group', 'Safety Features'],
+    specificFields: ['material', 'care_instructions', 'safety_info'],
+  },
+  'Kids Clothing': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Age Range', 'Height', 'Chest', 'Waist'],
+    specifications: ['Material Type', 'Age Group', 'Style'],
+    specificFields: ['material', 'care_instructions', 'fit_info'],
+  },
+
+  // Sports & Fitness Categories
+  'Sports Wear': {
+    requiresSizing: true,
+    requiresColors: true,
+    measurements: ['Chest', 'Length', 'Shoulder', 'Sleeve'],
+    specifications: ['Material Type', 'Sport Type', 'Features'],
+    specificFields: ['material', 'care_instructions', 'fit_info'],
   },
 
   // Default (for any other category)

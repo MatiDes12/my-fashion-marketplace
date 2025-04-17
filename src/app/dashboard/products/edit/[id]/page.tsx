@@ -105,8 +105,11 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   const router = useRouter();
   const supabase = createClientComponent();
 
-  const categoryConfig = CATEGORY_SPECIFIC_FIELDS[category as keyof typeof CATEGORY_SPECIFIC_FIELDS] 
-    || CATEGORY_SPECIFIC_FIELDS.default;
+  const categoryConfig = CATEGORY_SPECIFIC_FIELDS[category] || 
+    Object.entries(CATEGORY_SPECIFIC_FIELDS).find(([key]) => 
+      key.toLowerCase() === category.toLowerCase()
+    )?.[1] || 
+    CATEGORY_SPECIFIC_FIELDS.default;
 
   const inputClasses = "mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent shadow-sm text-base transition duration-150 ease-in-out";
   const selectClasses = "mt-1 block w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base transition duration-150 ease-in-out";
@@ -1026,6 +1029,146 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     </div>
                   </div>
                 </div>
+
+                {categoryConfig.requiresSizing && (
+                  <div className="sizes-section mt-6">
+                    <h4 className="text-base font-medium text-gray-900 mb-4">Size Options</h4>
+                    <div className="mt-2 space-y-4">
+                      {/* Letter Sizes */}
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">Letter Sizes:</p>
+                        <div className="flex flex-wrap gap-3">
+                          {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL'].map((size) => (
+                            <label key={size} className="inline-flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={sizes.includes(size)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSizes([...sizes, size]);
+                                  } else {
+                                    setSizes(sizes.filter(s => s !== size));
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{size}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Numerical Sizes */}
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">Numerical Sizes:</p>
+                        <div className="flex flex-wrap gap-3">
+                          {Array.from({ length: 21 }, (_, i) => (i + 30).toString()).map((size) => (
+                            <label key={size} className="inline-flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={sizes.includes(size)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSizes([...sizes, size]);
+                                  } else {
+                                    setSizes(sizes.filter(s => s !== size));
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{size}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* EU Sizes */}
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">EU Sizes:</p>
+                        <div className="flex flex-wrap gap-3">
+                          {Array.from({ length: 16 }, (_, i) => `EU ${i + 36}`).map((size) => (
+                            <label key={size} className="inline-flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={sizes.includes(size)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSizes([...sizes, size]);
+                                  } else {
+                                    setSizes(sizes.filter(s => s !== size));
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{size}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Custom Size Input */}
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">Custom Sizes:</p>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            placeholder="Enter custom size"
+                            className={`${inputClasses} w-48`}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const value = e.currentTarget.value.trim();
+                                if (value && !sizes.includes(value)) {
+                                  setSizes([...sizes, value]);
+                                  e.currentTarget.value = '';
+                                }
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const input = document.querySelector('input[placeholder="Enter custom size"]') as HTMLInputElement;
+                              const value = input?.value.trim();
+                              if (value && !sizes.includes(value)) {
+                                setSizes([...sizes, value]);
+                                input.value = '';
+                              }
+                            }}
+                            className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Selected Sizes Display */}
+                      {sizes.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm text-gray-600 mb-2">Selected Sizes:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {sizes.map((size) => (
+                              <span
+                                key={size}
+                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                              >
+                                {size}
+                                <button
+                                  type="button"
+                                  onClick={() => setSizes(sizes.filter(s => s !== size))}
+                                  className="ml-1 inline-flex items-center p-0.5 rounded-full text-green-800 hover:bg-green-200 focus:outline-none"
+                                >
+                                  <span className="sr-only">Remove size {size}</span>
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-3">
                   <Link
