@@ -2,14 +2,71 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Basic rate limiting map (in production, use Redis or similar)
+const rateLimit = new Map();
+
+// Function to check for common attack patterns
+function detectMaliciousRequest(request: NextRequest) {
+  const url = request.nextUrl.toString().toLowerCase();
+  const userAgent = request.headers.get('user-agent')?.toLowerCase() || '';
+
+  // Check for common SQL injection patterns
+  if (url.includes('union select') || url.includes('execute(') || url.includes('1=1')) {
+    return true;
+  }
+
+  // Check for common XSS patterns
+  if (url.includes('<script') || url.includes('javascript:')) {
+    return true;
+  }
+
+  // Check for suspicious user agents
+  if (userAgent.includes('sqlmap') || userAgent.includes('nikto') || userAgent.includes('nmap')) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function middleware(req: NextRequest) {
-  // Skip middleware for static files and api routes
+  // Skip middleware for static files
   if (
     req.nextUrl.pathname.startsWith('/_next') ||
     req.nextUrl.pathname.startsWith('/static') ||
     req.nextUrl.pathname.startsWith('/api')
   ) {
     return NextResponse.next();
+  }
+
+  // Security Checks
+  // 1. Rate limiting
+  const ip = req.ip || 'unknown';
+  if (rateLimit.has(ip)) {
+    const { count, timestamp } = rateLimit.get(ip);
+    const timeDiff = Date.now() - timestamp;
+
+    if (timeDiff > 60000) {
+      rateLimit.set(ip, { count: 1, timestamp: Date.now() });
+    } else if (count > 100) { // More than 100 requests per minute
+      return new NextResponse('Too Many Requests', { status: 429 });
+    } else {
+      rateLimit.set(ip, { count: count + 1, timestamp });
+    }
+  } else {
+    rateLimit.set(ip, { count: 1, timestamp: Date.now() });
+  }
+
+  // 2. Check for malicious patterns
+  if (detectMaliciousRequest(req)) {
+    return new NextResponse('Forbidden', { status: 403 });
+  }
+
+  // 3. Ensure HTTPS in production
+  if (process.env.NODE_ENV === 'production' && !req.nextUrl.protocol.includes('https')) {
+    return NextResponse.redirect(
+      `https://${req.nextUrl.host}${req.nextUrl.pathname}`,
+      301
+    );
   }
 
   // Create a response object that we'll modify and return
@@ -76,9 +133,14 @@ export async function middleware(req: NextRequest) {
   }
 }
 
-// Update matcher to be more specific
+// Update matcher to include all necessary paths
 export const config = {
   matcher: [
+    /*
+     * Match all paths except static files
+     * But ensure we catch dashboard and admin routes
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
     '/dashboard/:path*',
     '/admin/:path*',
     '/auth/callback'
