@@ -5,6 +5,41 @@ import type { NextRequest } from 'next/server';
 // Basic rate limiting map (in production, use Redis or similar)
 const rateLimit = new Map();
 
+// Allowed image dimensions
+const ALLOWED_DIMENSIONS = [16, 32, 48, 64, 96, 128, 256, 640, 750, 828, 1080, 1200, 1920];
+
+// Function to validate image optimization parameters
+function validateImageRequest(url: URL): boolean {
+  const q = Number(url.searchParams.get('q')) || 75;
+  const w = Number(url.searchParams.get('w')) || 0;
+  
+  // Validate quality parameter
+  if (q < 10 || q > 100) {
+    return false;
+  }
+
+  // Validate width parameter
+  if (!ALLOWED_DIMENSIONS.includes(w)) {
+    return false;
+  }
+
+  // Validate URL parameter
+  const imageUrl = url.searchParams.get('url');
+  if (!imageUrl) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(imageUrl, 'https://www.avrioxshop.com');
+    // Only allow images from trusted domains
+    const allowedDomains = ['qrigmytqvxuzvrbphpcl.supabase.co', 'www.avrioxshop.com'];
+    return allowedDomains.some(domain => parsedUrl.hostname.endsWith(domain));
+  } catch {
+    // If URL is relative, it's from our domain which is fine
+    return true;
+  }
+}
+
 // Function to check for common attack patterns
 function detectMaliciousRequest(request: NextRequest) {
   const url = request.nextUrl.toString().toLowerCase();
@@ -31,11 +66,18 @@ function detectMaliciousRequest(request: NextRequest) {
 export async function middleware(req: NextRequest) {
   // Skip middleware for static files
   if (
-    req.nextUrl.pathname.startsWith('/_next') ||
+    req.nextUrl.pathname.startsWith('/_next/static') ||
     req.nextUrl.pathname.startsWith('/static') ||
     req.nextUrl.pathname.startsWith('/api')
   ) {
     return NextResponse.next();
+  }
+
+  // Handle image optimization requests
+  if (req.nextUrl.pathname.startsWith('/_next/image')) {
+    if (!validateImageRequest(req.nextUrl)) {
+      return new NextResponse('Invalid image request', { status: 400 });
+    }
   }
 
   // Security Checks
@@ -136,13 +178,10 @@ export async function middleware(req: NextRequest) {
 // Update matcher to include all necessary paths
 export const config = {
   matcher: [
-    /*
-     * Match all paths except static files
-     * But ensure we catch dashboard and admin routes
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
     '/dashboard/:path*',
     '/admin/:path*',
-    '/auth/callback'
+    '/auth/callback',
+    '/_next/image'
   ]
 }; 
