@@ -344,7 +344,7 @@ export default function CartPage() {
       <div>
         <p>Please add your delivery address to continue.</p>
         <button
-          onClick={() => router.push('/profile/settings')}
+          onClick={() => router.push('/profile')}
           className="mt-2 text-green-600 hover:text-green-500 underline"
         >
           Add Address
