@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
-const MPESA_BASE_URL = 'https://apisandbox.safaricom.et';
-const CONSUMER_KEY = 'NrOZwAkAI1shxtKwF0eA8RL9e1rUpCVbu9FXYvjq4Y8SBw3f';
-const CONSUMER_SECRET = 'NADIfr8CpKQW0cFIv4GSgM3oTGLZeWARL9pmTcdM1UgiSTIKavyfu9Fko2GAFF0k';
+const MPESA_BASE_URL = process.env.MPESA_BASE_URL || 'https://apisandbox.safaricom.et';
+const CONSUMER_KEY = process.env.MPESA_CONSUMER_KEY;
+const CONSUMER_SECRET = process.env.MPESA_CONSUMER_SECRET;
 
 async function getAccessToken() {
   const auth = Buffer.from(`${CONSUMER_KEY}:${CONSUMER_SECRET}`).toString('base64');
