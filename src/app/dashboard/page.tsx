@@ -131,6 +131,7 @@ export default withSellerVerification(function DashboardPage() {
   const supabase = createClientComponent();
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus | null>(null);
   const [currentPlan, setCurrentPlan] = useState<string>('basic');
+  const [hasPaymentSettings, setHasPaymentSettings] = useState(false);
   const [usageStats, setUsageStats] = useState({
     totalProducts: 0,
     storageUsed: 0,
@@ -184,6 +185,36 @@ export default withSellerVerification(function DashboardPage() {
             return;
           }
         }
+
+        // Check payment settings
+        const { data: settings, error: settingsError } = await supabase
+          .from('payment_settings')
+          .select('telebirr_settings')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (settingsError) {
+          console.error('Error checking payment settings:', settingsError);
+        } else {
+          const hasSettings = settings?.telebirr_settings?.is_active || false;
+          setHasPaymentSettings(hasSettings);
+
+          if (!hasSettings) {
+            toast.error(
+              <div>
+                <p>Please set up your payment settings before adding products.</p>
+                <Link 
+                  href="/dashboard/payment-settings" 
+                  className="text-green-600 hover:text-green-500 mt-2 block"
+                >
+                  Set up payment settings →
+                </Link>
+              </div>,
+              { duration: 5000 }
+            );
+          }
+        }
+
         // If verified, fetch dashboard data
         if (userData?.is_verified) {
           await Promise.all([
@@ -201,7 +232,7 @@ export default withSellerVerification(function DashboardPage() {
     };
 
     checkAccessAndLoadData();
-  }, [router]);
+  }, []);
 
   const fetchDashboardStats = async () => {
     try {
@@ -504,17 +535,50 @@ export default withSellerVerification(function DashboardPage() {
               </p>
             </div>
             <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
-              <Link
-                href="/dashboard/products/new"
-                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-white text-red-600 hover:bg-red-50 transition-all"
-              >
-                <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                </svg>
-                Add New Product
-              </Link>
+              {hasPaymentSettings ? (
+                <Link
+                  href="/dashboard/products/new"
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-white text-red-600 hover:bg-red-50 transition-all"
+                >
+                  <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                  </svg>
+                  Add New Product
+                </Link>
+              ) : (
+                <Link
+                  href="/dashboard/payment-settings"
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-yellow-500 text-white hover:bg-yellow-600 transition-all"
+                >
+                  <CreditCardIcon className="-ml-1 mr-2 h-5 w-5" />
+                  Set Up Payment Settings
+                </Link>
+              )}
             </div>
           </div>
+          
+          {!hasPaymentSettings && (
+            <div className="mt-4 bg-yellow-50/10 backdrop-blur-sm border border-yellow-200/20 rounded-lg p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-200" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-200">
+                    You need to set up your payment settings before you can add products.
+                    <Link 
+                      href="/dashboard/payment-settings"
+                      className="font-medium text-yellow-100 underline ml-2"
+                    >
+                      Set up now
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           
           {/* Quick Stats Cards - Mobile responsive grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
