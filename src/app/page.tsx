@@ -2741,7 +2741,7 @@ export default function HomePage() {
       {/* Footer Section */}
       <footer className="relative py-12 w-full border-t border-gray-800">
         <div className={sectionGradientStyles}>
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-8 px-4 sm:px-6 lg:px-8">
             {/* Company Info */}
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-white">AVRIO</h3>
@@ -2858,6 +2858,35 @@ export default function HomePage() {
                   <a href={`mailto:${EMAIL_CONFIG.SUPPORT}`} className="text-gray-400 hover:text-white transition-colors">
                     {EMAIL_CONFIG.SUPPORT}
                   </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Security */}
+            <div>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Security</h3>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/security-policy" className="text-gray-400 hover:text-white transition-colors">
+                    Security Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/.well-known/security.txt" className="text-gray-400 hover:text-white transition-colors">
+                    Security.txt
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Company */}
+            <div>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Company</h3>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/careers" className="text-gray-400 hover:text-white transition-colors">
+                    Careers
+                  </Link>
                 </li>
               </ul>
             </div>

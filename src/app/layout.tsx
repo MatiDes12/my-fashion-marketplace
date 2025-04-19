@@ -16,14 +16,14 @@ import { FloatingPreview } from '@/components/FloatingPreview';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Avriox Shop",
+  title: "Avrio",
   description: "Secure fashion marketplace",
   metadataBase: new URL('https://www.avrioxshop.com'),
   openGraph: {
-    title: 'Avriox Shop',
+    title: 'Avrio',
     description: 'Secure fashion marketplace',
     url: 'https://www.avrioxshop.com',
-    siteName: 'Avriox Shop',
+    siteName: 'Avrio',
   },
   robots: {
     index: true,
@@ -64,7 +64,7 @@ export default function RootLayout({
                 </div>
               </header>
 
-              <main className="flex-1 relative w-full bg-gray-50">
+              <main className="flex-1 w-full bg-gray-50">
                 <Suspense fallback={<LoadingPage />}>
                   <PageWrapper>
                     {children}
@@ -76,47 +76,6 @@ export default function RootLayout({
               <FloatingSupportButton />
               <FloatingPreview />
               <Toaster position="top-right" />
-
-              <footer className="bg-white border-t border-gray-200">
-                <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                    <div className="col-span-1">
-                      <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase">
-                        Security
-                      </h3>
-                      <ul className="mt-4 space-y-4">
-                        <li>
-                          <a href="/security-policy" className="text-gray-600 hover:text-gray-900 transition-colors">
-                            Security Policy
-                          </a>
-                        </li>
-                        <li>
-                          <a href="/.well-known/security.txt" className="text-gray-600 hover:text-gray-900 transition-colors">
-                            Security.txt
-                          </a>
-                        </li>
-                      </ul>
-                    </div>
-                    <div className="col-span-1">
-                      <h3 className="text-sm font-semibold text-gray-900 tracking-wider uppercase">
-                        Company
-                      </h3>
-                      <ul className="mt-4 space-y-4">
-                        <li>
-                          <a href="/careers" className="text-gray-600 hover:text-gray-900 transition-colors">
-                            Careers
-                          </a>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                  <div className="mt-8 border-t border-gray-200 pt-8">
-                    <p className="text-base text-gray-600 text-center">
-                      &copy; {new Date().getFullYear()} Avriox Shop. All rights reserved.
-                    </p>
-                  </div>
-                </div>
-              </footer>
             </div>
           </LanguageProvider>
         </AuthProvider>
