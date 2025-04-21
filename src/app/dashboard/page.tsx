@@ -746,7 +746,15 @@ export default withSellerVerification(function DashboardPage() {
                 </div>
               ) : (
                 <div className="mt-6 text-center py-4 text-sm text-gray-500">
-                  No products available. <Link href="/dashboard/products/new" className="text-red-600 hover:text-red-500">Add your first product</Link>
+                  No products available. {hasPaymentSettings ? (
+                    <Link href="/dashboard/products/new" className="text-red-600 hover:text-red-500">
+                      Add your first product
+                    </Link>
+                  ) : (
+                    <Link href="/dashboard/payment-settings" className="text-yellow-600 hover:text-yellow-500">
+                      Set up payment settings first
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
