@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import DebugInfo from '@/components/DebugInfo';
@@ -64,6 +66,8 @@ export default function RootLayout({
               <FloatingSupportButton />
               <FloatingPreview />
               <Toaster position="top-right" />
+              <SpeedInsights />
+              <Analytics />
             </div>
           </LanguageProvider>
         </AuthProvider>
