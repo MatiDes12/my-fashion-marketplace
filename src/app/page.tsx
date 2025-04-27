@@ -923,6 +923,9 @@ export default function HomePage() {
   const [currentFlashSaleIndex, setCurrentFlashSaleIndex] = useState(0);
   const [mostLikedProducts, setMostLikedProducts] = useState<PopularProduct[]>([]);
   const [activePolicy, setActivePolicy] = useState<PolicyModalContent | null>(null);
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   const subscriptionTiers = [
     {
@@ -1773,6 +1776,54 @@ export default function HomePage() {
       // Fallback
       window.location.href = `/products?category=${categoryName.toLowerCase()}`;
     }
+  };
+
+  const handleSubscribe = async (email: string, type: 'notify_me' | 'newsletter') => {
+    if (!email) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    try {
+      setSubscriptionLoading(true);
+      const response = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, type }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Subscription failed');
+      }
+
+      toast.success(data.message);
+      if (type === 'notify_me') {
+        setNotifyEmail('');
+      } else {
+        setNewsletterEmail('');
+      }
+    } catch (error) {
+      console.error('Subscription error:', error);
+      toast.error('Failed to subscribe. Please try again.');
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const handleNotifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (subscriptionLoading) return;
+    await handleSubscribe(notifyEmail, 'notify_me');
+  };
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (subscriptionLoading) return;
+    await handleSubscribe(newsletterEmail, 'newsletter');
   };
 
   return (
@@ -2642,19 +2693,33 @@ export default function HomePage() {
                   <p className="text-sm text-gray-400 mb-4">
                     Be the first to know when our app launches!
                   </p>
-                  <form className="flex gap-2">
-                    <input
-                      type="email"
-                      placeholder="Enter your email"
-                      className="flex-1 px-4 py-2 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 text-white placeholder-gray-500"
-                    />
-                    <button
-                      type="submit"
-                      className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      Notify Me
-                    </button>
-                  </form>
+                  {/* Notify Me form */}
+                  <motion.form 
+                    onSubmit={handleNotifySubmit}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.2 }}
+                    className="max-w-md mx-auto w-full"
+                  >
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                      <input
+                        type="email"
+                        placeholder="Enter your email"
+                        value={notifyEmail}
+                        onChange={(e) => setNotifyEmail(e.target.value)}
+                        className="flex-1 px-4 sm:px-6 py-3 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-full focus:outline-none focus:border-red-500 text-white placeholder-gray-400 w-full"
+                        disabled={subscriptionLoading}
+                      />
+                      <button
+                        type="submit"
+                        disabled={subscriptionLoading}
+                        className="w-full sm:w-auto px-6 sm:px-8 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-full hover:from-red-500 hover:to-pink-500 transition-colors transform hover:scale-105 duration-300 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        {subscriptionLoading ? 'Subscribing...' : 'Notify Me'}
+                      </button>
+                    </div>
+                  </motion.form>
                 </div>
               </div>
               <div className="relative">
@@ -2703,24 +2768,30 @@ export default function HomePage() {
               >
                 Subscribe to our newsletter for exclusive deals and updates
               </motion.p>
+              {/* Newsletter form */}
               <motion.form 
+                onSubmit={handleNewsletterSubmit}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.2 }}
-                className="max-w-md mx-auto"
+                className="max-w-md mx-auto w-full"
               >
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                   <input
                     type="email"
                     placeholder="Enter your email"
-                    className="flex-1 px-6 py-3 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-full focus:outline-none focus:border-red-500 text-white placeholder-gray-400"
+                    value={newsletterEmail}
+                    onChange={(e) => setNewsletterEmail(e.target.value)}
+                    className="flex-1 px-4 sm:px-6 py-3 bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-full focus:outline-none focus:border-red-500 text-white placeholder-gray-400 w-full"
+                    disabled={subscriptionLoading}
                   />
                   <button
                     type="submit"
-                    className="px-8 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-full hover:from-red-500 hover:to-pink-500 transition-colors transform hover:scale-105 duration-300"
+                    disabled={subscriptionLoading}
+                    className="w-full sm:w-auto px-6 sm:px-8 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-full hover:from-red-500 hover:to-pink-500 transition-colors transform hover:scale-105 duration-300 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                   >
-                    Subscribe
+                    {subscriptionLoading ? 'Subscribing...' : 'Subscribe'}
                   </button>
                 </div>
               </motion.form>

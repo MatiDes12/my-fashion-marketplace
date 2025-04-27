@@ -15,7 +15,8 @@ import {
   BoltIcon,
   ChatBubbleLeftRightIcon,
   CurrencyDollarIcon,
-  WrenchScrewdriverIcon
+  WrenchScrewdriverIcon,
+  EnvelopeIcon
 } from '@heroicons/react/24/outline';
 
 export default function Sidebar() {
@@ -33,6 +34,11 @@ export default function Sidebar() {
       name: 'Transactions', 
       href: '/admin/transactions', 
       icon: CreditCardIcon
+    },
+    { 
+      name: 'Subscribers', 
+      href: '/admin/subscribers', 
+      icon: EnvelopeIcon
     },
     { 
       name: 'Verifications', 
