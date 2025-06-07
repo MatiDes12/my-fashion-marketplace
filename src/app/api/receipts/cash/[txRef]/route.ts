@@ -57,7 +57,7 @@ export async function GET(
     if (Object.keys(ordersBySellerMap).length === 0) {
       throw new Error('No valid seller information found');
     }
-
+    
     // Generate HTML receipt
     const html = `
       <!DOCTYPE html>
@@ -138,10 +138,10 @@ export async function GET(
                 
                 ${sellerData.orders.map((order: any) => `
                   <div class="product-item">
-                    <div class="row">
-                      <span>Product:</span>
-                      <span>${order.product.title}</span>
-                    </div>
+              <div class="row">
+                <span>Product:</span>
+                <span>${order.product.title}</span>
+              </div>
                     ${order.selected_size ? `
                       <div class="row">
                         <span>Size:</span>
@@ -154,29 +154,29 @@ export async function GET(
                         <span>${order.selected_color}</span>
                       </div>
                     ` : ''}
-                    <div class="row">
-                      <span>Quantity:</span>
-                      <span>${order.quantity}</span>
-                    </div>
-                    <div class="row">
-                      <span>Price per item:</span>
+              <div class="row">
+                <span>Quantity:</span>
+                <span>${order.quantity}</span>
+              </div>
+              <div class="row">
+                <span>Price per item:</span>
                       <span>ETB ${order.product.price}</span>
-                    </div>
-                    <div class="row">
+              </div>
+              <div class="row">
                       <span>Delivery Fee:</span>
                       <span>ETB ${order.delivery_fee.toFixed(2)}</span>
-                    </div>
-                    <div class="row">
+              </div>
+              <div class="row">
                       <span>Item Total:</span>
                       <span>ETB ${order.total_price.toFixed(2)}</span>
-                    </div>
-                  </div>
+              </div>
+              </div>
                 `).join('')}
                 
                 <div class="row total">
                   <span>Seller Total:</span>
                   <span>ETB ${sellerData.total.toFixed(2)}</span>
-                </div>
+              </div>
               </div>
             `).join('')}
 

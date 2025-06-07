@@ -10,6 +10,10 @@ interface SubscriptionLimits {
   storageLimit: number;
   aiCredits: number;
   analyticsAccess: 'standard' | 'detailed' | 'advanced';
+  flashSalesLimit: {
+    monthly: number;  // -1 for unlimited
+    isEnabled: boolean;
+  };
 }
 
 const PLAN_LIMITS: { [key: string]: SubscriptionLimits } = {
@@ -17,19 +21,31 @@ const PLAN_LIMITS: { [key: string]: SubscriptionLimits } = {
     productLimit: 20,
     storageLimit: 5,
     aiCredits: 0,
-    analyticsAccess: 'standard'
+    analyticsAccess: 'standard',
+    flashSalesLimit: {
+      monthly: 0,
+      isEnabled: false
+    }
   },
   pro: {
     productLimit: 75,
     storageLimit: 15,
     aiCredits: 100,
-    analyticsAccess: 'detailed'
+    analyticsAccess: 'detailed',
+    flashSalesLimit: {
+      monthly: 5,
+      isEnabled: true
+    }
   },
   enterprise: {
     productLimit: Infinity,
     storageLimit: Infinity,
     aiCredits: 500,
-    analyticsAccess: 'advanced'
+    analyticsAccess: 'advanced',
+    flashSalesLimit: {
+      monthly: -1,
+      isEnabled: true
+    }
   }
 };
 

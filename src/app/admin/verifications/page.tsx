@@ -30,7 +30,7 @@ interface SellerVerification {
   house_no: string;
   id_document_type: 'kebele_id' | 'national_id' | 'passport' | 'driving_license';
   id_document_url: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'needs_reconsideration';
   created_at: string;
   updated_at: string;
 }
@@ -146,32 +146,47 @@ function VerificationsPage() {
     }
   };
 
-  const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected' | 'pending') => {
+  const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected' | 'pending' | 'needs_reconsideration') => {
     try {
-      // First update seller_verification table
+      const verification = verifications.find(v => v.id === id);
+      if (!verification) {
+        throw new Error('Verification not found');
+      }
+
+      // Update seller_verification table
       const { error: verificationError } = await supabase
         .from('seller_verification')
         .update({ status })
         .eq('id', id);
 
-      if (verificationError) {
-        console.error('Verification update error:', verificationError);
-        throw verificationError;
-      }
+      if (verificationError) throw verificationError;
 
-      const verification = verifications.find(v => v.id === id);
       if (verification) {
         // Call the RPC function with parameters in the correct order
         const { data, error: rpcError } = await supabase
           .rpc('update_user_verification_status', {
             p_is_verified: status === 'approved',
-            p_new_status: status === 'approved' ? 'verified' : status,
+            p_new_status: status === 'approved' ? 'verified' : 
+                         status === 'needs_reconsideration' ? 'needs_reconsideration' : status,
             p_user_id: verification.user_id
           });
 
         if (rpcError) {
           console.error('RPC error:', rpcError);
           throw rpcError;
+        }
+
+        // If status is needs_reconsideration, deactivate all products
+        if (status === 'needs_reconsideration') {
+          const { error: productsError } = await supabase
+            .from('products')
+            .update({ is_active: false })
+            .eq('owner_id', verification.user_id);
+
+          if (productsError) {
+            console.error('Error deactivating products:', productsError);
+            throw productsError;
+          }
         }
 
         console.log('Update response:', data);
@@ -291,6 +306,7 @@ function VerificationsPage() {
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
+              <option value="needs_reconsideration">Needs Reconsideration</option>
             </select>
             <div className="relative">
               <input
@@ -314,7 +330,7 @@ function VerificationsPage() {
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-8">
-        {['all', 'pending', 'approved', 'rejected'].map((status) => {
+        {['all', 'pending', 'approved', 'rejected', 'needs_reconsideration'].map((status) => {
           const count = verifications.filter(v => 
             status === 'all' ? true : v.status === status
           ).length;
@@ -334,6 +350,7 @@ function VerificationsPage() {
                   status === 'approved' ? 'bg-green-100' :
                   status === 'pending' ? 'bg-yellow-100' :
                   status === 'rejected' ? 'bg-red-100' :
+                  status === 'needs_reconsideration' ? 'bg-gray-100' :
                   'bg-gray-100'
                 }`}>
                   {/* Add appropriate icon for each status */}
@@ -480,7 +497,9 @@ function VerificationsPage() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                           ${verification.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             verification.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'}`
+                            verification.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            verification.status === 'needs_reconsideration' ? 'bg-gray-100 text-gray-800' :
+                            'bg-gray-100 text-gray-800'}`
                         }>
                           {verification.status.toUpperCase()}
                         </span>
@@ -508,12 +527,21 @@ function VerificationsPage() {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => handleStatusUpdate(verification.id, 'pending')}
-                          className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
-                        >
-                          Reconsider
-                        </button>
+                        <div className="mt-2 space-y-3">
+                          {['pending', 'approved', 'rejected', 'needs_reconsideration'].map((status) => (
+                            <button
+                              key={status}
+                              onClick={() => handleStatusUpdate(verification.id, status as any)}
+                              className={`px-4 py-2 text-sm font-medium rounded-md ${
+                                verification.status === status
+                                  ? 'bg-gray-100 text-gray-800'
+                                  : 'bg-white text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>

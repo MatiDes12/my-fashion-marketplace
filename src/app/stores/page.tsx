@@ -9,13 +9,23 @@ import { cleanImageUrl } from '@/utils/url';
 import { Tab } from '@headlessui/react';
 
 interface Rating {
+  id: string;
   rating: number;
+  created_at: string;
+}
+
+interface Like {
+  id: string;
+  created_at: string;
 }
 
 interface Product {
   id: string;
+  title: string;
+  price: number;
+  created_at: string;
   ratings?: Rating[];
-  likes?: Array<{ count: number }>;
+  likes?: Like[];
 }
 
 interface StoreSettings {
@@ -85,7 +95,8 @@ export default function StoresPage() {
 
   const fetchSellers = async () => {
     try {
-      const { data: sellers, error } = await supabase
+      // First get all verified sellers
+      const { data: sellersData, error: sellersError } = await supabase
         .from('users')
         .select(`
           id,
@@ -97,38 +108,83 @@ export default function StoresPage() {
           verification_status,
           products (
             id,
+            title,
+            price,
             created_at,
             ratings (
+              id,
               rating,
               created_at
             ),
             likes (
+              id,
               created_at
             )
           )
         `)
         .eq('role', 'owner')
-        .not('store_settings', 'is', null);
+        .eq('is_verified', true)
+        .neq('verification_status', 'needs_reconsideration')
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (sellersError) throw sellersError;
 
       // Calculate metrics for each store
-      const formattedSellers: Seller[] = (sellers as any[])
+      const formattedSellers: Seller[] = (sellersData || [])
         .filter(seller => seller.store_settings)
         .map(seller => {
-          const metrics = calculateStoreMetrics(seller);
+          const products = seller.products || [];
           
+          // Calculate total products
+          const total_products = products.length;
+
+          // Calculate ratings metrics
+          const allRatings = products.flatMap(product => product.ratings || []);
+          const totalRatings = allRatings.length;
+          const avgRating = totalRatings > 0
+            ? allRatings.reduce((sum, r) => sum + r.rating, 0) / totalRatings
+            : 0;
+
+          // Calculate likes metrics
+          const allLikes = products.flatMap(product => product.likes || []);
+          const totalLikes = allLikes.length;
+
+          // Calculate recent activity (last 30 days)
+          const now = new Date();
+          const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+          
+          const recentRatings = allRatings.filter(r => 
+            now.getTime() - new Date(r.created_at).getTime() < THIRTY_DAYS
+          ).length;
+
+          const recentLikes = allLikes.filter(l => 
+            now.getTime() - new Date(l.created_at).getTime() < THIRTY_DAYS
+          ).length;
+
+          const recentActivity = recentRatings + recentLikes;
+
+          // Calculate trending score
+          // Formula: (Recent Activity * 0.5) + (Average Rating * 0.3) + (Total Engagement * 0.2)
+          const trendingScore = 
+            (recentActivity * 0.5) + 
+            (avgRating * 0.3) + 
+            ((totalRatings + totalLikes) * 0.2);
+
           return {
             id: seller.id,
             full_name: seller.full_name,
             email: seller.email,
             store_settings: seller.store_settings as StoreSettings,
             created_at: seller.created_at,
-            total_products: seller.products?.length || 0,
-            products: seller.products,
+            total_products,
+            products,
             is_verified: seller.is_verified,
             verification_status: seller.verification_status,
-            ...metrics
+            avgRating,
+            totalRatings,
+            totalLikes,
+            recentActivity,
+            trendingScore
           };
         })
         .sort((a, b) => b.trendingScore - a.trendingScore);
@@ -139,57 +195,6 @@ export default function StoresPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStoreMetrics = (seller: any): StoreMetrics => {
-    const now = new Date();
-    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    
-    // Get all ratings across all products
-    const allRatings = seller.products?.flatMap((product: any) => 
-      product.ratings?.map((r: any) => ({
-        rating: r.rating,
-        created_at: new Date(r.created_at)
-      })) || []
-    ) || [];
-
-    // Get all likes across all products
-    const allLikes = seller.products?.flatMap((product: any) => 
-      product.likes?.map((l: any) => ({
-        created_at: new Date(l.created_at)
-      })) || []
-    ) || [];
-
-    // Calculate average rating with explicit types
-    const avgRating = allRatings.length > 0
-      ? allRatings.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / allRatings.length
-      : 0;
-
-    // Count recent activity with explicit types
-    const recentRatings = allRatings.filter((r: { created_at: Date }) => 
-      now.getTime() - r.created_at.getTime() < THIRTY_DAYS
-    ).length;
-
-    const recentLikes = allLikes.filter((l: { created_at: Date }) => 
-      now.getTime() - l.created_at.getTime() < THIRTY_DAYS
-    ).length;
-
-    const recentActivity = recentRatings + recentLikes;
-
-    // Calculate trending score
-    // Formula: (Recent Activity * 0.5) + (Average Rating * 0.3) + (Total Engagement * 0.2)
-    const trendingScore = 
-      (recentActivity * 0.5) + 
-      (avgRating * 0.3) + 
-      ((allRatings.length + allLikes.length) * 0.2);
-
-    return {
-      avgRating,
-      totalRatings: allRatings.length,
-      totalLikes: allLikes.length,
-      recentActivity,
-      trendingScore
-    };
   };
 
   // Define store categories

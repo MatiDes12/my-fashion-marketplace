@@ -87,6 +87,10 @@ interface SubscriptionLimits {
   storageLimit: number;
   aiCredits: number;
   analyticsAccess: 'standard' | 'detailed' | 'advanced';
+  flashSalesLimit: {
+    monthly: number;  // -1 for unlimited
+    isEnabled: boolean;
+  };
 }
 
 interface SupportTicket {
@@ -104,19 +108,31 @@ const PLAN_LIMITS: { [key: string]: SubscriptionLimits } = {
     productLimit: 20,
     storageLimit: 5,
     aiCredits: 0,
-    analyticsAccess: 'standard'
+    analyticsAccess: 'standard',
+    flashSalesLimit: {
+      monthly: 0,
+      isEnabled: false
+    }
   },
   pro: {
     productLimit: 75,
     storageLimit: 15,
     aiCredits: 100,
-    analyticsAccess: 'detailed'
+    analyticsAccess: 'detailed',
+    flashSalesLimit: {
+      monthly: 5,
+      isEnabled: true
+    }
   },
   enterprise: {
     productLimit: Infinity,
     storageLimit: Infinity,
     aiCredits: 500,
-    analyticsAccess: 'advanced'
+    analyticsAccess: 'advanced',
+    flashSalesLimit: {
+      monthly: -1,
+      isEnabled: true
+    }
   }
 };
 
@@ -136,7 +152,8 @@ export default withSellerVerification(function DashboardPage() {
     totalProducts: 0,
     storageUsed: 0,
     totalImages: 0,
-    imageDetails: []
+    imageDetails: [],
+    flashSalesUsed: 0
   });
   const [recentTickets, setRecentTickets] = useState<SupportTicket[]>([]);
 
@@ -150,19 +167,19 @@ export default withSellerVerification(function DashboardPage() {
           router.push('/login?message=Please login to access the dashboard');
           return;
         }
-
+        
         // Check verification status
         const { data: userData } = await supabase
           .from('users')
           .select('is_verified, verification_status')
           .eq('id', session.user.id)
           .single();
-
+        
         if (userData?.verification_status === 'rejected') {
           router.push('/dashboard/verification-rejected');
           return;
         }
-
+        
         // Now TypeScript knows about both fields
         if (!userData?.is_verified) {
           const { data: verificationData } = await supabase
@@ -182,21 +199,27 @@ export default withSellerVerification(function DashboardPage() {
           // If verification is pending, show pending page
           if (verificationData.status === 'pending') {
             router.push('/dashboard/verification-pending');
-            return;
+          return;
           }
         }
 
         // Check payment settings
         const { data: settings, error: settingsError } = await supabase
           .from('payment_settings')
-          .select('telebirr_settings')
+          .select('telebirr_settings, chapa_settings, bank_settings, cbe_birr_settings, amole_settings, mpesa_settings')
           .eq('user_id', session.user.id)
           .single();
 
         if (settingsError) {
           console.error('Error checking payment settings:', settingsError);
         } else {
-          const hasSettings = settings?.telebirr_settings?.is_active || false;
+          const hasSettings = settings?.telebirr_settings?.is_active || 
+                             settings?.chapa_settings?.is_active || 
+                             settings?.bank_settings?.is_active || 
+                             settings?.cbe_birr_settings?.is_active || 
+                             settings?.amole_settings?.is_active || 
+                             settings?.mpesa_settings?.is_active || 
+                             false;
           setHasPaymentSettings(hasSettings);
 
           if (!hasSettings) {
@@ -230,7 +253,7 @@ export default withSellerVerification(function DashboardPage() {
         setLoading(false);
       }
     };
-
+    
     checkAccessAndLoadData();
   }, []);
 
@@ -391,12 +414,26 @@ export default withSellerVerification(function DashboardPage() {
 
         if (storageError) throw storageError;
 
+        // Get flash sales usage for current month
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const { data: flashSales, error: flashSalesError } = await supabase
+          .from('flash_sales')
+          .select('id')
+          .eq('created_by', session.user.id)
+          .gte('created_at', startOfMonth.toISOString());
+
+        if (flashSalesError) throw flashSalesError;
+
         if (storageData && storageData.length > 0) {
           setUsageStats({
             totalProducts: stats?.totalProducts || 0,
             storageUsed: Number(storageData[0].total_size_mb),
             totalImages: storageData[0].total_images,
-            imageDetails: storageData[0].image_details || []
+            imageDetails: storageData[0].image_details || [],
+            flashSalesUsed: flashSales?.length || 0
           });
         }
 
@@ -475,38 +512,96 @@ export default withSellerVerification(function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Subscription Plan Stats */}
-        <div className="mb-8 bg-white rounded-lg shadow p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Current Plan</h3>
-              <p className="mt-1 text-xl font-semibold text-indigo-600 capitalize">{currentPlan}</p>
+        <div className="mb-8 bg-white rounded-lg shadow-lg overflow-hidden">
+          {/* Plan Header */}
+          <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg ${
+                  currentPlan === 'enterprise' 
+                    ? 'bg-gradient-to-r from-yellow-400 to-yellow-300' 
+                    : currentPlan === 'pro'
+                      ? 'bg-gradient-to-r from-gray-300 to-gray-100'
+                      : 'bg-gradient-to-r from-amber-700 to-amber-600'
+                }`}>
+                  {currentPlan === 'enterprise' ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-900" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 3.707a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L8.414 9H10a3 3 0 013 3v1a1 1 0 102 0v-1a5 5 0 00-5-5H8.414l1.293-1.293z" clipRule="evenodd" />
+                    </svg>
+                  ) : currentPlan === 'pro' ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-200" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-200">Current Plan</h3>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-xl font-bold text-white capitalize">{currentPlan}</p>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      currentPlan === 'enterprise' 
+                        ? 'bg-yellow-400 text-yellow-900' 
+                        : currentPlan === 'pro'
+                          ? 'bg-gray-200 text-gray-800'
+                          : 'bg-amber-600 text-amber-100'
+                    }`}>
+                      {currentPlan === 'enterprise' ? 'GOLD' : currentPlan === 'pro' ? 'SILVER' : 'BRONZE'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Link
+                href="/dashboard/subscription"
+                className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/10 text-white hover:bg-white/20 transition-colors"
+              >
+                Upgrade Plan
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </Link>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Products Used</h3>
-              <p className="mt-1 text-xl font-semibold text-gray-900">
-                {usageStats.totalProducts} / {currentLimits.productLimit === Infinity ? '∞' : currentLimits.productLimit}
+          </div>
+
+          {/* Usage Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-500">Products Used</h3>
+                <span className="text-xs text-gray-400">
+                  {Math.round((usageStats.totalProducts / (currentLimits.productLimit === Infinity ? usageStats.totalProducts + 5 : currentLimits.productLimit)) * 100)}% used
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {usageStats.totalProducts} <span className="text-gray-400 text-lg font-normal">/ {currentLimits.productLimit === Infinity ? '∞' : currentLimits.productLimit}</span>
               </p>
-              <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-100 rounded-full h-2">
                 <div 
-                  className="bg-indigo-600 h-2 rounded-full" 
+                  className="bg-indigo-600 h-2 rounded-full transition-all duration-300" 
                   style={{ 
                     width: `${(usageStats.totalProducts / (currentLimits.productLimit === Infinity ? usageStats.totalProducts + 5 : currentLimits.productLimit)) * 100}%` 
                   }}
                 />
               </div>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Storage Used</h3>
-              <p className="mt-1 text-xl font-semibold text-gray-900">
-                {usageStats.storageUsed.toFixed(2)} MB / {currentLimits.storageLimit === Infinity ? '∞' : `${currentLimits.storageLimit * 1024} MB`}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-500">Storage Used</h3>
+                <span className="text-xs text-gray-400">
+                  {Math.round((usageStats.storageUsed / (currentLimits.storageLimit === Infinity ? usageStats.storageUsed + 5 : currentLimits.storageLimit * 1024)) * 100)}% used
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {usageStats.storageUsed.toFixed(1)} <span className="text-gray-400 text-lg font-normal">/ {currentLimits.storageLimit === Infinity ? '∞' : `${currentLimits.storageLimit * 1024}`} MB</span>
               </p>
-              <p className="text-sm text-gray-500">
-                {usageStats.totalImages} images uploaded
-              </p>
-              {currentLimits.storageLimit !== Infinity && (
-                <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+              <div className="space-y-1">
+                <div className="w-full bg-gray-100 rounded-full h-2">
                   <div 
-                    className={`h-2 rounded-full ${
+                    className={`h-2 rounded-full transition-all duration-300 ${
                       usageStats.storageUsed >= currentLimits.storageLimit * 1024 
                         ? 'bg-red-600' 
                         : usageStats.storageUsed >= currentLimits.storageLimit * 1024 * 0.8 
@@ -518,7 +613,49 @@ export default withSellerVerification(function DashboardPage() {
                     }}
                   />
                 </div>
-              )}
+                <p className="text-xs text-gray-500">{usageStats.totalImages} images uploaded</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-500">Flash Sales</h3>
+                {currentLimits.flashSalesLimit.isEnabled && currentLimits.flashSalesLimit.monthly !== -1 && (
+                  <span className="text-xs text-gray-400">
+                    {Math.round((usageStats.flashSalesUsed / currentLimits.flashSalesLimit.monthly) * 100)}% used
+                  </span>
+                )}
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                {usageStats.flashSalesUsed} <span className="text-gray-400 text-lg font-normal">/ {currentLimits.flashSalesLimit.monthly === -1 ? '∞' : currentLimits.flashSalesLimit.monthly}</span>
+              </p>
+              <div className="space-y-1">
+                {currentLimits.flashSalesLimit.isEnabled && currentLimits.flashSalesLimit.monthly !== -1 ? (
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        usageStats.flashSalesUsed >= currentLimits.flashSalesLimit.monthly
+                          ? 'bg-red-600' 
+                          : usageStats.flashSalesUsed >= currentLimits.flashSalesLimit.monthly * 0.8 
+                            ? 'bg-yellow-600' 
+                            : 'bg-indigo-600'
+                      }`}
+                      style={{ 
+                        width: `${Math.min((usageStats.flashSalesUsed / currentLimits.flashSalesLimit.monthly) * 100, 100)}%` 
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                    currentLimits.flashSalesLimit.monthly === -1
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {currentLimits.flashSalesLimit.monthly === -1 ? 'Unlimited' : 'Not Available'}
+                  </span>
+                )}
+                <p className="text-xs text-gray-500">This month</p>
+              </div>
             </div>
           </div>
         </div>
@@ -536,15 +673,15 @@ export default withSellerVerification(function DashboardPage() {
             </div>
             <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
               {hasPaymentSettings ? (
-                <Link
-                  href="/dashboard/products/new"
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-white text-red-600 hover:bg-red-50 transition-all"
-                >
-                  <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
-                  Add New Product
-                </Link>
+              <Link
+                href="/dashboard/products/new"
+                className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-white text-red-600 hover:bg-red-50 transition-all"
+              >
+                <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Add New Product
+              </Link>
               ) : (
                 <Link
                   href="/dashboard/payment-settings"

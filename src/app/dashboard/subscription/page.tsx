@@ -8,6 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { formatCurrency } from '@/utils/currency';
 import { createChapaPayment } from '@/lib/chapa';
 import SubscriptionPaymentSelector from '@/components/SubscriptionPaymentSelector';
+import { toast } from 'react-hot-toast';
 
 type SubscriptionPlan = {
   id: string;
@@ -20,24 +21,36 @@ type SubscriptionPlan = {
   analyticsAccess: 'standard' | 'detailed' | 'advanced';
   highlighted?: boolean;
   storageLimit: number;
+  flashSalesLimit: {
+    monthly: number;  // -1 for unlimited
+    isEnabled: boolean;
+  };
 };
+
+type PaymentMethod = string;
 
 const subscriptionPlans: SubscriptionPlan[] = [
   {
     id: 'basic',
     name: 'Basic',
-    price: 499.99,
+    price: 0,
     period: 'month',
     features: [
       'List up to 20 products',
       '5GB storage',
       'Standard analytics',
-      'Email support'
+      'Email support',
+      'No access to flash sales',
+      'Free forever'
     ],
     productLimit: 20,
     storageLimit: 5,
     aiCredits: 0,
-    analyticsAccess: 'standard'
+    analyticsAccess: 'standard',
+    flashSalesLimit: {
+      monthly: 0,
+      isEnabled: false
+    }
   },
   {
     id: 'pro',
@@ -49,13 +62,18 @@ const subscriptionPlans: SubscriptionPlan[] = [
       '15GB storage',
       'Detailed analytics dashboard',
       'Priority support',
-      'AI features'
+      'AI features',
+      '5 flash sales per month'
     ],
     productLimit: 75,
     storageLimit: 15,
     aiCredits: 100,
     analyticsAccess: 'detailed',
-    highlighted: true
+    highlighted: true,
+    flashSalesLimit: {
+      monthly: 5,
+      isEnabled: true
+    }
   },
   {
     id: 'enterprise',
@@ -68,12 +86,17 @@ const subscriptionPlans: SubscriptionPlan[] = [
       'Advanced AI & SEO features',
       'Custom branding',
       'Email support',
-      'Advanced analytics'
+      'Advanced analytics',
+      'Unlimited flash sales'
     ],
     productLimit: Infinity,
     storageLimit: Infinity,
     aiCredits: 500,
-    analyticsAccess: 'advanced'
+    analyticsAccess: 'advanced',
+    flashSalesLimit: {
+      monthly: -1,
+      isEnabled: true
+    }
   }
 ];
 
@@ -82,15 +105,20 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'month' | 'year'>('month');
-  const [paymentMethods, setPaymentMethods] = useState<{ [key: string]: 'telebirr' | 'chapa' }>({
-    basic: 'telebirr',
-    pro: 'telebirr',
-    enterprise: 'telebirr'
+  const [paymentMethods, setPaymentMethods] = useState<{ [key: string]: PaymentMethod }>({
+    basic: 'chapa',
+    pro: 'chapa',
+    enterprise: 'chapa'
   });
   const router = useRouter();
   const supabase = createClientComponent();
   const searchParams = useSearchParams();
-  const message = searchParams.get('message');
+  const message = searchParams?.get('message') ?? null;
+  const [subscriptionDates, setSubscriptionDates] = useState<{
+    startDate: string | null;
+    endDate: string | null;
+    status: 'active' | 'cancelled' | null;
+  } | null>(null);
 
   useEffect(() => {
     const checkAccessAndLoadData = async () => {
@@ -108,7 +136,7 @@ export default function SubscriptionPage() {
         // Check role first (this should always work)
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('role')
+          .select('role, subscription_plan')
           .eq('id', session.user.id)
           .single();
         
@@ -122,20 +150,54 @@ export default function SubscriptionPage() {
           return;
         }
         
-        // Try to get subscription plan, but handle the case where column doesn't exist yet
-        try {
-          const { data: planData } = await supabase
-            .from('users')
-            .select('subscription_plan')
-            .eq('id', session.user.id)
-            .single();
-            
-          setCurrentPlan(planData?.subscription_plan || 'basic');
-        } catch (planError) {
-          console.warn('Subscription plan column may not exist yet:', planError);
-          // Default to basic plan if column doesn't exist
+        // Get current active subscription
+        const { data: activeSubscription, error: subscriptionError } = await supabase
+          .from('subscription_orders')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .or('status.eq.completed,status.eq.cancelled')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        console.log('Active subscription:', activeSubscription);
+        console.log('Subscription error:', subscriptionError);
+
+        if (!subscriptionError && activeSubscription) {
+          console.log('Setting subscription dates:', {
+            startDate: activeSubscription.created_at,
+            endDate: activeSubscription.subscription_end_date,
+            status: activeSubscription.status
+          });
+          
+          setSubscriptionDates({
+            startDate: activeSubscription.created_at,
+            endDate: activeSubscription.subscription_end_date,
+            status: activeSubscription.status === 'cancelled' ? 'cancelled' : 'active'
+          });
+
+          // Check if subscription is still valid
+          const endDate = new Date(activeSubscription.subscription_end_date);
+          const now = new Date();
+
+          if (now > endDate && activeSubscription.status === 'cancelled') {
+            // Subscription has expired, downgrade to basic
+            const { error: updateError } = await supabase
+              .from('users')
+              .update({ subscription_plan: 'basic' })
+              .eq('id', session.user.id);
+
+            if (updateError) throw updateError;
+            setCurrentPlan('basic');
+          } else {
+            // Subscription is still valid or not cancelled
+            setCurrentPlan(activeSubscription.plan_id);
+          }
+        } else {
+          // No active subscription, set to basic plan
           setCurrentPlan('basic');
         }
+        
       } catch (error) {
         console.error('Subscription page error:', error);
         setError(error instanceof Error ? error.message : 'An error occurred');
@@ -192,11 +254,17 @@ export default function SubscriptionPage() {
   const handleSubscribe = async (plan: SubscriptionPlan) => {
     try {
       setLoading(true);
-      const paymentMethod = paymentMethods[plan.id]; // Get plan-specific payment method
+      const paymentMethod = paymentMethods[plan.id];
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         router.push('/login');
+        return;
+      }
+
+      if (paymentMethod === 'telebirr') {
+        toast.error('Telebirr payments are coming soon. Please use Chapa for now.');
+        setLoading(false);
         return;
       }
       
@@ -229,48 +297,95 @@ export default function SubscriptionPage() {
 
       if (orderError) throw orderError;
 
-      if (paymentMethod === 'telebirr') {
-        // Initialize Telebirr payment
-        const response = await fetch('/api/telebirr/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: plan.price,
-            description: `Subscription Plan - ${plan.name}`,
-            tx_ref: txRef,
-            subscription: true
-          })
-        });
-
-        const paymentData = await response.json();
-        if (!paymentData.success) {
-          throw new Error(paymentData.error || 'Failed to initialize payment');
+      // Initialize Chapa payment
+      const response = await createChapaPayment({
+        amount: plan.price.toString(),
+        email: session.user.email!,
+        tx_ref: txRef,
+        callback_url: `${window.location.origin}/api/payments/chapa/subscription-callback`,
+        return_url: `${window.location.origin}/dashboard/subscription/status?tx_ref=${txRef}`,
+        customization: {
+          title: `${plan.name} Plan`,
+          description: `${billingPeriod}ly subscription`
         }
-        window.location.href = paymentData.paymentUrl;
+      });
 
-      } else {
-        // Initialize Chapa payment
-        const response = await createChapaPayment({
-          amount: plan.price.toString(),
-          email: session.user.email!,
-          tx_ref: txRef,
-          callback_url: `${window.location.origin}/api/payments/chapa/subscription-callback`,
-          return_url: `${window.location.origin}/dashboard/subscription/status?tx_ref=${txRef}`,
-          customization: {
-            title: `${plan.name} Plan`,
-            description: `${billingPeriod}ly plan`
-          }
-        });
-
-        if (!response.data?.checkout_url) {
-          throw new Error(response.message || 'Failed to initialize Chapa payment');
-        }
-        window.location.href = response.data.checkout_url;
+      if (!response.data?.checkout_url) {
+        throw new Error(response.message || 'Failed to initialize Chapa payment');
       }
+
+      window.location.href = response.data.checkout_url;
 
     } catch (error) {
       console.error('Subscription error:', error);
       setError(error instanceof Error ? error.message : 'Failed to process subscription');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      // Get current active subscription order
+      const { data: activeSubscription, error: subscriptionError } = await supabase
+        .from('subscription_orders')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (subscriptionError) {
+        throw new Error('No active subscription found');
+      }
+
+      // Try to update with cancelled_at first
+      const { error: updateError } = await supabase
+        .from('subscription_orders')
+        .update({ 
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', activeSubscription.id);
+
+      // If cancelled_at column doesn't exist, try without it
+      if (updateError && updateError.code === 'PGRST204') {
+        const { error: fallbackUpdateError } = await supabase
+          .from('subscription_orders')
+          .update({ 
+            status: 'cancelled',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', activeSubscription.id);
+
+        if (fallbackUpdateError) throw fallbackUpdateError;
+      } else if (updateError) {
+        throw updateError;
+      }
+
+      toast.success('Subscription cancelled. You will have access to paid features until the end of your billing period.');
+      
+      // Update subscription dates to reflect cancellation
+      setSubscriptionDates({
+        startDate: activeSubscription.created_at,
+        endDate: activeSubscription.subscription_end_date,
+        status: 'cancelled'
+      });
+
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      setError(error instanceof Error ? error.message : 'Failed to cancel subscription');
+      toast.error('Failed to cancel subscription');
     } finally {
       setLoading(false);
     }
@@ -327,6 +442,61 @@ export default function SubscriptionPage() {
             </div>
           </div>
         </div>
+
+        {/* Add subscription dates info */}
+        {currentPlan && currentPlan !== 'basic' && subscriptionDates && (
+          <div className="mt-6 rounded-lg bg-white shadow-sm p-6 border border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Current Subscription Details</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Start Date:</span>
+                <span className="font-medium">
+                  {new Date(subscriptionDates.startDate!).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">End Date:</span>
+                <span className="font-medium">
+                  {subscriptionDates.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  }) : 'Not specified'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Status:</span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  subscriptionDates.status === 'cancelled' 
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-green-100 text-green-800'
+                }`}>
+                  {subscriptionDates.status === 'cancelled' ? 'Cancelled' : 'Active'}
+                </span>
+              </div>
+              {subscriptionDates.status === 'cancelled' && (
+                <div className="mt-4 p-4 bg-yellow-50 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-700">
+                        Your subscription has been cancelled. You will continue to have access to all paid features until the end of your billing period.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
@@ -367,11 +537,14 @@ export default function SubscriptionPage() {
               </div>
             </div>
             
-            <div className="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0 xl:grid-cols-3">
+            <div className="mt-12 space-y-4 sm:mt-16 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-6 lg:max-w-4xl lg:mx-auto xl:max-w-none xl:mx-0 xl:grid-cols-3">
               {subscriptionPlans.map((plan) => (
-                <div key={plan.id} className={`${
-                  plan.highlighted ? 'border-2 border-green-500 shadow-xl' : 'border border-gray-200'
-                } rounded-lg shadow-sm divide-y divide-gray-200 bg-white`}>
+                <div
+                  key={plan.id}
+                  className={`rounded-lg shadow-sm divide-y divide-gray-200 ${
+                    plan.highlighted ? 'border-2 border-green-500' : 'border border-gray-200'
+                  }`}
+                >
                   <div className="p-6">
                     <h2 className="text-lg leading-6 font-medium text-gray-900">{plan.name}</h2>
                     <p className="mt-4 text-sm text-gray-500">
@@ -386,28 +559,93 @@ export default function SubscriptionPage() {
                     </p>
                     
                     <div className="mt-8">
-                      <SubscriptionPaymentSelector
-                        selectedMethod={paymentMethods[plan.id]}
-                        onSelect={(method) => setPaymentMethods(prev => ({
-                          ...prev,
-                          [plan.id]: method as 'telebirr' | 'chapa'
-                        }))}
-                      />
+                      {currentPlan !== plan.id && plan.id !== 'basic' && (
+                        <div className="mt-4">
+                          <SubscriptionPaymentSelector
+                            selectedMethod={paymentMethods[plan.id]}
+                            onSelect={(method) => {
+                              setPaymentMethods(prev => ({
+                                ...prev,
+                                [plan.id]: method
+                              }));
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
 
-                    <button
-                      onClick={() => handleSubscribe(plan)}
-                      disabled={currentPlan === plan.id || loading}
-                      className={`${
-                        currentPlan === plan.id
-                          ? 'bg-gray-100 text-gray-800 cursor-default'
-                          : plan.highlighted
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-gray-800 text-white hover:bg-gray-900'
-                      } mt-8 block w-full py-3 px-6 border border-transparent rounded-md text-center font-medium`}
-                    >
-                      {loading ? 'Processing...' : currentPlan === plan.id ? 'Current Plan' : 'Subscribe'}
-                    </button>
+                    <div className="px-6 pt-6 pb-8">
+                      {currentPlan === plan.id ? (
+                        <div className="space-y-4">
+                          <span className="block w-full bg-green-100 text-green-800 text-center rounded-md px-3 py-2">
+                            Current Plan
+                          </span>
+                          {plan.id !== 'basic' && subscriptionDates?.status !== 'cancelled' && (
+                            <button
+                              onClick={handleCancelSubscription}
+                              className="block w-full bg-red-100 text-red-700 hover:bg-red-200 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              Cancel Subscription
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {plan.id !== 'basic' && (
+                            <>
+                              {currentPlan !== 'basic' && subscriptionDates?.status !== 'cancelled' ? (
+                                <div className="rounded-md bg-yellow-50 p-4">
+                                  <div className="flex">
+                                    <div className="flex-shrink-0">
+                                      <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                      </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                      <h3 className="text-sm font-medium text-yellow-800">
+                                        Active Subscription
+                                      </h3>
+                                      <div className="mt-2 text-sm text-yellow-700">
+                                        <p>
+                                          You currently have an active {currentPlan} subscription. You can upgrade to {plan.name} after your current subscription period ends on {subscriptionDates?.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric'
+                                          }) : 'N/A'}.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="mt-4">
+                                    <SubscriptionPaymentSelector
+                                      selectedMethod={paymentMethods[plan.id]}
+                                      onSelect={(method) => {
+                                        setPaymentMethods(prev => ({
+                                          ...prev,
+                                          [plan.id]: method
+                                        }));
+                                      }}
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => handleSubscribe(plan)}
+                                    className={`block w-full bg-green-600 text-white rounded-md px-3 py-2 text-sm font-medium 
+                                      hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500
+                                      disabled:opacity-50 disabled:cursor-not-allowed mt-4`}
+                                    disabled={loading}
+                                  >
+                                    {loading ? 'Processing...' : `Upgrade to ${plan.name}`}
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="pt-6 pb-8 px-6">
                     <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">
@@ -489,6 +727,16 @@ export default function SubscriptionPage() {
               </dl>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 max-w-3xl mx-auto text-sm text-gray-500">
+          <h3 className="font-medium text-gray-900 mb-2">Important Information:</h3>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>When you cancel a paid subscription, you'll be automatically moved to the Basic (free) plan.</li>
+            <li>You can continue using your current plan's features until the end of your billing period.</li>
+            <li>No refunds are provided for cancelled subscriptions.</li>
+            <li>Your data and settings will be preserved when downgrading, but some features may become unavailable.</li>
+          </ul>
         </div>
       </div>
     </div>

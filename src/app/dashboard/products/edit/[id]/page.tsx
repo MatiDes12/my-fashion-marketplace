@@ -32,7 +32,17 @@ type Product = {
   quality: string;
   sizes?: string[];
   colors?: string[];
-  available_variants?: string[];
+  custom_variants?: {
+    name: string;
+    options: string[];
+  }[];
+  available_variants?: {
+    size?: string;
+    color?: string;
+    custom_options?: { [key: string]: string };
+    quantity: number;
+    sku: string;
+  }[];
   brand?: string;
   material?: string;
   care_instructions?: string;
@@ -69,9 +79,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   const [quality, setQuality] = useState('new');
   const [sizes, setSizes] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>([]);
+  const [customVariantTypes, setCustomVariantTypes] = useState<Array<{
+    name: string;
+    options: string[];
+  }>>([]);
   const [variants, setVariants] = useState<Array<{
-    size: string;
-    color: string;
+    size?: string;
+    color?: string;
+    custom_options?: { [key: string]: string };
     quantity: number;
     sku: string;
   }>>([]);
@@ -118,53 +133,91 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const { data: productData, error: productError } = await supabase
+        const { data: product, error } = await supabase
           .from('products')
-          .select(`
-            *,
-            product_images (
-              id,
-              image_url,
-              is_model_picture
-            )
-          `)
+          .select('*')
           .eq('id', params.id)
           .single();
         
-        if (productError) throw productError;
+        if (error) throw error;
 
-        setTitle(productData.title || '');
-        setDescription(productData.description || '');
-        setPrice(productData.price?.toString() || '');
-        setCategory(productData.category || '');
-        setQuantity(productData.quantity?.toString() || '0');
-        setDeliveryFee(productData.delivery_fee?.toString() || '');
-        setDetailedDescription(productData.detailed_description || '');
-        setQuality(productData.quality || 'new');
-        setSizes(productData.sizes || []);
-        setColors(productData.colors || []);
-        setVariants(productData.available_variants || []);
-        setBrand(productData.brand || '');
-        setMaterial(productData.material || '');
-        setCareInstructions(productData.care_instructions || '');
-        setMeasurements(productData.measurements || {});
-        setShippingInfo(productData.shipping_info || {
+        // Set basic product information
+        setTitle(product.title || '');
+        setDescription(product.description || '');
+        setPrice(product.price?.toString() || '');
+        setCategory(product.category || '');
+        setQuantity(product.quantity?.toString() || '0');
+        setDeliveryFee(product.delivery_fee?.toString() || '');
+        setDetailedDescription(product.detailed_description || '');
+        setQuality(product.quality || 'new');
+        setSizes(product.sizes || []);
+        setColors(product.colors || []);
+
+        // Extract custom variant types from available variants
+        if (product.available_variants && Array.isArray(product.available_variants)) {
+          const customTypes = new Map<string, Set<string>>();
+          
+          // Collect all custom variant types and their options
+          product.available_variants.forEach((variant: any) => {
+            Object.entries(variant).forEach(([key, value]) => {
+              // Skip standard variant properties
+              if (!['size', 'color', 'quantity', 'sku'].includes(key) && value) {
+                if (!customTypes.has(key)) {
+                  customTypes.set(key, new Set());
+                }
+                customTypes.get(key)?.add(value as string);
+              }
+            });
+          });
+
+          // Convert to the expected format
+          const customVariantTypesArray = Array.from(customTypes.entries()).map(([name, options]) => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' '), // Convert from snake_case to Title Case
+            options: Array.from(options)
+          }));
+
+          setCustomVariantTypes(customVariantTypesArray);
+
+          // Convert variants to include custom_options
+          const formattedVariants = product.available_variants.map((variant: any) => {
+            const formattedVariant: any = {
+              size: variant.size,
+              color: variant.color,
+              quantity: variant.quantity,
+              sku: variant.sku,
+              custom_options: {}
+            };
+
+            // Add custom options
+            Object.entries(variant).forEach(([key, value]) => {
+              if (!['size', 'color', 'quantity', 'sku'].includes(key) && value) {
+                formattedVariant.custom_options[key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')] = value;
+              }
+            });
+
+            return formattedVariant;
+          });
+
+          setVariants(formattedVariants);
+        }
+
+        setExistingImages(product.product_images || []);
+        setShippingInfo(product.shipping_info || {
           processing_time: '1-2 business days',
           shipping_options: [],
           return_policy: ''
         });
-        setHighlights(productData.highlights || []);
-        setSpecifications(productData.specifications || {});
-        setStyleNotes(productData.style_notes || '');
-        setFitInfo(productData.fit_info || '');
-        setOccasion(productData.occasion || []);
-        setSeason(productData.season || []);
-        setSustainabilityInfo(productData.sustainability_info || '');
-        setCountryOfOrigin(productData.country_of_origin || '');
-        setWarrantyInfo(productData.warranty_info || '');
-        setFaqs(productData.faqs || []);
-        setExistingImages(productData.product_images || []);
-        setDeliveryOptions(productData.delivery_options || {
+        setHighlights(product.highlights || []);
+        setSpecifications(product.specifications || {});
+        setStyleNotes(product.style_notes || '');
+        setFitInfo(product.fit_info || '');
+        setOccasion(product.occasion || []);
+        setSeason(product.season || []);
+        setSustainabilityInfo(product.sustainability_info || '');
+        setCountryOfOrigin(product.country_of_origin || '');
+        setWarrantyInfo(product.warranty_info || '');
+        setFaqs(product.faqs || []);
+        setDeliveryOptions(product.delivery_options || {
           delivery: true,
           pickup: true,
           pickup_location: '',
@@ -173,7 +226,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         
         setLoading(false);
       } catch (error) {
-        setError('Failed to load product');
+        console.error('Error fetching product:', error);
+        toast.error('Failed to load product');
         setLoading(false);
       }
     };
@@ -203,62 +257,38 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     setError(null);
 
     try {
-      if (!title || !description || !price || !quantity || !category) {
-        setError('Please fill in all required fields');
-        setLoading(false);
-        return;
+      // Get the current user's session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        throw new Error('You must be logged in to update a product');
       }
 
-      // Calculate total images after changes
-      const remainingExistingImages = existingImages.filter(
-        img => !imagesToDelete.includes(img.image_url)
-      ).length;
-      const newImagesCount = images.length;
-      const totalImages = remainingExistingImages + newImagesCount;
-
-      // Validate total image count
-      if (totalImages < 4 || totalImages > 8) {
-        setError(`Please maintain between 4-8 images (you currently have ${totalImages}). 
-          ${remainingExistingImages} existing + ${newImagesCount} new images`);
-        setLoading(false);
-        return;
+      // Validate required fields
+      if (!title || !description || !price || !category || !quantity) {
+        throw new Error('Please fill in all required fields');
       }
 
-      if (!deliveryOptions.delivery && !deliveryOptions.pickup) {
-        setError('Please select at least one delivery option');
-        setLoading(false);
-        return;
-      }
+      // Prepare variants data - flatten custom options into the variant object
+      const flattenedVariants = variants.map(variant => {
+        // Start with basic variant properties
+        const flatVariant: any = {
+          size: variant.size,
+          color: variant.color,
+          quantity: variant.quantity,
+          sku: variant.sku
+        };
 
-      if (deliveryOptions.delivery && !delivery_fee) {
-        setError('Please set a delivery fee');
-        setLoading(false);
-        return;
-      }
-
-      // First, handle image deletions
-      if (imagesToDelete.length > 0) {
-        // Delete from storage
-        const { error: storageError } = await supabase.storage
-          .from('products')
-          .remove(imagesToDelete);
-
-        if (storageError) {
-          console.error('Storage deletion error:', storageError);
-          // Continue with the process even if storage deletion fails
+        // Add custom options as direct properties
+        if (variant.custom_options) {
+          Object.entries(variant.custom_options).forEach(([key, value]) => {
+            const storageKey = key.toLowerCase().replace(/\s+/g, '_');
+            flatVariant[storageKey] = value;
+          });
         }
 
-        // Delete from database
-        const { error: dbError } = await supabase
-          .from('product_images')
-          .delete()
-          .in('image_url', imagesToDelete);
-
-        if (dbError) {
-          console.error('Database deletion error:', dbError);
-          throw dbError;
-        }
-      }
+        return flatVariant;
+      });
 
       // Update product details
       const { error: updateError } = await supabase
@@ -269,12 +299,12 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           price: parseFloat(price),
           category,
           quantity: parseInt(quantity),
-          delivery_fee: deliveryOptions.delivery && delivery_fee ? parseFloat(delivery_fee) : null,
+          delivery_fee: delivery_fee ? parseFloat(delivery_fee) : null,
           detailed_description: detailedDescription,
           quality,
           sizes,
           colors,
-          available_variants: variants,
+          available_variants: flattenedVariants,
           brand,
           material,
           care_instructions: careInstructions,
@@ -290,64 +320,63 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           country_of_origin: countryOfOrigin,
           warranty_info: warrantyInfo,
           faqs,
-          delivery_options: {
-            ...deliveryOptions,
-            pickup_location: deliveryOptions.pickup ? deliveryOptions.pickup_location : null,
-            delivery_time: deliveryOptions.delivery ? deliveryOptions.delivery_time : null
-          },
-          updated_at: new Date().toISOString()
+          delivery_options: deliveryOptions,
+          owner_id: session.user.id // Ensure owner_id is set
         })
-        .eq('id', params.id);
+        .eq('id', params.id)
+        .eq('owner_id', session.user.id); // Only allow update if user owns the product
 
       if (updateError) throw updateError;
 
-      // Handle new image uploads
+      // Handle image uploads
       if (images.length > 0) {
         try {
           for (const image of images) {
             const fileExt = image.name.split('.').pop();
-            if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt?.toLowerCase() || '')) {
-              continue;
-            }
-            
             const fileName = `${params.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
             
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            // Upload image to storage
+            const { error: uploadError } = await supabase.storage
               .from('products')
-              .upload(fileName, image, {
-                cacheControl: '3600',
-                upsert: false,
-                contentType: `image/${fileExt}`
-              });
+              .upload(fileName, image);
 
-            if (uploadError) {
-              console.error('Upload error:', uploadError);
-              continue;
+            if (uploadError) throw uploadError;
+
+            // Get the public URL
+            const { data: publicUrlData } = await supabase.storage
+              .from('products')
+              .getPublicUrl(fileName);
+
+            if (!publicUrlData?.publicUrl) {
+              throw new Error('Failed to get public URL for uploaded image');
             }
 
-            const { error: imageError } = await supabase
+            // Create image reference in product_images table
+            const { error: imageRefError } = await supabase
               .from('product_images')
               .insert({
                 product_id: params.id,
-                image_url: fileName,
+                image_url: publicUrlData.publicUrl,
                 is_model_picture: false
               });
 
-            if (imageError) {
-              console.error('Database error:', imageError);
+            if (imageRefError) {
+              console.error('Error saving image reference:', imageRefError);
+              throw imageRefError;
             }
           }
         } catch (error) {
-          console.error('Image processing error:', error);
+          console.error('Error uploading images:', error);
+          // Don't throw here, allow product update even if image upload fails
           toast.error('Some images failed to upload');
         }
       }
 
-      router.push('/dashboard/products');
       toast.success('Product updated successfully');
+      router.push('/dashboard/products');
     } catch (error) {
-      console.error('Update error:', error);
-      setError('Failed to update product');
+      console.error('Error updating product:', error);
+      toast.error('Failed to update product');
       setLoading(false);
     }
   };
@@ -1169,6 +1198,211 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     </div>
                   </div>
                 )}
+
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Colors</h4>
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={colors.join(', ')}
+                      onChange={(e) => setColors(e.target.value.split(',').map(c => c.trim()))}
+                      placeholder="Enter colors (comma-separated)"
+                      className={inputClasses}
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Custom Variant Types</h4>
+                  <div className="mt-2 space-y-4">
+                    {customVariantTypes.map((variantType, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={variantType.name}
+                            onChange={(e) => {
+                              const newTypes = [...customVariantTypes];
+                              newTypes[index].name = e.target.value;
+                              setCustomVariantTypes(newTypes);
+                            }}
+                            placeholder="Variant type name (e.g. Flavor)"
+                            className={`${inputClasses} flex-1`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newTypes = [...customVariantTypes];
+                              newTypes.splice(index, 1);
+                              setCustomVariantTypes(newTypes);
+                            }}
+                            className="p-2 text-red-600 hover:text-red-800"
+                          >
+                            <span className="sr-only">Remove variant type</span>
+                            ×
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={variantType.options.join(', ')}
+                          onChange={(e) => {
+                            const newTypes = [...customVariantTypes];
+                            newTypes[index].options = e.target.value.split(',').map(o => o.trim());
+                            setCustomVariantTypes(newTypes);
+                          }}
+                          placeholder="Enter options (comma-separated)"
+                          className={inputClasses}
+                        />
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomVariantTypes([
+                          ...customVariantTypes,
+                          { name: '', options: [] }
+                        ]);
+                      }}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
+                    >
+                      Add Custom Variant Type
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                  <h4 className="text-base font-medium text-gray-900">Variants</h4>
+                  <div className="mt-2 space-y-4">
+                    {/* Generate all possible combinations */}
+                    {(() => {
+                      // Get all possible combinations
+                      const combinations: Array<{
+                        size?: string;
+                        color?: string;
+                        custom_options?: { [key: string]: string };
+                      }> = [];
+
+                      const addCombinations = (
+                        current: {
+                          size?: string;
+                          color?: string;
+                          custom_options?: { [key: string]: string };
+                        },
+                        remainingTypes: string[]
+                      ) => {
+                        if (remainingTypes.length === 0) {
+                          combinations.push(current);
+                          return;
+                        }
+
+                        const type = remainingTypes[0];
+                        const rest = remainingTypes.slice(1);
+
+                        if (type === 'size' && sizes.length > 0) {
+                          sizes.forEach(size => {
+                            addCombinations(
+                              { ...current, size },
+                              rest
+                            );
+                          });
+                        } else if (type === 'color' && colors.length > 0) {
+                          colors.forEach(color => {
+                            addCombinations(
+                              { ...current, color },
+                              rest
+                            );
+                          });
+                        } else if (type.startsWith('custom_')) {
+                          const variantType = customVariantTypes[parseInt(type.split('_')[1])];
+                          variantType.options.forEach(option => {
+                            const custom_options = {
+                              ...(current.custom_options || {}),
+                              [variantType.name]: option
+                            };
+                            addCombinations(
+                              { ...current, custom_options },
+                              rest
+                            );
+                          });
+                        } else {
+                          addCombinations(current, rest);
+                        }
+                      };
+
+                      // Start with all variant types
+                      const variantTypes = [
+                        ...(sizes.length > 0 ? ['size'] : []),
+                        ...(colors.length > 0 ? ['color'] : []),
+                        ...customVariantTypes.map((_, i) => `custom_${i}`)
+                      ];
+
+                      addCombinations({}, variantTypes);
+
+                      return combinations.map((combination, index) => {
+                        const variant = variants.find(v => 
+                          (!v.size || v.size === combination.size) &&
+                          (!v.color || v.color === combination.color) &&
+                          (!v.custom_options || Object.entries(v.custom_options).every(
+                            ([key, value]) => combination.custom_options?.[key] === value
+                          ))
+                        );
+
+                        const variantName = [
+                          combination.size,
+                          combination.color,
+                          ...Object.entries(combination.custom_options || {}).map(
+                            ([key, value]) => `${key}: ${value}`
+                          )
+                        ].filter(Boolean).join(' - ');
+
+                        return (
+                          <div key={index} className="flex items-center gap-4">
+                            <span className="w-1/2">{variantName}</span>
+                            <input
+                              type="number"
+                              placeholder="Quantity"
+                              min="0"
+                              value={variant?.quantity || ''}
+                              onChange={(e) => {
+                                const quantity = parseInt(e.target.value) || 0;
+                                const sku = [
+                                  combination.size,
+                                  combination.color,
+                                  ...Object.values(combination.custom_options || {})
+                                ].filter(Boolean).join('-');
+
+                                const newVariants = [...variants];
+                                const variantIndex = variants.findIndex(v =>
+                                  (!v.size || v.size === combination.size) &&
+                                  (!v.color || v.color === combination.color) &&
+                                  (!v.custom_options || Object.entries(v.custom_options).every(
+                                    ([key, value]) => combination.custom_options?.[key] === value
+                                  ))
+                                );
+
+                                if (variantIndex >= 0) {
+                                  newVariants[variantIndex] = {
+                                    ...combination,
+                                    quantity,
+                                    sku
+                                  };
+                                } else {
+                                  newVariants.push({
+                                    ...combination,
+                                    quantity,
+                                    sku
+                                  });
+                                }
+                                setVariants(newVariants);
+                              }}
+                              className={`${inputClasses} w-32`}
+                            />
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
 
                 <div className="flex justify-end space-x-3">
                   <Link

@@ -303,7 +303,12 @@ export default function CheckoutPage() {
             service_fee: serviceFee, // Store the 3% service fee
             ethiopia_tax: 0, // Set to 0 explicitly
             delivery_fee: item.delivery_method === 'delivery' ? (item.product.delivery_fee || 0) : 0,
-            order_status: 'pending'
+            order_status: 'pending',
+            delivery_method: item.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+            delivery_address: item.delivery_address,
+            selected_size: item.selected_size,
+            selected_color: item.selected_color,
+            selected_variant_sku: item.selected_variant_sku
           });
 
         if (orderError) throw orderError;

@@ -820,8 +820,8 @@ export default function OrdersPage() {
                         </svg>
                       </button>
                     </nav>
-                  </div>
-                </div>
+              </div>
+            </div>
               </div>
             )}
           </div>
@@ -1003,13 +1003,13 @@ export default function OrdersPage() {
                             ETB {selectedOrder.transaction?.subtotal?.toFixed(2) || 
                               ((selectedOrder.product?.price ?? 0) * (selectedOrder.quantity ?? 0)).toFixed(2)}
                           </span>
-                        </div>
+                  </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">Platform Fee</span>
                           <span className="text-red-600">
                             -ETB {selectedOrder.transaction?.platform_fee?.toFixed(2) || '0.00'}
                           </span>
-                        </div>
+                </div>
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">Service Fee</span>
                           <span className="text-red-600">

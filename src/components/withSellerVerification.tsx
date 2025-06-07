@@ -8,7 +8,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 interface UserData {
   role: string;
   is_verified: boolean;
-  verification_status: 'pending' | 'verified' | 'rejected';
+  verification_status: 'pending' | 'verified' | 'rejected' | 'needs_reconsideration';
 }
 
 export function withSellerVerification<P extends object>(
@@ -46,7 +46,7 @@ export function withSellerVerification<P extends object>(
             return;
           }
 
-          if (!userData.is_verified) {
+          if (!userData.is_verified || userData.verification_status === 'needs_reconsideration') {
             // Check if verification is pending
             const { data: verificationData } = await supabase
               .from('seller_verification')
@@ -61,6 +61,11 @@ export function withSellerVerification<P extends object>(
 
             if (verificationData.status === 'pending') {
               router.push('/dashboard/verification-pending');
+              return;
+            }
+
+            if (verificationData.status === 'needs_reconsideration') {
+              router.push('/dashboard/verification-reconsideration');
               return;
             }
           }

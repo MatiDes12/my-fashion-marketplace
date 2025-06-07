@@ -113,10 +113,10 @@ interface SellerOrder {
 const paymentMethods: PaymentMethod[] = [
   {
     id: 'TELEBIRR',
-    name: 'Telebirr',
+    name: 'Telebirr (Coming Soon)',
     logo: '/images/payment-methods/Telebirr-logo.png',
-    isAvailable: true,
-    description: 'Pay directly with your Telebirr mobile wallet'
+    isAvailable: false,
+    description: 'Coming soon - Pay directly with your Telebirr mobile wallet'
   },
   {
     id: 'CHAPA',
@@ -127,29 +127,31 @@ const paymentMethods: PaymentMethod[] = [
   },
   {
     id: 'CBE',
-    name: 'Commercial Bank of Ethiopia',
-    logo: '/images/payment-methods/cbe-logo.png', // Add this image to your public folder
-    isAvailable: false
+    name: 'Commercial Bank of Ethiopia (Coming Soon)',
+    logo: '/images/payment-methods/cbe-logo.png',
+    isAvailable: false,
+    description: 'Coming soon - Pay with CBE'
   },
   {
     id: 'AMOLE',
-    name: 'Amole',
-    logo: 'camole-logo.png', // Add this image to your public folder
-    isAvailable: false
+    name: 'Amole (Coming Soon)',
+    logo: 'camole-logo.png',
+    isAvailable: false,
+    description: 'Coming soon - Pay with Amole'
   },
   {
     id: 'CASH',
     name: 'Cash on Delivery/Pickup',
-    logo: '/images/payment-methods/cash-icon.jpg', // Add this icon to your public folder
+    logo: '/images/payment-methods/cash-icon.jpg',
     isAvailable: true,
     description: 'Pay with cash when your order is delivered or during pickup'
   },
   {
     id: 'MPESA',
-    name: 'M-PESA',
+    name: 'M-PESA (Coming Soon)',
     logo: '/images/payment-methods/mpesa-logo.png',
-    isAvailable: true,
-    description: 'Pay with M-PESA mobile money'
+    isAvailable: false,
+    description: 'Coming soon - Pay with M-PESA mobile money'
   },
 ];
 
@@ -356,13 +358,9 @@ export default function PaymentMethodModal({
 
     console.log('Payment Settings:', paymentSettings); // Add this for debugging
 
-    return Object.values(PAYMENT_METHODS).filter(method => 
-      method.id === 'CASH' || // Cash is always available
-      (method.id === 'TELEBIRR' && paymentSettings?.telebirr_settings?.is_active) ||
-      (method.id === 'CBE' && paymentSettings?.cbe_birr_settings?.is_active) ||
-      (method.id === 'AMOLE' && paymentSettings?.amole_settings?.is_active) ||
-      (method.id === 'CHAPA' && paymentSettings?.chapa_settings?.is_active) ||
-      (method.id === 'MPESA' && paymentSettings?.mpesa_settings?.is_active)
+    // Return all payment methods, but mark only Cash and Chapa as available
+    return paymentMethods.filter(method => 
+      method.id === 'CASH' || method.id === 'CHAPA'
     );
   };
 
@@ -371,10 +369,10 @@ export default function PaymentMethodModal({
 
   const handleSubmit = async () => {
     try {
-      if (!selectedMethod) {
-        setError('Please select a payment method');
-        return;
-      }
+    if (!selectedMethod) {
+      setError('Please select a payment method');
+      return;
+    }
 
       // Validate order data before proceeding
       try {
@@ -384,11 +382,11 @@ export default function PaymentMethodModal({
         return;
       }
 
-      if (selectedMethod === 'CASH') {
-        try {
-          setLocalProcessing(true);
-          const supabase = createClientComponent();
-          const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (selectedMethod === 'CASH') {
+      try {
+        setLocalProcessing(true);
+        const supabase = createClientComponent();
+        const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
           // Get customer's store settings to access their phone number
           const { data: customerData, error: customerError } = await supabase
@@ -403,9 +401,9 @@ export default function PaymentMethodModal({
 
           const customerPhone = customerData?.store_settings?.phone || null;
 
-          // Process each seller's orders
-          for (const seller of sellers) {
-            for (const product of seller.products) {
+        // Process each seller's orders
+        for (const seller of sellers) {
+          for (const product of seller.products) {
               // Get cart item details first
               const { data: cartItem, error: cartError } = await supabase
                 .from('cart_items')
@@ -424,140 +422,143 @@ export default function PaymentMethodModal({
                 cartItem.selected_color,
                 cartItem.selected_variant_sku
               );
-
-              const itemSubtotal = product.quantity * product.price;
-              const serviceFee = itemSubtotal * 0.03;
+            
+            const itemSubtotal = product.quantity * product.price;
+            const serviceFee = itemSubtotal * 0.03;
               const itemDeliveryFee = cartItem.delivery_fee || 0;
-              const itemTotal = itemSubtotal + itemDeliveryFee;
+            const itemTotal = itemSubtotal + itemDeliveryFee;
 
               // Create order with cart item details
-              const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .insert({
-                  user_id: userDetails?.id,
-                  product_id: product.id,
-                  quantity: product.quantity,
-                  total_price: itemTotal,
-                  platform_fee: 0,
-                  service_fee: serviceFee,
-                  ethiopia_tax: 0,
-                  delivery_fee: itemDeliveryFee,
-                  order_status: 'confirmed',
-                  payment_status: 'pending',
-                  payment_reference: txRef,
-                  tx_ref: txRef,
-                  receipt_url: `/api/receipts/cash/${txRef}`,
-                  delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
-                  delivery_address: cartItem.delivery_address,
-                  selected_size: cartItem.selected_size,
-                  selected_color: cartItem.selected_color,
-                  selected_variant_sku: cartItem.selected_variant_sku
-                })
-                .select()
-                .single();
+            const { data: order, error: orderError } = await supabase
+              .from('orders')
+              .insert({
+                user_id: userDetails?.id,
+                product_id: product.id,
+                quantity: product.quantity,
+                total_price: itemTotal,
+                platform_fee: 0,
+                service_fee: serviceFee,
+                ethiopia_tax: 0,
+                delivery_fee: itemDeliveryFee,
+                order_status: 'confirmed',
+                payment_status: 'pending',
+                payment_reference: txRef,
+                tx_ref: txRef,
+                receipt_url: `/api/receipts/cash/${txRef}`,
+                delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+                delivery_address: cartItem.delivery_address,
+                selected_size: cartItem.selected_size,
+                selected_color: cartItem.selected_color,
+                selected_variant_sku: cartItem.selected_variant_sku
+              })
+              .select()
+              .single();
 
-              if (orderError) throw orderError;
+            if (orderError) throw orderError;
 
               // Create transaction with customer's phone number
-              const { error: transactionError } = await supabase
-                .from('transactions')
-                .insert({
-                  order_id: order.id,
-                  payment_method: 'CASH',
-                  payment_status: 'pending',
-                  subtotal: itemSubtotal,
-                  platform_fee: 0,
-                  service_fee: serviceFee,
-                  vat_amount: 0,
-                  delivery_fee: itemDeliveryFee,
-                  total_amount: itemTotal,
-                  seller_id: product.owner.id,
-                  customer_name: userDetails?.full_name,
-                  customer_email: userDetails?.email,
+            const { error: transactionError } = await supabase
+              .from('transactions')
+              .insert({
+                order_id: order.id,
+                payment_method: 'CASH',
+                payment_status: 'pending',
+                subtotal: itemSubtotal,
+                platform_fee: 0,
+                service_fee: serviceFee,
+                vat_amount: 0,
+                delivery_fee: itemDeliveryFee,
+                total_amount: itemTotal,
+                seller_id: product.owner.id,
+                customer_name: userDetails?.full_name,
+                customer_email: userDetails?.email,
                   customer_phone: customerPhone,
-                  seller_payout_amount: itemTotal - serviceFee,
-                  seller_payout_status: 'pending',
-                  platform_payout_status: 'pending'
-                });
+                seller_payout_amount: itemTotal - serviceFee,
+                seller_payout_status: 'pending',
+                platform_payout_status: 'pending'
+              });
 
-              if (transactionError) throw transactionError;
-            }
+            if (transactionError) throw transactionError;
           }
-
-          // Clear cart after successful order creation
-          if (userDetails?.id) {
-            await clearCart(userDetails.id);
-          }
-
-          // Close modal
-          onClose();
-          toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
-          
-          // Redirect to receipt page first
-          window.location.href = `/api/receipts/cash/${txRef}?redirect=/orders?payment_success=true%26tx_ref=${txRef}`;
-
-        } catch (error) {
-          console.error('Order creation error:', error);
-          setError(error instanceof Error ? error.message : 'Failed to create order');
-        } finally {
-          setLocalProcessing(false);
         }
-        return;
-      }
 
-      if (selectedMethod === 'CHAPA') {
-        try {
-          await handleChapaPayment();
-        } catch (error) {
-          console.error('Payment error:', error);
-          setError(error instanceof Error ? error.message : 'Payment failed');
+        // Clear cart after successful order creation
+        if (userDetails?.id) {
+          await clearCart(userDetails.id);
         }
-        return;
+
+        // Close modal
+        onClose();
+        toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
+        
+        // Redirect to receipt page first
+        window.location.href = `/api/receipts/cash/${txRef}?redirect=/orders?payment_success=true%26tx_ref=${txRef}`;
+
+      } catch (error) {
+        console.error('Order creation error:', error);
+        setError(error instanceof Error ? error.message : 'Failed to create order');
+      } finally {
+        setLocalProcessing(false);
       }
+      return;
+    }
 
-      if (selectedMethod === 'TELEBIRR') {
-        try {
-          setLocalProcessing(true);
-          const response = await fetch('/api/telebirr/create-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
-              description: `Order payment for ${sellers.length} seller(s)`,
-            }),
-          });
+    if (selectedMethod === 'CHAPA') {
+      try {
+        await handleChapaPayment();
+      } catch (error) {
+        console.error('Payment error:', error);
+        setError(error instanceof Error ? error.message : 'Payment failed');
+      }
+      return;
+    }
 
-          const data = await response.json();
+      /* Commented out Telebirr payment handling
+    if (selectedMethod === 'TELEBIRR') {
+      try {
+        setLocalProcessing(true);
+        const response = await fetch('/api/telebirr/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: sellers.reduce((sum, seller) => sum + seller.total, 0),
+            description: `Order payment for ${sellers.length} seller(s)`,
+          }),
+        });
 
-          if (!data.success) {
-            throw new Error(data.error || 'Failed to initialize payment');
-          }
+        const data = await response.json();
 
-          // After successful payment (in both CHAPA and TELEBIRR cases)
-          // Update product quantities
-          for (const seller of sellers) {
-            for (const product of seller.products) {
-              await updateProductQuantity(product.id, product.quantity);
-            }
-          }
-          
-          // Clear cart after successful payment
-          if (userDetails?.id) {
-            await clearCart(userDetails.id);
-          }
-
-          // Redirect to Telebirr payment page
-          window.location.href = data.paymentUrl;
-
-        } catch (error) {
-          console.error('Payment error:', error);
-          setError(error instanceof Error ? error.message : 'Payment failed');
-        } finally {
-          setLocalProcessing(false);
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to initialize payment');
         }
-        return;
-      }
 
+        // After successful payment (in both CHAPA and TELEBIRR cases)
+        // Update product quantities
+        for (const seller of sellers) {
+          for (const product of seller.products) {
+            await updateProductQuantity(product.id, product.quantity);
+          }
+        }
+        
+        // Clear cart after successful payment
+        if (userDetails?.id) {
+          await clearCart(userDetails.id);
+        }
+
+        // Redirect to Telebirr payment page
+        window.location.href = data.paymentUrl;
+
+      } catch (error) {
+        console.error('Payment error:', error);
+        setError(error instanceof Error ? error.message : 'Payment failed');
+      } finally {
+        setLocalProcessing(false);
+      }
+      return;
+    }
+      */
+
+      /* Commented out M-PESA payment handling
       if (selectedMethod === 'MPESA') {
         try {
           setLocalProcessing(true);
@@ -594,7 +595,7 @@ export default function PaymentMethodModal({
                   tx_ref: txRef,
                   payment_status: 'pending',
                   order_status: 'pending',
-                  delivery_method: mappedDeliveryMethod, // Use the mapped value
+                  delivery_method: mappedDeliveryMethod,
                   delivery_address: cartItemDetails.delivery_address,
                 })
                 .select()
@@ -670,11 +671,12 @@ export default function PaymentMethodModal({
           setLocalProcessing(false);
         }
       }
-      
-      // Handle other payment methods...
-      try {
-        await onSelectMethod(selectedMethod);
-        onClose();
+      */
+
+    // Handle other payment methods...
+    try {
+      await onSelectMethod(selectedMethod);
+      onClose();
       } catch (error) {
         console.error('Payment error:', error);
         setError(error instanceof Error ? error.message : 'Payment failed');
@@ -771,7 +773,7 @@ export default function PaymentMethodModal({
               seller_payout_amount: itemTotal - serviceFee
             });
 
-          if (transactionError) throw transactionError;
+            if (transactionError) throw transactionError;
         }
       }
 
@@ -933,13 +935,17 @@ export default function PaymentMethodModal({
                           <button
                             key={method.id}
                             onClick={() => {
+                              if (method.isAvailable) {
                               setSelectedMethod(method.id);
                               setError('');
+                              }
                             }}
                             className={`flex items-center p-4 border rounded-lg ${
                               selectedMethod === method.id 
                                 ? 'border-blue-500 bg-blue-50' 
-                                : 'border-gray-200 hover:border-blue-200'
+                                : method.isAvailable 
+                                  ? 'border-gray-200 hover:border-blue-200'
+                                  : 'border-gray-200 opacity-75 cursor-not-allowed'
                             }`}
                           >
                             <div className="w-12 h-12 relative mr-4">
@@ -951,7 +957,14 @@ export default function PaymentMethodModal({
                               />
                             </div>
                             <div className="flex-1">
+                              <div className="flex items-center gap-2">
                               <h3 className="font-medium">{method.name}</h3>
+                                {!method.isAvailable && (
+                                  <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                                    Coming Soon
+                                  </span>
+                                )}
+                              </div>
                               {method.description && (
                                 <p className="text-sm text-gray-500">{method.description}</p>
                               )}

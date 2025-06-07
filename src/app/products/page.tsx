@@ -256,7 +256,7 @@ function ProductsContent() {
         setLoading(true);
         setError(null);
         
-        let query = supabase
+        const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select(`
             *,
@@ -268,11 +268,10 @@ function ProductsContent() {
             ratings (
               rating
             ),
-            users (
+            users!inner (
               id,
-              full_name,
-              email,
               store_settings,
+              is_verified,
               verification_status
             ),
             likes:likes (count),
@@ -286,39 +285,10 @@ function ProductsContent() {
               )
             )
           `)
-          .eq('is_active', true);
-
-        // Apply category filter
-        if (filters.category !== 'all') {
-          query = query.ilike('category', filters.category);
-        }
-
-        // Apply price range filter
-        if (filters.priceRange.min > 0) {
-          query = query.gte('price', filters.priceRange.min);
-        }
-        if (filters.priceRange.max) {
-          query = query.lte('price', filters.priceRange.max);
-        }
-
-        // Apply sorting - handle most-liked separately
-        if (filters.sortBy === 'most-liked') {
-          // We'll sort by likes after fetching the data
-          query = query.order('created_at', { ascending: false });
-        } else {
-          switch (filters.sortBy) {
-            case 'price-low':
-              query = query.order('price', { ascending: true });
-              break;
-            case 'price-high':
-              query = query.order('price', { ascending: false });
-              break;
-            default: // 'newest'
-              query = query.order('created_at', { ascending: false });
-          }
-        }
-
-        const { data: productsData, error: productsError } = await query;
+          .eq('is_active', true)
+          .eq('users.is_verified', true)
+          .neq('users.verification_status', 'needs_reconsideration')
+          .order('created_at', { ascending: false });
 
         if (productsError) throw productsError;
 

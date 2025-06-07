@@ -185,27 +185,35 @@ function ProductsPage() {
     const checkPaymentSettings = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          router.push('/login');
-          return;
-        }
+        if (!session) return false;
 
-        // Check if user has payment settings
         const { data: settings, error } = await supabase
           .from('payment_settings')
-          .select('telebirr_settings')
+          .select('telebirr_settings, chapa_settings, bank_settings, cbe_birr_settings, amole_settings, mpesa_settings')
           .eq('user_id', session.user.id)
           .single();
 
         if (error) {
           console.error('Error checking payment settings:', error);
-          return;
+          return false;
         }
 
-        const hasSettings = settings?.telebirr_settings?.is_active || false;
-        setHasPaymentSettings(hasSettings);
+        return settings?.telebirr_settings?.is_active || 
+               settings?.chapa_settings?.is_active || 
+               settings?.bank_settings?.is_active || 
+               settings?.cbe_birr_settings?.is_active || 
+               settings?.amole_settings?.is_active || 
+               settings?.mpesa_settings?.is_active || 
+               false;
+      } catch (error) {
+        console.error('Error:', error);
+        return false;
+      }
+    };
 
-        if (!hasSettings) {
+    checkPaymentSettings().then((result) => {
+      setHasPaymentSettings(result);
+      if (!result) {
           toast.error(
             <div>
               <p>Please set up your payment settings before adding products.</p>
@@ -219,12 +227,7 @@ function ProductsPage() {
             { duration: 5000 }
           );
         }
-      } catch (error) {
-        console.error('Error:', error);
-      }
-    };
-
-    checkPaymentSettings();
+    });
     fetchProducts();
   }, []);
 
@@ -388,12 +391,12 @@ function ProductsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Products by Category</h1>
           {hasPaymentSettings ? (
             canAddMoreProducts ? (
-              <Link
-                href="/dashboard/products/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-              >
-                Add New Product
-              </Link>
+            <Link
+              href="/dashboard/products/new"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+            >
+              Add New Product
+            </Link>
             ) : (
               <div className="flex items-center space-x-4">
                 <button
@@ -756,9 +759,9 @@ function ProductsPage() {
                       <div className="relative h-48">
                         {product.product_images && product.product_images.length > 0 ? (
                           <div className="w-full h-full">
-                            <Image
+                          <Image
                               src={formatImageUrl(cleanImageUrl(product.product_images[0].image_url))}
-                              alt={product.title}
+                            alt={product.title}
                               fill
                               className="object-cover"
                               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

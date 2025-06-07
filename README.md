@@ -1,3 +1,74 @@
+# Fashion Marketplace
+
+A modern e-commerce platform built with Next.js, focusing on fashion and style. This marketplace provides a seamless shopping experience with features like real-time inventory management, interactive product visualization, and secure payment processing.
+
+## Features
+
+- 🛍️ Modern e-commerce interface
+- 🎨 Responsive design with Tailwind CSS
+- 🗺️ Interactive maps integration
+- 📊 Real-time analytics and charts
+- 🔐 Secure authentication with Supabase
+- 📱 Mobile-first approach
+- 🚀 Optimized performance with Vercel
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+- Node.js (version 18.0.0 or higher)
+- npm (comes with Node.js)
+- Git
+
+## Setup Instructions
+
+1. Clone the repository:
+   ```bash
+   git clone [your-repository-url]
+   cd my-fashion-marketplace
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+   - Create a `.env.local` file in the root directory
+   - Add necessary environment variables (contact team for required values)
+
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+5. Build for production:
+   ```bash
+   npm run build
+   ```
+
+6. Start production server:
+   ```bash
+   npm start
+   ```
+
+## Available Scripts
+
+- `npm run dev` - Starts the development server
+- `npm run build` - Creates an optimized production build
+- `npm start` - Runs the production server
+- `npm run lint` - Runs ESLint for code quality checking
+
+## Tech Stack
+
+- **Framework**: Next.js 14
+- **Styling**: Tailwind CSS
+- **Charts**: Nivo, Chart.js, Recharts
+- **Maps**: Leaflet
+- **Authentication**: Supabase
+- **Analytics**: Vercel Analytics
+- **UI Components**: Headless UI, Radix UI
+- **Icons**: Heroicons, React Icons
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

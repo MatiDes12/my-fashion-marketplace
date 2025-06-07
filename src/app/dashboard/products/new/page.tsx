@@ -9,6 +9,7 @@ import { PRODUCT_CATEGORIES, CATEGORY_SPECIFIC_FIELDS } from '@/utils/constants'
 import Link from 'next/link';
 import DynamicProductFields from '@/components/DynamicProductFields';
 import { withSubscriptionLimits } from '@/components/withSubscriptionLimits';
+import { toast } from 'react-hot-toast';
 
 function NewProductPage() {
   const [title, setTitle] = useState('');
@@ -27,9 +28,14 @@ function NewProductPage() {
   const [quality, setQuality] = useState('new');
   const [sizes, setSizes] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>([]);
+  const [customVariantTypes, setCustomVariantTypes] = useState<Array<{
+    name: string;
+    options: string[];
+  }>>([]);
   const [variants, setVariants] = useState<Array<{
-    size: string;
-    color: string;
+    size?: string;
+    color?: string;
+    custom_options?: { [key: string]: string };
     quantity: number;
     sku: string;
   }>>([]);
@@ -72,156 +78,115 @@ function NewProductPage() {
     setError(null);
 
     try {
-      // Validate form
-      if (!title || !description || !price || !quantity || 
-          (!category && !customCategory) ||
-          (category === 'custom' && !customCategory)) {
-        setError('Please fill in all required fields');
-        setLoading(false);
-        return;
-      }
-
-      if (images.length < 4 || images.length > 8) {
-        setError(`Please upload between 4-8 images (you have ${images.length})`);
-        setLoading(false);
-        return;
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-
+      // Get the current user's session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
       if (!session?.user) {
         throw new Error('You must be logged in to create a product');
       }
 
-      // Create product
-      const finalCategory = showCustomCategory ? customCategory : category;
-      
-      const { data, error } = await supabase
-        .from('products')
-        .insert({
+      // Validate required fields
+      if (!title || !description || !price || !category || !quantity) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Prepare variants data - flatten custom options into the variant object
+      const flattenedVariants = variants.map(variant => {
+        // Start with basic variant properties
+        const flatVariant: any = {
+          size: variant.size,
+          color: variant.color,
+          quantity: variant.quantity,
+          sku: variant.sku
+        };
+
+        // Add custom options as direct properties
+        if (variant.custom_options) {
+          Object.entries(variant.custom_options).forEach(([key, value]) => {
+            const storageKey = key.toLowerCase().replace(/\s+/g, '_');
+            flatVariant[storageKey] = value;
+          });
+        }
+
+        return flatVariant;
+      });
+
+      // Create the product data object
+      const productData = {
           title,
           description,
-          detailed_description: detailedDescription,
           price: parseFloat(price),
-          category: finalCategory,
-          owner_id: session.user.id,
-          is_active: true,
+        category: showCustomCategory ? customCategory : category,
           quantity: parseInt(quantity),
-          delivery_fee: deliveryOptions.delivery && delivery_fee ? parseFloat(delivery_fee) : null,
+        delivery_fee: delivery_fee ? parseFloat(delivery_fee) : null,
+        detailed_description: detailedDescription,
           quality,
           sizes,
           colors,
-          available_variants: variants,
-          brand,
-          material,
-          care_instructions: careInstructions,
-          measurements,
-          shipping_info: {
-            processing_time: shippingInfo.processing_time,
-            shipping_options: shippingInfo.shipping_options,
-          },
-          highlights,
-          specifications,
-          style_notes: styleNotes,
-          fit_info: fitInfo,
-          occasion,
-          season,
-          sustainability_info: sustainabilityInfo,
-          country_of_origin: countryOfOrigin,
-          warranty_info: shippingInfo.return_policy,
-          faqs,
-          delivery_options: {
-            ...deliveryOptions,
-            pickup_location: deliveryOptions.pickup ? pickupLocation : null
-          },
-        })
-        .select();
+        available_variants: flattenedVariants,
+        owner_id: session.user.id, // Add the owner_id
+        is_active: true
+      };
 
-      if (error) {
-        throw error;
-      }
+      // Insert the product
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .insert([productData])
+        .select()
+        .single();
 
-      // Upload images
+      if (productError) throw productError;
+
+      // Handle image uploads
+      if (images.length > 0) {
       try {
         for (const image of images) {
           const fileExt = image.name.split('.').pop();
-          const fileName = `${data[0].id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `${product.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
           
-          // First check if file already exists and remove it
-          const { data: existingFile } = await supabase.storage
+            // Upload image to storage
+            const { error: uploadError } = await supabase.storage
             .from('products')
-            .list(`${data[0].id}`);
+              .upload(fileName, image);
 
-          if (existingFile?.some(f => f.name === fileName)) {
-            await supabase.storage
-              .from('products')
-              .remove([fileName]);
-          }
+            if (uploadError) throw uploadError;
 
-          // Upload new file
-          const { error: uploadError, data: uploadData } = await supabase.storage
+            // Get the public URL
+            const { data: publicUrlData } = await supabase.storage
             .from('products')
-            .upload(fileName, image, {
-              cacheControl: '3600',
-              upsert: true,
-              contentType: image.type
-            });
+              .getPublicUrl(fileName);
 
-          if (uploadError) {
-            console.error('Error uploading image:', uploadError);
-            continue;
-          }
+            if (!publicUrlData?.publicUrl) {
+              throw new Error('Failed to get public URL for uploaded image');
+            }
 
-          // Get public URL
-          const { data: publicUrlData } = supabase.storage
-            .from('products')
-            .getPublicUrl(fileName);
-
-          if (publicUrlData) {
-            // Add image to product_images table
-            const { error: imageError } = await supabase
+            // Create image reference in product_images table
+            const { error: imageRefError } = await supabase
               .from('product_images')
               .insert({
-                product_id: data[0].id,
+                product_id: product.id,
                 image_url: publicUrlData.publicUrl,
                 is_model_picture: false
               });
 
-            if (imageError) {
-              console.error('Error saving image reference:', imageError);
+            if (imageRefError) {
+              console.error('Error saving image reference:', imageRefError);
+              throw imageRefError;
             }
+          }
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          // Don't throw here, allow product creation even if image upload fails
+          toast.error('Some images failed to upload');
           }
         }
 
-        setSuccess(true);
-        setTimeout(() => {
+      toast.success('Product created successfully');
           router.push('/dashboard/products');
-        }, 2000);
-      } catch (err) {
-        console.error('Error in image upload process:', err);
-        setError('Product created but there was an issue with image uploads. Please try editing the product to add images.');
-        // Still redirect after a delay since the product was created
-        setTimeout(() => {
-          router.push('/dashboard/products');
-        }, 3000);
-      } finally {
+    } catch (error) {
+      console.error('Error creating product:', error);
+      toast.error('Failed to create product');
         setLoading(false);
-      }
-    } catch (err: any) {
-      console.error('Error creating product:', err);
-      setError(err.message || 'An error occurred while creating the product');
-    }
-
-    if (!deliveryOptions.delivery && !deliveryOptions.pickup) {
-      setError('Please select at least one delivery option');
-      setLoading(false);
-      return;
-    }
-
-    if (deliveryOptions.delivery && !delivery_fee) {
-      setError('Please set a delivery fee');
-      setLoading(false);
-      return;
     }
   };
 
@@ -821,47 +786,240 @@ function NewProductPage() {
                         value={colors.join(', ')}
                         onChange={(e) => setColors(e.target.value.split(',').map(c => c.trim()))}
                         placeholder="Enter colors (comma-separated)"
-                        className={inputClasses}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
                       />
                       </div>
                   </div>
 
-                  {/* Variants */}
+                  {/* Custom Variant Types */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
-                      Product Variants
+                      Custom Variant Types
                     </label>
                     <div className="mt-2 space-y-4">
-                      {sizes.map(size => 
-                        colors.map(color => (
-                          <div key={`${size}-${color}`} className="flex items-center space-x-4">
-                            <span className="w-24">{size} - {color}</span>
+                      {customVariantTypes.map((variantType, index) => (
+                        <div key={index} className="bg-white p-4 rounded-md border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <input
+                              type="text"
+                              value={variantType.name}
+                              onChange={(e) => {
+                                const newTypes = [...customVariantTypes];
+                                newTypes[index].name = e.target.value;
+                                setCustomVariantTypes(newTypes);
+                              }}
+                              placeholder="Variant type name (e.g., Material)"
+                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newTypes = customVariantTypes.filter((_, i) => i !== index);
+                                setCustomVariantTypes(newTypes);
+                              }}
+                              className="ml-2 p-1 text-red-600 hover:text-red-800"
+                            >
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={variantType.options.join(', ')}
+                            onChange={(e) => {
+                              const newTypes = [...customVariantTypes];
+                              newTypes[index].options = e.target.value.split(',').map(o => o.trim());
+                              setCustomVariantTypes(newTypes);
+                            }}
+                            placeholder="Enter options (comma-separated)"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                          />
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomVariantTypes([
+                            ...customVariantTypes,
+                            { name: '', options: [] }
+                          ]);
+                        }}
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Custom Variant Type
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Variants */}
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Available Variants</h4>
+                    <div className="space-y-4">
+                      {variants.map((variant, index) => (
+                        <div key={index} className="bg-white p-4 rounded-md border border-gray-200">
+                          <div className="grid grid-cols-2 gap-4">
+                            {sizes.length > 0 && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">Size</label>
+                                <select
+                                  value={variant.size || ''}
+                                  onChange={(e) => {
+                                    const newVariants = [...variants];
+                                    newVariants[index].size = e.target.value;
+                                    setVariants(newVariants);
+                                  }}
+                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                >
+                                  <option value="">Select Size</option>
+                                  {sizes.map((size) => (
+                                    <option key={size} value={size}>{size}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                            
+                            {colors.length > 0 && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700">Color</label>
+                                <select
+                                  value={variant.color || ''}
+                                  onChange={(e) => {
+                                    const newVariants = [...variants];
+                                    newVariants[index].color = e.target.value;
+                                    setVariants(newVariants);
+                                  }}
+                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                >
+                                  <option value="">Select Color</option>
+                                  {colors.map((color) => (
+                                    <option key={color} value={color}>{color}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            {/* Custom Variant Options */}
+                            {customVariantTypes.map((variantType, typeIndex) => (
+                              <div key={typeIndex}>
+                                <label className="block text-sm font-medium text-gray-700">{variantType.name}</label>
+                                <select
+                                  value={variant.custom_options?.[variantType.name] || ''}
+                                  onChange={(e) => {
+                                    const newVariants = [...variants];
+                                    if (!newVariants[index].custom_options) {
+                                      newVariants[index].custom_options = {};
+                                    }
+                                    newVariants[index].custom_options[variantType.name] = e.target.value;
+
+                                    // Update SKU
+                                    const skuParts = [];
+                                    if (newVariants[index].size) skuParts.push(newVariants[index].size);
+                                    if (newVariants[index].color) skuParts.push(newVariants[index].color);
+                                    Object.values(newVariants[index].custom_options).forEach(value => {
+                                      if (value) skuParts.push(value);
+                                    });
+                                    newVariants[index].sku = skuParts.join('-').toLowerCase().replace(/\s+/g, '_');
+
+                                    setVariants(newVariants);
+                                  }}
+                                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                                >
+                                  <option value="">Select {variantType.name}</option>
+                                  {variantType.options.map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="mt-4 grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">Quantity</label>
                       <input
                         type="number"
-                              placeholder="Quantity"
                         min="0"
+                                value={variant.quantity}
                               onChange={(e) => {
                                 const newVariants = [...variants];
-                                const variantIndex = variants.findIndex(
-                                  v => v.size === size && v.color === color
-                                );
-                                if (variantIndex >= 0) {
-                                  newVariants[variantIndex].quantity = parseInt(e.target.value);
-                                } else {
-                                  newVariants.push({
-                                    size,
-                                    color,
-                                    quantity: parseInt(e.target.value),
-                                    sku: `${size}-${color}`
-                                  });
-                                }
+                                  newVariants[index].quantity = parseInt(e.target.value) || 0;
                                 setVariants(newVariants);
                               }}
-                              className={inputClasses}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
                       />
                     </div>
-                        ))
-                      )}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700">SKU</label>
+                              <input
+                                type="text"
+                                value={variant.sku}
+                                onChange={(e) => {
+                                  const newVariants = [...variants];
+                                  newVariants[index].sku = e.target.value;
+                                  setVariants(newVariants);
+                                }}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVariants(variants.filter((_, i) => i !== index));
+                            }}
+                            className="mt-2 text-sm text-red-600 hover:text-red-800"
+                          >
+                            Remove Variant
+                          </button>
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Generate a base variant
+                          const baseVariant = {
+                            size: sizes[0] || undefined,
+                            color: colors[0] || undefined,
+                            quantity: 0,
+                            sku: ''
+                          };
+
+                          // Add custom options if they exist
+                          const customOptions: { [key: string]: string } = {};
+                          customVariantTypes.forEach(type => {
+                            if (type.options.length > 0) {
+                              customOptions[type.name] = type.options[0];
+                            }
+                          });
+
+                          // Generate SKU
+                          const skuParts = [];
+                          if (baseVariant.size) skuParts.push(baseVariant.size);
+                          if (baseVariant.color) skuParts.push(baseVariant.color);
+                          Object.values(customOptions).forEach(value => skuParts.push(value));
+                          baseVariant.sku = skuParts.join('-').toLowerCase().replace(/\s+/g, '_');
+
+                          setVariants([
+                            ...variants,
+                            {
+                              ...baseVariant,
+                              custom_options: customOptions
+                            }
+                          ]);
+                        }}
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Variant
+                      </button>
                     </div>
                   </div>
 

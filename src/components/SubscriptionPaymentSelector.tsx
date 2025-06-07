@@ -7,20 +7,23 @@ interface PaymentMethod {
   name: string;
   logo: string;
   description: string;
+  isAvailable: boolean;
 }
 
 const PAYMENT_METHODS: PaymentMethod[] = [
   {
     id: 'telebirr',
-    name: 'Telebirr',
+    name: 'Telebirr (Coming Soon)',
     logo: '/images/payment-methods/telebirr-logo.png',
-    description: 'Pay directly with your Telebirr mobile wallet'
+    description: 'Coming soon - Pay directly with your Telebirr mobile wallet',
+    isAvailable: false
   },
   {
     id: 'chapa',
     name: 'Chapa',
     logo: '/images/payment-methods/chapa-logo.png',
-    description: 'Pay with bank transfer, card, or mobile money'
+    description: 'Pay with bank transfer, card, or mobile money',
+    isAvailable: true
   }
 ];
 
@@ -37,12 +40,14 @@ export default function SubscriptionPaymentSelector({ selectedMethod, onSelect }
         {PAYMENT_METHODS.map((method) => (
           <div
             key={method.id}
-            onClick={() => onSelect(method.id)}
+            onClick={() => method.isAvailable && onSelect(method.id)}
             className={`
               relative flex items-center p-4 cursor-pointer rounded-xl transition-all
               ${selectedMethod === method.id 
                 ? 'bg-indigo-50 border-2 border-indigo-500 shadow-sm' 
-                : 'bg-white border border-gray-200 hover:border-indigo-200 hover:bg-gray-50'
+                : method.isAvailable
+                  ? 'bg-white border border-gray-200 hover:border-indigo-200 hover:bg-gray-50'
+                  : 'bg-gray-50 border border-gray-200 opacity-75 cursor-not-allowed'
               }
             `}
           >
@@ -55,24 +60,33 @@ export default function SubscriptionPaymentSelector({ selectedMethod, onSelect }
                   className="object-contain"
                 />
               </div>
-              <div className="ml-4 flex-1 min-w-0">
+              <div className="ml-4 flex-1">
                 <div className="flex items-center justify-between">
-                  <p className={`text-lg font-semibold ${
-                    selectedMethod === method.id ? 'text-indigo-700' : 'text-gray-900'
-                  }`}>
-                    {method.name}
-                  </p>
-                  <div className={`
-                    w-6 h-6 rounded-full border-2 flex items-center justify-center
-                    ${selectedMethod === method.id 
-                      ? 'border-indigo-500 bg-indigo-500' 
-                      : 'border-gray-300'
-                    }
-                  `}>
-                    {selectedMethod === method.id && (
-                      <div className="w-3 h-3 rounded-full bg-white" />
+                  <div className="flex items-center gap-2">
+                    <p className={`text-lg font-semibold ${
+                      selectedMethod === method.id ? 'text-indigo-700' : 'text-gray-900'
+                    }`}>
+                      {method.name}
+                    </p>
+                    {!method.isAvailable && (
+                      <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                        Coming Soon
+                      </span>
                     )}
                   </div>
+                  {method.isAvailable && (
+                    <div className={`
+                      w-6 h-6 rounded-full border-2 flex items-center justify-center
+                      ${selectedMethod === method.id 
+                        ? 'border-indigo-500 bg-indigo-500' 
+                        : 'border-gray-300'
+                      }
+                    `}>
+                      {selectedMethod === method.id && (
+                        <div className="w-3 h-3 rounded-full bg-white" />
+                      )}
+                    </div>
+                  )}
                 </div>
                 <p className={`mt-1 text-sm ${
                   selectedMethod === method.id ? 'text-indigo-600' : 'text-gray-500'

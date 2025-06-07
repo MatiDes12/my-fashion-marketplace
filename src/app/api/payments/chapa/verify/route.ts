@@ -42,9 +42,9 @@ export async function GET(request: Request) {
     const verifyResponse = await fetch(
       `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
       {
-        headers: {
+      headers: {
           Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY!}`,
-          'Content-Type': 'application/json'
+        'Content-Type': 'application/json'
         }
       }
     );
@@ -61,15 +61,15 @@ export async function GET(request: Request) {
       ? `https://checkout.chapa.co/checkout/test-payment-receipt/${verifyData.data.reference}`
       : null;
 
-    console.log('[CHAPA VERIFY] Receipt URL:', receiptUrl);
+      console.log('[CHAPA VERIFY] Receipt URL:', receiptUrl);
 
-    return NextResponse.json({
+      return NextResponse.json({
       status: 'success',
-      data: {
-        ...verifyData.data,
-        receipt_url: receiptUrl
-      }
-    });
+        data: {
+          ...verifyData.data,
+          receipt_url: receiptUrl
+        }
+      });
 
   } catch (error) {
     console.error('[CHAPA VERIFY] Error:', error);

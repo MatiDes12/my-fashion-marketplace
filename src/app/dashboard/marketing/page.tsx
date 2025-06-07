@@ -30,43 +30,49 @@ const marketingTabs = [
 ];
 
 export default function MarketingPage() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClientComponent();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<string>('basic');
 
   useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        // Get session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          router.push('/login?message=Please login to access the dashboard');
-          return;
-        }
-        
-        // Check role
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (error || data?.role !== 'owner') {
-          router.push('/');
-          return;
-        }
-      } catch (error) {
-        setError('Failed to verify access permissions');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     checkAccess();
-  }, [router]);
+  }, [pathname]);
+
+  const checkAccess = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login?message=Please login to access marketing tools');
+        return;
+      }
+
+      // Get user's subscription plan
+      const { data: userData } = await supabase
+        .from('users')
+        .select('subscription_plan')
+        .eq('id', session.user.id)
+        .single();
+
+      const plan = userData?.subscription_plan || 'basic';
+      setSubscription(plan);
+
+      // If trying to access flash sales with basic plan, redirect
+      if (pathname?.includes('flash-sales') && plan === 'basic') {
+        router.push('/dashboard/marketing?error=Flash sales require Pro or Enterprise subscription');
+        return;
+      }
+
+    } catch (err) {
+      console.error('Error checking access:', err);
+      setError('Failed to verify access');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="py-6">

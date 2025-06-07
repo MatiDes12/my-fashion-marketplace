@@ -5,6 +5,7 @@ import { createClientComponent } from '@/lib/supabase';
 import { formatCurrency } from '@/utils/currency';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 interface FlashSale {
   id: string;
@@ -45,6 +46,9 @@ export default function SellerFlashSalesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [categories, setCategories] = useState<string[]>([]);
   const [user, setUser] = useState<any>(null);
+  const [subscription, setSubscription] = useState<string>('basic');
+  const [monthlyUsage, setMonthlyUsage] = useState(0);
+  const router = useRouter();
 
   const supabase = createClientComponent();
 
@@ -63,6 +67,66 @@ export default function SellerFlashSalesPage() {
       fetchCategories();
     }
   }, [user]);
+
+  useEffect(() => {
+    checkSubscriptionAndUsage();
+  }, []);
+
+  const checkSubscriptionAndUsage = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      // Get user's subscription
+      const { data: userData } = await supabase
+        .from('users')
+        .select('subscription_plan')
+        .eq('id', session.user.id)
+        .single();
+
+      const plan = userData?.subscription_plan || 'basic';
+      setSubscription(plan);
+
+      if (plan === 'basic') {
+        toast.error('Flash sales require Pro or Enterprise subscription');
+        router.push('/dashboard/marketing');
+        return;
+      }
+
+      // If Pro, check monthly usage
+      if (plan === 'pro') {
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const { data: flashSales, error } = await supabase
+          .from('flash_sales')
+          .select('id')
+          .eq('created_by', session.user.id)
+          .gte('created_at', startOfMonth.toISOString());
+
+        if (error) throw error;
+
+        setMonthlyUsage(flashSales?.length || 0);
+
+        if ((flashSales?.length || 0) >= 5) {
+          toast.error('Monthly flash sales limit reached. Upgrade to Enterprise for unlimited flash sales.');
+          router.push('/dashboard/marketing');
+          return;
+        }
+      }
+
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      toast.error('Failed to verify subscription status');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchMyFlashSales = async () => {
     try {
@@ -125,6 +189,12 @@ export default function SellerFlashSalesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (subscription === 'pro' && monthlyUsage >= 5) {
+      toast.error('Monthly flash sales limit reached. Upgrade to Enterprise for unlimited flash sales.');
+      return;
+    }
+
     try {
       if (!user) {
         toast.error('Please login to create a flash sale');

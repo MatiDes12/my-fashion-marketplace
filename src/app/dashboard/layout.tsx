@@ -74,6 +74,7 @@ export default function DashboardLayout({
         const { data: { session } } = await supabase.auth.refreshSession();
         
         if (!session) {
+          console.log('No session found, redirecting to login');
           router.push('/login?message=Please login to access the dashboard');
           return;
         }
@@ -87,14 +88,30 @@ export default function DashboardLayout({
         
         if (error) {
           console.error('Error fetching user role:', error);
+          toast.error('Error verifying permissions');
           router.push('/login?message=Error verifying permissions');
           return;
         }
         
-        if (data?.role !== 'owner') {
+        if (!data) {
+          console.error('No user data found');
+          toast.error('User data not found');
+          router.push('/login?message=User data not found');
+          return;
+        }
+        
+        if (data.role !== 'owner') {
+          console.log('Access denied - not an owner');
+          toast.error('Access denied - Insufficient permissions');
           router.push('/?message=Access denied');
           return;
         }
+
+        console.log('User verified:', {
+          role: data.role,
+          is_verified: data.is_verified,
+          verification_status: data.verification_status
+        });
 
         // Only show sidebar if verified
         setIsVerified(data.is_verified);
@@ -103,6 +120,7 @@ export default function DashboardLayout({
         setIsAuthorized(true);
       } catch (error) {
         console.error('Error checking access:', error);
+        toast.error('Authentication error');
         router.push('/login?message=Authentication error');
       } finally {
         setIsLoading(false);
@@ -113,6 +131,7 @@ export default function DashboardLayout({
     
     // Auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session) => {
+      console.log('Auth state changed:', event);
       if (event === 'SIGNED_OUT') {
         router.push('/login?message=You have been signed out');
       } else if (event === 'TOKEN_REFRESHED' && !session) {

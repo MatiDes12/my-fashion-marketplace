@@ -165,91 +165,91 @@ export default function AdminPaymentSettingsPage() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700">Telebirr Number</label>
-              <input
-                type="text"
-                value={settings.telebirr_number}
-                onChange={(e) => setSettings({...settings, telebirr_number: e.target.value})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <input
+              type="text"
+              value={settings.telebirr_number}
+              onChange={(e) => setSettings({...settings, telebirr_number: e.target.value})}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700">Telebirr Name</label>
-              <input
-                type="text"
-                value={settings.telebirr_name}
-                onChange={(e) => setSettings({...settings, telebirr_name: e.target.value})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <input
+              type="text"
+              value={settings.telebirr_name}
+              onChange={(e) => setSettings({...settings, telebirr_name: e.target.value})}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700">Merchant App ID</label>
-              <input
-                type="text"
-                value={settings.merchant_app_id}
-                onChange={(e) => setSettings({...settings, merchant_app_id: e.target.value})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <input
+              type="text"
+              value={settings.merchant_app_id}
+              onChange={(e) => setSettings({...settings, merchant_app_id: e.target.value})}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700">Fabric App ID</label>
-              <input
-                type="text"
-                value={settings.fabric_app_id}
-                onChange={(e) => setSettings({...settings, fabric_app_id: e.target.value})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <input
+              type="text"
+              value={settings.fabric_app_id}
+              onChange={(e) => setSettings({...settings, fabric_app_id: e.target.value})}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div>
+          <div>
               <label className="block text-sm font-medium text-gray-700">Short Code</label>
-              <input
-                type="text"
-                value={settings.short_code}
-                onChange={(e) => setSettings({...settings, short_code: e.target.value})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <input
+              type="text"
+              value={settings.short_code}
+              onChange={(e) => setSettings({...settings, short_code: e.target.value})}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div className="col-span-2">
+          <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700">App Secret</label>
-              <textarea
-                value={settings.app_secret}
-                onChange={(e) => setSettings({...settings, app_secret: e.target.value})}
-                rows={2}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <textarea
+              value={settings.app_secret}
+              onChange={(e) => setSettings({...settings, app_secret: e.target.value})}
+              rows={2}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div className="col-span-2">
+          <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700">Private Key</label>
-              <textarea
-                value={settings.private_key}
-                onChange={(e) => setSettings({...settings, private_key: e.target.value})}
-                rows={4}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <textarea
+              value={settings.private_key}
+              onChange={(e) => setSettings({...settings, private_key: e.target.value})}
+              rows={4}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div className="col-span-2">
+          <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700">Notify URL</label>
-              <input
-                type="url"
-                value={settings.notify_url}
-                onChange={(e) => setSettings({...settings, notify_url: e.target.value})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-            </div>
+            <input
+              type="url"
+              value={settings.notify_url}
+              onChange={(e) => setSettings({...settings, notify_url: e.target.value})}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
 
-            <div className="col-span-2">
+          <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700">Redirect URL</label>
-              <input
-                type="url"
-                value={settings.redirect_url}
-                onChange={(e) => setSettings({...settings, redirect_url: e.target.value})}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            <input
+              type="url"
+              value={settings.redirect_url}
+              onChange={(e) => setSettings({...settings, redirect_url: e.target.value})}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               />
             </div>
 
@@ -273,14 +273,14 @@ export default function AdminPaymentSettingsPage() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Chapa Settings</h2>
             <label className="flex items-center">
-              <input
-                type="checkbox"
+          <input
+            type="checkbox"
                 checked={settings.chapa_is_active}
                 onChange={(e) => setSettings({...settings, chapa_is_active: e.target.checked})}
                 className="h-4 w-4 text-indigo-600"
-              />
+          />
               <span className="ml-2">Active</span>
-            </label>
+          </label>
           </div>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">

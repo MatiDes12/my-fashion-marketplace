@@ -361,14 +361,14 @@ export default function TransactionsPage() {
               accessor: 'payment_status',
               cell: (row) => (
                 <div className="flex flex-col gap-1">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
                     ${row.payment_status === 'paid' ? 
-                      'bg-green-100 text-green-800' : 
+                    'bg-green-100 text-green-800' : 
                       row.payment_status === 'failed' ?
                       'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'}`}>
-                    {row.payment_status}
-                  </span>
+                    'bg-yellow-100 text-yellow-800'}`}>
+                  {row.payment_status}
+                </span>
                 </div>
               )
             },

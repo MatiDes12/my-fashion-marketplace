@@ -498,6 +498,7 @@ export default function ProductDetailPage() {
   const [isBuying, setIsBuying] = useState(false);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedCustomOptions, setSelectedCustomOptions] = useState<{[key: string]: string}>({});
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<TabType>('details');
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -512,81 +513,81 @@ export default function ProductDetailPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        
-        // First get the current user's session
-        const { data: { session } } = await supabase.auth.getSession();
-        
+      
+      // First get the current user's session
+      const { data: { session } } = await supabase.auth.getSession();
+      
         // Fetch product with all related data including ratings
-        const { data: product, error } = await supabase
-          .from('products')
-          .select(`
-            *,
+      const { data: product, error } = await supabase
+        .from('products')
+        .select(`
+          *,
             product_images (*),
-            owner:users!products_owner_id_fkey (
-              id,
-              full_name,
-              email,
-              store_settings,
-              verification_status
-            ),
+          owner:users!products_owner_id_fkey (
+            id,
+            full_name,
+            email,
+            store_settings,
+            verification_status
+          ),
             ratings (
-              id,
-              rating,
-              comment,
-              created_at,
+            id,
+            rating,
+            comment,
+            created_at,
               user:users (
-                id,
-                full_name
-              )
+              id,
+              full_name
             )
-          `)
-          .eq('id', productId)
-          .single();
+          )
+        `)
+        .eq('id', productId)
+        .single();
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // Get flash sale price if available
-        const flashSalePrices = await getFlashSalePrices([productId]);
-
+      // Get flash sale price if available
+      const flashSalePrices = await getFlashSalePrices([productId]);
+      
         // Calculate average rating and total ratings
-        const ratings = product.ratings || [];
-        const totalRatings = ratings.length;
-        const averageRating = totalRatings > 0
+      const ratings = product.ratings || [];
+      const totalRatings = ratings.length;
+      const averageRating = totalRatings > 0
           ? ratings.reduce((sum: number, curr: { rating?: number }) => sum + (curr.rating || 0), 0) / totalRatings
-          : 0;
+        : 0;
 
         // Get user's rating if logged in
-        let userRating = null;
-        if (session?.user) {
-          const { data: userRatingData } = await supabase
-            .from('ratings')
-            .select('*')
-            .eq('product_id', productId)
-            .eq('user_id', session.user.id)
-            .single();
-          
-          userRating = userRatingData;
-        }
+      let userRating = null;
+      if (session?.user) {
+        const { data: userRatingData } = await supabase
+          .from('ratings')
+          .select('*')
+          .eq('product_id', productId)
+          .eq('user_id', session.user.id)
+          .single();
+        
+        userRating = userRatingData;
+      }
 
         // Process the store settings and create the final product object
-        const processedProduct = {
-          ...product,
-          flash_sale_price: flashSalePrices[productId],
-          like_count: product.likes?.[0]?.count || 0,
-          users: {
+      const processedProduct = {
+        ...product,
+        flash_sale_price: flashSalePrices[productId],
+        like_count: product.likes?.[0]?.count || 0,
+        users: {
             id: product.owner?.id,
             full_name: product.owner?.full_name,
             email: product.owner?.email,
             verification_status: product.owner?.verification_status,
             store_settings: typeof product.owner?.store_settings === 'string' 
-              ? JSON.parse(product.owner.store_settings)
+            ? JSON.parse(product.owner.store_settings)
               : product.owner?.store_settings || {}
-          },
+        },
           product_images: product.product_images || [],
-          average_rating: Number(averageRating.toFixed(1)),
-          total_ratings: totalRatings,
-          user_rating: userRating,
-          reviews: ratings
+        average_rating: Number(averageRating.toFixed(1)),
+        total_ratings: totalRatings,
+        user_rating: userRating,
+        reviews: ratings
             .filter((r: { comment?: string }) => r.comment) // Only include ratings with comments as reviews
             .map((r: { 
               id: string; 
@@ -595,27 +596,27 @@ export default function ProductDetailPage() {
               created_at: string;
               user: { id: string; full_name: string; }
             }) => ({
-              id: r.id,
-              rating: r.rating,
-              comment: r.comment,
-              created_at: r.created_at,
+            id: r.id,
+            rating: r.rating,
+            comment: r.comment,
+            created_at: r.created_at,
               user: r.user
-            }))
+          }))
             .sort((a: { created_at: string }, b: { created_at: string }) => 
               new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             )
-        };
+      };
 
-        setProduct(processedProduct);
-        setAvailableQuantity(product.quantity);
-        
-      } catch (error) {
-        console.error('Error fetching product:', error);
-        setError('Failed to load product');
-      } finally {
-        setLoading(false);
-      }
-    };
+      setProduct(processedProduct);
+      setAvailableQuantity(product.quantity);
+
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      setError('Failed to load product');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (productId) {
@@ -694,23 +695,30 @@ export default function ProductDetailPage() {
     }
   };
   
-  const handleOptionChange = (type: 'size' | 'color', value: string) => {
+  const handleOptionChange = (type: string, value: string) => {
     if (type === 'size') {
       setSelectedSize(value);
-    } else {
+    } else if (type === 'color') {
       setSelectedColor(value);
+    } else {
+      setSelectedCustomOptions(prev => ({
+        ...prev,
+        [type]: value
+      }));
     }
 
     // Find matching variant
     if (product?.available_variants) {
-      const variant = product.available_variants.find(v => 
-        type === 'size' 
-          ? v.size === value && (!selectedColor || v.color === selectedColor)
-          : v.color === value && (!selectedSize || v.size === selectedSize)
-      );
-      setSelectedVariant(variant);
+      const variant = product.available_variants.find(v => {
+        const sizeMatch = !v.size || v.size === selectedSize;
+        const colorMatch = !v.color || v.color === selectedColor;
+        const customMatch = Object.entries({...selectedCustomOptions, [type]: value}).every(([key, val]) => 
+          !v[key.toLowerCase()] || v[key.toLowerCase()] === val
+        );
+        return sizeMatch && colorMatch && customMatch;
+      });
       
-      // Reset error
+      setSelectedVariant(variant);
       setError(null);
     }
   };
@@ -724,37 +732,55 @@ export default function ProductDetailPage() {
         return;
       }
 
-    if (!product) {
-      toast.error('Product not found');
-      return;
-    }
-      
-    // Clear previous validation errors
-    setValidationError(null);
-
-    // Check if product has variants and validate selections
-    if (product.sizes?.length > 0 || product.colors?.length > 0) {
-      if (product.sizes?.length > 0 && !selectedSize) {
-        setValidationError('Please select a size');
-        toast.error('Please select a size');
-        // Scroll to size selector
-        document.querySelector('.size-selector')?.scrollIntoView({ behavior: 'smooth' });
+      if (!product) {
+        toast.error('Product not found');
         return;
       }
       
-      if (product.colors?.length > 0 && !selectedColor) {
-        setValidationError('Please select a color');
-        toast.error('Please select a color');
-        // Scroll to color selector
-        document.querySelector('.color-selector')?.scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
+      // Clear previous validation errors
+      setValidationError(null);
 
-      // If product has variants, check if selected combination exists
+      // Check if product has variants and validate selections
       if (product.available_variants?.length > 0) {
-        const variant = product.available_variants.find(
-          v => v.size === selectedSize && v.color === selectedColor
+        // Validate size selection
+        if (product.sizes?.length > 0 && !selectedSize) {
+          setValidationError('Please select a size');
+          toast.error('Please select a size');
+          document.querySelector('.size-selector')?.scrollIntoView({ behavior: 'smooth' });
+          return;
+        }
+        
+        // Validate color selection
+        if (product.colors?.length > 0 && !selectedColor) {
+          setValidationError('Please select a color');
+          toast.error('Please select a color');
+          document.querySelector('.color-selector')?.scrollIntoView({ behavior: 'smooth' });
+          return;
+        }
+
+        // Validate custom variant selections
+        const customVariantTypes = Object.keys(product.available_variants[0]).filter(
+          key => !['size', 'color', 'quantity', 'sku'].includes(key)
         );
+
+        for (const type of customVariantTypes) {
+          if (!selectedCustomOptions[type]) {
+            setValidationError(`Please select ${type}`);
+            toast.error(`Please select ${type}`);
+            document.querySelector(`.${type.toLowerCase()}-selector`)?.scrollIntoView({ behavior: 'smooth' });
+            return;
+          }
+        }
+
+        // Find matching variant
+        const variant = product.available_variants.find(v => {
+          const sizeMatch = !v.size || v.size === selectedSize;
+          const colorMatch = !v.color || v.color === selectedColor;
+          const customMatch = Object.entries(selectedCustomOptions).every(([key, val]) => 
+            !v[key.toLowerCase()] || v[key.toLowerCase()] === val
+          );
+          return sizeMatch && colorMatch && customMatch;
+        });
 
         if (!variant) {
           setValidationError('Selected combination is not available');
@@ -768,40 +794,46 @@ export default function ProductDetailPage() {
           return;
         }
       }
-    }
-    
-    setIsAddingToCart(true);
-    
-    try {
-      const cartItem = {
-            user_id: session.user.id,
-            product_id: productId,
-            quantity: quantity,
-        price: product.flash_sale_price || product.price,
-        delivery_fee: product.delivery_fee || 0,
-        selected_size: selectedSize || null,
-        selected_color: selectedColor || null,
-        selected_variant_sku: selectedVariant?.sku || null
-      };
-
-      const { error: insertError } = await supabase
-        .from('cart_items')
-        .upsert(cartItem, {
-          onConflict: 'user_id,product_id',
-          ignoreDuplicates: false
-          });
-        
-        if (insertError) throw insertError;
       
-      toast.success('Added to cart');
-      router.push('/cart'); // Changed from /checkout to /cart
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      toast.error('Failed to add to cart');
-    } finally {
-      setIsAddingToCart(false);
-    }
-  };
+      setIsAddingToCart(true);
+      
+      try {
+        // Create a variant SKU string that includes all variant information
+        const variantSku = selectedVariant?.sku || [
+          selectedSize,
+          selectedColor,
+          ...Object.entries(selectedCustomOptions).map(([key, value]) => `${key.toLowerCase()}-${value}`)
+        ].filter(Boolean).join('_');
+
+        const cartItem = {
+          user_id: session.user.id,
+          product_id: productId,
+          quantity: quantity,
+          price: product.flash_sale_price || product.price,
+          delivery_fee: product.delivery_fee || 0,
+          selected_size: selectedSize || null,
+          selected_color: selectedColor || null,
+          selected_variant_sku: variantSku || null
+        };
+
+        const { error: insertError } = await supabase
+          .from('cart_items')
+          .upsert(cartItem, {
+            onConflict: 'user_id,product_id',
+            ignoreDuplicates: false
+          });
+          
+        if (insertError) throw insertError;
+        
+        toast.success('Added to cart');
+        router.push('/cart');
+      } catch (error) {
+        console.error('Error adding to cart:', error);
+        toast.error('Failed to add to cart');
+      } finally {
+        setIsAddingToCart(false);
+      }
+    };
   
   const buyNow = async () => {
     try {
@@ -1095,10 +1127,10 @@ export default function ProductDetailPage() {
                             <path 
                               fillRule="evenodd" 
                               d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
-                              />
-                            </svg>
-                          </div>
-                        )}
+                            />
+                          </svg>
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
@@ -1146,8 +1178,8 @@ export default function ProductDetailPage() {
                           ))}
                   </div>
                   </div>
-                    )}
-
+            )}
+            
                     {/* Color Selector */}
                     {product.colors && product.colors.length > 0 && (
                       <div className="mb-4 color-selector">
@@ -1177,6 +1209,42 @@ export default function ProductDetailPage() {
                       </div>
                     )}
 
+                    {/* Custom Variant Selectors */}
+                    {Object.keys(product.available_variants[0]).map(key => {
+                      if (['size', 'color', 'quantity', 'sku'].includes(key)) return null;
+                      
+                      const options = Array.from(new Set(product.available_variants.map(v => v[key])));
+                      if (!options.length) return null;
+
+                      return (
+                        <div key={key} className={`mb-4 ${key.toLowerCase()}-selector`}>
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-gray-900">Select {key}</h3>
+                            {validationError && !selectedCustomOptions[key] && (
+                              <span className="text-sm text-red-600">* Required</span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {options.map((option) => (
+                              <button
+                                key={option}
+                                onClick={() => handleOptionChange(key, option)}
+                                className={`px-4 py-2 text-sm font-medium rounded-md ${
+                                  selectedCustomOptions[key] === option
+                                    ? 'bg-gray-900 text-white'
+                                    : validationError && !selectedCustomOptions[key]
+                                    ? 'bg-white border border-red-300 text-gray-900 hover:bg-gray-50'
+                                    : 'bg-white border border-gray-200 text-gray-900 hover:bg-gray-50'
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
                     {/* Validation Error Message */}
                     {validationError && (
                       <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -1190,7 +1258,11 @@ export default function ProductDetailPage() {
                     {selectedVariant && (
                       <div className="mt-4 p-4 bg-gray-50 rounded-md">
                         <p className="text-sm text-gray-600">
-                          Selected: {selectedSize} / {selectedColor}
+                          Selected: {[
+                            selectedSize,
+                            selectedColor,
+                            ...Object.entries(selectedCustomOptions).map(([key, value]) => `${key}: ${value}`)
+                          ].filter(Boolean).join(' / ')}
                         </p>
                         <p className="text-sm text-gray-600">
                           Available: {selectedVariant.quantity} items
@@ -1387,15 +1459,15 @@ export default function ProductDetailPage() {
                           <li key={index} className="flex items-start">
                             <svg className="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
+                  </svg>
                             <span className="text-sm text-gray-600">{highlight}</span>
                           </li>
                         ))}
                       </ul>
-                    </div>
+            </div>
                   )}
-                </div>
-              </div>
+          </div>
+        </div>
             )}
 
             {/* Specifications Tab */}

@@ -662,19 +662,19 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                           {/* Store Name and Email - Full width container */}
                           <div className="sm:col-span-6">
                             <div className="grid grid-cols-1 gap-y-6 sm:grid-cols-2 sm:gap-x-6">
-                              {/* Store Name */}
+                          {/* Store Name */}
                               <div className="sm:col-span-1">
-                                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                                   Store Name
-                                </label>
-                                <div className="mt-1">
-                                  <input
-                                    type="text"
-                                    name="name"
-                                    id="name"
-                                    value={storeData.name}
-                                    onChange={handleInputChange}
-                                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                            </label>
+                            <div className="mt-1">
+                              <input
+                                type="text"
+                                name="name"
+                                id="name"
+                                value={storeData.name}
+                                onChange={handleInputChange}
+                                className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                                     placeholder="Your store name"
                                   />
                                 </div>
