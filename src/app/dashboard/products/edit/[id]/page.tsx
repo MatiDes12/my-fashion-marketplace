@@ -152,6 +152,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         setQuality(product.quality || 'new');
         setSizes(product.sizes || []);
         setColors(product.colors || []);
+        
+        // Handle brand - prioritize root level brand over specifications.brand
+        setBrand(product.brand || product.specifications?.brand || '');
+        
+        // Remove brand from specifications if it exists
+        const specs = { ...product.specifications };
+        delete specs.brand;
+        setSpecifications(specs);
 
         // Extract custom variant types from available variants
         if (product.available_variants && Array.isArray(product.available_variants)) {
@@ -208,7 +216,6 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           return_policy: ''
         });
         setHighlights(product.highlights || []);
-        setSpecifications(product.specifications || {});
         setStyleNotes(product.style_notes || '');
         setFitInfo(product.fit_info || '');
         setOccasion(product.occasion || []);
@@ -311,7 +318,11 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           measurements,
           shipping_info: shippingInfo,
           highlights,
-          specifications,
+          specifications: {
+            ...specifications,
+            // Remove brand from specifications if it exists
+            ...(specifications.brand ? { } : {})
+          },
           style_notes: styleNotes,
           fit_info: fitInfo,
           occasion,
@@ -320,8 +331,9 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           country_of_origin: countryOfOrigin,
           warranty_info: warrantyInfo,
           faqs,
+          delivery_time: deliveryOptions.delivery_time,
           delivery_options: deliveryOptions,
-          owner_id: session.user.id // Ensure owner_id is set
+          owner_id: session.user.id
         })
         .eq('id', params.id)
         .eq('owner_id', session.user.id); // Only allow update if user owns the product

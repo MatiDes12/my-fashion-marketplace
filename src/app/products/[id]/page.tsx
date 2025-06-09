@@ -732,10 +732,10 @@ export default function ProductDetailPage() {
         return;
       }
 
-      if (!product) {
-        toast.error('Product not found');
-        return;
-      }
+    if (!product) {
+      toast.error('Product not found');
+      return;
+    }
       
       // Clear previous validation errors
       setValidationError(null);
@@ -756,8 +756,8 @@ export default function ProductDetailPage() {
           toast.error('Please select a color');
           document.querySelector('.color-selector')?.scrollIntoView({ behavior: 'smooth' });
           return;
-        }
-
+      }
+      
         // Validate custom variant selections
         const customVariantTypes = Object.keys(product.available_variants[0]).filter(
           key => !['size', 'color', 'quantity', 'sku'].includes(key)
@@ -806,9 +806,9 @@ export default function ProductDetailPage() {
         ].filter(Boolean).join('_');
 
         const cartItem = {
-          user_id: session.user.id,
-          product_id: productId,
-          quantity: quantity,
+            user_id: session.user.id,
+            product_id: productId,
+            quantity: quantity,
           price: product.flash_sale_price || product.price,
           delivery_fee: product.delivery_fee || 0,
           selected_size: selectedSize || null,
@@ -822,18 +822,18 @@ export default function ProductDetailPage() {
             onConflict: 'user_id,product_id',
             ignoreDuplicates: false
           });
-          
-        if (insertError) throw insertError;
         
-        toast.success('Added to cart');
-        router.push('/cart');
-      } catch (error) {
-        console.error('Error adding to cart:', error);
-        toast.error('Failed to add to cart');
-      } finally {
-        setIsAddingToCart(false);
-      }
-    };
+        if (insertError) throw insertError;
+      
+      toast.success('Added to cart');
+      router.push('/cart');
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add to cart');
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
   
   const buyNow = async () => {
     try {
@@ -1127,7 +1127,7 @@ export default function ProductDetailPage() {
                             <path 
                               fillRule="evenodd" 
                               d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
-                            />
+                              />
                           </svg>
                         </div>
                       )}
@@ -1141,7 +1141,7 @@ export default function ProductDetailPage() {
                 <h3 className="text-sm font-medium text-gray-900 mb-2">About this item</h3>
                 <p className="text-sm text-gray-600 leading-relaxed">
                   {product.description}
-                </p>
+                  </p>
               </div>
                 </div>
                 
@@ -1386,31 +1386,56 @@ export default function ProductDetailPage() {
         
         {/* Additional Details Section - Full width below */}
         <div className="mt-12">
-          {/* Tabs */}
+          {/* Tabs Section */}
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Product details tabs">
-              {[
-                { id: 'details', name: 'Details' },
-                { id: 'specifications', name: 'Specifications' },
-                { id: 'features', name: 'Features' }, // Add new tab
-                { id: 'shipping', name: 'Shipping & Returns' },
-                { id: 'reviews', name: 'Reviews' }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`
-                    whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
-                    ${activeTab === tab.id
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                  `}
-                >
-                  {tab.name}
-                </button>
-              ))}
-            </nav>
+            {/* Mobile Dropdown */}
+            <div className="sm:hidden">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as TabType)}
+                className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              >
+                <option value="details">Details</option>
+                <option value="specifications">Specifications</option>
+                <option value="features">Features</option>
+                <option value="shipping">Shipping & Returns</option>
+                <option value="reviews">Reviews</option>
+              </select>
+            </div>
+
+            {/* Desktop Tabs */}
+            <div className="hidden sm:block">
+              <nav className="-mb-px flex space-x-8" aria-label="Product details tabs">
+                {[
+                  { id: 'details', name: 'Details' },
+                  { id: 'specifications', name: 'Specifications' },
+                  { id: 'features', name: 'Features' },
+                  { id: 'shipping', name: 'Shipping & Returns' },
+                  { id: 'reviews', name: 'Reviews' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as TabType)}
+                    className={`
+                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm
+                      ${activeTab === tab.id
+                        ? 'border-green-500 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }
+                    `}
+                  >
+                    {tab.name}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+
+          {/* Mobile Tab Title */}
+          <div className="sm:hidden mt-4 mb-2">
+            <h2 className="text-lg font-medium text-gray-900">
+              {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            </h2>
           </div>
 
           {/* Tab Panels */}
@@ -1697,7 +1722,7 @@ export default function ProductDetailPage() {
           </div>
               </div>
             )}
-
+          
             {/* Reviews Tab */}
             {activeTab === 'reviews' && (
               <div className="bg-white rounded-lg shadow-sm p-8">

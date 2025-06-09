@@ -445,11 +445,11 @@ export default function PaymentMethodModal({
                 payment_reference: txRef,
                 tx_ref: txRef,
                 receipt_url: `/api/receipts/cash/${txRef}`,
-                delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
-                delivery_address: cartItem.delivery_address,
-                selected_size: cartItem.selected_size,
-                selected_color: cartItem.selected_color,
-                selected_variant_sku: cartItem.selected_variant_sku
+                  delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+                  delivery_address: cartItem.delivery_address,
+                  selected_size: cartItem.selected_size,
+                  selected_color: cartItem.selected_color,
+                  selected_variant_sku: cartItem.selected_variant_sku
               })
               .select()
               .single();

@@ -116,16 +116,42 @@ function NewProductPage() {
           title,
           description,
           price: parseFloat(price),
-        category: showCustomCategory ? customCategory : category,
+          category: showCustomCategory ? customCategory : category,
           quantity: parseInt(quantity),
-        delivery_fee: delivery_fee ? parseFloat(delivery_fee) : null,
-        detailed_description: detailedDescription,
+          delivery_fee: delivery_fee ? parseFloat(delivery_fee) : null,
+          detailed_description: detailedDescription,
           quality,
           sizes,
           colors,
-        available_variants: flattenedVariants,
-        owner_id: session.user.id, // Add the owner_id
-        is_active: true
+          available_variants: flattenedVariants,
+          owner_id: session.user.id,
+          is_active: true,
+          brand,
+          material,
+          care_instructions: careInstructions,
+          measurements,
+          shipping_info: shippingInfo,
+          highlights,
+          specifications: {
+            ...specifications,
+            // Remove brand from specifications if it exists
+            ...(specifications.brand ? { } : {})
+          },
+          style_notes: styleNotes,
+          fit_info: fitInfo,
+          occasion,
+          season,
+          sustainability_info: sustainabilityInfo,
+          country_of_origin: countryOfOrigin,
+          warranty_info: warrantyInfo,
+          faqs,
+          delivery_time: deliveryTime,
+          delivery_options: {
+            delivery: deliveryOptions.delivery,
+            pickup: deliveryOptions.pickup,
+            pickup_location: pickupLocation,
+            delivery_time: deliveryTime
+          }
       };
 
       // Insert the product
