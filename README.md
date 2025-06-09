@@ -1,65 +1,32 @@
 # Fashion Marketplace
 
-A modern e-commerce platform built with Next.js, focusing on fashion and style. This marketplace provides a seamless shopping experience with features like real-time inventory management, interactive product visualization, and secure payment processing.
+A modern e-commerce platform for fashion built with **Next.js**. This project demonstrates end-to-end features from user authentication to rich product visualization. Whether you want to bootstrap your own storefront or learn modern web techniques, this repository provides a well-rounded example.
 
-## Features
+## Table of Contents
+1. [Overview](#overview)
+2. [Key Features](#key-features)
+3. [Technology Stack](#technology-stack)
+4. [Getting Started](#getting-started)
+5. [Environment Variables](#environment-variables)
+6. [Project Structure](#project-structure)
+7. [Available Scripts](#available-scripts)
+8. [Contribution Guide](#contribution-guide)
+9. [Deployment](#deployment)
+10. [License](#license)
 
-- 🛍️ Modern e-commerce interface
-- 🎨 Responsive design with Tailwind CSS
-- 🗺️ Interactive maps integration
-- 📊 Real-time analytics and charts
-- 🔐 Secure authentication with Supabase
-- 📱 Mobile-first approach
-- 🚀 Optimized performance with Vercel
+## Overview
+This marketplace focuses on a seamless shopping experience. It combines real-time inventory with interactive product displays and analytics for store owners. The application is optimized for deployment on Vercel and supports a mobile-first design philosophy.
 
-## Prerequisites
+## Key Features
+- 🛍️ **Modern Interface** – built with Next.js 14 and React for smooth navigation.
+- 🎨 **Responsive Design** – Tailwind CSS provides utilities for responsive layouts.
+- 🗺️ **Interactive Maps** – integrate store locations via Leaflet.
+- 📊 **Real-time Analytics** – Nivo charts visualize user engagement and sales.
+- 🔐 **Authentication** – Supabase handles secure sign-in and session management.
+- 📱 **Mobile Ready** – optimized for small screens first.
+- 🚀 **Performance** – tuned for Vercel with incremental static regeneration.
 
-Before you begin, ensure you have the following installed:
-- Node.js (version 18.0.0 or higher)
-- npm (comes with Node.js)
-- Git
-
-## Setup Instructions
-
-1. Clone the repository:
-   ```bash
-   git clone [your-repository-url]
-   cd my-fashion-marketplace
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Set up environment variables:
-   - Create a `.env.local` file in the root directory
-   - Add necessary environment variables (contact team for required values)
-
-4. Run the development server:
-   ```bash
-   npm run dev
-   ```
-
-5. Build for production:
-   ```bash
-   npm run build
-   ```
-
-6. Start production server:
-   ```bash
-   npm start
-   ```
-
-## Available Scripts
-
-- `npm run dev` - Starts the development server
-- `npm run build` - Creates an optimized production build
-- `npm start` - Runs the production server
-- `npm run lint` - Runs ESLint for code quality checking
-
-## Tech Stack
-
+## Technology Stack
 - **Framework**: Next.js 14
 - **Styling**: Tailwind CSS
 - **Charts**: Nivo, Chart.js, Recharts
@@ -69,39 +36,67 @@ Before you begin, ensure you have the following installed:
 - **UI Components**: Headless UI, Radix UI
 - **Icons**: Heroicons, React Icons
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
 ## Getting Started
+### Prerequisites
+- Node.js v18 or later
+- npm
+- Git
 
-First, run the development server:
-
+### Installation
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# clone the repo
+git clone <your-repository-url>
+cd my-fashion-marketplace
+
+# install dependencies
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Running in Development
+```bash
+npm run dev
+```
+Navigate to <http://localhost:3000> to see the site.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Building for Production
+```bash
+npm run build
+npm start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment Variables
+Create a `.env.local` file and provide values for the following variables:
+```bash
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_ANON_KEY=<your-anon-key>
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<google-maps-key>
+```
+Contact the team for additional keys if required.
 
-## Learn More
+## Project Structure
+```
+/next        - Next.js pages and API routes
+/public      - Static assets
+/src         - React components and utilities
+/server      - Custom server configuration
+```
+Each folder is organized to keep concerns separate. Components live under `src/components` and domain logic is grouped in feature directories.
 
-To learn more about Next.js, take a look at the following resources:
+## Available Scripts
+- `npm run dev` – start the dev server
+- `npm run build` – generate a production build
+- `npm start` – run the production server
+- `npm run lint` – check code style with ESLint
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Contribution Guide
+1. Fork the repo and create a feature branch.
+2. Follow the existing coding style and run `npm run lint` before committing.
+3. Open a pull request with a clear description of changes.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+We welcome issues and suggestions that can improve the project.
 
-## Deploy on Vercel
+## Deployment
+The project is configured for Vercel. Push your code to a GitHub repository and import the project on Vercel. Environment variables defined in `.env.local` should be configured in the Vercel dashboard.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+Released under the ISC license. See the `package.json` file for details.
