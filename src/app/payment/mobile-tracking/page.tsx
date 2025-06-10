@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
+import { clientLog } from '@/utils/clientLog';
 
 export default function MobilePaymentTracking() {
   const router = useRouter();
@@ -28,11 +29,13 @@ export default function MobilePaymentTracking() {
 
     const paymentData = JSON.parse(pendingPayment);
     console.log('[MOBILE TRACKING] Payment data from localStorage:', paymentData);
+    clientLog('[MOBILE TRACKING] Payment data from localStorage', paymentData);
 
     const checkPaymentStatus = async () => {
       try {
         const transactionRef = tx_ref || paymentData.tx_ref;
         console.log('[MOBILE TRACKING] Using transaction reference:', transactionRef);
+        clientLog('[MOBILE TRACKING] Using transaction reference', { transactionRef });
 
         if (!transactionRef) {
           throw new Error('No transaction reference found');
@@ -41,8 +44,9 @@ export default function MobilePaymentTracking() {
         // First verify with Chapa directly
         const verifyResponse = await fetch(`/api/payments/chapa/verify?tx_ref=${transactionRef}`);
         const verifyData = await verifyResponse.json();
-        
+
         console.log('[MOBILE TRACKING] Chapa verification response:', verifyData);
+        clientLog('[MOBILE TRACKING] Chapa verification response', verifyData);
 
         // Check if payment is successful
         if (verifyData.status === 'success' && verifyData.data?.status === 'success') {
@@ -70,6 +74,7 @@ export default function MobilePaymentTracking() {
 
           if (ordersError || !orders) {
             console.error('[MOBILE TRACKING] Order fetch error:', ordersError);
+            clientLog('[MOBILE TRACKING] Order fetch error', ordersError, 'error');
             return false;
           }
 
@@ -119,6 +124,7 @@ export default function MobilePaymentTracking() {
 
           if (transactionError) {
             console.error('[MOBILE TRACKING] Transaction creation error:', transactionError);
+            clientLog('[MOBILE TRACKING] Transaction creation error', transactionError, 'error');
             return false;
           }
 
@@ -140,10 +146,12 @@ export default function MobilePaymentTracking() {
 
           if (updateError) {
             console.error('[MOBILE TRACKING] Order update error:', updateError);
+            clientLog('[MOBILE TRACKING] Order update error', updateError, 'error');
             return false;
           }
 
           console.log('[MOBILE TRACKING] Payment processed successfully');
+          clientLog('[MOBILE TRACKING] Payment processed successfully');
           localStorage.removeItem('pendingPayment');
           toast.success('Payment successful! Redirecting to your orders...');
           router.push('/orders');
@@ -151,14 +159,17 @@ export default function MobilePaymentTracking() {
         } else if (verifyData.status === 'pending') {
           // Payment is still processing
           console.log('[MOBILE TRACKING] Payment is still pending');
+          clientLog('[MOBILE TRACKING] Payment is still pending');
           return false;
         } else {
           // Payment failed or other status
           console.error('[MOBILE TRACKING] Payment verification failed:', verifyData);
+          clientLog('[MOBILE TRACKING] Payment verification failed', verifyData, 'error');
           return false;
         }
       } catch (error) {
         console.error('[MOBILE TRACKING] Error:', error);
+        clientLog('[MOBILE TRACKING] Error', error, 'error');
         return false;
       }
     };
