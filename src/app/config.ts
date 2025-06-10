@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 
 export const siteConfig = {
-  title: "Fashion Marketplace",
-  description: "A marketplace for fashion items",
+  title: "Online Marketplace",
+  description: "A marketplace for a variety of products",
 } as const;
 
 export const metadata: Metadata = {

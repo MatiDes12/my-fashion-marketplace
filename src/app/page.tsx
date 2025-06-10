@@ -1839,21 +1839,21 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
               {/* Text Content */}
               <div className="relative z-10 text-center md:text-left mt-8 sm:mt-12 md:mt-0">
-                <motion.h1 
+                <motion.h1
                   className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5 }}
                 >
-                  Discover Ethiopian Fashion & More
+                  Discover Ethiopian Products & More
                 </motion.h1>
-                <motion.p 
+                <motion.p
                   className="text-lg md:text-xl text-gray-300 mb-6 md:mb-8 max-w-xl mx-auto md:mx-0"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.2 }}
                 >
-                  Shop the latest trends in fashion, electronics, and home goods from Ethiopian sellers
+                  Shop the latest in electronics, home goods, fashion, and more from Ethiopian sellers
                 </motion.p>
                 <motion.div 
                   className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4"
