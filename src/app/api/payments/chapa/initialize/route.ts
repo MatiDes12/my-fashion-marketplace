@@ -8,11 +8,15 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
+    // Split the full name into first and last name
+    const fullName = body.full_name || 'Customer Name';
+    const [firstName = 'Customer', lastName = 'Name'] = fullName.split(' ');
+    
     // Add required fields for Chapa API
     const payload = {
       ...body,
-      first_name: "Customer", // Add default or get from user
-      last_name: "Name",      // Add default or get from user
+      first_name: firstName,
+      last_name: lastName,
       currency: "ETB",        // Ensure currency is ETB
     };
 

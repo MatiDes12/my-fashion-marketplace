@@ -714,21 +714,36 @@ export default function PaymentMethodModal({
 
       const customerPhone = customerData?.store_settings?.phone || null;
 
-      // Create orders first
+      // Clean up expired orders first
+      const { error: cleanupError } = await supabase
+        .from('temporary_orders')
+        .delete()
+        .lt('expires_at', new Date().toISOString());
+
+      if (cleanupError) {
+        console.error('Error cleaning up expired orders:', cleanupError);
+      }
+
+      // Store order data in temporary_orders table
       for (const seller of sellers) {
         for (const product of seller.products) {
-          // Get delivery info from cart_items
-          const cartItemDetails = await getCartItemDetails(userDetails.id, product.id);
-          
+          // Get cart item details
+          const { data: cartItem } = await supabase
+            .from('cart_items')
+            .select('*')
+            .eq('user_id', userDetails.id)
+            .eq('product_id', product.id)
+            .single();
+
           const itemSubtotal = product.quantity * product.price;
           const serviceFee = itemSubtotal * 0.03;
-          const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
-          const itemTotal = itemSubtotal + itemDeliveryFee;
+          const itemTotal = itemSubtotal + (cartItem?.delivery_fee || 0);
 
-          // Create the order with correct fee structure
-          const { data: order, error: orderError } = await supabase
-            .from('orders')
+          // Create temporary order
+          const { error: tempOrderError } = await supabase
+            .from('temporary_orders')
             .insert({
+              tx_ref: txRef,
               user_id: userDetails.id,
               product_id: product.id,
               quantity: product.quantity,
@@ -736,54 +751,31 @@ export default function PaymentMethodModal({
               platform_fee: 0,
               service_fee: serviceFee,
               ethiopia_tax: 0,
-              delivery_fee: itemDeliveryFee,
-              tx_ref: txRef,
-              payment_status: 'pending',
-              order_status: 'pending',
-              payment_reference: null,
-              receipt_url: null,
-              delivery_method: cartItemDetails.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
-              delivery_address: cartItemDetails.delivery_address,
-              selected_size: cartItemDetails.selected_size || null,
-              selected_color: cartItemDetails.selected_color || null,
-              selected_variant_sku: cartItemDetails.selected_variant_sku || null
-            })
-            .select()
-            .single();
-
-          if (orderError) throw orderError;
-
-          // Create transaction with customer's phone number
-          const { error: transactionError } = await supabase
-            .from('transactions')
-            .insert({
-              order_id: order.id,
-              payment_method: 'CHAPA',
-              payment_status: 'pending',
-              subtotal: itemSubtotal,
-              platform_fee: 0,
-              service_fee: serviceFee,
-              vat_amount: 0,
-              delivery_fee: itemDeliveryFee,
-              total_amount: itemTotal,
-              seller_id: product.owner.id,
-              customer_name: userDetails.full_name,
-              customer_email: userDetails.email,
+              delivery_fee: cartItem?.delivery_fee || 0,
+              delivery_method: cartItem?.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+              delivery_address: cartItem?.delivery_address,
+              selected_size: cartItem?.selected_size,
+              selected_color: cartItem?.selected_color,
+              selected_variant_sku: cartItem?.selected_variant_sku,
               customer_phone: customerPhone,
-              seller_payout_amount: itemTotal - serviceFee
+              seller_id: product.owner.id,
+              expires_at: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes expiry
             });
 
-            if (transactionError) throw transactionError;
+          if (tempOrderError) {
+            throw tempOrderError;
+          }
         }
       }
 
-      // Initialize Chapa payment with the correct total amount
+      // Initialize Chapa payment
       const response = await fetch('/api/payments/chapa/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: totalAmount.toString(), // This should match sum of components
+          amount: totalAmount.toString(),
           email: userDetails.email,
+          full_name: userDetails.full_name,
           tx_ref: txRef,
           callback_url: `${window.location.origin}/api/payments/chapa/callback`,
           return_url: `${window.location.origin}/api/payments/chapa/callback?trx_ref=${txRef}&status=success`,
@@ -797,18 +789,8 @@ export default function PaymentMethodModal({
       const data = await response.json();
       
       if (data.status === 'success' && data.data.checkout_url) {
-        // Store payment info
-        localStorage.setItem('pendingPayment', JSON.stringify({
-          tx_ref: txRef,
-          amount: totalAmount,
-          items: sellers
-        }));
-
-        // Close modal and clear cart
+        // Close modal
         onClose();
-        if (userDetails?.id) {
-          await clearCart(userDetails.id);
-        }
 
         // Redirect to Chapa checkout
         window.location.href = data.data.checkout_url;
