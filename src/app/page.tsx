@@ -1019,6 +1019,8 @@ export default function HomePage() {
           )
         `)
         .eq('role', 'owner')
+        .eq('is_verified', true)
+        .neq('verification_status', 'needs_reconsideration')
         .not('store_settings', 'is', null)
         .order('created_at', { ascending: false })
         .limit(4);

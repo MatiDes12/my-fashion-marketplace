@@ -89,9 +89,21 @@ interface Product {
 interface Filters {
   category: string;
   priceRange: { min: number; max: number | null };
-  rating: number | null;
+  ratingRange: { min: number; max: number } | null;
+  minReviews: number;
   sortBy: string;
 }
+
+const RATING_RANGES = [
+  { label: '5 stars', min: 5, max: 5 },
+  { label: '4–4.9 stars', min: 4, max: 4.99 },
+  { label: '3–3.9 stars', min: 3, max: 3.99 },
+  { label: '2–2.9 stars', min: 2, max: 2.99 },
+  { label: '1–1.9 stars', min: 1, max: 1.99 },
+  { label: '0–0.9 stars', min: 0, max: 0.99 },
+];
+
+const MIN_REVIEWS_OPTIONS = [0, 5, 10, 20, 50];
 
 function ProductsHero() {
   return (
@@ -232,7 +244,8 @@ function ProductsContent() {
   const [filters, setFilters] = useState<Filters>({
     category: 'all',
     priceRange: { min: 0, max: null },
-    rating: null,
+    ratingRange: null,
+    minReviews: 0,
     sortBy: 'newest'
   });
 
@@ -320,28 +333,66 @@ function ProductsContent() {
           };
         }) || [];
 
-        // Apply rating filter if set
-        if (filters.rating !== null) {
+        // Apply category filter
+        if (filters.category !== 'all') {
           processedProducts = processedProducts.filter(
-            product => {
-              const rating = product.average_rating || 0;
-              // Use a small epsilon for floating point comparison
-              return Math.abs(rating - (filters.rating || 0)) < 0.5;
-            }
+            product => product.category.toLowerCase() === filters.category
           );
         }
 
-        // Apply sorting for most-liked and best-rated
-        if (filters.sortBy === 'most-liked') {
-          processedProducts.sort((a, b) => (b.like_count || 0) - (a.like_count || 0));
-        } else if (filters.sortBy === 'best-rated') {
-          processedProducts.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+        // Apply price range filter
+        if (filters.priceRange.min > 0 || filters.priceRange.max !== null) {
+          processedProducts = processedProducts.filter(product => {
+            const price = product.flash_sale_price || product.price;
+            const minPrice = filters.priceRange.min || 0;
+            const maxPrice = filters.priceRange.max || Infinity;
+            return price >= minPrice && price <= maxPrice;
+          });
+        }
+
+        // Apply rating range and min reviews filter if set
+        if (filters.ratingRange && filters.ratingRange.min !== undefined && filters.ratingRange.max !== undefined) {
+          processedProducts = processedProducts.filter(product => {
+            const avg = product.average_rating || 0;
+            const count = product.ratings?.length || 0;
+            return avg >= filters.ratingRange!.min && avg <= filters.ratingRange!.max && count >= filters.minReviews;
+          });
+        } else if (filters.minReviews > 0) {
+          processedProducts = processedProducts.filter(product => (product.ratings?.length || 0) >= filters.minReviews);
+        }
+
+        // Apply sorting
+        switch (filters.sortBy) {
+          case 'price-low':
+            processedProducts.sort((a, b) => {
+              const priceA = a.flash_sale_price || a.price;
+              const priceB = b.flash_sale_price || b.price;
+              return priceA - priceB;
+            });
+            break;
+          case 'price-high':
+            processedProducts.sort((a, b) => {
+              const priceA = a.flash_sale_price || a.price;
+              const priceB = b.flash_sale_price || b.price;
+              return priceB - priceA;
+            });
+            break;
+          case 'most-liked':
+            processedProducts.sort((a, b) => (b.like_count || 0) - (a.like_count || 0));
+            break;
+          case 'best-rated':
+            processedProducts.sort((a, b) => (b.average_rating || 0) - (a.average_rating || 0));
+            break;
+          case 'newest':
+          default:
+            processedProducts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            break;
         }
         
         setProducts(processedProducts);
         
         // Extract unique categories
-          const uniqueCategories = Array.from(
+        const uniqueCategories = Array.from(
           new Set(productsData?.map(product => product.category).filter(Boolean))
         );
         setCategories(['all', ...uniqueCategories]);
@@ -371,9 +422,20 @@ function ProductsContent() {
     };
     
     fetchProducts();
+    fetchUserLikes();
   }, [filters]);
 
-  // Get current products for pagination
+  // Reset current page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Handle order/buy functionality
+  const handleBuy = (productId: string) => {
+    router.push(`/products/${productId}?action=buy`);
+  };
+
+  // Get current products for pagination (products are already filtered)
   const indexOfLastProduct = currentPage * productsPerPage;
   const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
   const paginatedProducts = products.slice(indexOfFirstProduct, indexOfLastProduct);
@@ -459,15 +521,6 @@ function ProductsContent() {
       setIsLikeLoading(prev => ({ ...prev, [productId]: false }));
     }
   };
-  
-  // Handle order/buy functionality
-  const handleBuy = (productId: string) => {
-    router.push(`/products/${productId}?action=buy`);
-  };
-
-  const filteredProducts = selectedCategory === 'all'
-    ? products
-    : products.filter(product => product.category === selectedCategory);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -582,37 +635,47 @@ function ProductsContent() {
                 </div>
               </div>
 
-              {/* Rating Filter */}
+              {/* Rating Range Filter */}
               <div className="mb-8">
                 <h3 className="text-sm font-medium text-gray-900 mb-4">Rating</h3>
                 <div className="space-y-3">
-                  {[5, 4, 3, 2, 1].map((rating) => (
-                    <label key={rating} className="flex items-center">
+                  {RATING_RANGES.map((range) => (
+                    <label key={range.label} className="flex items-center">
                       <input
                         type="radio"
-                        name="rating"
+                        name="ratingRange"
                         className="w-4 h-4 text-red-600 focus:ring-red-500"
-                        checked={filters.rating === rating}
-                        onChange={() => setFilters(prev => ({ ...prev, rating }))}
+                        checked={filters.ratingRange?.min === range.min && filters.ratingRange?.max === range.max}
+                        onChange={() => setFilters(prev => ({ ...prev, ratingRange: { min: range.min, max: range.max } }))}
                       />
-                      <span className="ml-3 flex items-center">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <svg 
-                            key={i} 
-                            className={`h-5 w-5 ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`} 
-                            fill="currentColor" 
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        ))}
-                        <span className="ml-2 text-sm text-gray-500">
-                          {rating} star{rating !== 1 ? 's' : ''}
-                        </span>
-                      </span>
+                      <span className="ml-3 text-sm text-gray-700">{range.label}</span>
                     </label>
                   ))}
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="ratingRange"
+                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                      checked={!filters.ratingRange}
+                      onChange={() => setFilters(prev => ({ ...prev, ratingRange: null }))}
+                    />
+                    <span className="ml-3 text-sm text-gray-700">Any rating</span>
+                  </label>
                 </div>
+              </div>
+
+              {/* Minimum Reviews Filter */}
+              <div className="mb-8">
+                <h3 className="text-sm font-medium text-gray-900 mb-4">Minimum Reviews</h3>
+                <select
+                  value={filters.minReviews}
+                  onChange={e => setFilters(prev => ({ ...prev, minReviews: Number(e.target.value) }))}
+                  className="w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                >
+                  {MIN_REVIEWS_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>{opt === 0 ? 'Any' : `At least ${opt}`}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -642,7 +705,8 @@ function ProductsContent() {
                   onClick={() => setFilters({
                     category: 'all',
                     priceRange: { min: 0, max: null },
-                    rating: null,
+                    ratingRange: null,
+                    minReviews: 0,
                     sortBy: 'newest'
                   })}
                   className="text-sm text-red-600 hover:text-red-700"
@@ -704,37 +768,47 @@ function ProductsContent() {
                 </div>
               </div>
 
-              {/* Rating Filter */}
+              {/* Rating Range Filter */}
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-4">Rating</h3>
                 <div className="space-y-3">
-                  {[5, 4, 3, 2, 1].map((rating) => (
-                    <label key={rating} className="flex items-center">
+                  {RATING_RANGES.map((range) => (
+                    <label key={range.label} className="flex items-center">
                       <input
                         type="radio"
-                        name="rating"
+                        name="ratingRange"
                         className="w-4 h-4 text-red-600 focus:ring-red-500"
-                        checked={filters.rating === rating}
-                        onChange={() => setFilters(prev => ({ ...prev, rating }))}
+                        checked={filters.ratingRange?.min === range.min && filters.ratingRange?.max === range.max}
+                        onChange={() => setFilters(prev => ({ ...prev, ratingRange: { min: range.min, max: range.max } }))}
                       />
-                      <span className="ml-3 flex items-center">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <svg 
-                            key={i} 
-                            className={`h-5 w-5 ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`} 
-                            fill="currentColor" 
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        ))}
-                        <span className="ml-2 text-sm text-gray-500">
-                          {rating} star{rating !== 1 ? 's' : ''}
-                        </span>
-                      </span>
+                      <span className="ml-3 text-sm text-gray-700">{range.label}</span>
                     </label>
                   ))}
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="ratingRange"
+                      className="w-4 h-4 text-red-600 focus:ring-red-500"
+                      checked={!filters.ratingRange}
+                      onChange={() => setFilters(prev => ({ ...prev, ratingRange: null }))}
+                    />
+                    <span className="ml-3 text-sm text-gray-700">Any rating</span>
+                  </label>
                 </div>
+              </div>
+
+              {/* Minimum Reviews Filter */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 mb-4">Minimum Reviews</h3>
+                <select
+                  value={filters.minReviews}
+                  onChange={e => setFilters(prev => ({ ...prev, minReviews: Number(e.target.value) }))}
+                  className="w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                >
+                  {MIN_REVIEWS_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>{opt === 0 ? 'Any' : `At least ${opt}`}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
@@ -930,6 +1004,7 @@ function ProductsContent() {
                             )}
                           </div>
                         )}
+                        <span className="ml-2 text-xs text-gray-500">({product.ratings?.length || 0} reviews)</span>
                       </div>
                     </Link>
                   </div>

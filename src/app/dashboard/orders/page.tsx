@@ -1011,7 +1011,7 @@ export default function OrdersPage() {
                           </span>
                 </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Service Fee</span>
+                          <span className="text-gray-500">Service Fee (3%)</span>
                           <span className="text-red-600">
                             -ETB {selectedOrder.transaction?.service_fee?.toFixed(2) || selectedOrder.service_fee?.toFixed(2) || '0.00'}
                           </span>
@@ -1277,7 +1277,7 @@ ${address.landmark ? `Landmark: ${address.landmark}` : ''}`;
 Financial Details:
 Subtotal: ${formatCurrency(selectedOrder?.transaction?.subtotal || 0)}
 Platform Fee: ${formatCurrency(selectedOrder?.transaction?.platform_fee || 0)}
-Service Fee: ${formatCurrency(selectedOrder?.transaction?.service_fee || 0)}
+Service Fee (3%): ${formatCurrency(selectedOrder?.transaction?.service_fee || 0)}
 VAT: ${formatCurrency(selectedOrder?.transaction?.vat_amount || 0)}
 Total Amount: ${formatCurrency(selectedOrder?.transaction?.total_amount || 0)}
 `;

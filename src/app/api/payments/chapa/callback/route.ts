@@ -229,7 +229,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    
+
     // Verify the payment with Chapa
     const verifyResponse = await fetch(
       `https://api.chapa.co/v1/transaction/verify/${body.tx_ref}`,
@@ -246,7 +246,7 @@ export async function POST(request: Request) {
     if (verifyResponse.ok && verifyData.status === 'success') {
       // Process the order here (same logic as GET handler)
       // ...
-      return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
     }
 
     throw new Error('Payment verification failed');

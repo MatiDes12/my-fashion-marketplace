@@ -99,7 +99,7 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="py-8 px-4 sm:px-6 lg:px-8">
+    <div className="pt-20 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
           {/* Main content */}

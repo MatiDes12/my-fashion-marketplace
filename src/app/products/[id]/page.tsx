@@ -696,23 +696,31 @@ export default function ProductDetailPage() {
   };
   
   const handleOptionChange = (type: string, value: string) => {
+    // Create updated state values for variant matching
+    let updatedSize = selectedSize;
+    let updatedColor = selectedColor;
+    let updatedCustomOptions = { ...selectedCustomOptions };
+
     if (type === 'size') {
       setSelectedSize(value);
+      updatedSize = value;
     } else if (type === 'color') {
       setSelectedColor(value);
+      updatedColor = value;
     } else {
       setSelectedCustomOptions(prev => ({
         ...prev,
         [type]: value
       }));
+      updatedCustomOptions[type] = value;
     }
 
-    // Find matching variant
+    // Find matching variant using updated values
     if (product?.available_variants) {
       const variant = product.available_variants.find(v => {
-        const sizeMatch = !v.size || v.size === selectedSize;
-        const colorMatch = !v.color || v.color === selectedColor;
-        const customMatch = Object.entries({...selectedCustomOptions, [type]: value}).every(([key, val]) => 
+        const sizeMatch = !v.size || v.size === updatedSize;
+        const colorMatch = !v.color || v.color === updatedColor;
+        const customMatch = Object.entries(updatedCustomOptions).every(([key, val]) => 
           !v[key.toLowerCase()] || v[key.toLowerCase()] === val
         );
         return sizeMatch && colorMatch && customMatch;

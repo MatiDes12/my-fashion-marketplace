@@ -39,6 +39,11 @@ interface CartItem {
           subCity?: string;
           wereda?: string;
           kebele?: string;
+          mapLink?: string;
+          coordinates?: {
+            lat: number;
+            lng: number;
+          };
         }
         name?: string;
       }
@@ -751,8 +756,8 @@ export default function CartPage() {
                                           <StoreLocationMap 
                                             address={{
                                               ...item.product.owner.store_settings.address,
-                                              mapLink: null,
-                                              coordinates: { lat: 0, lng: 0 }
+                                              mapLink: item.product.owner.store_settings.address.mapLink || null,
+                                              coordinates: item.product.owner.store_settings.address.coordinates || null
                                             }}
                                           />
                                         )}

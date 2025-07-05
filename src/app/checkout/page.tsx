@@ -11,6 +11,7 @@ import PaymentMethodModal from '@/components/PaymentMethodModal';
 import { PaymentSettings as IPaymentSettings } from '@/types/cart';
 import { PAYMENT_METHODS } from '@/utils/constants';
 import { getTelebirrConfig, createOrder, applyFabricToken } from '@/lib/telebirr';
+import React from 'react';
 
 // Import or define PaymentMethodType
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
@@ -104,6 +105,8 @@ export default function CheckoutPage() {
   const router = useRouter();
   const supabase = createClientComponent();
   const [selectedDeliveryMethods, setSelectedDeliveryMethods] = useState<Record<string, 'delivery' | 'pickup'>>({});
+  const [showTerms, setShowTerms] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
     fetchCartItems();
@@ -662,9 +665,65 @@ export default function CheckoutPage() {
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <div className="p-6">
                   <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment Method</h2>
+                  {/* Terms and Service Agreement */}
+                  <div className="flex items-center mt-6 mb-4">
+                    <input
+                      id="terms"
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={e => setAgreedToTerms(e.target.checked)}
+                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="terms" className="ml-2 text-sm text-gray-700">
+                      I agree to the{' '}
+                      <button
+                        type="button"
+                        className="text-green-600 hover:underline"
+                        onClick={() => setShowTerms(true)}
+                      >
+                        Terms and Service
+                      </button>
+                    </label>
+                  </div>
+                  {/* Terms Modal */}
+                  {showTerms && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+                        <button
+                          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+                          onClick={() => setShowTerms(false)}
+                        >
+                          <span className="sr-only">Close</span>
+                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        <h2 className="text-xl font-semibold mb-4">Terms and Service</h2>
+                        <div className="max-h-96 overflow-y-auto text-sm text-gray-700 space-y-2">
+                          <p>By placing your order, you agree to our marketplace's Terms and Service. Please read them carefully before proceeding.</p>
+                          <ul className="list-disc pl-5 space-y-1">
+                            <li>All sales are subject to our return and refund policy.</li>
+                            <li>Ensure your delivery address and contact information are accurate.</li>
+                            <li>Payments are processed securely through our payment partners.</li>
+                            <li>Disputes will be handled according to our dispute resolution process.</li>
+                            <li>Your data will be handled in accordance with our privacy policy.</li>
+                          </ul>
+                          <p>For full details, visit our <a href="/terms" className="text-green-600 hover:underline" target="_blank">Terms and Service</a> page.</p>
+                        </div>
+                        <div className="mt-6 flex justify-end">
+                          <button
+                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                            onClick={() => setShowTerms(false)}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <button
-                    onClick={() => setIsPaymentModalOpen(true)}
-                    disabled={isProcessing}
+                    onClick={handleCheckout}
+                    disabled={!agreedToTerms || isProcessing}
                     className="w-full bg-green-600 text-white py-4 px-6 rounded-xl font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
                   >
                     {isProcessing ? (

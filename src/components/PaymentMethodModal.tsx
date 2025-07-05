@@ -379,8 +379,8 @@ export default function PaymentMethodModal({
         validateOrderData(sellers);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Invalid order data');
-        return;
-      }
+      return;
+    }
 
     if (selectedMethod === 'CASH') {
       try {
@@ -560,20 +560,20 @@ export default function PaymentMethodModal({
 
       /* Commented out M-PESA payment handling
       if (selectedMethod === 'MPESA') {
-        try {
-          setLocalProcessing(true);
-          const supabase = createClientComponent();
+    try {
+      setLocalProcessing(true);
+      const supabase = createClientComponent();
           const txRef = `MPESA-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          
-          // Create orders first
-          for (const seller of sellers) {
-            for (const product of seller.products) {
+
+      // Create orders first
+      for (const seller of sellers) {
+        for (const product of seller.products) {
               const cartItemDetails = await getCartItemDetails(userDetails?.id!, product.id);
-              
-              const itemSubtotal = product.quantity * product.price;
-              const serviceFee = itemSubtotal * 0.03;
-              const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
-              const itemTotal = itemSubtotal + itemDeliveryFee;
+          
+          const itemSubtotal = product.quantity * product.price;
+          const serviceFee = itemSubtotal * 0.03;
+          const itemDeliveryFee = cartItemDetails.delivery_fee || 0;
+          const itemTotal = itemSubtotal + itemDeliveryFee;
 
               // Map the delivery method to match the constraint
               const mappedDeliveryMethod = cartItemDetails.delivery_method === 'delivery' 
@@ -581,49 +581,49 @@ export default function PaymentMethodModal({
                 : 'store_pickup';
 
               // Create order
-              const { data: order, error: orderError } = await supabase
-                .from('orders')
-                .insert({
+          const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
                   user_id: userDetails?.id,
-                  product_id: product.id,
-                  quantity: product.quantity,
-                  total_price: itemTotal,
-                  platform_fee: 0,
-                  service_fee: serviceFee,
-                  ethiopia_tax: 0,
-                  delivery_fee: itemDeliveryFee,
-                  tx_ref: txRef,
-                  payment_status: 'pending',
-                  order_status: 'pending',
+              product_id: product.id,
+              quantity: product.quantity,
+              total_price: itemTotal,
+              platform_fee: 0,
+              service_fee: serviceFee,
+              ethiopia_tax: 0,
+              delivery_fee: itemDeliveryFee,
+              tx_ref: txRef,
+              payment_status: 'pending',
+              order_status: 'pending',
                   delivery_method: mappedDeliveryMethod,
-                  delivery_address: cartItemDetails.delivery_address,
-                })
-                .select()
-                .single();
+              delivery_address: cartItemDetails.delivery_address,
+            })
+            .select()
+            .single();
 
-              if (orderError) throw orderError;
+          if (orderError) throw orderError;
 
               // Create transaction with payment_method
-              const { error: transactionError } = await supabase
-                .from('transactions')
-                .insert({
-                  order_id: order.id,
+          const { error: transactionError } = await supabase
+            .from('transactions')
+            .insert({
+              order_id: order.id,
                   payment_method: 'MPESA',
-                  payment_status: 'pending',
-                  subtotal: itemSubtotal,
-                  platform_fee: 0,
-                  service_fee: serviceFee,
-                  vat_amount: 0,
-                  delivery_fee: itemDeliveryFee,
-                  total_amount: itemTotal,
-                  seller_id: product.owner.id,
+              payment_status: 'pending',
+              subtotal: itemSubtotal,
+              platform_fee: 0,
+              service_fee: serviceFee,
+              vat_amount: 0,
+              delivery_fee: itemDeliveryFee,
+              total_amount: itemTotal,
+              seller_id: product.owner.id,
                   customer_name: userDetails?.full_name,
                   customer_email: userDetails?.email,
                   customer_phone: phoneNumber,
-                  seller_payout_amount: itemTotal - serviceFee
-                });
+              seller_payout_amount: itemTotal - serviceFee
+            });
 
-              if (transactionError) throw transactionError;
+          if (transactionError) throw transactionError;
             }
           }
 

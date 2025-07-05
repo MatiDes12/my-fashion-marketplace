@@ -557,95 +557,83 @@ export default function SubscriptionPage() {
                           ? 'For growing businesses' 
                           : 'For established businesses'}
                     </p>
-                    
-                    <div className="mt-8">
-                      {currentPlan !== plan.id && plan.id !== 'basic' && (
-                        <div className="mt-4">
-                          <SubscriptionPaymentSelector
-                            selectedMethod={paymentMethods[plan.id]}
-                            onSelect={(method) => {
-                              setPaymentMethods(prev => ({
-                                ...prev,
-                                [plan.id]: method
-                              }));
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
+                  </div>
 
-                    <div className="px-6 pt-6 pb-8">
-                      {currentPlan === plan.id ? (
-                        <div className="space-y-4">
-                          <span className="block w-full bg-green-100 text-green-800 text-center rounded-md px-3 py-2">
-                            Current Plan
-                          </span>
-                          {plan.id !== 'basic' && subscriptionDates?.status !== 'cancelled' && (
-                            <button
-                              onClick={handleCancelSubscription}
-                              className="block w-full bg-red-100 text-red-700 hover:bg-red-200 px-3 py-2 rounded-md text-sm font-medium"
-                            >
-                              Cancel Subscription
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          {plan.id !== 'basic' && (
-                            <>
-                              {currentPlan !== 'basic' && subscriptionDates?.status !== 'cancelled' ? (
-                                <div className="rounded-md bg-yellow-50 p-4">
-                                  <div className="flex">
-                                    <div className="flex-shrink-0">
-                                      <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                                      </svg>
-                                    </div>
-                                    <div className="ml-3">
-                                      <h3 className="text-sm font-medium text-yellow-800">
-                                        Active Subscription
-                                      </h3>
-                                      <div className="mt-2 text-sm text-yellow-700">
-                                        <p>
-                                          You currently have an active {currentPlan} subscription. You can upgrade to {plan.name} after your current subscription period ends on {subscriptionDates?.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString('en-US', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric'
-                                          }) : 'N/A'}.
-                                        </p>
-                                      </div>
+                  <div className="px-6 pt-6 pb-8">
+                    {currentPlan === plan.id ? (
+                      <div className="space-y-4">
+                        <span className="block w-full bg-green-100 text-green-800 text-center rounded-md px-3 py-2">
+                          Current Plan
+                        </span>
+                        {plan.id !== 'basic' && subscriptionDates?.status !== 'cancelled' && (
+                          <button
+                            onClick={handleCancelSubscription}
+                            className="block w-full bg-red-100 text-red-700 hover:bg-red-200 px-3 py-2 rounded-md text-sm font-medium"
+                          >
+                            Cancel Subscription
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        {plan.id !== 'basic' && (
+                          <>
+                            {currentPlan !== 'basic' && subscriptionDates ? (
+                              <div className="rounded-md bg-yellow-50 p-4">
+                                <div className="flex">
+                                  <div className="flex-shrink-0">
+                                    <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                  <div className="ml-3">
+                                    <h3 className="text-sm font-medium text-yellow-800">
+                                      {subscriptionDates.status === 'cancelled' ? 'Cancelled Subscription' : 'Active Subscription'}
+                                    </h3>
+                                    <div className="mt-2 text-sm text-yellow-700">
+                                      <p>
+                                        {subscriptionDates.status === 'cancelled' 
+                                          ? `Your ${currentPlan} subscription has been cancelled. You can upgrade to ${plan.name} after your current subscription period ends on `
+                                          : `You currently have an active ${currentPlan} subscription. You can upgrade to ${plan.name} after your current subscription period ends on `
+                                        }
+                                        {subscriptionDates?.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString('en-US', {
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric'
+                                        }) : 'N/A'}.
+                                      </p>
                                     </div>
                                   </div>
                                 </div>
-                              ) : (
-                                <>
-                                  <div className="mt-4">
-                                    <SubscriptionPaymentSelector
-                                      selectedMethod={paymentMethods[plan.id]}
-                                      onSelect={(method) => {
-                                        setPaymentMethods(prev => ({
-                                          ...prev,
-                                          [plan.id]: method
-                                        }));
-                                      }}
-                                    />
-                                  </div>
-                                  <button
-                                    onClick={() => handleSubscribe(plan)}
-                                    className={`block w-full bg-green-600 text-white rounded-md px-3 py-2 text-sm font-medium 
-                                      hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500
-                                      disabled:opacity-50 disabled:cursor-not-allowed mt-4`}
-                                    disabled={loading}
-                                  >
-                                    {loading ? 'Processing...' : `Upgrade to ${plan.name}`}
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </>
-                      )}
-                    </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="mt-4">
+                                  <SubscriptionPaymentSelector
+                                    selectedMethod={paymentMethods[plan.id]}
+                                    onSelect={(method) => {
+                                      setPaymentMethods(prev => ({
+                                        ...prev,
+                                        [plan.id]: method
+                                      }));
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => handleSubscribe(plan)}
+                                  className={`block w-full bg-green-600 text-white rounded-md px-3 py-2 text-sm font-medium 
+                                    hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500
+                                    disabled:opacity-50 disabled:cursor-not-allowed mt-4`}
+                                  disabled={loading}
+                                >
+                                  {loading ? 'Processing...' : `Upgrade to ${plan.name}`}
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div className="pt-6 pb-8 px-6">
                     <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">
