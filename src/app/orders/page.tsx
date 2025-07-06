@@ -342,7 +342,7 @@ export default function OrdersPage() {
                           </button>
                         </h3>
                         <p className="ml-4 text-lg font-medium text-gray-900">
-                          ${order.total_price?.toFixed(2) || '0.00'}
+                          ETB {order.total_price?.toFixed(2) || '0.00'}
                         </p>
                       </div>
                       <div className="mt-2 space-y-1">
@@ -358,7 +358,7 @@ export default function OrdersPage() {
                           Address: {order.product?.seller?.store_settings?.address?.city || 'N/A'}, {order.product?.seller?.store_settings?.address?.subCity || ''}
                         </p>
                         <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
-                        <p className="mt-1 text-sm text-gray-500">Price per item: ${order.product?.price}</p>
+                        <p className="mt-1 text-sm text-gray-500">Price per item: ETB {order.product?.price}</p>
                         
                         {(order.payment_reference || order.tx_ref) && (
                           <div className="mt-3 bg-gray-50 p-2 rounded-md flex justify-between items-center">
