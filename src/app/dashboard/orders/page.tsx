@@ -109,20 +109,37 @@ export default function OrdersPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [orderStats, setOrderStats] = useState({
-    totalRevenue: 0,
+  // Remove old orderStats state
+  // Add new stats state for all breakdowns
+  const [stats, setStats] = useState({
     totalOrders: 0,
-    averageOrderValue: 0,
-    ordersByStatus: {
+    completedOrders: 0,
+    pendingOrders: 0,
+    moneyReceived: 0,
+    pendingPayouts: 0,
+    byStatus: {
       pending: 0,
       confirmed: 0,
       shipped: 0,
       delivered: 0,
+      pickedup: 0,
       cancelled: 0,
-    }
+    },
+    byPaymentStatus: {
+      paid: 0,
+      pending: 0,
+      other: 0,
+    },
+    byPayoutStatus: {
+      received: 0,
+      pending: 0,
+      notEligible: 0,
+    },
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
+  const [payoutStatusFilter, setPayoutStatusFilter] = useState('all');
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
 
   useEffect(() => {
@@ -247,7 +264,7 @@ export default function OrdersPage() {
     };
     
     fetchOrders();
-    fetchOrderStats();
+    // fetchOrderStats(); // This function is no longer needed
   }, [router]);
 
   useEffect(() => {
@@ -483,119 +500,177 @@ export default function OrdersPage() {
     setCurrentPage(pageNumber);
   };
 
-  const fetchOrderStats = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        router.push('/login');
-        return;
-      }
-
-      // Get transactions for this seller to calculate actual revenue
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('seller_payout_amount, created_at')
-        .eq('seller_id', session.user.id)
-        .gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
-
-      // Calculate total revenue using seller_payout_amount
-      const totalRevenue = transactions?.reduce((sum, transaction) => {
-        return sum + (transaction.seller_payout_amount || 0);
-      }, 0) || 0;
-
-      // First get all products owned by the seller
-      const { data: products } = await supabase
-        .from('products')
-        .select('id')
-        .eq('owner_id', session.user.id);
-
-      const productIds = products?.map(p => p.id) || [];
-
-      // Then get orders for these products
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('order_status, created_at')
-        .in('product_id', productIds)
-        .gte('created_at', new Date(new Date().setDate(new Date().getDate() - 30)).toISOString());
-
-      const stats = {
-        totalRevenue,
-        totalOrders: orders?.length || 0,
-        averageOrderValue: orders?.length ? totalRevenue / orders.length : 0,
-        ordersByStatus: {
-          pending: orders?.filter(o => o.order_status === 'pending').length || 0,
-          confirmed: orders?.filter(o => o.order_status === 'confirmed').length || 0,
-          shipped: orders?.filter(o => o.order_status === 'shipped').length || 0,
-          delivered: orders?.filter(o => o.order_status === 'delivered').length || 0,
-          cancelled: orders?.filter(o => o.order_status === 'cancelled').length || 0,
-        }
-      };
-
-      setOrderStats(stats);
-    } catch (error) {
-      console.error('Error fetching order stats:', error);
-      toast.error('Failed to load order statistics');
-    }
-  };
-
+  // Compute stats whenever orders change
   useEffect(() => {
     if (!orders) return;
+    const byStatus = {
+      pending: 0,
+      confirmed: 0,
+      shipped: 0,
+      delivered: 0,
+      pickedup: 0,
+      cancelled: 0,
+    };
+    const byPaymentStatus = {
+      paid: 0,
+      pending: 0,
+      other: 0,
+    };
+    let completedOrders = 0;
+    let pendingOrders = 0;
+    let moneyReceived = 0;
+    let pendingPayouts = 0;
+    orders.forEach(order => {
+      // Status
+      if (order.order_status === 'pending') byStatus.pending++;
+      else if (order.order_status === 'confirmed') byStatus.confirmed++;
+      else if (order.order_status === 'shipped') byStatus.shipped++;
+      else if (order.order_status === 'delivered') {
+        byStatus.delivered++;
+        completedOrders++;
+      } else if (order.order_status === 'picked up') {
+        byStatus.pickedup++;
+        completedOrders++;
+      } else if (order.order_status === 'cancelled') byStatus.cancelled++;
+      // Pending orders
+      if (order.order_status === 'pending') pendingOrders++;
+      // Payment status
+      if (order.payment_status === 'paid') byPaymentStatus.paid++;
+      else if (order.payment_status === 'pending') byPaymentStatus.pending++;
+      else byPaymentStatus.other++;
 
+      // Payout status
+      if (order.transaction?.seller_payout_status === 'completed') {
+        moneyReceived += order.transaction.seller_payout_amount || 0;
+      } else if (order.transaction?.seller_payout_status === 'pending') {
+        pendingPayouts++;
+      } else if (order.transaction?.seller_payout_status === 'not_eligible') {
+        // This case is not directly tracked in the current stats, but can be inferred
+        // or added to the stats if needed. For now, we'll just count it.
+      }
+    });
+    setStats({
+      totalOrders: orders.length,
+      completedOrders,
+      pendingOrders,
+      moneyReceived,
+      pendingPayouts,
+      byStatus,
+      byPaymentStatus,
+      byPayoutStatus: {
+        received: moneyReceived,
+        pending: pendingPayouts,
+        notEligible: orders.filter(order => order.transaction?.seller_payout_status === 'not_eligible').length,
+      },
+    });
+  }, [orders]);
+
+  // Filtering logic: status + payment status
+  useEffect(() => {
+    if (!orders) return;
     let result = [...orders];
-
-    // Apply status filter
+    // Status filter
     if (statusFilter !== 'all') {
-      result = result.filter(order => order.order_status === statusFilter);
+      if (statusFilter === 'completed') {
+        result = result.filter(order => order.order_status === 'delivered' || order.order_status === 'picked up');
+      } else {
+        result = result.filter(order => order.order_status === statusFilter);
+      }
     }
-
-    // Apply search filter
+    // Payment status filter
+    if (paymentStatusFilter !== 'all') {
+      result = result.filter(order => (order.payment_status || 'pending') === paymentStatusFilter);
+    }
+    // Payout status filter
+    if (payoutStatusFilter !== 'all') {
+      result = result.filter(order => (order.transaction?.seller_payout_status || 'pending') === payoutStatusFilter);
+    }
+    // Search filter (order id, customer, product, etc)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
+      // Remove leading # for order id search
+      const searchNoHash = searchLower.startsWith('#') ? searchLower.slice(1) : searchLower;
       result = result.filter(order => 
-        // Search in order info
-        order.id.toLowerCase().includes(searchLower) ||
+        // Order ID match: ignore # in search and in display
+        order.id.toLowerCase().includes(searchNoHash) ||
+        order.id.toLowerCase().includes(searchLower.replace(/^#/, '')) ||
         order.order_status.toLowerCase().includes(searchLower) ||
+        (order.payment_status || '').toLowerCase().includes(searchLower) ||
         formatCurrency(order.total_price).toLowerCase().includes(searchLower) ||
-        // Search in customer info
         order.user?.full_name?.toLowerCase().includes(searchLower) ||
         order.user?.email?.toLowerCase().includes(searchLower) ||
-        // Search in product info
         order.product?.title?.toLowerCase().includes(searchLower)
       );
     }
-
     setFilteredOrders(result);
-  }, [orders, searchTerm, statusFilter]);
+  }, [orders, searchTerm, statusFilter, paymentStatusFilter, payoutStatusFilter]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Stats Overview Section */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="bg-indigo-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-indigo-600">Total Orders</h3>
-              <p className="text-2xl font-bold text-indigo-900">{orderStats.totalOrders}</p>
+              <p className="text-2xl font-bold text-indigo-900">{stats.totalOrders}</p>
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-green-600">Completed Orders</h3>
-              <p className="text-2xl font-bold text-green-900">
-                {orderStats.ordersByStatus.delivered}
-              </p>
+              <p className="text-2xl font-bold text-green-900">{stats.completedOrders}</p>
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-yellow-600">Pending Orders</h3>
-              <p className="text-2xl font-bold text-yellow-900">
-                {orderStats.ordersByStatus.pending}
-              </p>
+              <p className="text-2xl font-bold text-yellow-900">{stats.pendingOrders}</p>
             </div>
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-blue-600">Total Revenue</h3>
-              <p className="text-2xl font-bold text-blue-900">
-                {formatCurrency(orderStats.totalRevenue)}
-              </p>
+              <h3 className="text-sm font-medium text-blue-600">Paid</h3>
+              <p className="text-2xl font-bold text-blue-900">{stats.byPaymentStatus.paid}</p>
             </div>
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <h3 className="text-sm font-medium text-orange-600">Payment Pending</h3>
+              <p className="text-2xl font-bold text-orange-900">{stats.byPaymentStatus.pending}</p>
+            </div>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-600">Cancelled</h3>
+              <p className="text-2xl font-bold text-gray-900">{stats.byStatus.cancelled}</p>
+            </div>
+          </div>
+          {/* Payout Overview Row */}
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-emerald-50 p-4 rounded-lg">
+              <h3 className="text-sm font-medium text-emerald-600">Money Received</h3>
+              <p className="text-2xl font-bold text-emerald-900">{formatCurrency(stats.moneyReceived)}</p>
+            </div>
+            <div className="bg-amber-50 p-4 rounded-lg">
+              <h3 className="text-sm font-medium text-amber-600">Pending Payouts</h3>
+              <p className="text-2xl font-bold text-amber-900">{stats.pendingPayouts}</p>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <h3 className="text-sm font-medium text-purple-600">Not Eligible</h3>
+              <p className="text-2xl font-bold text-purple-900">{stats.byPayoutStatus.notEligible}</p>
+            </div>
+          </div>
+          {/* Status breakdown row */}
+          <div className="mt-4 grid grid-cols-3 md:grid-cols-6 gap-2 text-xs text-gray-600">
+            <div>Pending: <span className="font-bold">{stats.byStatus.pending}</span></div>
+            <div>Confirmed: <span className="font-bold">{stats.byStatus.confirmed}</span></div>
+            <div>Shipped: <span className="font-bold">{stats.byStatus.shipped}</span></div>
+            <div>Delivered: <span className="font-bold">{stats.byStatus.delivered}</span></div>
+            <div>Picked Up: <span className="font-bold">{stats.byStatus.pickedup}</span></div>
+            <div>Cancelled: <span className="font-bold">{stats.byStatus.cancelled}</span></div>
+          </div>
+          {/* Payment status breakdown row */}
+          <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-gray-600">
+            <div>Paid: <span className="font-bold">{stats.byPaymentStatus.paid}</span></div>
+            <div>Pending: <span className="font-bold">{stats.byPaymentStatus.pending}</span></div>
+            <div>Other: <span className="font-bold">{stats.byPaymentStatus.other}</span></div>
+          </div>
+          {/* Payout status breakdown row */}
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-gray-600">
+            <div>Money Received: <span className="font-bold">{formatCurrency(stats.moneyReceived)}</span></div>
+            <div>Pending Payouts: <span className="font-bold">{stats.pendingPayouts}</span></div>
+            <div>Not Eligible: <span className="font-bold">{stats.byPayoutStatus.notEligible}</span></div>
           </div>
         </div>
       </div>
@@ -652,7 +727,35 @@ export default function OrdersPage() {
                   <option value="confirmed">Confirmed</option>
                   <option value="shipped">Shipped</option>
                   <option value="delivered">Delivered</option>
+                  <option value="picked up">Picked Up</option>
                   <option value="cancelled">Cancelled</option>
+                  <option value="completed">Completed (Delivered & Picked Up)</option>
+                </select>
+              </div>
+              {/* Payment Status Filter */}
+              <div className="sm:w-48">
+                <select
+                  value={paymentStatusFilter}
+                  onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Payment Status</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              {/* Payout Status Filter */}
+              <div className="sm:w-48">
+                <select
+                  value={payoutStatusFilter}
+                  onChange={(e) => setPayoutStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Payout Status</option>
+                  <option value="completed">Completed</option>
+                  <option value="pending">Pending</option>
+                  <option value="not_eligible">Not Eligible</option>
                 </select>
               </div>
             </div>
@@ -674,6 +777,9 @@ export default function OrdersPage() {
                     </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
+                    </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Money Received
                     </th>
                       <th scope="col" className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -726,6 +832,15 @@ export default function OrdersPage() {
                             order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
                         </span>
                       </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            ${order.transaction?.seller_payout_status === 'completed' ? 'bg-green-100 text-green-800' : 
+                              order.transaction?.seller_payout_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                                'bg-gray-100 text-gray-800'}`}>
+                            {order.transaction?.seller_payout_status === 'completed' ? 'Completed' : 
+                              order.transaction?.seller_payout_status === 'pending' ? 'Pending' : 'Not Eligible'}
+                          </span>
+                        </td>
                         <td className="px-6 py-4 text-right">
                         <div className="flex justify-end space-x-3">
                           <button 

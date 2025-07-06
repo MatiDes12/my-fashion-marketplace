@@ -722,7 +722,7 @@ export default function CheckoutPage() {
                     </div>
                   )}
                   <button
-                    onClick={handleCheckout}
+                    onClick={() => setIsPaymentModalOpen(true)}
                     disabled={!agreedToTerms || isProcessing}
                     className="w-full bg-green-600 text-white py-4 px-6 rounded-xl font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors"
                   >

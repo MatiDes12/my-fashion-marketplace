@@ -10,6 +10,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import { ResponsiveLine } from '@nivo/line';
 import { ResponsivePie } from '@nivo/pie';
+import { fetchDashboardStats } from '@/components/DashboardStats';
 
 interface RevenueStats {
   totalRevenue: number;
@@ -43,12 +44,16 @@ interface RevenueStats {
     delivered: number;
     cancelled: number;
   };
+  allPendingPayouts: number;
 }
 
 export default function RevenuePage() {
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().setDate(new Date().getDate() - 30)),
-    end: new Date()
+  const [dateRange, setDateRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({
+    start: null,
+    end: null
   });
   const [stats, setStats] = useState<RevenueStats>({
     totalRevenue: 0,
@@ -66,7 +71,8 @@ export default function RevenuePage() {
       shipped: 0,
       delivered: 0,
       cancelled: 0
-    }
+    },
+    allPendingPayouts: 0
   });
   const [loading, setLoading] = useState(true);
   const supabase = createClientComponent();
@@ -79,8 +85,9 @@ export default function RevenuePage() {
     try {
       setLoading(true);
 
-      const { data: transactions, error } = await supabase
-      .from('transactions')
+      // Fix date range filtering to use proper ISO strings
+      let query = supabase
+        .from('transactions')
         .select(`
           *,
           seller:users!transactions_seller_id_fkey (
@@ -93,9 +100,21 @@ export default function RevenuePage() {
             order_status
           )
         `)
-        .gte('created_at', dateRange.start.toISOString())
-        .lte('created_at', dateRange.end.toISOString())
         .order('created_at', { ascending: true });
+
+      // Apply date filters only if dates are provided
+      if (dateRange.start) {
+        const startDate = new Date(dateRange.start);
+        startDate.setHours(0, 0, 0, 0);
+        query = query.gte('created_at', startDate.toISOString());
+      }
+      if (dateRange.end) {
+        const endDate = new Date(dateRange.end);
+        endDate.setHours(23, 59, 59, 999);
+        query = query.lte('created_at', endDate.toISOString());
+      }
+
+      const { data: transactions, error } = await query;
 
       if (error) throw error;
 
@@ -106,13 +125,13 @@ export default function RevenuePage() {
         
         if (existing) {
           existing.totalRevenue += t.total_amount || 0;
-          existing.platformRevenue += t.platform_revenue || 0;
+          existing.platformRevenue += (t.service_fee || 0) + (t.platform_fee || 0);
           existing.sellerPayouts += t.seller_payout_amount || 0;
         } else {
           acc.push({
             date,
             totalRevenue: t.total_amount || 0,
-            platformRevenue: t.platform_revenue || 0,
+            platformRevenue: (t.service_fee || 0) + (t.platform_fee || 0),
             sellerPayouts: t.seller_payout_amount || 0
           });
         }
@@ -124,12 +143,12 @@ export default function RevenuePage() {
         const existing = acc.find((p: { method: string }) => p.method === t.payment_method);
         if (existing) {
           existing.amount += t.total_amount || 0;
-          existing.serviceRevenue += t.service_fee || 0;
+          existing.serviceRevenue += (t.service_fee || 0) + (t.platform_fee || 0);
         } else {
           acc.push({
             method: t.payment_method,
             amount: t.total_amount || 0,
-            serviceRevenue: t.service_fee || 0
+            serviceRevenue: (t.service_fee || 0) + (t.platform_fee || 0)
           });
         }
         return acc;
@@ -169,10 +188,32 @@ export default function RevenuePage() {
         cancelled: 0
       });
 
+      // Calculate platform revenue (service fee + platform fee)
+      const platformRevenue = transactions?.reduce((sum, t) => 
+        sum + ((t.service_fee || 0) + (t.platform_fee || 0)), 0) || 0;
+
+      // Calculate seller payouts - only for completed orders (delivered/picked up)
+      const sellerPayouts = transactions?.reduce((sum, t) => {
+        if (t.seller_payout_status === 'pending' && 
+            t.payment_status === 'paid' && 
+            (t.order?.order_status === 'delivered' || t.order?.order_status === 'picked up')) {
+          return sum + (t.seller_payout_amount || 0);
+        }
+        return sum;
+      }, 0) || 0;
+
+      // Calculate all pending payouts (sum of all pending seller payouts)
+      const allPendingPayouts = transactions?.reduce((sum, t) => {
+        if (t.seller_payout_status === 'pending' && t.payment_status === 'paid') {
+          return sum + (t.seller_payout_amount || 0);
+        }
+        return sum;
+      }, 0) || 0;
+
       setStats({
         totalRevenue: transactions?.reduce((sum, t) => sum + (t.total_amount || 0), 0) || 0,
-        platformRevenue: transactions?.reduce((sum, t) => sum + (t.platform_revenue || 0), 0) || 0,
-        sellerPayouts: transactions?.reduce((sum, t) => sum + (t.seller_payout_amount || 0), 0) || 0,
+        platformRevenue: platformRevenue,
+        sellerPayouts: sellerPayouts,
         vatCollected: transactions?.reduce((sum, t) => sum + (t.vat_amount || 0), 0) || 0,
         serviceFees: transactions?.reduce((sum, t) => sum + (t.service_fee || 0), 0) || 0,
         deliveryFees: transactions?.reduce((sum, t) => sum + (t.delivery_fee || 0), 0) || 0,
@@ -180,6 +221,27 @@ export default function RevenuePage() {
         revenueByPaymentMethod,
         topSellers,
         orderStatusCounts,
+        allPendingPayouts: allPendingPayouts
+      });
+
+      // Debug logging
+      console.log('Revenue Page Debug:', {
+        dateRange: {
+          start: dateRange.start ? new Date(dateRange.start).toISOString() : 'N/A',
+          end: dateRange.end ? new Date(dateRange.end).toISOString() : 'N/A'
+        },
+        transactionsCount: transactions?.length || 0,
+        totalRevenue: transactions?.reduce((sum, t) => sum + (t.total_amount || 0), 0) || 0,
+        platformRevenue,
+        sellerPayouts,
+        sellerPayoutsBreakdown: transactions?.filter(t => 
+          t.seller_payout_status === 'pending' && 
+          t.payment_status === 'paid'
+        ).map(t => ({
+          orderStatus: t.order?.order_status,
+          amount: t.seller_payout_amount,
+          isCompleted: t.order?.order_status === 'delivered' || t.order?.order_status === 'picked up'
+        })) || []
       });
 
     } catch (error) {
@@ -200,15 +262,13 @@ export default function RevenuePage() {
           startDate={dateRange.start}
           endDate={dateRange.end}
           onChange={({ startDate, endDate }) => {
-            if (startDate && endDate) {
-              setDateRange({ start: startDate, end: endDate });
-            }
+            setDateRange({ start: startDate, end: endDate });
           }}
         />
       </div>
 
       {/* Revenue Overview Cards */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Revenue"
           value={formatCurrency(stats.totalRevenue)}
@@ -226,6 +286,12 @@ export default function RevenuePage() {
           value={formatCurrency(stats.sellerPayouts)}
           subtext="Total seller earnings"
           trend={+15}
+        />
+        <StatCard
+          title="All Pending Payouts"
+          value={formatCurrency(stats.allPendingPayouts)}
+          subtext="All non-transferred money"
+          trend={+3}
         />
       </div>
 
@@ -343,7 +409,7 @@ export default function RevenuePage() {
                   }))
                 }
               ]}
-              colors={['#ef4444', '#3b82f6', '#10b981']}
+              colors={['#10b981', '#3b82f6', '#ef4444']}
               margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
               enableArea={true}
               areaBaselineValue={0}
@@ -542,19 +608,88 @@ function StatCard({ title, value, subtext, trend }: {
   subtext: string;
   trend: number;
 }) {
+  const getIcon = (title: string) => {
+    switch (title.toLowerCase()) {
+      case 'total revenue':
+        return (
+          <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'platform revenue':
+        return (
+          <svg className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        );
+      case 'seller payouts':
+        return (
+          <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        );
+      case 'vat collected':
+        return (
+          <svg className="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        );
+      case 'service fees':
+        return (
+          <svg className="h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'delivery fees':
+        return (
+          <svg className="h-8 w-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
+        );
+      case 'all pending payouts':
+        return (
+          <svg className="h-8 w-8 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        );
+    }
+  };
+
   return (
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="p-5">
-        <div className="flex items-center">
+    <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+      <div className="p-6">
+        <div className="flex items-center justify-between">
           <div className="flex-1">
-            <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-            <dd className="mt-1 text-3xl font-semibold text-gray-900">{value}</dd>
-            <dd className="mt-1 text-sm text-gray-500">{subtext}</dd>
+            <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
+            <p className="text-2xl font-bold text-gray-900 mb-2">{value}</p>
+            <p className="text-sm text-gray-500 mb-2">{subtext}</p>
+            <div className={`flex items-center text-sm font-medium ${
+              trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-gray-500'
+            }`}>
+              {trend > 0 ? (
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
+                </svg>
+              ) : trend < 0 ? (
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1v-5a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586l-4.293-4.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.293l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
+                </svg>
+              )}
+              {trend > 0 ? '+' : ''}{trend}%
+            </div>
           </div>
-          <div className={`flex items-center text-sm ${
-            trend > 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
+          <div className="flex-shrink-0 ml-4">
+            {getIcon(title)}
           </div>
         </div>
       </div>

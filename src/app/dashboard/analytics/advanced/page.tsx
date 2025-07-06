@@ -52,6 +52,7 @@ interface AnalyticsData {
     totalRevenue: number;
     averageOrderValue: number;
     pendingPayouts: number;
+    completedPayouts: number;
   };
   recentTransactions: Array<{
     id: string;
@@ -127,7 +128,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [analyticsData, setAnalyticsData] = useState<AdvancedAnalytics | null>(null);
-  const [timeRange, setTimeRange] = useState('30days'); // '7days', '30days', '90days', 'year'
+  const [timeRange, setTimeRange] = useState('all'); // '7days', '30days', '90days', 'year', 'all'
   const router = useRouter();
   const supabase = createClientComponent();
 
@@ -160,6 +161,10 @@ export default function AnalyticsPage() {
           break;
         case 'year':
           startDate.setFullYear(now.getFullYear() - 1);
+          break;
+        case 'all':
+        default:
+          startDate = new Date(0); // Start from epoch (Jan 1, 1970) to get all data
           break;
       }
 
@@ -202,7 +207,8 @@ export default function AnalyticsPage() {
           seller_payout_amount,
           seller_payout_status,
           payment_status,
-          customer_name
+          customer_name,
+          order_id
         `)
         .eq('seller_id', session.user.id)
         .gte('created_at', startDate.toISOString());
@@ -228,7 +234,7 @@ export default function AnalyticsPage() {
           )
         `)
         .eq('products.owner_id', session.user.id)
-        .eq('order_status', 'delivered')
+        .in('order_status', ['delivered', 'picked up'])
         .gte('created_at', startDate.toISOString());
 
       // Process all data
@@ -238,7 +244,8 @@ export default function AnalyticsPage() {
         paymentsData, 
         productData, 
         salesData,
-        session.user.id
+        session.user.id,
+        startDate
       );
       setAnalyticsData(processedData);
 
@@ -256,7 +263,8 @@ export default function AnalyticsPage() {
     paymentsData: any[] | null,
     productData: any[] | null,
     salesData: any[] | null,
-    userId: string
+    userId: string,
+    startDate: Date
   ) => {
     // Initialize data structures
     const revenueByMonth: { labels: string[]; data: number[] } = {
@@ -279,7 +287,7 @@ export default function AnalyticsPage() {
 
     // Process orders by status - match exactly with database schema
     const ordersByStatus = {
-      labels: ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
+      labels: ['Pending', 'Confirmed', 'Shipped', 'Completed', 'Cancelled'],
       data: Array(5).fill(0) // Initialize array with zeros
     };
 
@@ -288,6 +296,7 @@ export default function AnalyticsPage() {
       'confirmed': 1,
       'shipped': 2,
       'delivered': 3,
+      'picked up': 3, // Both delivered and picked up go to "Completed"
       'cancelled': 4
     };
 
@@ -305,7 +314,7 @@ export default function AnalyticsPage() {
       'rgba(251, 191, 36, 0.5)',  // amber-400 for pending
       'rgba(59, 130, 246, 0.5)',  // blue-500 for confirmed
       'rgba(139, 92, 246, 0.5)',  // purple-500 for shipped
-      'rgba(34, 197, 94, 0.5)',   // green-500 for delivered
+      'rgba(34, 197, 94, 0.5)',   // green-500 for completed (delivered + picked up)
       'rgba(239, 68, 68, 0.5)',   // red-500 for cancelled
     ];
 
@@ -332,12 +341,66 @@ export default function AnalyticsPage() {
       averageOrderValue: revenueData?.length ? 
         (revenueData.reduce((sum, item) => sum + (item.seller_payout_amount || 0), 0) / revenueData.length) : 0,
       pendingPayouts: revenueData?.reduce((sum, item) => {
-        if (item.seller_payout_status === 'pending') {
+        // Only count as pending payout if:
+        // 1. seller_payout_status is 'pending'
+        // 2. payment_status is 'paid' (customer has paid)
+        // 3. Find the corresponding order and check if it's completed (delivered or picked up)
+        if (item.seller_payout_status === 'pending' && item.payment_status === 'paid') {
+          const order = ordersData?.find(o => o.id === item.order_id);
+          if (order && (order.order_status === 'delivered' || order.order_status === 'picked up')) {
+            return sum + (item.seller_payout_amount || 0);
+          }
+        }
+        return sum;
+      }, 0) || 0,
+      completedPayouts: revenueData?.reduce((sum, item) => {
+        // Count as completed payout if:
+        // 1. seller_payout_status is 'completed' (admin has paid)
+        // 2. payment_status is 'paid' (customer has paid)
+        if (item.seller_payout_status === 'completed' && item.payment_status === 'paid') {
           return sum + (item.seller_payout_amount || 0);
         }
         return sum;
       }, 0) || 0
     };
+
+    // Debug logging
+    console.log('Analytics Debug:', {
+      timeRange,
+      startDate: startDate.toISOString(),
+      totalOrders: summary.totalOrders,
+      totalRevenue: summary.totalRevenue,
+      pendingPayouts: summary.pendingPayouts,
+      completedPayouts: summary.completedPayouts,
+      revenueDataCount: revenueData?.length || 0,
+      ordersDataCount: ordersData?.length || 0,
+      productDataCount: productData?.length || 0,
+      pendingPayoutsBreakdown: revenueData?.filter(item => 
+        item.seller_payout_status === 'pending' && 
+        item.payment_status === 'paid'
+      ).map(item => ({
+        orderId: item.order_id,
+        amount: item.seller_payout_amount,
+        orderStatus: ordersData?.find(o => o.id === item.order_id)?.order_status,
+        sellerPayoutStatus: item.seller_payout_status,
+        paymentStatus: item.payment_status
+      })) || [],
+      completedPayoutsBreakdown: revenueData?.filter(item => 
+        item.seller_payout_status === 'completed' && 
+        item.payment_status === 'paid'
+      ).map(item => ({
+        orderId: item.order_id,
+        amount: item.seller_payout_amount,
+        orderStatus: ordersData?.find(o => o.id === item.order_id)?.order_status,
+        sellerPayoutStatus: item.seller_payout_status,
+        paymentStatus: item.payment_status
+      })) || [],
+      allOrdersWithStatus: ordersData?.map(order => ({
+        orderId: order.id,
+        status: order.order_status,
+        hasTransaction: revenueData?.some(t => t.order_id === order.id)
+      })) || []
+    });
 
     // Get recent transactions
     const recentTransactions = (revenueData || [])
@@ -361,17 +424,34 @@ export default function AnalyticsPage() {
     };
 
     const productMetrics = {
-      topProducts: productData?.map(product => ({
-        id: product.id,
-        title: product.title,
-        totalSales: product.orders?.length || 0,
-        revenue: product.orders?.reduce((sum: number, order: { total_price?: number }) => sum + (order.total_price || 0), 0) || 0,
-        totalQuantity: product.orders?.reduce((sum: number, order: { quantity?: number }) => sum + (order.quantity || 0), 0) || 0,
-        likes: product.likes[0]?.count || 0,
-        averageRating: product.ratings?.length 
-          ? product.ratings.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / product.ratings.length 
-          : 0
-      })).filter(product => product.likes > 0)
+      topProducts: productData?.map(product => {
+        // Filter orders by time range for this product
+        const filteredOrders = product.orders?.filter((order: any) => 
+          new Date(order.created_at) >= startDate
+        ) || [];
+        
+        // Calculate revenue using seller_payout_amount from transactions
+        const productRevenue = revenueData?.reduce((sum, transaction) => {
+          // Find the order for this transaction and check if it belongs to this product
+          const order = ordersData?.find(o => o.id === transaction.order_id);
+          if (order && order.product_id === product.id) {
+            return sum + (transaction.seller_payout_amount || 0);
+          }
+          return sum;
+        }, 0) || 0;
+
+        return {
+          id: product.id,
+          title: product.title,
+          totalSales: filteredOrders.length,
+          revenue: productRevenue,
+          totalQuantity: filteredOrders.reduce((sum: number, order: { quantity?: number }) => sum + (order.quantity || 0), 0),
+          likes: product.likes[0]?.count || 0,
+          averageRating: product.ratings?.length 
+            ? product.ratings.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / product.ratings.length 
+            : 0
+        };
+      }).filter(product => product.totalSales > 0) // Only show products with sales in the time range
         .sort((a, b) => b.totalQuantity - a.totalQuantity) || [],
       categoryPerformance: []
     };
@@ -379,7 +459,9 @@ export default function AnalyticsPage() {
     const performanceMetrics = {
       conversionRate: ordersData?.length && revenueData?.length ? 
         ((ordersData.length / revenueData.length) * 100) : 0,
-      averageOrderCompletion: ordersData?.filter(o => o.order_status === 'delivered').length || 0,
+      averageOrderCompletion: ordersData?.filter(o => 
+        o.order_status === 'delivered' || o.order_status === 'picked up'
+      ).length || 0,
       cancelationRate: ordersData?.length ? 
         ((ordersData.filter(o => o.order_status === 'cancelled').length / ordersData.length) * 100) : 0
     };
@@ -462,9 +544,9 @@ export default function AnalyticsPage() {
       const storePickupCount = salesData.filter(item => item.delivery_method === 'store_pickup').length;
       const totalDeliveryTime = salesData.reduce((sum, item) => sum + (item.delivery_time || 0), 0);
 
-      salesMetrics.deliveryStats.homeDelivery = homeDeliveryCount / salesData.length;
-      salesMetrics.deliveryStats.storePickup = storePickupCount / salesData.length;
-      salesMetrics.deliveryStats.averageDeliveryTime = totalDeliveryTime / salesData.length;
+      salesMetrics.deliveryStats.homeDelivery = salesData.length > 0 ? homeDeliveryCount / salesData.length : 0;
+      salesMetrics.deliveryStats.storePickup = salesData.length > 0 ? storePickupCount / salesData.length : 0;
+      salesMetrics.deliveryStats.averageDeliveryTime = salesData.length > 0 ? totalDeliveryTime / salesData.length : 0;
     }
 
     // Process product insights
@@ -526,6 +608,7 @@ export default function AnalyticsPage() {
             onChange={(e) => setTimeRange(e.target.value)}
             className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           >
+            <option value="all">All Time</option>
             <option value="7days">Last 7 Days</option>
             <option value="30days">Last 30 Days</option>
             <option value="90days">Last 90 Days</option>
@@ -534,7 +617,7 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
           {/* Total Orders */}
           <div className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-5">
@@ -616,6 +699,27 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </div>
+
+          {/* Completed Payouts */}
+          <div className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="p-5">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+                </div>
+                <div className="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Completed Payouts</dt>
+                    <dd className="text-lg font-semibold text-gray-900">
+                      {formatCurrency(analyticsData?.summary.completedPayouts || 0)}
+                    </dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Charts Section */}
@@ -647,6 +751,7 @@ export default function AnalyticsPage() {
           {/* Orders by Status */}
           <div className="bg-white shadow rounded-lg p-6">
             <h3 className="text-lg font-medium text-gray-900">Orders by Status</h3>
+            <p className="text-sm text-gray-500 mb-4">Completed includes both delivered and picked up orders</p>
             <div className="mt-6" style={{ height: '300px' }}>
               <Bar
                 data={{
@@ -928,19 +1033,21 @@ export default function AnalyticsPage() {
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-sm font-medium text-gray-500">Home Delivery</h3>
               <p className="mt-2 text-3xl font-semibold text-gray-900">
-                {analyticsData?.salesMetrics.deliveryStats.homeDelivery.toFixed(2)}
+                {((analyticsData?.salesMetrics.deliveryStats.homeDelivery || 0) * 100).toFixed(1)}%
               </p>
             </div>
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-sm font-medium text-gray-500">Store Pickup</h3>
               <p className="mt-2 text-3xl font-semibold text-gray-900">
-                {analyticsData?.salesMetrics.deliveryStats.storePickup.toFixed(2)}
+                {((analyticsData?.salesMetrics.deliveryStats.storePickup || 0) * 100).toFixed(1)}%
               </p>
             </div>
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-sm font-medium text-gray-500">Average Delivery Time</h3>
               <p className="mt-2 text-3xl font-semibold text-gray-900">
-                {analyticsData?.salesMetrics.deliveryStats.averageDeliveryTime.toFixed(2)} minutes
+                {analyticsData?.salesMetrics.deliveryStats.averageDeliveryTime ? 
+                  `${analyticsData.salesMetrics.deliveryStats.averageDeliveryTime.toFixed(1)} days` : 
+                  'N/A'}
               </p>
             </div>
           </div>
@@ -967,6 +1074,107 @@ export default function AnalyticsPage() {
               <p className="mt-2 text-3xl font-semibold text-gray-900">
                 {analyticsData?.productInsights.topRated.length}
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Payout Performance Insights */}
+        <div className="mt-8">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Payout Performance Insights</h2>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            {/* Cash Flow Analysis */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-4">Cash Flow Analysis</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total Revenue Generated</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatCurrency(analyticsData?.summary.totalRevenue || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Money Received</span>
+                  <span className="text-sm font-semibold text-green-600">
+                    {formatCurrency(analyticsData?.summary.completedPayouts || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Pending Payouts</span>
+                  <span className="text-sm font-semibold text-amber-600">
+                    {formatCurrency(analyticsData?.summary.pendingPayouts || 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payout Trends */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-4">Payout Trends</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Average Payout Time</span>
+                  <span className="text-sm font-semibold text-blue-600">
+                    {analyticsData?.summary.totalOrders && analyticsData.summary.totalOrders > 0 ? 
+                      `${Math.round(analyticsData.summary.totalOrders / 30)} days` : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Payout Success Rate</span>
+                  <span className="text-sm font-semibold text-green-600">
+                    {analyticsData?.summary.pendingPayouts && analyticsData?.summary.completedPayouts ? 
+                      `${((analyticsData.summary.completedPayouts) / (analyticsData.summary.completedPayouts + analyticsData.summary.pendingPayouts) * 100).toFixed(1)}%` : '0%'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Monthly Payout Average</span>
+                  <span className="text-sm font-semibold text-purple-600">
+                    {formatCurrency((analyticsData?.summary.totalRevenue || 0) / 12)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Best Payout Month</span>
+                  <span className="text-sm font-semibold text-indigo-600">
+                    {analyticsData?.revenueByMonth.labels && analyticsData.revenueByMonth.labels.length > 0 ? 
+                      analyticsData.revenueByMonth.labels[analyticsData.revenueByMonth.data.indexOf(Math.max(...analyticsData.revenueByMonth.data))] : 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Health Dashboard */}
+        <div className="mt-8">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Financial Health Dashboard</h2>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-green-600">Cash Position</h3>
+              <p className="mt-2 text-2xl font-semibold text-green-900">
+                {formatCurrency(analyticsData?.summary.completedPayouts || 0)}
+              </p>
+              <p className="mt-1 text-xs text-green-600">Money in your account</p>
+            </div>
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-blue-600">Revenue Growth</h3>
+              <p className="mt-2 text-2xl font-semibold text-blue-900">
+                {analyticsData?.revenueByMonth.data && analyticsData.revenueByMonth.data.length > 1 ? 
+                  `${((analyticsData.revenueByMonth.data[analyticsData.revenueByMonth.data.length - 1] - analyticsData.revenueByMonth.data[analyticsData.revenueByMonth.data.length - 2]) / analyticsData.revenueByMonth.data[analyticsData.revenueByMonth.data.length - 2] * 100).toFixed(1)}%` : '0%'}
+              </p>
+              <p className="mt-1 text-xs text-blue-600">Month over month</p>
+            </div>
+            <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-purple-600">Profit Margin</h3>
+              <p className="mt-2 text-2xl font-semibold text-purple-900">
+                100%
+              </p>
+              <p className="mt-1 text-xs text-purple-600">No platform fees</p>
+            </div>
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-amber-600">Pending Cash</h3>
+              <p className="mt-2 text-2xl font-semibold text-amber-900">
+                {formatCurrency(analyticsData?.summary.pendingPayouts || 0)}
+              </p>
+              <p className="mt-1 text-xs text-amber-600">Awaiting transfer</p>
             </div>
           </div>
         </div>

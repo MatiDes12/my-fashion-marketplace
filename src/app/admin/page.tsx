@@ -10,29 +10,10 @@ import { LineChart } from '@/components/charts/LineChart';
 import { PieChart } from '@/components/charts/PieChart';
 import { BarChart } from '@/components/charts/BarChart';
 import { DateRangePicker } from '@/components/DateRangePicker';
+import { fetchDashboardStats, StatCard, DashboardStats } from '@/components/DashboardStats';
 import Link from 'next/link';
 import { ResponsiveLine } from '@nivo/line';
 import { format } from 'date-fns';
-
-interface DashboardStats {
-  totalUsers: number;
-  totalProducts: number;
-  totalOrders: number;
-  totalRevenue: number;
-  pendingPayouts: number;
-  completedPayouts: number;
-  recentTransactions: any[];
-  dailyRevenue: Array<{
-    date: string;
-    revenue: number;
-    transactions: number;
-  }>;
-  paymentMethods: Array<{
-    method: string;
-    count: number;
-    amount: number;
-  }>;
-}
 
 // Add interface for Transaction type
 interface Transaction {
@@ -76,9 +57,12 @@ interface Transaction {
 }
 
 export default function AdminDashboardPage() {
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().setDate(new Date().getDate() - 30)),
-    end: new Date()
+  const [dateRange, setDateRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({
+    start: null,
+    end: null
   });
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
@@ -86,6 +70,7 @@ export default function AdminDashboardPage() {
     totalOrders: 0,
     totalRevenue: 0,
     pendingPayouts: 0,
+    allPendingPayouts: 0,
     completedPayouts: 0,
     recentTransactions: [],
     dailyRevenue: [],
@@ -108,101 +93,14 @@ export default function AdminDashboardPage() {
     ) : supabase;
 
   useEffect(() => {
-    fetchDashboardStats();
+    loadDashboardStats();
   }, [dateRange]);
 
-  const fetchDashboardStats = async () => {
+  const loadDashboardStats = async () => {
     try {
       setLoading(true);
-
-      // Fetch transactions within date range
-      const { data: transactions, error: transactionError } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          seller:users!transactions_seller_id_fkey (
-            id,
-            full_name,
-            email,
-            store_settings
-          ),
-          order:orders!transactions_order_id_fkey (
-            id,
-            tx_ref,
-            payment_reference,
-            order_status,
-            payment_status,
-            product:products!orders_product_id_fkey (
-              id,
-              title
-            )
-          )
-        `)
-        .gte('created_at', dateRange.start.toISOString())
-        .lte('created_at', dateRange.end.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (transactionError) throw transactionError;
-
-      // Calculate daily revenue
-      const dailyRevenue = transactions?.reduce((acc, t) => {
-        const date = new Date(t.created_at).toISOString().split('T')[0];
-        const platformProfit = (t.service_fee || 0) + (t.platform_fee || 0); // Calculate platform profit
-        
-        const existing = acc.find((d: { date: string }) => d.date === date);
-        if (existing) {
-          existing.revenue += platformProfit;
-          existing.transactions += 1;
-        } else {
-          acc.push({
-            date,
-            revenue: platformProfit,
-            transactions: 1
-          });
-        }
-        return acc;
-      }, [] as DashboardStats['dailyRevenue']).sort((a: {date: string}, b: {date: string}) => a.date.localeCompare(b.date)) || [];
-
-      // Calculate payment method stats
-      const paymentMethods = transactions?.reduce((acc, t) => {
-        const existing = acc.find((p: { method: string }) => p.method === t.payment_method);
-        if (existing) {
-          existing.count += 1;
-          existing.amount += t.total_amount || 0;
-        } else {
-          acc.push({
-            method: t.payment_method,
-            count: 1,
-            amount: t.total_amount || 0
-          });
-        }
-        return acc;
-      }, [] as DashboardStats['paymentMethods']) || [];
-
-      // Get other stats
-      const { count: userCount } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: productCount } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true });
-
-      setStats({
-        totalUsers: userCount || 0,
-        totalProducts: productCount || 0,
-        totalOrders: transactions?.length || 0,
-        totalRevenue: transactions?.reduce((sum, t) => 
-          sum + ((t.service_fee || 0) + (t.platform_fee || 0)), 0) || 0, // Update total revenue to show platform profit
-        pendingPayouts: transactions?.reduce((sum, t) => 
-          t.seller_payout_status === 'pending' ? sum + (t.seller_payout_amount || 0) : sum, 0) || 0,
-        completedPayouts: transactions?.reduce((sum, t) => 
-          t.seller_payout_status === 'completed' ? sum + (t.seller_payout_amount || 0) : sum, 0) || 0,
-        recentTransactions: transactions?.slice(0, 5) || [],
-        dailyRevenue,
-        paymentMethods
-      });
-
+      const dashboardStats = await fetchDashboardStats(dateRange);
+      setStats(dashboardStats);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       toast.error('Failed to load dashboard statistics');
@@ -224,7 +122,7 @@ export default function AdminDashboardPage() {
       if (transactionError) throw transactionError;
       
       toast.success('Payout approved successfully');
-      fetchDashboardStats(); // Refresh the data
+      loadDashboardStats(); // Refresh the data
     } catch (error) {
       console.error('Error approving payout:', error);
       toast.error('Failed to approve payout');
@@ -335,24 +233,32 @@ export default function AdminDashboardPage() {
           startDate={dateRange.start}
           endDate={dateRange.end}
           onChange={({ startDate, endDate }) => {
-            if (startDate && endDate) {
-              setDateRange({ start: startDate, end: endDate });
-            }
+            setDateRange({ start: startDate, end: endDate });
           }}
         />
       </div>
 
       {/* Stats Grid */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Total Revenue"
           value={formatCurrency(stats.totalRevenue)}
           trend={+12}
         />
         <StatCard
-          title="Pending Payouts"
+          title="Total Orders"
+          value={stats.totalOrders.toString()}
+          trend={+8}
+        />
+        <StatCard
+          title="Seller Payout"
           value={formatCurrency(stats.pendingPayouts)}
           trend={+5}
+        />
+        <StatCard
+          title="All Pending Payouts"
+          value={formatCurrency(stats.allPendingPayouts)}
+          trend={+3}
         />
         <StatCard
           title="Completed Payouts"
@@ -380,7 +286,7 @@ export default function AdminDashboardPage() {
                   y: d.revenue
                 }))
               }]}
-              colors={['#ef4444']}
+              colors={['#10b981']}
               margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
               enableArea={true}
               areaBaselineValue={0}
@@ -388,7 +294,7 @@ export default function AdminDashboardPage() {
               pointSize={8}
               pointColor="#ffffff"
               pointBorderWidth={2}
-              pointBorderColor="#ef4444"
+              pointBorderColor="#10b981"
               yFormat={value => `ETB ${value.toLocaleString()}`}
               curve="monotoneX"
               useMesh={true}
@@ -404,7 +310,7 @@ export default function AdminDashboardPage() {
 
         {/* Payment Methods */}
         <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Payment Methods</h2>
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Payment Methods Distribution</h2>
           <PieChart
             data={stats.paymentMethods.map(p => ({
               id: p.method,
@@ -417,7 +323,7 @@ export default function AdminDashboardPage() {
 
         {/* Transaction Volume */}
         <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Transaction Volume</h2>
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Daily Transaction Volume</h2>
           <BarChart
             data={stats.dailyRevenue}
             keys={['transactions']}
@@ -518,27 +424,6 @@ export default function AdminDashboardPage() {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Stat Card Component
-function StatCard({ title, value, trend }: { title: string; value: string; trend: number }) {
-  return (
-    <div className="bg-white overflow-hidden shadow rounded-lg">
-      <div className="p-5">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            {/* Add icon based on type */}
-          </div>
-          <div className="ml-5 w-0 flex-1">
-            <dl>
-              <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-              <dd className="text-lg font-medium text-gray-900">{value}</dd>
-            </dl>
-          </div>
         </div>
       </div>
     </div>
