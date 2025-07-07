@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
     // Get receipt URL
     const receiptUrl = verifyData.data?.reference 
-      ? `https://checkout.chapa.co/checkout/test-payment-receipt/${verifyData.data.reference}`
+      ? `https://checkout.chapa.co/checkout/payment-receipt/${verifyData.data.reference}`
       : null;
 
       console.log('[CHAPA VERIFY] Receipt URL:', receiptUrl);

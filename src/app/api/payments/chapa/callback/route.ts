@@ -50,7 +50,7 @@ export async function GET(request: Request) {
     if (verifyResponse.ok && verifyData.status === 'success') {
       const reference = verifyData.data?.reference;
       const receiptUrl = reference 
-        ? `https://checkout.chapa.co/checkout/test-payment-receipt/${reference}`
+        ? `https://checkout.chapa.co/checkout/payment-receipt/${reference}`
         : null;
 
       // Check if order already exists for this tx_ref

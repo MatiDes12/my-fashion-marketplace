@@ -132,7 +132,7 @@ export default function MobilePaymentTracking() {
               receipt_url: verifyData.data?.receipt_url || 
                           verifyData.data?.receipt ||
                           (verifyData.data?.reference ? 
-                            `https://checkout.chapa.co/checkout/test-payment-receipt/${verifyData.data.reference}` : 
+                            `https://checkout.chapa.co/checkout/payment-receipt/${verifyData.data.reference}` : 
                             null),
               updated_at: new Date().toISOString()
             })

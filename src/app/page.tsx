@@ -653,25 +653,22 @@ const testimonials: {
   text: string;
   name: string;
   location: string;
-  avatar: string;
+  avatar?: string;
 }[] = [
   {
     text: "Amazing marketplace! Found authentic Ethiopian products that I couldn't find anywhere else.",
     name: "Abebe Kebede",
-    location: "Addis Ababa",
-    avatar: "/images/avatars/avatar-1.jpg"
+    location: "Addis Ababa"
   },
   {
-    text: "The quality of traditional clothing is exceptional. Fast delivery and great customer service!",
+    text: "የባህላዊ ልብሶች ጥራት አስደናቂ ነው። ፈጣን አድራሻ እና ጥሩ የደንበኞች አገልግሎት!",
     name: "Sara Mohammed",
-    location: "Dire Dawa",
-    avatar: "/images/avatars/avatar-2.jpg"
+    location: "Dire Dawa"
   },
   {
     text: "AVRIO has transformed how I shop for Ethiopian fashion. Love the variety and authenticity.",
     name: "Dawit Haile",
-    location: "Bahir Dar",
-    avatar: "/images/avatars/avatar-3.jpg"
+    location: "Bahir Dar"
   }
 ];
 
@@ -716,13 +713,19 @@ const TestimonialCarousel = () => {
                 <div className="flex items-center gap-4">
                   <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 
                     border-gray-700/50 group-hover:border-gray-600/50 
-                    transition-colors">
-                    <Image
-                      src={testimonial.avatar}
-                      alt={testimonial.name}
-                      fill
-                      className="object-cover"
-                    />
+                    transition-colors bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center">
+                    {testimonial.avatar ? (
+                      <Image
+                        src={testimonial.avatar}
+                        alt={testimonial.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <span className="text-white font-semibold text-lg">
+                        {testimonial.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <p className="text-white font-medium">{testimonial.name}</p>
