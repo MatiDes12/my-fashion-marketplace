@@ -20,11 +20,11 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Avrio",
-  description: "Secure fashion marketplace",
+  description: "Secure online marketplace",
   metadataBase: new URL('https://www.avrioxshop.com'),
   openGraph: {
     title: 'Avrio',
-    description: 'Secure fashion marketplace',
+    description: 'Secure online marketplace',
     url: 'https://www.avrioxshop.com',
     siteName: 'Avrio',
   },
