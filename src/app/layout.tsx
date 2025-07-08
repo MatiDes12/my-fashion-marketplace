@@ -14,6 +14,7 @@ import ScrollProgress from '@/components/ScrollProgress';
 import FloatingSupportButton from '@/components/FloatingSupportButton';
 import { FloatingPreview } from '@/components/FloatingPreview';
 import Header from '@/components/Header';
+import ReactQueryProvider from '@/components/ReactQueryProvider';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -52,23 +53,25 @@ export default function RootLayout({
         <ScrollProgress />
         <AuthProvider>
           <LanguageProvider>
-            <div className="min-h-screen flex flex-col">
-              <Header />
-              <main className="flex-1 w-full bg-gray-50">
-                <Suspense fallback={<LoadingPage />}>
-                  <PageWrapper>
-                    {children}
-                  </PageWrapper>
-                </Suspense>
-              </main>
+            <ReactQueryProvider>
+              <div className="min-h-screen flex flex-col">
+                <Header />
+                <main className="flex-1 w-full bg-gray-50">
+                  <Suspense fallback={<LoadingPage />}>
+                    <PageWrapper>
+                      {children}
+                    </PageWrapper>
+                  </Suspense>
+                </main>
 
-              {process.env.NODE_ENV !== 'production' && <DebugInfo />}
-              <FloatingSupportButton />
-              <FloatingPreview />
-              <Toaster position="top-right" />
-              <SpeedInsights />
-              <Analytics />
-            </div>
+                {process.env.NODE_ENV !== 'production' && <DebugInfo />}
+                <FloatingSupportButton />
+                <FloatingPreview />
+                <Toaster position="top-right" />
+                <SpeedInsights />
+                <Analytics />
+              </div>
+            </ReactQueryProvider>
           </LanguageProvider>
         </AuthProvider>
       </body>

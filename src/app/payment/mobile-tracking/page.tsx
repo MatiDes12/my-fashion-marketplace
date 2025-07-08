@@ -145,8 +145,10 @@ export default function MobilePaymentTracking() {
 
           console.log('[MOBILE TRACKING] Payment processed successfully');
           localStorage.removeItem('pendingPayment');
-          toast.success('Payment successful! Redirecting to your orders...');
-          router.push('/orders');
+          toast.success('Payment successful! Redirecting to your orders in 30 seconds...');
+          setTimeout(() => {
+            router.push('/orders');
+          }, 30000); // 30 seconds delay
           return true;
         } else if (verifyData.status === 'pending') {
           // Payment is still processing

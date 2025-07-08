@@ -72,22 +72,52 @@ function NewProductPage() {
   const categoryConfig = CATEGORY_SPECIFIC_FIELDS[category as keyof typeof CATEGORY_SPECIFIC_FIELDS] 
     || CATEGORY_SPECIFIC_FIELDS.default;
 
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [missingFields, setMissingFields] = useState<{[key: string]: boolean}>({});
+  const titleRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLSelectElement>(null);
+  const quantityRef = useRef<HTMLInputElement>(null);
+  const imageSectionRef = useRef<HTMLDivElement>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setImageError(null);
+    setMissingFields({});
+
+    // Validate required fields
+    const missing: {[key: string]: boolean} = {};
+    if (!title) missing.title = true;
+    if (!description) missing.description = true;
+    if (!price) missing.price = true;
+    if (!category && !showCustomCategory) missing.category = true;
+    if (showCustomCategory && !customCategory) missing.category = true;
+    if (!quantity) missing.quantity = true;
+    if (images.length < 4) missing.images = true;
+
+    if (Object.keys(missing).length > 0) {
+      setMissingFields(missing);
+        setLoading(false);
+      // Scroll to the first missing field
+      if (missing.title && titleRef.current) titleRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (missing.description && descRef.current) descRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (missing.price && priceRef.current) priceRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (missing.category && categoryRef.current) categoryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (missing.quantity && quantityRef.current) quantityRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (missing.images && imageSectionRef.current) imageSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
 
     try {
       // Get the current user's session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         throw new Error('You must be logged in to create a product');
-      }
-
-      // Validate required fields
-      if (!title || !description || !price || !category || !quantity) {
-        throw new Error('Please fill in all required fields');
       }
 
       // Prepare variants data - flatten custom options into the variant object
@@ -216,20 +246,24 @@ function NewProductPage() {
     }
   };
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      if (files.length < 4) {
-        setError('Please upload at least 4 images');
-        return;
-      }
-      if (files.length > 8) {
-        setError('Maximum 8 images allowed');
-        return;
-      }
-      setImages(files);
-      setError(null);
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) {
+    let files: File[] = [];
+    if ('dataTransfer' in e) {
+      files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    } else if (e.target.files) {
+      files = Array.from(e.target.files);
     }
+    if (files.length + images.length > 8) {
+      setImageError('Maximum 8 images allowed.');
+        return;
+      }
+    setImages(prev => [...prev, ...files]);
+    setImageError(null);
+    }
+
+  // Add remove image handler
+  function handleRemoveImage(index: number) {
+    setImages(prev => prev.filter((_, i) => i !== index));
   }
 
   // Update the input and textarea styles with these classes
@@ -273,7 +307,7 @@ function NewProductPage() {
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
                   <h4 className="text-base font-medium text-gray-900">Basic Information</h4>
                 <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-                  <div className="sm:col-span-4">
+                  <div className="sm:col-span-4 relative">
                     <label htmlFor="title" className="block text-sm font-medium text-gray-700">
                       Product Title <span className="text-red-500">*</span>
                     </label>
@@ -281,27 +315,41 @@ function NewProductPage() {
                       <input
                         type="text"
                         id="title"
+                        ref={titleRef}
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                          className={inputClasses}
+                        className={inputClasses + (missingFields.title ? ' border-red-500' : '')}
                         placeholder="Traditional Habesha Dress"
                         required
                       />
+                      {missingFields.title && (
+                        <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                          Please enter a product title
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="sm:col-span-3">
+                  <div className="sm:col-span-3 relative">
                     <label htmlFor="category" className="block text-sm font-medium text-gray-700">
                       Category <span className="text-red-500">*</span>
                     </label>
                     <div className="mt-1">
                       {!showCustomCategory ? (
-                        <div className="space-y-4">
+                        <>
                           <select
                             id="category"
+                            ref={categoryRef}
                             value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                              className={selectClasses}
+                            onChange={(e) => {
+                              if (e.target.value === 'custom') {
+                                setShowCustomCategory(true);
+                                setCategory('');
+                              } else {
+                                setCategory(e.target.value);
+                              }
+                            }}
+                            className={selectClasses + (missingFields.category ? ' border-red-500' : '')}
                             required={!showCustomCategory}
                           >
                             <option value="">Select a category</option>
@@ -466,33 +514,20 @@ function NewProductPage() {
                             
                             <option value="custom">+ Add custom category</option>
                           </select>
-
-                          {category === 'custom' && (
-                            <div className="mt-3">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setShowCustomCategory(true);
-                                  setCategory('');
-                                }}
-                                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                              >
-                                <svg className="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                </svg>
-                                Create custom category
-                              </button>
+                          {missingFields.category && (
+                            <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                              Please select a category
                             </div>
                           )}
-                        </div>
+                        </>
                       ) : (
-                        <div className="flex">
+                        <>
                           <input
                             type="text"
                             id="customCategory"
                             value={customCategory}
                             onChange={(e) => setCustomCategory(e.target.value)}
-                              className={inputClasses}
+                            className={inputClasses + (missingFields.category ? ' border-red-500' : '')}
                             placeholder="Enter custom category"
                             required={showCustomCategory}
                           />
@@ -506,12 +541,17 @@ function NewProductPage() {
                           >
                             Cancel
                           </button>
+                          {missingFields.category && (
+                            <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                              Please enter a category
                         </div>
                       )}
+                        </>
+                      )}
+                    </div>
                       <p className="mt-2 text-sm text-gray-500">
                         Choose the most appropriate category for your product to help buyers find it easily.
                       </p>
-                    </div>
                   </div>
                   </div>
                 </div>
@@ -520,21 +560,27 @@ function NewProductPage() {
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
                   <h4 className="text-base font-medium text-gray-900">Product Description</h4>
                   <div className="space-y-6">
-                    <div>
+                    <div className="relative">
                       <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                         Brief Description <span className="text-red-500">*</span>
                       </label>
                       <div className="mt-1">
                         <textarea
                           id="description"
+                          ref={descRef}
                           rows={2}
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
-                          className={inputClasses}
+                          className={inputClasses + (missingFields.description ? ' border-red-500' : '')}
                           placeholder="Brief overview of your product (will appear in product listings)"
                           maxLength={200}
                           required
                         />
+                        {missingFields.description && (
+                          <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                            Please enter a brief description
+                          </div>
+                        )}
                       </div>
                       <p className="mt-2 text-sm text-gray-500">
                         A brief summary of your product (max 200 characters)
@@ -593,34 +639,46 @@ function NewProductPage() {
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
                   <h4 className="text-base font-medium text-gray-900">Pricing & Inventory</h4>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700">
                         Price (ETB) <span className="text-red-500">*</span>
                       </label>
                         <input
                           type="number"
+                          ref={priceRef}
                           value={price}
                           onChange={(e) => setPrice(e.target.value)}
-                        className={inputClasses}
+                          className={inputClasses + (missingFields.price ? ' border-red-500' : '')}
                         placeholder="Enter price"
                           required
                         min="0"
                         step="0.01"
                         />
+                        {missingFields.price && (
+                          <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                            Please enter a price
                     </div>
-                    <div>
+                        )}
+                    </div>
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700">
                         Quantity <span className="text-red-500">*</span>
                     </label>
                       <input
                         type="number"
+                        ref={quantityRef}
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
-                          className={inputClasses}
+                        className={inputClasses + (missingFields.quantity ? ' border-red-500' : '')}
                         placeholder="Available quantity"
                         required
                         min="0"
                       />
+                      {missingFields.quantity && (
+                        <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                          Please enter a quantity
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1293,47 +1351,64 @@ function NewProductPage() {
                   </div>
 
                 {/* Images Section */}
-                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={imageSectionRef}>
                   <div className="flex justify-between items-center">
-                    <h4 className="text-base font-medium text-gray-900">Product Images</h4>
-                    <span className="text-sm text-gray-500">
-                      {images.length}/8 images
-                    </span>
+                    <h4 className="text-base font-medium text-gray-900">Product Images <span className="text-red-500">*</span></h4>
+                    <span className="text-sm text-gray-500">{images.length}/8 images</span>
                   </div>
                   <div>
                     <label htmlFor="images" className="block text-sm font-medium text-gray-700">
-                      Upload Images <span className="text-red-500">*</span>
+                      Upload Images
                     </label>
                     <p className="mt-1 text-sm text-gray-500">
-                      Upload 4-8 high-quality images of your product. Include different angles and details.
+                      Upload <span className="font-semibold">4-8 high-quality images</span> of your product. Include different angles and details.
                     </p>
-                    <div className="mt-3">
+                    <div
+                      className={`mt-3 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
+                      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={e => { e.preventDefault(); setIsDragging(false); }}
+                      onDrop={e => { e.preventDefault(); setIsDragging(false); handleImageChange(e); }}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ minHeight: 120 }}
+                    >
                       <input
                         type="file"
                         id="images"
                         ref={fileInputRef}
                         onChange={handleImageChange}
-                        className="block w-full text-base text-gray-500 
-                          file:mr-4 file:py-3 file:px-4 
-                          file:rounded-lg file:border-0 
-                          file:text-base file:font-medium 
-                          file:bg-green-50 file:text-green-700 
-                          hover:file:bg-green-100
-                          border-2 border-gray-200 rounded-lg"
+                        className="hidden"
                         multiple
                         accept="image/*"
                       />
+                      <svg className="h-10 w-10 text-green-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4a1 1 0 011-1h8a1 1 0 011 1v12m-4 4h-4a1 1 0 01-1-1v-4h10v4a1 1 0 01-1 1h-4z" />
+                      </svg>
+                      <span className="text-gray-600 text-sm">Click or drag & drop images here</span>
+                      <span className="text-xs text-gray-400 mt-1">(JPG, PNG, up to 8 images)</span>
                     </div>
+                    {(imageError || missingFields.images) && (
+                      <div className="mt-2 text-sm text-red-600 animate-bounce">
+                        {imageError || 'Please upload at least 4 images.'}
+                      </div>
+                    )}
                     {images.length > 0 && (
-                      <div className="mt-4">
-                        <div className="flex items-center space-x-2">
-                          <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <p className="text-sm text-gray-700">
-                            {images.length} {images.length === 1 ? 'image' : 'images'} selected
-                          </p>
+                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {images.map((img, idx) => {
+                          const url = URL.createObjectURL(img);
+                          return (
+                            <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                              <img src={url} alt={`Preview ${idx + 1}`} className="object-cover w-full h-32" />
+                              <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); handleRemoveImage(idx); }}
+                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition"
+                                title="Remove image"
+                              >
+                                &times;
+                              </button>
                         </div>
+                          );
+                        })}
                       </div>
                     )}
                     <div className="mt-4 bg-blue-50 p-4 rounded-lg">

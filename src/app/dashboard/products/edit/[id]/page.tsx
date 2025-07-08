@@ -242,11 +242,23 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     fetchProduct();
   }, [params.id, supabase]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newImages = Array.from(e.target.files);
-      setImages(prevImages => [...prevImages, ...newImages]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const imageSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement> | React.DragEvent<HTMLDivElement>) => {
+    let files: File[] = [];
+    if ('dataTransfer' in e) {
+      files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    } else if (e.target.files) {
+      files = Array.from(e.target.files);
     }
+    if (files.length + images.length + (existingImages.length - imagesToDelete.length) > 8) {
+      setImageError('Maximum 8 images allowed.');
+      return;
+    }
+    setImages(prev => [...prev, ...files]);
+    setImageError(null);
   };
 
   const handleRemoveImage = (index: number) => {
@@ -262,6 +274,16 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setImageError(null);
+
+    // Enforce minimum 4 images (existing + new - toDelete)
+    const totalImages = existingImages.length - imagesToDelete.length + images.length;
+    if (totalImages < 4) {
+      setImageError('Please upload at least 4 images.');
+      if (imageSectionRef.current) imageSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setLoading(false);
+      return;
+    }
 
     try {
       // Get the current user's session
@@ -884,54 +906,92 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
-                  <h4 className="text-base font-medium text-gray-900">Product Images</h4>
-                  <div className="sm:col-span-6">
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={imageSectionRef}>
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-base font-medium text-gray-900">Product Images <span className="text-red-500">*</span></h4>
+                    <span className="text-sm text-gray-500">{existingImages.length - imagesToDelete.length + images.length}/8 images</span>
+                  </div>
+                  <div>
                     <label htmlFor="newImages" className="block text-sm font-medium text-gray-700">
                       Add New Images
                     </label>
-                    <div className="mt-1">
+                    <div
+                      className={`mt-3 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
+                      onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={e => { e.preventDefault(); setIsDragging(false); }}
+                      onDrop={e => { e.preventDefault(); setIsDragging(false); handleImageChange(e); }}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ minHeight: 120 }}
+                    >
                       <input
                         type="file"
                         id="newImages"
                         ref={fileInputRef}
                         onChange={handleImageChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                        className="hidden"
                         multiple
                         accept="image/*"
                       />
+                      <svg className="h-10 w-10 text-green-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16V4a1 1 0 011-1h8a1 1 0 011 1v12m-4 4h-4a1 1 0 01-1-1v-4h10v4a1 1 0 01-1 1h-4z" />
+                      </svg>
+                      <span className="text-gray-600 text-sm">Click or drag & drop images here</span>
+                      <span className="text-xs text-gray-400 mt-1">(JPG, PNG, up to 8 images)</span>
                     </div>
+                    {imageError && (
+                      <div className="mt-2 text-sm text-red-600 animate-bounce">{imageError}</div>
+                    )}
+                    {/* Previews for new images */}
                     {images.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">
-                          {images.length} new {images.length === 1 ? 'image' : 'images'} selected
-                        </p>
+                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {images.map((img, idx) => {
+                          const url = URL.createObjectURL(img);
+                          return (
+                            <div key={idx} className="relative group border rounded-lg overflow-hidden">
+                              <img src={url} alt={`Preview ${idx + 1}`} className="object-cover w-full h-32" />
+                              <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); handleRemoveImage(idx); }}
+                                className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition"
+                                title="Remove image"
+                              >
+                                &times;
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
-                  </div>
-                </div>
-
-                <div className="mt-4 bg-blue-50 p-4 rounded-lg">
-                  <h5 className="text-sm font-medium text-blue-800 mb-2">Image Guidelines:</h5>
-                  <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• Upload minimum 4 and maximum 8 images</li>
-                    <li>• First image will be the main product image</li>
-                    <li>• Include photos from different angles</li>
-                    <li>• Show both full product and detail shots</li>
-                    <li>• Use well-lit, clear photos</li>
-                    <li>• Recommended size: 1000x1000px or larger</li>
-                  </ul>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
-                  <h4 className="text-base font-medium text-gray-900">Existing Images</h4>
-                  {existingImages.length > 0 && (
-                    <div className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                      {existingImages.map((image) => (
-                        <ExistingImage key={image.id} image={image} />
-                      ))}
+                    {/* Previews for existing images */}
+                    {existingImages.length - imagesToDelete.length > 0 && (
+                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {existingImages.filter(img => !imagesToDelete.includes(img.image_url)).map((image, idx) => (
+                          <div key={image.id} className="relative group border rounded-lg overflow-hidden">
+                            <img src={formatImageUrl(image.image_url)} alt="Product" className="object-cover w-full h-32" />
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); handleRemoveExistingImage(image.image_url); }}
+                              className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition"
+                              title="Remove image"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+                      <h5 className="text-sm font-medium text-blue-800 mb-2">Image Guidelines:</h5>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Upload minimum 4 and maximum 8 images</li>
+                        <li>• First image will be the main product image</li>
+                        <li>• Include photos from different angles</li>
+                        <li>• Show both full product and detail shots</li>
+                        <li>• Use well-lit, clear photos</li>
+                        <li>• Recommended size: 1000x1000px or larger</li>
+                      </ul>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">

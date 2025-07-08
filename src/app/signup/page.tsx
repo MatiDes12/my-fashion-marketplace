@@ -36,6 +36,12 @@ export default function SignupPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(10);
   const router = useRouter();
+  const [phone, setPhone] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [signupMethod, setSignupMethod] = useState<'email' | 'phone'>('email');
+
   useEffect(() => {
     if (searchParams) {
       const roleParam = searchParams.get('role');
@@ -44,6 +50,37 @@ export default function SignupPage() {
       }
     }
   }, [searchParams]);
+
+  // Helper to format phone number (ensure E.164, avoid double country code)
+  const formatPhone = (input: string) => {
+    let phone = input.trim();
+    if (phone.startsWith('+')) {
+      return phone;
+    }
+    // Remove any leading country code without '+'
+    if (phone.startsWith('251')) {
+      phone = '+' + phone;
+      return phone;
+    }
+    // Default to Ethiopia if starts with 0
+    if (phone.startsWith('0')) {
+      phone = '+251' + phone.slice(1);
+      return phone;
+    }
+    // Otherwise, assume it's a local number and prepend +251
+    return '+251' + phone;
+  };
+
+  // Helper to validate phone number
+  const isValidPhone = (phone: string) => {
+    const formatted = formatPhone(phone);
+    // Ethiopia: +2519XXXXXXXX (12 digits)
+    if (formatted.startsWith('+251')) {
+      return /^\+2519\d{8}$/.test(formatted);
+    }
+    // Basic E.164 check for other countries: +[country][number] (10-15 digits)
+    return /^\+\d{10,15}$/.test(formatted);
+  };
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -173,6 +210,87 @@ export default function SignupPage() {
     }
   }
 
+  async function handleSendOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const formattedPhone = formatPhone(phone);
+      // Validate phone number before proceeding
+      if (!isValidPhone(phone)) {
+        setError('Please enter a valid phone number in international format. For Ethiopia: +2519XXXXXXXX');
+        setLoading(false);
+        return;
+      }
+      // Check if phone already exists
+      const { data: existingPhone, error: phoneError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('phone', formattedPhone)
+        .single();
+      if (phoneError && phoneError.code !== 'PGRST116') {
+        throw phoneError;
+      }
+      if (existingPhone) {
+        setError('An account with this phone number already exists.');
+        setLoading(false);
+        return;
+      }
+      const { data, error: otpError } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
+      });
+      if (otpError) throw otpError;
+      setOtpSent(true);
+      setMessage('OTP sent! Please check your phone.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setVerifyingOtp(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const formattedPhone = formatPhone(phone);
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: otp,
+        type: 'sms',
+      });
+      if (verifyError) throw verifyError;
+      // Upsert user profile in users table with phone_verified true
+      if (data.user) {
+        // Use the user's id to generate a simple email if not present
+        let generatedEmail = data.user.email;
+        if (!generatedEmail) {
+          const idPart = data.user.id ? data.user.id.slice(0, 4) : Math.random().toString(36).slice(2, 6);
+          generatedEmail = `user_${idPart}@phone.avrioxshop.com`;
+        }
+        await supabase.from('users').upsert({
+          id: data.user.id,
+          full_name: fullName,
+          role: 'customer',
+          phone: formattedPhone,
+          phone_verified: true,
+          email: generatedEmail,
+        });
+      }
+      setMessage('Signup successful! You are now logged in.');
+      setTimeout(() => {
+        router.push('/');
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to verify OTP');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50">
       {/* Decorative Elements */}
@@ -241,138 +359,167 @@ export default function SignupPage() {
               </div>
             )}
 
-            <form className="space-y-6" onSubmit={handleSignup}>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  I want to
-                </label>
-                <div className="mt-2 grid grid-cols-2 gap-3">
+            {/* Only show signup method toggle for buyers */}
+            {role === 'customer' && (
+              <div className="mb-6 flex justify-center">
+                <div className="inline-flex rounded-full bg-gray-100 p-1 shadow-inner border border-gray-200">
                   <button
                     type="button"
-                    onClick={() => setRole('customer')}
-                    className={`${
-                      role === 'customer'
-                        ? 'border-red-500 ring-2 ring-red-500 bg-red-50'
-                        : 'border-gray-300 hover:border-red-400 hover:bg-red-50'
-                    } relative rounded-xl border px-4 py-3 shadow-sm focus:outline-none transition-all duration-200`}
+                    className={`px-6 py-2 rounded-full text-sm font-semibold focus:outline-none transition-all duration-200
+                      ${signupMethod === 'email' ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-md' : 'bg-transparent text-gray-700 hover:text-red-600'}`}
+                    onClick={() => setSignupMethod('email')}
+                    aria-pressed={signupMethod === 'email'}
                   >
-                    <span className="flex items-center justify-center text-sm font-medium text-gray-900">
-                      <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                      </svg>
-                      Shop Products
-                    </span>
+                    Sign up with Email
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRole('owner')}
-                    className={`${
-                      role === 'owner'
-                        ? 'border-red-500 ring-2 ring-red-500 bg-red-50'
-                        : 'border-gray-300 hover:border-red-400 hover:bg-red-50'
-                    } relative rounded-xl border px-4 py-3 shadow-sm focus:outline-none transition-all duration-200`}
+                    className={`px-6 py-2 rounded-full text-sm font-semibold focus:outline-none transition-all duration-200
+                      ${signupMethod === 'phone' ? 'bg-gradient-to-r from-gray-400 to-gray-300 text-white shadow-md' : 'bg-transparent text-gray-400 cursor-not-allowed'}`}
+                    onClick={() => setSignupMethod('phone')}
+                    aria-pressed={signupMethod === 'phone'}
+                    disabled
                   >
-                    <span className="flex items-center justify-center text-sm font-medium text-gray-900">
-                      <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                      </svg>
-                      Sell Products
-                    </span>
+                    Sign up with Phone
+                    <span className="ml-2 inline-block bg-yellow-200 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full align-middle">Upcoming</span>
                   </button>
                 </div>
               </div>
+            )}
 
-              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                  Full Name
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
+            {/* Render the correct form based on role and signup method */}
+            {role === 'customer' && signupMethod === 'phone' ? (
+              <div className="mb-6 text-center">
+                <div className="inline-block bg-yellow-100 text-yellow-800 px-4 py-2 rounded-xl font-semibold text-sm shadow border border-yellow-200">
+                  Phone signup is <span className="font-bold">coming soon</span>! Please use email signup for now.
                 </div>
               </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                    </svg>
+            ) : (
+              // Email signup (for sellers, or buyers if they choose email)
+              <form className="space-y-6" onSubmit={handleSignup}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    I want to
+                  </label>
+                  <div className="mt-2 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setRole('customer')}
+                      className={`${
+                        role === 'customer'
+                          ? 'border-red-500 ring-2 ring-red-500 bg-red-50'
+                          : 'border-gray-300 hover:border-red-400 hover:bg-red-50'
+                      } relative rounded-xl border px-4 py-3 shadow-sm focus:outline-none transition-all duration-200`}
+                    >
+                      <span className="flex items-center justify-center text-sm font-medium text-gray-900">
+                        <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                        Shop Products
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRole('owner')}
+                      className={`${
+                        role === 'owner'
+                          ? 'border-red-500 ring-2 ring-red-500 bg-red-50'
+                          : 'border-gray-300 hover:border-red-400 hover:bg-red-50'
+                      } relative rounded-xl border px-4 py-3 shadow-sm focus:outline-none transition-all duration-200`}
+                    >
+                      <span className="flex items-center justify-center text-sm font-medium text-gray-900">
+                        <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        Sell Products
+                      </span>
+                    </button>
                   </div>
                 </div>
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <div className="mt-1 relative">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
+                <div>
+                  <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
+                    Full Name
+                  </label>
+                  <div className="mt-1 relative">
+                    <input
+                      id="fullName"
+                      name="fullName"
+                      type="text"
+                      required
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
                   </div>
                 </div>
-                {passwordError && (
-                    <p className="mt-2 text-sm text-red-600">{passwordError}</p>
-                )}
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-all duration-200 transform hover:scale-[1.02]"
-                >
-                  {loading ? (
-                    <div className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                    Email address
+                  </label>
+                  <div className="mt-1 relative">
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                       </svg>
-                      Creating account...
                     </div>
-                  ) : (
-                    'Create account'
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <div className="mt-1 relative">
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                  </div>
+                  {passwordError && (
+                      <p className="mt-2 text-sm text-red-600">{passwordError}</p>
                   )}
-                </button>
-              </div>
-            </form>
+                </div>
+                <div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 transition-all duration-200 transform hover:scale-[1.02]"
+                  >
+                    {loading ? (
+                      <div className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Creating account...
+                      </div>
+                    ) : (
+                      'Create account'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div className="mt-6">
               <div className="relative">

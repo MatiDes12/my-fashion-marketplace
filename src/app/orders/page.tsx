@@ -10,10 +10,11 @@ import { toast } from 'react-hot-toast';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClientComponent();
@@ -28,66 +29,67 @@ export default function OrdersPage() {
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const ordersPerPage = 10;
   
+  const fetchOrders = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select(`
+        *,
+        product:products(
+          id, 
+          title, 
+          price,
+          owner_id,
+          images:product_images(*),
+          seller:users!products_owner_id_fkey(
+            id,
+            full_name,
+            store_settings
+          )
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw new Error('Failed to fetch orders');
+    return data || [];
+  };
+
+  const queryClient = useQueryClient();
+
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          router.push('/login');
-          return;
-        }
-        
-        // Fetch orders with product details
-        const { data, error: fetchError } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            product:products(
-              id, 
-              title, 
-              price,
-              owner_id,
-              images:product_images(*),
-              seller:users!products_owner_id_fkey(
-                id,
-                full_name,
-                store_settings
-              )
-            )
-          `)
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false });
-          
-        if (fetchError) {
-          throw new Error('Failed to fetch orders');
-        }
-        
-        setOrders(data || []);
-        
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
+    const getSessionAndFetch = async () => {
+      setLoading(true);
+      setError(null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
       }
+      setLoading(false);
+      // React Query will handle fetching
     };
-    
-    fetchOrders();
+    getSessionAndFetch();
   }, []);
-  
+
+  const { data: ordersData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['orders', supabase.auth.getSession],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not logged in');
+      return fetchOrders(session.user.id);
+    },
+    enabled: !loading && !error,
+  });
+
+  useEffect(() => {
+    if (ordersData) setOrders(ordersData);
+  }, [ordersData]);
+
+  // When payment is confirmed, refetch orders
   useEffect(() => {
     if (paymentSuccess === 'true' && tx_ref) {
-      if (tx_ref.startsWith('CASH-')) {
-        toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
-      } else {
-        toast.success('Payment successful! Your order has been placed.');
-      }
+      refetch();
     }
-  }, [paymentSuccess, tx_ref]);
+  }, [paymentSuccess, tx_ref, refetch]);
   
   // Update the useEffect for payment verification
   useEffect(() => {

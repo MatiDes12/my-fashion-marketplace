@@ -510,7 +510,7 @@ export default function ProductDetailPage() {
   const supabase = createClientComponent();
   const productId = params?.id as string;
   const actionParam = searchParams?.get('action');
-
+  
   // Fetch session user id on mount
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -519,85 +519,85 @@ export default function ProductDetailPage() {
   }, []);
 
   // Fetch product and like status
-  const fetchProduct = async () => {
-    try {
-      setLoading(true);
-    
-    // First get the current user's session
-    const { data: { session } } = await supabase.auth.getSession();
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+      
+      // First get the current user's session
+      const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
-    
+      
       // Fetch product with all related data including ratings
-    const { data: product, error } = await supabase
-      .from('products')
-      .select(`
-        *,
+      const { data: product, error } = await supabase
+        .from('products')
+        .select(`
+          *,
           product_images (*),
-        owner:users!products_owner_id_fkey (
-          id,
-          full_name,
-          email,
-          store_settings,
-          verification_status
-        ),
-          ratings (
-          id,
-          rating,
-          comment,
-          created_at,
-            user:users (
+          owner:users!products_owner_id_fkey (
             id,
-            full_name
+            full_name,
+            email,
+            store_settings,
+            verification_status
+          ),
+          ratings (
+            id,
+            rating,
+            comment,
+            created_at,
+            user:users (
+              id,
+              full_name
+            )
           )
-        )
-      `)
-      .eq('id', productId)
-      .single();
+        `)
+        .eq('id', productId)
+        .single();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // Get flash sale price if available
-    const flashSalePrices = await getFlashSalePrices([productId]);
-    
+      // Get flash sale price if available
+      const flashSalePrices = await getFlashSalePrices([productId]);
+      
       // Calculate average rating and total ratings
-    const ratings = product.ratings || [];
-    const totalRatings = ratings.length;
-    const averageRating = totalRatings > 0
+      const ratings = product.ratings || [];
+      const totalRatings = ratings.length;
+      const averageRating = totalRatings > 0
         ? ratings.reduce((sum: number, curr: { rating?: number }) => sum + (curr.rating || 0), 0) / totalRatings
-      : 0;
+        : 0;
 
       // Get user's rating if logged in
-    let userRating = null;
-    if (session?.user) {
-      const { data: userRatingData } = await supabase
-        .from('ratings')
-        .select('*')
-        .eq('product_id', productId)
-        .eq('user_id', session.user.id)
-        .single();
-      
-      userRating = userRatingData;
-    }
+      let userRating = null;
+      if (session?.user) {
+        const { data: userRatingData } = await supabase
+          .from('ratings')
+          .select('*')
+          .eq('product_id', productId)
+          .eq('user_id', session.user.id)
+          .single();
+        
+        userRating = userRatingData;
+      }
 
       // Process the store settings and create the final product object
-    const processedProduct = {
-      ...product,
-      flash_sale_price: flashSalePrices[productId],
-      like_count: product.likes?.[0]?.count || 0,
-      users: {
+      const processedProduct = {
+        ...product,
+        flash_sale_price: flashSalePrices[productId],
+        like_count: product.likes?.[0]?.count || 0,
+        users: {
           id: product.owner?.id,
           full_name: product.owner?.full_name,
           email: product.owner?.email,
           verification_status: product.owner?.verification_status,
           store_settings: typeof product.owner?.store_settings === 'string' 
-          ? JSON.parse(product.owner.store_settings)
+            ? JSON.parse(product.owner.store_settings)
             : product.owner?.store_settings || {}
-      },
+        },
         product_images: product.product_images || [],
-      average_rating: Number(averageRating.toFixed(1)),
-      total_ratings: totalRatings,
-      user_rating: userRating,
-      reviews: ratings
+        average_rating: Number(averageRating.toFixed(1)),
+        total_ratings: totalRatings,
+        user_rating: userRating,
+        reviews: ratings
           .filter((r: { comment?: string }) => r.comment) // Only include ratings with comments as reviews
           .map((r: { 
             id: string; 
@@ -606,40 +606,40 @@ export default function ProductDetailPage() {
             created_at: string;
             user: { id: string; full_name: string; }
           }) => ({
-          id: r.id,
-          rating: r.rating,
-          comment: r.comment,
-          created_at: r.created_at,
+            id: r.id,
+            rating: r.rating,
+            comment: r.comment,
+            created_at: r.created_at,
             user: r.user
-        }))
+          }))
           .sort((a: { created_at: string }, b: { created_at: string }) => 
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           )
-    };
+      };
 
-    setProduct(processedProduct);
-    setAvailableQuantity(product.quantity);
+      setProduct(processedProduct);
+      setAvailableQuantity(product.quantity);
 
     // Check if user has liked this product
     if (userId) {
       const { data: likeData } = await supabase
-        .from('likes')
-        .select('id')
+          .from('likes')
+          .select('id')
         .eq('user_id', userId)
-        .eq('product_id', productId)
-        .single();
+          .eq('product_id', productId)
+          .single();
       setIsLiked(!!likeData);
     } else {
       setIsLiked(false);
-    }
+      }
 
-  } catch (error) {
-    console.error('Error fetching product:', error);
-    setError('Failed to load product');
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      setError('Failed to load product');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (productId) {
@@ -1158,7 +1158,7 @@ export default function ProductDetailPage() {
                             <path 
                               fillRule="evenodd" 
                               d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
-                              />
+                            />
                           </svg>
                         </div>
                       )}
