@@ -16,9 +16,9 @@ export default function AboutPage() {
           <section className="bg-gray-800/50 rounded-2xl p-8 backdrop-blur-sm">
             <h2 className="text-2xl font-semibold text-white mb-4">Our Story</h2>
             <p className="text-gray-300 leading-relaxed">
-              AVRIO is Ethiopia's premier online marketplace, connecting talented local artisans 
-              and sellers with customers across the country. We started with a simple mission: 
-              to make Ethiopian fashion and products accessible to everyone while supporting 
+              AVRIO is Ethiopia's premier online marketplace, connecting talented local artisans
+              and sellers with customers across the country. We started with a simple mission:
+              to make Ethiopian products accessible to everyone while supporting
               local businesses.
             </p>
           </section>
