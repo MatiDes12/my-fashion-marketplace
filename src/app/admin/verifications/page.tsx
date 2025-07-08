@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import type { User } from '@/types/database.types';
+import { Tab } from '@headlessui/react';
 
 interface SellerVerification {
   id: string;
@@ -84,8 +86,12 @@ function DocumentPreviewModal({ url, title, onClose }: DocumentPreviewModalProps
   );
 }
 
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
 function VerificationsPage() {
-  const [verifications, setVerifications] = useState<SellerVerification[]>([]);
+  const [owners, setOwners] = useState<Array<User & { verification?: SellerVerification | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; title: string } | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
@@ -96,23 +102,36 @@ function VerificationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 5;
   const supabase = createClientComponentClient();
+  const [activeTab, setActiveTab] = useState<'no_verification' | 'submitted'>('submitted');
 
   useEffect(() => {
-    fetchVerifications();
+    fetchOwnersWithVerification();
   }, []);
 
-  const fetchVerifications = async () => {
+  // Fetch all owners and their verification (if any)
+  const fetchOwnersWithVerification = async () => {
+    setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('seller_verification')
+      // 1. Fetch all owners
+      const { data: users, error: usersError } = await supabase
+        .from('users')
         .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setVerifications(data || []);
+        .eq('role', 'owner');
+      if (usersError) throw usersError;
+      // 2. Fetch all verifications
+      const { data: verifications, error: verificationsError } = await supabase
+        .from('seller_verification')
+        .select('*');
+      if (verificationsError) throw verificationsError;
+      // 3. Merge: attach verification to each owner (if any)
+      const ownersWithVerification = (users || []).map((user: User) => ({
+        ...user,
+        verification: verifications?.find(v => v.user_id === user.id) || null,
+      }));
+      setOwners(ownersWithVerification);
     } catch (error) {
-      console.error('Error fetching verifications:', error);
-      toast.error('Failed to load verifications');
+      console.error('Error fetching owners/verifications:', error);
+      toast.error('Failed to load owners/verifications');
     } finally {
       setLoading(false);
     }
@@ -146,122 +165,123 @@ function VerificationsPage() {
     }
   };
 
-  const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected' | 'pending' | 'needs_reconsideration') => {
+  // Update approve/reject to use verification id if present
+  const handleStatusUpdate = async (userId: string, status: 'approved' | 'rejected' | 'pending' | 'needs_reconsideration') => {
     try {
-      const verification = verifications.find(v => v.id === id);
-      if (!verification) {
-        throw new Error('Verification not found');
+      const owner = owners.find(o => o.id === userId);
+      if (!owner || !owner.verification) {
+        toast.error('No verification record for this owner.');
+        return;
       }
-
+      const verificationId = owner.verification.id;
       // Update seller_verification table
       const { error: verificationError } = await supabase
         .from('seller_verification')
         .update({ status })
-        .eq('id', id);
-
+        .eq('id', verificationId);
       if (verificationError) throw verificationError;
-
-      if (verification) {
-        // Call the RPC function with parameters in the correct order
-        const { data, error: rpcError } = await supabase
-          .rpc('update_user_verification_status', {
-            p_is_verified: status === 'approved',
-            p_new_status: status === 'approved' ? 'verified' : 
-                         status === 'needs_reconsideration' ? 'needs_reconsideration' : status,
-            p_user_id: verification.user_id
-          });
-
-        if (rpcError) {
-          console.error('RPC error:', rpcError);
-          throw rpcError;
-        }
-
-        // If status is needs_reconsideration, deactivate all products
-        if (status === 'needs_reconsideration') {
-          const { error: productsError } = await supabase
-            .from('products')
-            .update({ is_active: false })
-            .eq('owner_id', verification.user_id);
-
-          if (productsError) {
-            console.error('Error deactivating products:', productsError);
-            throw productsError;
-          }
-        }
-
-        console.log('Update response:', data);
+      // Call the RPC function
+      const { error: rpcError } = await supabase
+        .rpc('update_user_verification_status', {
+          p_is_verified: status === 'approved',
+          p_new_status: status === 'approved' ? 'verified' : 
+                        status === 'needs_reconsideration' ? 'needs_reconsideration' : status,
+          p_user_id: owner.id
+        });
+      if (rpcError) {
+        console.error('RPC error:', rpcError);
+        throw rpcError;
       }
-
+      // If status is needs_reconsideration, deactivate all products
+      if (status === 'needs_reconsideration') {
+        const { error: productsError } = await supabase
+          .from('products')
+          .update({ is_active: false })
+          .eq('owner_id', owner.id);
+        if (productsError) {
+          console.error('Error deactivating products:', productsError);
+          throw productsError;
+        }
+      }
       toast.success(`Verification ${status} successfully`);
-      fetchVerifications();
-    } catch (error) {
+      fetchOwnersWithVerification();
+    } catch (error: any) {
       console.error('Error updating status:', error);
-      toast.error('Failed to update status. Please check console for details.');
+      toast.error('Failed to update status: ' + (error?.message || 'Unknown error'));
     }
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = async (userId: string) => {
     if (!rejectionReason.trim()) {
       toast.error('Please provide a reason for rejection');
       return;
     }
-
     try {
-      // First update seller_verification table with status and reason
+      const owner = owners.find(o => o.id === userId);
+      if (!owner || !owner.verification) {
+        toast.error('No verification record for this owner.');
+        return;
+      }
+      const verificationId = owner.verification.id;
+      // Update seller_verification table with status and reason
       const { error: verificationError } = await supabase
         .from('seller_verification')
         .update({ 
           status: 'rejected',
           rejection_reason: rejectionReason 
         })
-        .eq('id', id);
-
+        .eq('id', verificationId);
       if (verificationError) throw verificationError;
-
-      const verification = verifications.find(v => v.id === id);
-      if (verification) {
-        const { error: rpcError } = await supabase
-          .rpc('update_user_verification_status', {
-            p_is_verified: false,
-            p_new_status: 'rejected',
-            p_user_id: verification.user_id
-          });
-
-        if (rpcError) throw rpcError;
-      }
-
+      // Call the RPC function
+      const { error: rpcError } = await supabase
+        .rpc('update_user_verification_status', {
+          p_is_verified: false,
+          p_new_status: 'rejected',
+          p_user_id: owner.id
+        });
+      if (rpcError) throw rpcError;
       toast.success('Verification rejected successfully');
       setRejectionReason('');
       setShowReasonInput(false);
       setSelectedVerificationId(null);
-      fetchVerifications();
-    } catch (error) {
+      fetchOwnersWithVerification();
+    } catch (error: any) {
       console.error('Error rejecting verification:', error);
-      toast.error('Failed to reject verification');
+      toast.error('Failed to reject verification: ' + (error?.message || 'Unknown error'));
     }
   };
 
-  const filteredVerifications = verifications
-    .filter(v => {
-      if (filterStatus === 'all') return true;
-      return v.status === filterStatus;
-    })
-    .filter(v => {
-      if (!searchTerm) return true;
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        v.business_name.toLowerCase().includes(searchLower) ||
-        v.business_email.toLowerCase().includes(searchLower) ||
-        v.tin_number.toLowerCase().includes(searchLower)
-      );
-    });
+  // Split owners into two groups
+  const ownersNoVerification = owners.filter(o => !o.verification);
+  const ownersWithVerification = owners.filter(o => o.verification);
 
-  const paginatedVerifications = filteredVerifications.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  const totalPages = Math.ceil(filteredVerifications.length / itemsPerPage);
+  // Filtering and pagination logic (update to use owners)
+  const filteredOwnersNoVerification = ownersNoVerification.filter(o => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (o.full_name?.toLowerCase().includes(searchLower) || '') ||
+      (o.email?.toLowerCase().includes(searchLower) || '')
+    );
+  });
+  const filteredOwnersWithVerification = ownersWithVerification.filter(o => {
+    if (filterStatus === 'all') return true;
+    return o.verification?.status === filterStatus;
+  }).filter(o => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (o.verification?.business_name?.toLowerCase().includes(searchLower) || '') ||
+      (o.verification?.business_email?.toLowerCase().includes(searchLower) || '') ||
+      (o.verification?.tin_number?.toLowerCase().includes(searchLower) || '') ||
+      (o.full_name?.toLowerCase().includes(searchLower) || '') ||
+      (o.email?.toLowerCase().includes(searchLower) || '')
+    );
+  });
+  const paginatedOwnersNoVerification = filteredOwnersNoVerification.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPagesNoVerification = Math.ceil(filteredOwnersNoVerification.length / itemsPerPage);
+  const paginatedOwnersWithVerification = filteredOwnersWithVerification.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPagesWithVerification = Math.ceil(filteredOwnersWithVerification.length / itemsPerPage);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this verification? This action cannot be undone.')) {
@@ -277,7 +297,7 @@ function VerificationsPage() {
       if (error) throw error;
 
       toast.success('Verification deleted successfully');
-      fetchVerifications();
+      fetchOwnersWithVerification();
     } catch (error) {
       console.error('Error deleting verification:', error);
       toast.error('Failed to delete verification');
@@ -290,12 +310,22 @@ function VerificationsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="sm:flex sm:items-center sm:justify-between mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Seller Verifications</h1>
-        <div className="mt-4 sm:mt-0">
-          <div className="flex space-x-4">
-            <select 
-              className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">Seller Verifications</h1>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 items-center">
+          <input
+            type="search"
+            placeholder="Search sellers..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pl-10 py-2 px-3 text-sm w-64"
+          />
+          {activeTab === 'submitted' && (
+            <select
+              className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 text-sm"
               value={filterStatus}
               onChange={(e) => {
                 setFilterStatus(e.target.value);
@@ -308,249 +338,175 @@ function VerificationsPage() {
               <option value="rejected">Rejected</option>
               <option value="needs_reconsideration">Needs Reconsideration</option>
             </select>
-            <div className="relative">
-              <input
-                type="search"
-                placeholder="Search sellers..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pl-10"
-              />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
-
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {['all', 'pending', 'approved', 'rejected', 'needs_reconsideration'].map((status) => {
-          const count = verifications.filter(v => 
-            status === 'all' ? true : v.status === status
-          ).length;
-          
-          return (
-            <div key={status} className="bg-white rounded-lg shadow px-5 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-gray-500">
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </div>
-                  <div className="mt-1 text-2xl font-semibold text-gray-900">
-                    {count}
-                  </div>
-                </div>
-                <div className={`rounded-full p-3 ${
-                  status === 'approved' ? 'bg-green-100' :
-                  status === 'pending' ? 'bg-yellow-100' :
-                  status === 'rejected' ? 'bg-red-100' :
-                  status === 'needs_reconsideration' ? 'bg-gray-100' :
-                  'bg-gray-100'
-                }`}>
-                  {/* Add appropriate icon for each status */}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      {/* Tabs */}
+      <div className="mb-6">
+        <nav className="flex space-x-4" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab('submitted')}
+            className={classNames(
+              activeTab === 'submitted'
+                ? 'bg-white border-b-2 border-red-500 text-red-600'
+                : 'text-gray-500 hover:text-red-600',
+              'px-4 py-2 text-sm font-medium focus:outline-none'
+            )}
+          >
+            Verification Submitted
+            <span className="ml-2 inline-block bg-gray-200 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded-full align-middle">
+              {ownersWithVerification.length}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('no_verification')}
+            className={classNames(
+              activeTab === 'no_verification'
+                ? 'bg-white border-b-2 border-red-500 text-red-600'
+                : 'text-gray-500 hover:text-red-600',
+              'px-4 py-2 text-sm font-medium focus:outline-none'
+            )}
+          >
+            No Verification Submitted
+            <span className="ml-2 inline-block bg-gray-200 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded-full align-middle">
+              {ownersNoVerification.length}
+            </span>
+          </button>
+        </nav>
       </div>
-
-      <div className="bg-white shadow-sm rounded-lg">
-        {paginatedVerifications.map((verification) => (
-          <div key={verification.id} className="border-b border-gray-200 last:border-0">
-            <div className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6">
-                  {/* Business Info Section */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Business Information</h3>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-base font-semibold text-gray-900">{verification.business_name}</p>
-                        <p className="text-sm text-gray-600">{verification.legal_business_name}</p>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        {verification.business_email}
-                      </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        {verification.business_phone}
-                      </div>
+      {/* Tab Content */}
+      {activeTab === 'no_verification' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {paginatedOwnersNoVerification.length === 0 ? (
+            <div className="col-span-full text-center text-gray-500 py-12">No sellers found.</div>
+          ) : (
+            paginatedOwnersNoVerification.map((owner) => (
+              <div key={owner.id} className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-gray-100">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-red-400 to-pink-400 flex items-center justify-center text-white text-2xl font-bold mb-3">
+                  {owner.full_name?.[0]?.toUpperCase() || owner.email?.[0]?.toUpperCase() || '?'}
+                </div>
+                <div className="text-lg font-semibold text-gray-900">{owner.full_name}</div>
+                <div className="text-sm text-gray-500 mb-2">{owner.email}</div>
+                <div className="text-xs text-gray-400 mb-4">Joined {owner.created_at ? new Date(owner.created_at).toLocaleDateString() : ''}</div>
+                <span className="inline-block bg-gray-100 text-gray-500 text-xs font-medium px-3 py-1 rounded-full mb-2">No verification submitted</span>
+                {/* Optionally, add a Remind button here */}
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+          {paginatedOwnersWithVerification.length === 0 ? (
+            <div className="col-span-full text-center text-gray-500 py-12">No sellers found.</div>
+          ) : (
+            paginatedOwnersWithVerification.map((owner) => {
+              const verification = owner.verification!;
+              return (
+                <div key={owner.id} className="bg-white rounded-xl shadow p-6 border border-gray-100 flex flex-col gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-red-400 to-pink-400 flex items-center justify-center text-white text-xl font-bold">
+                      {owner.full_name?.[0]?.toUpperCase() || owner.email?.[0]?.toUpperCase() || '?'}
+                    </div>
+                    <div>
+                      <div className="text-lg font-semibold text-gray-900">{owner.full_name}</div>
+                      <div className="text-sm text-gray-500">{owner.email}</div>
+                      <div className="text-xs text-gray-400">Joined {owner.created_at ? new Date(owner.created_at).toLocaleDateString() : ''}</div>
+                    </div>
+                    <span className={classNames(
+                      'ml-auto px-3 py-1 rounded-full text-xs font-semibold',
+                      verification.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      verification.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      verification.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      verification.status === 'needs_reconsideration' ? 'bg-gray-100 text-gray-800' :
+                      'bg-gray-100 text-gray-800'
+                    )}>
+                      {verification.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="font-medium text-gray-700 mb-1">Business</div>
+                      <div className="text-sm text-gray-900">{verification.business_name}</div>
+                      <div className="text-xs text-gray-500">{verification.legal_business_name}</div>
+                      <div className="text-xs text-gray-500">{verification.business_email}</div>
+                      <div className="text-xs text-gray-500">{verification.business_phone}</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700 mb-1">Tax</div>
+                      <div className="text-xs text-gray-500">TIN: <span className="text-gray-900">{verification.tin_number}</span></div>
+                      <div className="text-xs text-gray-500">VAT: <span className="text-gray-900">{verification.is_vat_registered ? verification.vat_number : 'Not Registered'}</span></div>
                     </div>
                   </div>
-
-                  {/* Tax Info Section */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Tax Information</h3>
-                    <div className="space-y-2 bg-gray-50 p-3 rounded-md">
-                      <div>
-                        <span className="text-xs text-gray-500">TIN Number</span>
-                        <p className="text-sm font-medium text-gray-900">{verification.tin_number}</p>
-                      </div>
-                      <div>
-                        <span className="text-xs text-gray-500">VAT Status</span>
-                        <p className="text-sm font-medium text-gray-900">
-                          {verification.is_vat_registered ? (
-                            <span className="text-green-600">VAT Registered</span>
-                          ) : (
-                            <span className="text-gray-600">Not VAT Registered</span>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      onClick={() => handleDocumentClick(verification.trade_license_url, 'Trade License')}
+                      className="bg-gray-50 hover:bg-gray-100 text-gray-700 px-3 py-1 rounded text-xs border border-gray-200"
+                    >
+                      Trade License
+                    </button>
+                    <button
+                      onClick={() => handleDocumentClick(verification.tin_certificate_url, 'TIN Certificate')}
+                      className="bg-gray-50 hover:bg-gray-100 text-gray-700 px-3 py-1 rounded text-xs border border-gray-200"
+                    >
+                      TIN Certificate
+                    </button>
+                    <button
+                      onClick={() => handleDocumentClick(verification.memorandum_url, 'Memorandum')}
+                      className="bg-gray-50 hover:bg-gray-100 text-gray-700 px-3 py-1 rounded text-xs border border-gray-200"
+                    >
+                      Memorandum
+                    </button>
+                    <button
+                      onClick={() => handleDocumentClick(verification.id_document_url, 'ID Document')}
+                      className="bg-gray-50 hover:bg-gray-100 text-gray-700 px-3 py-1 rounded text-xs border border-gray-200"
+                    >
+                      ID Document
+                    </button>
+                  </div>
+                  {/* Actions */}
+                  {verification.status === 'pending' && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => handleStatusUpdate(owner.id, 'approved')}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium text-sm shadow"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedVerificationId(verification.id);
+                          setShowReasonInput(true);
+                        }}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-medium text-sm shadow"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  {verification.status !== 'pending' && (
+                    <div className="flex gap-2 mt-2">
+                      {['pending', 'approved', 'rejected', 'needs_reconsideration'].map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => handleStatusUpdate(owner.id, status as any)}
+                          className={classNames(
+                            'flex-1 px-4 py-2 rounded font-medium text-sm border',
+                            verification.status === status
+                              ? 'bg-gray-100 text-gray-800 border-gray-300'
+                              : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200'
                           )}
-                        </p>
-                      </div>
-                      {verification.is_vat_registered && (
-                        <div>
-                          <span className="text-xs text-gray-500">VAT Number</span>
-                          <p className="text-sm font-medium text-gray-900">{verification.vat_number}</p>
-                        </div>
-                      )}
+                        >
+                          {status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        </button>
+                      ))}
                     </div>
-                  </div>
-
-                  {/* Address Section */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Address</h3>
-                    <div className="space-y-2">
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Region:</span>
-                        <p className="text-sm text-gray-600">{verification.region}</p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Kifle Ketema:</span>
-                        <p className="text-sm text-gray-600">{verification.kifle_ketema}</p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">Woreda:</span>
-                        <p className="text-sm text-gray-600">{verification.woreda}</p>
-                      </div>
-                      {verification.kebele && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-900">Kebele:</span>
-                          <p className="text-sm text-gray-600">{verification.kebele}</p>
-                        </div>
-                      )}
-                      <div>
-                        <span className="text-sm font-medium text-gray-900">House No:</span>
-                        <p className="text-sm text-gray-600">{verification.house_no}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Documents Section */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Documents</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button 
-                        onClick={() => handleDocumentClick(verification.trade_license_url, 'Trade License')}
-                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-                      >
-                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-sm text-gray-700">Trade License</span>
-                      </button>
-                      <button 
-                        onClick={() => handleDocumentClick(verification.tin_certificate_url, 'TIN Certificate')}
-                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-                      >
-                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-sm text-gray-700">TIN Certificate</span>
-                      </button>
-                      <button 
-                        onClick={() => handleDocumentClick(verification.memorandum_url, 'Memorandum')}
-                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-                      >
-                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-sm text-gray-700">Memorandum</span>
-                      </button>
-                      <button 
-                        onClick={() => handleDocumentClick(verification.id_document_url, 'ID Document')}
-                        className="flex items-center p-2 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
-                      >
-                        <svg className="h-5 w-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="text-sm text-gray-700">ID Document</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Status & Actions Section */}
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-3">Status & Actions</h3>
-                    <div className="bg-gray-50 p-4 rounded-md">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                          ${verification.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            verification.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            verification.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            verification.status === 'needs_reconsideration' ? 'bg-gray-100 text-gray-800' :
-                            'bg-gray-100 text-gray-800'}`
-                        }>
-                          {verification.status.toUpperCase()}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {format(new Date(verification.created_at), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                      
-                      {verification.status === 'pending' ? (
-                        <div className="space-y-2">
-                          <button
-                            onClick={() => handleStatusUpdate(verification.id, 'approved')}
-                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedVerificationId(verification.id);
-                              setShowReasonInput(true);
-                            }}
-                            className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-2 space-y-3">
-                          {['pending', 'approved', 'rejected', 'needs_reconsideration'].map((status) => (
-                            <button
-                              key={status}
-                              onClick={() => handleStatusUpdate(verification.id, status as any)}
-                              className={`px-4 py-2 text-sm font-medium rounded-md ${
-                                verification.status === status
-                                  ? 'bg-gray-100 text-gray-800'
-                                  : 'bg-white text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              {status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {selectedDocument && (
         <DocumentPreviewModal
@@ -592,7 +548,7 @@ function VerificationsPage() {
         </div>
       )}
 
-      {totalPages > 1 && (
+      {totalPagesNoVerification > 1 && (
         <div className="mt-6 flex justify-center">
           <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
             <button
@@ -602,7 +558,7 @@ function VerificationsPage() {
             >
               Previous
             </button>
-            {[...Array(totalPages)].map((_, i) => (
+            {[...Array(totalPagesNoVerification)].map((_, i) => (
               <button
                 key={i + 1}
                 onClick={() => setCurrentPage(i + 1)}
@@ -616,8 +572,41 @@ function VerificationsPage() {
               </button>
             ))}
             <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPagesNoVerification, p + 1))}
+              disabled={currentPage === totalPagesNoVerification}
+              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+            >
+              Next
+            </button>
+          </nav>
+        </div>
+      )}
+      {totalPagesWithVerification > 1 && (
+        <div className="mt-6 flex justify-center">
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+            >
+              Previous
+            </button>
+            {[...Array(totalPagesWithVerification)].map((_, i) => (
+              <button
+                key={i + 1}
+                onClick={() => setCurrentPage(i + 1)}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
+                  currentPage === i + 1
+                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                    : 'text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPagesWithVerification, p + 1))}
+              disabled={currentPage === totalPagesWithVerification}
               className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
             >
               Next
