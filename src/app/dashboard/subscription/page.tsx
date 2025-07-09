@@ -117,7 +117,7 @@ export default function SubscriptionPage() {
   const [subscriptionDates, setSubscriptionDates] = useState<{
     startDate: string | null;
     endDate: string | null;
-    status: 'active' | 'cancelled' | null;
+    status: 'active' | 'cancelled' | 'expired' | null;
   } | null>(null);
 
   useEffect(() => {
@@ -164,33 +164,37 @@ export default function SubscriptionPage() {
         console.log('Subscription error:', subscriptionError);
 
         if (!subscriptionError && activeSubscription) {
-          console.log('Setting subscription dates:', {
-            startDate: activeSubscription.created_at,
-            endDate: activeSubscription.subscription_end_date,
-            status: activeSubscription.status
-          });
-          
-          setSubscriptionDates({
-            startDate: activeSubscription.created_at,
-            endDate: activeSubscription.subscription_end_date,
-            status: activeSubscription.status === 'cancelled' ? 'cancelled' : 'active'
-          });
-
-          // Check if subscription is still valid
           const endDate = new Date(activeSubscription.subscription_end_date);
           const now = new Date();
+          let expired = false;
 
-          if (now > endDate && activeSubscription.status === 'cancelled') {
-            // Subscription has expired, downgrade to basic
-            const { error: updateError } = await supabase
-              .from('users')
-              .update({ subscription_plan: 'basic' })
-              .eq('id', session.user.id);
-
-            if (updateError) throw updateError;
+          if (now > endDate) {
+            expired = true;
+            // If not already expired or cancelled, update status and downgrade
+            if (activeSubscription.status !== 'expired' && activeSubscription.status !== 'cancelled') {
+              // Update subscription status to expired
+              await supabase
+                .from('subscription_orders')
+                .update({ status: 'expired', updated_at: new Date().toISOString() })
+                .eq('id', activeSubscription.id);
+              // Downgrade user to basic
+              await supabase
+                .from('users')
+                .update({ subscription_plan: 'basic' })
+                .eq('id', session.user.id);
+            }
             setCurrentPlan('basic');
+            setSubscriptionDates({
+              startDate: activeSubscription.created_at,
+              endDate: activeSubscription.subscription_end_date,
+              status: 'expired',
+            });
           } else {
-            // Subscription is still valid or not cancelled
+            setSubscriptionDates({
+              startDate: activeSubscription.created_at,
+              endDate: activeSubscription.subscription_end_date,
+              status: activeSubscription.status === 'cancelled' ? 'cancelled' : 'active',
+            });
             setCurrentPlan(activeSubscription.plan_id);
           }
         } else {
@@ -471,11 +475,17 @@ export default function SubscriptionPage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Status:</span>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  subscriptionDates.status === 'cancelled' 
+                  subscriptionDates.status === 'cancelled'
                     ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-green-100 text-green-800'
+                    : subscriptionDates.status === 'expired'
+                      ? 'bg-gray-200 text-gray-600'
+                      : 'bg-green-100 text-green-800'
                 }`}>
-                  {subscriptionDates.status === 'cancelled' ? 'Cancelled' : 'Active'}
+                  {subscriptionDates.status === 'cancelled'
+                    ? 'Cancelled'
+                    : subscriptionDates.status === 'expired'
+                      ? 'Expired'
+                      : 'Active'}
                 </span>
               </div>
               {subscriptionDates.status === 'cancelled' && (
@@ -489,6 +499,22 @@ export default function SubscriptionPage() {
                     <div className="ml-3">
                       <p className="text-sm text-yellow-700">
                         Your subscription has been cancelled. You will continue to have access to all paid features until the end of your billing period.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {subscriptionDates.status === 'expired' && (
+                <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-gray-700">
+                        Your subscription has expired. You have been moved to the Basic plan. Please renew to regain access to paid features.
                       </p>
                     </div>
                   </div>

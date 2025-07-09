@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { formatCurrency } from '@/utils/currency';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 
 interface Subscription {
   id: string;
@@ -88,6 +89,26 @@ export default function AdminSubscriptionsPage() {
       setLoading(false);
     }
   };
+
+  const handleStopPlan = async (subscriptionId: string) => {
+    if (!window.confirm('Are you sure you want to stop this subscription? This action cannot be undone.')) return;
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('subscription_orders')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', subscriptionId);
+      if (error) throw error;
+      toast.success('Subscription stopped successfully.');
+      fetchSubscriptions();
+    } catch (err) {
+      console.error('Error stopping subscription:', err);
+      toast.error('Failed to stop subscription.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -158,6 +179,9 @@ export default function AdminSubscriptionsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Payment Ref
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -205,6 +229,16 @@ export default function AdminSubscriptionsPage() {
                       <div className="text-xs text-gray-500">
                         {subscription.transaction.payment_method} - {subscription.transaction.payment_status}
                       </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {subscription.status === 'completed' && (
+                      <button
+                        className="bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200 text-xs font-semibold"
+                        onClick={() => handleStopPlan(subscription.id)}
+                      >
+                        Stop Plan
+                      </button>
                     )}
                   </td>
                 </tr>
