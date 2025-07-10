@@ -504,6 +504,17 @@ export default function ProductDetailPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null); // Track user id for like check
   
+  // Review pagination state
+  const [currentReviewPage, setCurrentReviewPage] = useState(1);
+  const [reviewsPerPage] = useState(6);
+  const [reviewSortBy, setReviewSortBy] = useState('recent');
+  const [reviewFilter, setReviewFilter] = useState('all');
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentReviewPage(1);
+  }, [reviewSortBy, reviewFilter]);
+  
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1844,82 +1855,166 @@ export default function ProductDetailPage() {
                     <>
                       {/* Filters */}
                       <div className="flex items-center gap-4 mb-6">
-                        <select className="rounded-md border-gray-300 text-sm">
-                          <option>Most Recent</option>
-                          <option>Highest Rated</option>
-                          <option>Lowest Rated</option>
+                        <select 
+                          value={reviewSortBy}
+                          onChange={(e) => setReviewSortBy(e.target.value)}
+                          className="rounded-md border-gray-300 text-sm"
+                        >
+                          <option value="recent">Most Recent</option>
+                          <option value="highest">Highest Rated</option>
+                          <option value="lowest">Lowest Rated</option>
                         </select>
-                        <select className="rounded-md border-gray-300 text-sm">
-                          <option>All Stars</option>
-                          <option>5 Stars</option>
-                          <option>4 Stars</option>
-                          <option>3 Stars</option>
-                          <option>2 Stars</option>
-                          <option>1 Star</option>
+                        <select 
+                          value={reviewFilter}
+                          onChange={(e) => setReviewFilter(e.target.value)}
+                          className="rounded-md border-gray-300 text-sm"
+                        >
+                          <option value="all">All Stars</option>
+                          <option value="5">5 Stars</option>
+                          <option value="4">4 Stars</option>
+                          <option value="3">3 Stars</option>
+                          <option value="2">2 Stars</option>
+                          <option value="1">1 Star</option>
                         </select>
                       </div>
 
-                      {/* Reviews Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {product.reviews.map((review: Review) => (
-                          <div key={review.id} className="bg-gray-50 rounded-xl p-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <div className="flex items-center">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white font-medium">
-                                  {review.user.full_name[0]}
-                                </div>
-                                <div className="ml-3">
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {review.user.full_name}
-                                  </p>
-                                  <div className="flex items-center mt-1">
-                                    <ProductRating
-                                      productId={review.id}
-                                      initialRating={review.rating}
-                                      readonly={true}
-                                    />
+                      {/* Process and filter reviews */}
+                      {(() => {
+                        let filteredReviews = [...product.reviews];
+                        
+                        // Apply star filter
+                        if (reviewFilter !== 'all') {
+                          const starFilter = parseInt(reviewFilter);
+                          filteredReviews = filteredReviews.filter(review => 
+                            Math.round(review.rating) === starFilter
+                          );
+                        }
+                        
+                        // Apply sorting
+                        filteredReviews.sort((a, b) => {
+                          switch (reviewSortBy) {
+                            case 'highest':
+                              return b.rating - a.rating;
+                            case 'lowest':
+                              return a.rating - b.rating;
+                            case 'recent':
+                            default:
+                              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                          }
+                        });
+                        
+                        // Calculate pagination
+                        const totalPages = Math.ceil(filteredReviews.length / reviewsPerPage);
+                        const startIndex = (currentReviewPage - 1) * reviewsPerPage;
+                        const endIndex = startIndex + reviewsPerPage;
+                        const currentReviews = filteredReviews.slice(startIndex, endIndex);
+                        
+                        return (
+                          <>
+                            {/* Reviews Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {currentReviews.map((review: Review) => (
+                                <div key={review.id} className="bg-gray-50 rounded-xl p-6">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center">
+                                      <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white font-medium">
+                                        {review.user.full_name[0]}
+                                      </div>
+                                      <div className="ml-3">
+                                        <p className="text-sm font-medium text-gray-900">
+                                          {review.user.full_name}
+                                        </p>
+                                        <div className="flex items-center mt-1">
+                                          <ProductRating
+                                            productId={review.id}
+                                            initialRating={review.rating}
+                                            readonly={true}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <time className="text-sm text-gray-500">
+                                      {new Date(review.created_at).toLocaleDateString()}
+                                    </time>
+                                  </div>
+                                  {review.comment && (
+                                    <p className="text-sm text-gray-600 mt-2">{review.comment}</p>
+                                  )}
+                                  <div className="mt-4 flex items-center gap-4">
+                                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905 0 .905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                                      </svg>
+                                      Helpful
+                                    </button>
+                                    <button className="text-sm text-gray-500 hover:text-gray-700">
+                                      Report
+                                    </button>
                                   </div>
                                 </div>
-                              </div>
-                              <time className="text-sm text-gray-500">
-                                {new Date(review.created_at).toLocaleDateString()}
-                              </time>
+                              ))}
                             </div>
-                            {review.comment && (
-                              <p className="text-sm text-gray-600 mt-2">{review.comment}</p>
+                            
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                              <div className="mt-8 flex justify-center">
+                                <nav className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => setCurrentReviewPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentReviewPage === 1}
+                                    className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Previous
+                                  </button>
+                                  
+                                  {/* Page numbers */}
+                                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
+                                    // Show first page, last page, current page, and pages around current
+                                    const shouldShow = 
+                                      pageNum === 1 || 
+                                      pageNum === totalPages || 
+                                      Math.abs(pageNum - currentReviewPage) <= 1;
+                                    
+                                    if (!shouldShow) {
+                                      if (pageNum === 2 || pageNum === totalPages - 1) {
+                                        return <span key={pageNum} className="px-2 text-gray-500">...</span>;
+                                      }
+                                      return null;
+                                    }
+                                    
+                                    return (
+                                      <button
+                                        key={pageNum}
+                                        onClick={() => setCurrentReviewPage(pageNum)}
+                                        className={`px-3 py-1 rounded-md ${
+                                          currentReviewPage === pageNum
+                                            ? 'bg-green-600 text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                      >
+                                        {pageNum}
+                                      </button>
+                                    );
+                                  })}
+                                  
+                                  <button 
+                                    onClick={() => setCurrentReviewPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentReviewPage === totalPages}
+                                    className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Next
+                                  </button>
+                                </nav>
+                              </div>
                             )}
-                            <div className="mt-4 flex items-center gap-4">
-                              <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905 0 .905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                                </svg>
-                                Helpful
-                              </button>
-                              <button className="text-sm text-gray-500 hover:text-gray-700">
-                                Report
-                              </button>
-              </div>
-                          </div>
-                        ))}
-            </div>
-            
-                      {/* Pagination */}
-                      <div className="mt-8 flex justify-center">
-                        <nav className="flex items-center gap-2">
-                          <button className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">
-                            Previous
-                          </button>
-                          <button className="px-3 py-1 rounded-md bg-green-600 text-white">
-                            1
-                          </button>
-                          <button className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">
-                            2
-                          </button>
-                          <button className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200">
-                            Next
-                          </button>
-                        </nav>
-            </div>
+                            
+                            {/* Results info */}
+                            <div className="text-center text-sm text-gray-500">
+                              Showing {startIndex + 1}-{Math.min(endIndex, filteredReviews.length)} of {filteredReviews.length} reviews
+                            </div>
+                          </>
+                        );
+                      })()}
                     </>
                   ) : (
                     <div className="text-center py-12 bg-gray-50 rounded-xl">
@@ -1930,7 +2025,7 @@ export default function ProductDetailPage() {
                       <p className="mt-1 text-sm text-gray-500">
                         Be the first to review this product
                       </p>
-          </div>
+                    </div>
                   )}
                 </div>
               </div>

@@ -78,6 +78,7 @@ interface SearchResult {
 interface NavigationProps {
   userDetails: UserDetails | null;
   children?: React.ReactNode;
+  customCategories?: string[];
 }
 
 interface ProductUser {
@@ -117,7 +118,7 @@ const categories = [
   { id: 'accessories-2', label: 'Accessories', href: '/category/accessories' }, // If you need a second one, use a different key
 ];
 
-export default function Navigation({ userDetails }: NavigationProps) {
+export default function Navigation({ userDetails, customCategories = [] }: NavigationProps) {
   const { user, setUser } = useAuth();
   const { isOwner } = useOwnerCheck();
   const pathname = usePathname();
@@ -593,7 +594,17 @@ export default function Navigation({ userDetails }: NavigationProps) {
             is_category_link: true
           }));
 
-        setSearchResults([...categoryMatches, ...formattedResults]);
+        // Add custom category matches
+        const customCategoryMatches = customCategories
+          .filter(cat => cat.toLowerCase().includes(query.toLowerCase()))
+          .map(cat => ({
+            id: `custom-cat-${cat}`,
+            title: cat,
+            category: cat,
+            is_category_link: true
+          }));
+
+        setSearchResults([...categoryMatches, ...customCategoryMatches, ...formattedResults]);
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -1157,6 +1168,38 @@ export default function Navigation({ userDetails }: NavigationProps) {
                     </div>
                   </button>
                 ))}
+                
+                {/* Custom Categories */}
+                {customCategories.map((category, index) => (
+                  <button
+                    key={`custom-${category}`}
+                    onClick={() => {
+                      handleCategoryClick(category);
+                      setActiveCategory(PRODUCT_CATEGORIES.length + index);
+                    }}
+                    className={`
+                      flex-shrink-0 inline-flex items-center px-4 py-2 rounded-lg
+                      transition-all duration-300 transform hover:scale-105
+                      backdrop-blur-sm border border-white/30
+                      ${(PRODUCT_CATEGORIES.length + index) === activeCategory 
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.15)]' 
+                        : 'bg-white/30 text-gray-700 hover:bg-white/60 hover:shadow-[0_0_10px_rgba(168,85,247,0.1)] hover:border-purple-100'
+                      }
+                      min-w-[120px] justify-center group text-sm
+                    `}
+                  >
+                    <span className="text-xs font-medium whitespace-nowrap">{category}</span>
+                    {(PRODUCT_CATEGORIES.length + index) === activeCategory && (
+                      <div className="relative ml-1.5">
+                        <span className="absolute inset-0 rounded-full animate-ping bg-white/60" />
+                        <span className="relative block w-1 h-1 bg-white rounded-full" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 rounded-lg overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                    </div>
+                  </button>
+                ))}
               </div>
 
               {/* Right scroll button - Adjusted Position */}
@@ -1601,6 +1644,27 @@ export default function Navigation({ userDetails }: NavigationProps) {
                     ))}
                   </div>
                 </div>
+
+                {/* Custom Categories Section */}
+                {customCategories.length > 0 && (
+                  <div className="px-4 py-2">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Custom Categories</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {customCategories.map((category) => (
+                        <button
+                          key={category}
+                          onClick={() => {
+                            handleCategoryClick(category);
+                            closeMenu();
+                          }}
+                          className="px-3 py-1.5 text-sm text-purple-600 bg-purple-100 hover:bg-purple-200 rounded-lg transition-colors duration-300"
+                        >
+                          {category}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* View All Categories Button */}
                 <div className="px-4 py-2">

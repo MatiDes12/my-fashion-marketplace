@@ -1,7 +1,7 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
-// Set your CRON_SECRET in Vercel to: N1PMxaceyJhbGciOiJIUzHiiSfG
+// Set your CRON_SECRET in Vercel to: N1...
 export async function POST(request: Request) {
   // Debug: Log the CRON_SECRET and Authorization header (first 8 chars only)
   const authHeader = request.headers.get('Authorization');

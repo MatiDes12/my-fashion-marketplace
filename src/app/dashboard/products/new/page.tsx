@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -67,6 +67,78 @@ function NewProductPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClientComponent();
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [isSavingCustomCategory, setIsSavingCustomCategory] = useState(false);
+
+  // Add useEffect to fetch custom categories on component mount
+  useEffect(() => {
+    const fetchCustomCategories = async () => {
+      try {
+        const { data: customCategoriesData, error: customCategoriesError } = await supabase
+          .from('custom_categories')
+          .select('name')
+          .eq('is_active', true)
+          .order('name');
+        
+        if (!customCategoriesError && customCategoriesData) {
+          setCustomCategories(customCategoriesData.map(cat => cat.name));
+        }
+      } catch (error) {
+        console.error('Error fetching custom categories:', error);
+      }
+    };
+    
+    fetchCustomCategories();
+  }, [supabase]);
+
+  // Add function to save custom category
+  const saveCustomCategory = async (categoryName: string) => {
+    if (!categoryName.trim()) return;
+    
+    setIsSavingCustomCategory(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('You must be logged in to save custom categories');
+        return;
+      }
+
+      // Check if category already exists
+      const { data: existingCategory } = await supabase
+        .from('custom_categories')
+        .select('name')
+        .eq('name', categoryName.trim())
+        .single();
+
+      if (existingCategory) {
+        toast.error('This category already exists');
+        return;
+      }
+
+      // Insert new custom category
+      const { error: insertError } = await supabase
+        .from('custom_categories')
+        .insert({
+          name: categoryName.trim(),
+          created_by: session.user.id
+        });
+
+      if (insertError) throw insertError;
+
+      // Add to local state
+      setCustomCategories(prev => [...prev, categoryName.trim()]);
+      setCategory(categoryName.trim());
+      setShowCustomCategory(false);
+      setCustomCategory('');
+      toast.success('Custom category saved successfully');
+      
+    } catch (error) {
+      console.error('Error saving custom category:', error);
+      toast.error('Failed to save custom category');
+    } finally {
+      setIsSavingCustomCategory(false);
+    }
+  };
 
   // Add this line to get category configuration
   const categoryConfig = CATEGORY_SPECIFIC_FIELDS[category as keyof typeof CATEGORY_SPECIFIC_FIELDS] 
@@ -512,6 +584,14 @@ function NewProductPage() {
                                 <option value="collectibles">Collectibles</option>
                               </optgroup>
                             
+                            {customCategories.length > 0 && (
+                              <optgroup label="Custom Categories">
+                                {customCategories.map((customCat) => (
+                                  <option key={customCat} value={customCat}>{customCat}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            
                             <option value="custom">+ Add custom category</option>
                           </select>
                           {missingFields.category && (
@@ -522,30 +602,42 @@ function NewProductPage() {
                         </>
                       ) : (
                         <>
-                          <input
-                            type="text"
-                            id="customCategory"
-                            value={customCategory}
-                            onChange={(e) => setCustomCategory(e.target.value)}
-                            className={inputClasses + (missingFields.category ? ' border-red-500' : '')}
-                            placeholder="Enter custom category"
-                            required={showCustomCategory}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowCustomCategory(false);
-                              setCustomCategory('');
-                            }}
-                            className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                          >
-                            Cancel
-                          </button>
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              id="customCategory"
+                              value={customCategory}
+                              onChange={(e) => setCustomCategory(e.target.value)}
+                              className={inputClasses + (missingFields.category ? ' border-red-500' : '')}
+                              placeholder="Enter custom category name"
+                              required={showCustomCategory}
+                            />
+                            <div className="flex space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => saveCustomCategory(customCategory)}
+                                disabled={isSavingCustomCategory || !customCategory.trim()}
+                                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                              >
+                                {isSavingCustomCategory ? 'Saving...' : 'Save Category'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowCustomCategory(false);
+                                  setCustomCategory('');
+                                }}
+                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
                           {missingFields.category && (
                             <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
                               Please enter a category
-                        </div>
-                      )}
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

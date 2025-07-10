@@ -14,6 +14,7 @@ import { getFlashSalePrices } from '@/utils/flashSales';
 import { Suspense } from 'react';
 import LoadingPage from '@/components/LoadingPage';
 import { PRODUCT_CATEGORIES } from '@/utils/constants';
+import SmartFeaturedCategories from '@/components/SmartFeaturedCategories';
 
 interface ProductOwner {
   id: string;
@@ -131,94 +132,7 @@ function ProductsHero() {
 }
 
 function FeaturedCategories({ setFilters }: { setFilters: (fn: (prev: Filters) => Filters) => void }) {
-  const featuredCategories = [
-    { 
-      name: 'Traditional Wear', 
-      icon: (
-        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 21V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v16"/>
-        </svg>
-      ),
-      description: 'Authentic Ethiopian clothing'
-    },
-    { 
-      name: 'Modern Fashion', 
-      icon: (
-        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15V3m0 0L8 7m4-4l4 4"/>
-        </svg>
-      ),
-      description: 'Contemporary styles'
-    },
-    { 
-      name: 'Handmade Crafts', 
-      icon: (
-        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4.5c1.5-1.5 3-2 5-2 3 0 5 2 5 5 0 3-2 5-5 5h-5"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 19.5c-1.5 1.5-3 2-5 2-3 0-5-2-5-5 0-3 2-5 5-5h5"/>
-        </svg>
-      ),
-      description: 'Artisanal creations'
-    },
-    { 
-      name: 'Jewelry', 
-      icon: (
-        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 3L3 8.5l9 5.5 9-5.5L12 3z"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 14.5L12 20l9-5.5"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8.5v6"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 8.5v6"/>
-        </svg>
-      ),
-      description: 'Traditional & modern pieces'
-    },
-    { 
-      name: 'Home Decor', 
-      icon: (
-        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-        </svg>
-      ),
-      description: 'Ethiopian home decor'
-    },
-    { 
-      name: 'Beauty', 
-      icon: (
-        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h14a2 2 0 012 2v12a4 4 0 01-4 4H7z"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 11c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/>
-        </svg>
-      ),
-      description: 'Natural beauty products'
-    }
-  ];
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-12">
-      {featuredCategories.map((category) => (
-        <button
-          key={category.name}
-          onClick={() => setFilters((prev) => ({ 
-            ...prev, 
-            category: category.name.toLowerCase() 
-          }))}
-          className="flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:bg-red-50 group"
-        >
-          <div className="text-gray-600 group-hover:text-red-600 transition-colors mb-3">
-            {category.icon}
-          </div>
-          <span className="text-sm font-medium text-gray-900 text-center mb-1">
-            {category.name}
-          </span>
-          <span className="text-xs text-gray-500 text-center">
-            {category.description}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
+  return <SmartFeaturedCategories setFilters={setFilters} />;
 }
 
 function ProductsContent() {
@@ -228,7 +142,7 @@ function ProductsContent() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [productsPerPage] = useState(12);
+  const [productsPerPage] = useState(100);
   const [likedProducts, setLikedProducts] = useState<Set<string>>(new Set());
   const [isLikeLoading, setIsLikeLoading] = useState<Record<string, boolean>>({});
   const searchParams = useSearchParams();
@@ -268,6 +182,15 @@ function ProductsContent() {
       try {
         setLoading(true);
         setError(null);
+        
+        // Fetch custom categories first
+        const { data: customCategoriesData, error: customCategoriesError } = await supabase
+          .from('custom_categories')
+          .select('name')
+          .eq('is_active', true)
+          .order('name');
+        
+        const customCategories = customCategoriesError ? [] : (customCategoriesData?.map(cat => cat.name) || []);
         
         const { data: productsData, error: productsError } = await supabase
           .from('products')
@@ -391,11 +314,14 @@ function ProductsContent() {
         
         setProducts(processedProducts);
         
-        // Extract unique categories
+        // Extract unique categories and include custom categories
         const uniqueCategories = Array.from(
           new Set(productsData?.map(product => product.category).filter(Boolean))
         );
-        setCategories(['all', ...uniqueCategories]);
+        
+        // Combine product categories with custom categories, removing duplicates
+        const allCategories = Array.from(new Set([...uniqueCategories, ...customCategories]));
+        setCategories(['all', ...allCategories]);
 
       } catch (error) {
         console.error('Error fetching products:', error);
@@ -614,7 +540,7 @@ function ProductsContent() {
               <div className="mb-8">
                 <h3 className="text-sm font-medium text-gray-900 mb-4">Categories</h3>
                 <div className="space-y-3 max-h-[200px] overflow-y-auto">
-                  {PRODUCT_CATEGORIES.map((category) => (
+                  {categories.map((category) => (
                     <label key={category} className="flex items-center">
                       <input
                         type="radio"
@@ -748,7 +674,7 @@ function ProductsContent() {
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-4">Categories</h3>
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
-                  {PRODUCT_CATEGORIES.map((category) => (
+                  {categories.map((category) => (
                     <label key={category} className="flex items-center">
                       <input
                         type="radio"
@@ -818,7 +744,10 @@ function ProductsContent() {
             {/* Sort Options - Update the styling */}
             <div className="flex flex-col sm:flex-row items-center justify-between mb-8 bg-white p-4 rounded-xl shadow-sm">
               <p className="text-gray-500 mb-4 sm:mb-0">
-                Showing <span className="font-medium text-gray-900">{products.length}</span> results
+                Showing <span className="font-medium text-gray-900">{products.length}</span> total results
+                {products.length > productsPerPage && (
+                  <span className="text-gray-400"> (Page {currentPage} of {Math.ceil(products.length / productsPerPage)})</span>
+                )}
               </p>
               <div className="flex items-center gap-4">
                 <select 
@@ -864,7 +793,7 @@ function ProductsContent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                {products.map((product) => (
+                {paginatedProducts.map((product) => (
                   <div 
                     key={product.id} 
                     className="group relative bg-white rounded-2xl shadow-sm overflow-hidden transform hover:-translate-y-1 transition-all duration-300 hover:shadow-xl"
@@ -1021,22 +950,67 @@ function ProductsContent() {
                     disabled={currentPage === 1}
                     className="relative inline-flex items-center px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
                     Previous
                   </button>
                   
-                  {Array.from({ length: Math.ceil(products.length / productsPerPage) }).map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => paginate(index + 1)}
-                      className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                        currentPage === index + 1
-                          ? 'z-10 bg-red-600 text-white'
-                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {index + 1}
-                    </button>
-                  ))}
+                  {(() => {
+                    const totalPages = Math.ceil(products.length / productsPerPage);
+                    const maxVisiblePages = 7;
+                    const pages = [];
+                    
+                    if (totalPages <= maxVisiblePages) {
+                      // Show all pages if total is small
+                      for (let i = 1; i <= totalPages; i++) {
+                        pages.push(i);
+                      }
+                    } else {
+                      // Show smart pagination with ellipsis
+                      if (currentPage <= 4) {
+                        // Near the beginning
+                        for (let i = 1; i <= 5; i++) {
+                          pages.push(i);
+                        }
+                        pages.push('...');
+                        pages.push(totalPages);
+                      } else if (currentPage >= totalPages - 3) {
+                        // Near the end
+                        pages.push(1);
+                        pages.push('...');
+                        for (let i = totalPages - 4; i <= totalPages; i++) {
+                          pages.push(i);
+                        }
+                      } else {
+                        // In the middle
+                        pages.push(1);
+                        pages.push('...');
+                        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                          pages.push(i);
+                        }
+                        pages.push('...');
+                        pages.push(totalPages);
+                      }
+                    }
+                    
+                    return pages.map((page, index) => (
+                      <button
+                        key={index}
+                        onClick={() => typeof page === 'number' ? paginate(page) : null}
+                        disabled={typeof page !== 'number'}
+                        className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                          currentPage === page
+                            ? 'z-10 bg-red-600 text-white shadow-md'
+                            : typeof page === 'number'
+                            ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-red-300'
+                            : 'bg-white border border-gray-200 text-gray-400 cursor-default'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ));
+                  })()}
                   
                   <button
                     onClick={() => paginate(currentPage + 1)}
@@ -1044,8 +1018,16 @@ function ProductsContent() {
                     className="relative inline-flex items-center px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Next
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
                 </nav>
+                
+                {/* Page info */}
+                <div className="mt-4 text-center text-sm text-gray-500">
+                  Showing {indexOfFirstProduct + 1} to {Math.min(indexOfLastProduct, products.length)} of {products.length} products
+                </div>
               </div>
             )}
           </div>

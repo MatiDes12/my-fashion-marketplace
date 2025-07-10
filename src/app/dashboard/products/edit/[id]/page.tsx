@@ -115,6 +115,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     pickup_location: '',
     delivery_time: ''
   });
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [isSavingCustomCategory, setIsSavingCustomCategory] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -133,9 +135,28 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
+        // Fetch custom categories first
+        const { data: customCategoriesData, error: customCategoriesError } = await supabase
+          .from('custom_categories')
+          .select('name')
+          .eq('is_active', true)
+          .order('name');
+        
+        if (!customCategoriesError && customCategoriesData) {
+          setCustomCategories(customCategoriesData.map(cat => cat.name));
+        }
+
+        // Fetch product with images from the product_images table
         const { data: product, error } = await supabase
           .from('products')
-          .select('*')
+          .select(`
+            *,
+            product_images (
+              id,
+              image_url,
+              is_model_picture
+            )
+          `)
           .eq('id', params.id)
           .single();
         
@@ -209,6 +230,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           setVariants(formattedVariants);
         }
 
+        // Set existing images from the product_images relationship
         setExistingImages(product.product_images || []);
         setShippingInfo(product.shipping_info || {
           processing_time: '1-2 business days',
@@ -242,6 +264,152 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     fetchProduct();
   }, [params.id, supabase]);
 
+  // Regenerate variants when custom variant types, sizes, or colors change
+  useEffect(() => {
+    if (customVariantTypes.length > 0 || sizes.length > 0 || colors.length > 0) {
+      const combinations: Array<{
+        size?: string;
+        color?: string;
+        custom_options?: { [key: string]: string };
+      }> = [];
+
+      const addCombinations = (
+        current: {
+          size?: string;
+          color?: string;
+          custom_options?: { [key: string]: string };
+        },
+        remainingTypes: string[]
+      ) => {
+        if (remainingTypes.length === 0) {
+          combinations.push(current);
+          return;
+        }
+
+        const type = remainingTypes[0];
+        const rest = remainingTypes.slice(1);
+
+        if (type === 'size' && sizes.length > 0) {
+          sizes.forEach(size => {
+            addCombinations(
+              { ...current, size },
+              rest
+            );
+          });
+        } else if (type === 'color' && colors.length > 0) {
+          colors.forEach(color => {
+            addCombinations(
+              { ...current, color },
+              rest
+            );
+          });
+        } else if (type.startsWith('custom_')) {
+          const variantTypeIndex = parseInt(type.split('_')[1]);
+          const variantType = customVariantTypes[variantTypeIndex];
+          if (variantType && variantType.options.length > 0) {
+            variantType.options.forEach(option => {
+              const custom_options = {
+                ...(current.custom_options || {}),
+                [variantType.name]: option
+              };
+              addCombinations(
+                { ...current, custom_options },
+                rest
+              );
+            });
+          } else {
+            addCombinations(current, rest);
+          }
+        } else {
+          addCombinations(current, rest);
+        }
+      };
+
+      // Start with all variant types
+      const variantTypes = [
+        ...(sizes.length > 0 ? ['size'] : []),
+        ...(colors.length > 0 ? ['color'] : []),
+        ...customVariantTypes.map((_, i) => `custom_${i}`)
+      ];
+
+      addCombinations({}, variantTypes);
+
+      // Update variants with new combinations, preserving existing quantities
+      const newVariants = combinations.map(combination => {
+        const existingVariant = variants.find(v => 
+          (!v.size || v.size === combination.size) &&
+          (!v.color || v.color === combination.color) &&
+          (!v.custom_options || Object.entries(v.custom_options).every(
+            ([key, value]) => combination.custom_options?.[key] === value
+          ))
+        );
+
+        const sku = [
+          combination.size,
+          combination.color,
+          ...Object.values(combination.custom_options || {})
+        ].filter(Boolean).join('-');
+
+        return {
+          ...combination,
+          quantity: existingVariant?.quantity || 0,
+          sku
+        };
+      });
+
+      setVariants(newVariants);
+    }
+  }, [customVariantTypes, sizes, colors]);
+
+  // Add function to save custom category
+  const saveCustomCategory = async (categoryName: string) => {
+    if (!categoryName.trim()) return;
+    
+    setIsSavingCustomCategory(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('You must be logged in to save custom categories');
+        return;
+      }
+
+      // Check if category already exists
+      const { data: existingCategory } = await supabase
+        .from('custom_categories')
+        .select('name')
+        .eq('name', categoryName.trim())
+        .single();
+
+      if (existingCategory) {
+        toast.error('This category already exists');
+        return;
+      }
+
+      // Insert new custom category
+      const { error: insertError } = await supabase
+        .from('custom_categories')
+        .insert({
+          name: categoryName.trim(),
+          created_by: session.user.id
+        });
+
+      if (insertError) throw insertError;
+
+      // Add to local state
+      setCustomCategories(prev => [...prev, categoryName.trim()]);
+      setCategory(categoryName.trim());
+      setShowCustomCategory(false);
+      setCustomCategory('');
+      toast.success('Custom category saved successfully');
+      
+    } catch (error) {
+      console.error('Error saving custom category:', error);
+      toast.error('Failed to save custom category');
+    } finally {
+      setIsSavingCustomCategory(false);
+    }
+  };
+
   const [imageError, setImageError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const imageSectionRef = useRef<HTMLDivElement>(null);
@@ -253,7 +421,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     } else if (e.target.files) {
       files = Array.from(e.target.files);
     }
-    if (files.length + images.length + (existingImages.length - imagesToDelete.length) > 8) {
+    if (files.length + images.length + existingImages.filter(img => !imagesToDelete.includes(img.image_url)).length > 8) {
       setImageError('Maximum 8 images allowed.');
       return;
     }
@@ -277,7 +445,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     setImageError(null);
 
     // Enforce minimum 4 images (existing + new - toDelete)
-    const totalImages = existingImages.length - imagesToDelete.length + images.length;
+    const totalImages = existingImages.filter(img => !imagesToDelete.includes(img.image_url)).length + images.length;
     if (totalImages < 4) {
       setImageError('Please upload at least 4 images.');
       if (imageSectionRef.current) imageSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -361,6 +529,40 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         .eq('owner_id', session.user.id); // Only allow update if user owns the product
 
       if (updateError) throw updateError;
+
+      // Handle image deletions
+      if (imagesToDelete.length > 0) {
+        try {
+          for (const imageUrl of imagesToDelete) {
+            // Delete from product_images table
+            const { error: deleteImageError } = await supabase
+              .from('product_images')
+              .delete()
+              .eq('product_id', params.id)
+              .eq('image_url', imageUrl);
+
+            if (deleteImageError) {
+              console.error('Error deleting image reference:', deleteImageError);
+            }
+
+            // Try to delete from storage (optional - don't fail if storage delete fails)
+            try {
+              const fileName = imageUrl.split('/').pop();
+              if (fileName) {
+                await supabase.storage
+                  .from('products')
+                  .remove([`${params.id}/${fileName}`]);
+              }
+            } catch (storageError) {
+              console.warn('Failed to delete image from storage:', storageError);
+            }
+          }
+        } catch (error) {
+          console.error('Error deleting images:', error);
+          // Don't throw here, allow product update even if image deletion fails
+          toast.error('Some images failed to delete');
+        }
+      }
 
       // Handle image uploads
       if (images.length > 0) {
@@ -540,7 +742,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                       <label className="block text-sm font-medium text-gray-700">
                         Category <span className="text-red-500">*</span>
                       </label>
-                        {!showCustomCategory ? (
+                      {!showCustomCategory ? (
                         <div className="mt-1 flex items-center">
                             <select
                               value={category}
@@ -676,29 +878,48 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                               <option value="Antique Furniture">Antique Furniture</option>
                               <option value="Collectibles">Collectibles</option>
                               </optgroup>
+                            {customCategories.length > 0 && (
+                              <optgroup label="Custom Categories">
+                                {customCategories.map((customCat) => (
+                                  <option key={customCat} value={customCat}>{customCat}</option>
+                                ))}
+                              </optgroup>
+                            )}
                             <option value="custom">Add Custom Category</option>
                             </select>
                               </div>
                         ) : (
-                        <div className="mt-1 flex items-center">
-                            <input
-                              type="text"
-                              value={customCategory}
-                              onChange={(e) => setCustomCategory(e.target.value)}
-                              className={inputClasses}
-                              placeholder="Enter custom category"
-                              required={showCustomCategory}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowCustomCategory(false);
-                                setCustomCategory('');
-                              }}
-                              className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                            >
-                              Cancel
-                            </button>
+                        <div className="mt-1 space-y-2">
+                            <div className="flex items-center">
+                              <input
+                                type="text"
+                                value={customCategory}
+                                onChange={(e) => setCustomCategory(e.target.value)}
+                                className={inputClasses}
+                                placeholder="Enter custom category name"
+                                required={showCustomCategory}
+                              />
+                            </div>
+                            <div className="flex space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => saveCustomCategory(customCategory)}
+                                disabled={isSavingCustomCategory || !customCategory.trim()}
+                                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                              >
+                                {isSavingCustomCategory ? 'Saving...' : 'Save Category'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowCustomCategory(false);
+                                  setCustomCategory('');
+                                }}
+                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           </div>
                         )}
                     </div>
@@ -909,7 +1130,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={imageSectionRef}>
                   <div className="flex justify-between items-center">
                     <h4 className="text-base font-medium text-gray-900">Product Images <span className="text-red-500">*</span></h4>
-                    <span className="text-sm text-gray-500">{existingImages.length - imagesToDelete.length + images.length}/8 images</span>
+                    <span className="text-sm text-gray-500">{existingImages.filter(img => !imagesToDelete.includes(img.image_url)).length + images.length}/8 images</span>
                   </div>
                   <div>
                     <label htmlFor="newImages" className="block text-sm font-medium text-gray-700">
@@ -963,7 +1184,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                       </div>
                     )}
                     {/* Previews for existing images */}
-                    {existingImages.length - imagesToDelete.length > 0 && (
+                    {existingImages.filter(img => !imagesToDelete.includes(img.image_url)).length > 0 && (
                       <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {existingImages.filter(img => !imagesToDelete.includes(img.image_url)).map((image, idx) => (
                           <div key={image.id} className="relative group border rounded-lg overflow-hidden">
@@ -1385,17 +1606,22 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                             );
                           });
                         } else if (type.startsWith('custom_')) {
-                          const variantType = customVariantTypes[parseInt(type.split('_')[1])];
-                          variantType.options.forEach(option => {
-                            const custom_options = {
-                              ...(current.custom_options || {}),
-                              [variantType.name]: option
-                            };
-                            addCombinations(
-                              { ...current, custom_options },
-                              rest
-                            );
-                          });
+                          const variantTypeIndex = parseInt(type.split('_')[1]);
+                          const variantType = customVariantTypes[variantTypeIndex];
+                          if (variantType && variantType.options.length > 0) {
+                            variantType.options.forEach(option => {
+                              const custom_options = {
+                                ...(current.custom_options || {}),
+                                [variantType.name]: option
+                              };
+                              addCombinations(
+                                { ...current, custom_options },
+                                rest
+                              );
+                            });
+                          } else {
+                            addCombinations(current, rest);
+                          }
                         } else {
                           addCombinations(current, rest);
                         }

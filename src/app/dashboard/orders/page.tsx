@@ -1083,7 +1083,7 @@ export default function OrdersPage() {
                   <div className="space-y-4">
                     <div>
                       <p className="text-sm font-medium text-gray-500">Order ID</p>
-                      <p className="text-sm text-gray-900">{selectedOrder.id}</p>
+                      <p className="text-sm text-gray-900">#{selectedOrder.id.substring(0, 8)}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-500">Product</p>
