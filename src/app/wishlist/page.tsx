@@ -98,8 +98,8 @@ export default function WishlistPage() {
         return;
       }
 
-      const { data: likes, error } = await supabase
-        .from('likes')
+      const { data: wishlistItems, error } = await supabase
+        .from('wishlist')
         .select(`
           product_id,
           products (
@@ -138,9 +138,9 @@ export default function WishlistPage() {
 
       if (error) throw error;
 
-      const products = (likes as unknown as LikeWithProduct[])
-        ?.map(like => {
-          const product = like.products;
+      const products = (wishlistItems as unknown as LikeWithProduct[])
+        ?.map(wishlistItem => {
+          const product = wishlistItem.products;
           if (!product) return null;
 
           // Calculate average rating
@@ -193,7 +193,7 @@ export default function WishlistPage() {
       }
 
       const { error } = await supabase
-        .from('likes')
+        .from('wishlist')
         .delete()
         .eq('user_id', session.user.id)
         .eq('product_id', productId);
@@ -202,6 +202,9 @@ export default function WishlistPage() {
 
       setLikedProducts(prev => prev.filter(product => product.id !== productId));
       toast.success('Removed from wishlist');
+      
+      // Dispatch event to update wishlist count in navigation
+      window.dispatchEvent(new CustomEvent('wishlist-updated'));
     } catch (error) {
       console.error('Error removing from wishlist:', error);
       toast.error('Failed to remove from wishlist');

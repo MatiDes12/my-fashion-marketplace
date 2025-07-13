@@ -11,6 +11,7 @@ import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import ProductRating from '@/components/ProductRating';
+import WishlistPopup from '@/components/WishlistPopup';
 
 interface Product {
   id: string;
@@ -60,6 +61,7 @@ export default function ProductCard({ product, showOwner = false, showActions = 
   const [likeCount, setLikeCount] = useState(product.like_count || 0);
   const [loading, setLoading] = useState(false);
   const [likesLoading, setLikesLoading] = useState(false);
+  const [showWishlistPopup, setShowWishlistPopup] = useState(false);
   const router = useRouter();
   const supabase = createClientComponent();
 
@@ -118,7 +120,7 @@ export default function ProductCard({ product, showOwner = false, showActions = 
       }
 
       if (isLiked) {
-        // Unlike
+        // Unlike - only remove from likes table
         const { error } = await supabase
           .from('likes')
           .delete()
@@ -130,18 +132,31 @@ export default function ProductCard({ product, showOwner = false, showActions = 
         setIsLiked(false);
         toast.success('Product removed from favorites');
       } else {
-        // Like
-        const { error } = await supabase
-          .from('likes')
-          .insert({
-            user_id: session.user.id,
-            product_id: product.id
-          });
+        // Check if product is already in wishlist
+        const { data: wishlistItem } = await supabase
+          .from('wishlist')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('product_id', product.id)
+          .single();
 
-        if (error) throw error;
-        setLikeCount(prev => prev + 1);
-        setIsLiked(true);
-        toast.success('Product added to favorites');
+        if (wishlistItem) {
+          // Product is in wishlist, just add to likes
+          const { error } = await supabase
+            .from('likes')
+            .insert({
+              user_id: session.user.id,
+              product_id: product.id
+            });
+
+          if (error) throw error;
+          setLikeCount(prev => prev + 1);
+          setIsLiked(true);
+          toast.success('Product added to favorites');
+        } else {
+          // Product not in wishlist, show popup
+          setShowWishlistPopup(true);
+        }
       }
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -218,7 +233,21 @@ export default function ProductCard({ product, showOwner = false, showActions = 
   }
 
   return (
-    <div className="group relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+    <>
+      {/* Wishlist Popup */}
+      <WishlistPopup
+        isOpen={showWishlistPopup}
+        onClose={() => setShowWishlistPopup(false)}
+        productId={product.id}
+        productTitle={product.title}
+        onSuccess={() => {
+          // Update the UI to reflect the like
+          setLikeCount(prev => prev + 1);
+          setIsLiked(true);
+        }}
+      />
+      
+      <div className="group relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       <Link href={`/products/${product.id}`} className="block">
         <div className="relative h-48 w-full overflow-hidden">
           <ProductImage 
@@ -362,5 +391,6 @@ export default function ProductCard({ product, showOwner = false, showActions = 
 
       {children}
     </div>
+    </>
   );
 }

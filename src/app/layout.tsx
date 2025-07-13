@@ -45,9 +45,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#ffffff" />
-        <link rel="icon" href="/favicon.ico" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" key="viewport" />
+        <meta name="theme-color" content="#ffffff" key="theme-color" />
+        <link rel="icon" href="/favicon.ico" key="favicon" />
       </head>
       <body className={`${inter.className} bg-white text-gray-900`}>
         <ScrollProgress />

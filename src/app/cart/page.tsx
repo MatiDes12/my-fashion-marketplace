@@ -573,9 +573,9 @@ export default function CartPage() {
                                 Color: <span className="font-medium">{item.selected_color}</span>
                               </p>
                             )}
-                            {item.selected_variant_sku && (
+                            {item.selected_variant_sku && !item.selected_size && !item.selected_color && (
                               <p className="text-sm text-gray-500">
-                                SKU: <span className="font-medium">{item.selected_variant_sku}</span>
+                                Variant: <span className="font-medium">{item.selected_variant_sku}</span>
                               </p>
                             )}
                           </div>

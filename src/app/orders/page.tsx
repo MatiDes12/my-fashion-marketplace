@@ -50,7 +50,47 @@ export default function OrdersPage() {
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (error) throw new Error('Failed to fetch orders');
-    return data || [];
+    
+    // Helper function to get the base payment reference
+    const getBasePaymentRef = (paymentRef: string) => {
+      if (!paymentRef) return null;
+      // For cash payments, extract the base reference (before the last hyphen)
+      if (paymentRef.startsWith('CASH-')) {
+        const parts = paymentRef.split('-');
+        // Remove the last part (variant) and join back
+        return parts.slice(0, -1).join('-');
+      }
+      // For Chapa payments, use as is
+      return paymentRef;
+    };
+
+    // Group orders by payment reference
+    const groupedOrders = data.reduce((acc: any, order: any) => {
+      const basePaymentRef = getBasePaymentRef(order.payment_reference);
+      if (!basePaymentRef) return acc;
+
+      if (!acc[basePaymentRef]) {
+        acc[basePaymentRef] = {
+          orders: [],
+          total: 0,
+          created_at: order.created_at,
+          payment_status: order.payment_status,
+          order_status: order.order_status,
+          payment_reference: basePaymentRef,
+          is_cash_payment: basePaymentRef.startsWith('CASH-'),
+          tx_ref: order.tx_ref,
+          receipt_url: order.receipt_url
+        };
+      }
+      acc[basePaymentRef].orders.push(order);
+      acc[basePaymentRef].total += parseFloat(order.total_price);
+      return acc;
+    }, {});
+
+    // Convert to array and sort by date
+    return Object.values(groupedOrders).sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   };
 
   const queryClient = useQueryClient();
@@ -294,188 +334,150 @@ export default function OrdersPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {currentOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+            {currentOrders.map((orderGroup: any) => (
+              <div key={orderGroup.payment_reference} className="bg-white rounded-lg shadow-sm overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex flex-wrap items-center justify-between">
                     <div>
                       <h2 className="text-lg font-medium text-gray-900">
-                        Order #{order.id.substring(0, 8)}
+                        {orderGroup.is_cash_payment ? (
+                          <>Cash Payment #{orderGroup.payment_reference.split('-')[2]}</>
+                        ) : (
+                          <>Chapa Payment #{orderGroup.payment_reference.substring(0, 8)}</>
+                        )}
                       </h2>
                       <p className="mt-1 text-sm text-gray-500">
-                        Placed on {formatDate(order.created_at)}
+                        Placed on {formatDate(orderGroup.created_at)}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Total Amount: ETB {orderGroup.total.toFixed(2)}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Payment Method: {orderGroup.is_cash_payment ? 'Cash on Delivery/Pickup' : 'Chapa'}
                       </p>
                     </div>
                     <div className="mt-2 sm:mt-0">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.order_status)}`}>
-                        {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(orderGroup.order_status)}`}>
+                        {orderGroup.order_status.charAt(0).toUpperCase() + orderGroup.order_status.slice(1)}
                       </span>
                     </div>
                   </div>
                 </div>
-                
-                <div className="p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 w-20 h-20 bg-gray-100 rounded-md overflow-hidden">
-                      {order.product?.images && order.product.images.length > 0 ? (
-                        <Image
-                          src={order.product.images[0].image_url}
-                          alt={order.product.title}
-                          width={80}
-                          height={80}
-                          className="w-full h-full object-center object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                    <div className="ml-6 flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          <button 
-                            onClick={() => router.push(`/products/${order.product?.id}`)}
-                            className="hover:text-green-600"
-                          >
-                            {order.product?.title || 'Product Unavailable'}
-                          </button>
-                        </h3>
-                        <p className="ml-4 text-lg font-medium text-gray-900">
-                          ETB {order.total_price?.toFixed(2) || '0.00'}
-                        </p>
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        <p className="mt-1 text-sm text-gray-500">
-                          Seller: {order.product?.seller?.store_settings?.name || 
-                                   order.product?.seller?.full_name || 
-                                   'Unknown Seller'}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500">
-                          Contact: {order.product?.seller?.store_settings?.email || 'N/A'} | {order.product?.seller?.store_settings?.phone || 'N/A'}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500">
-                          Address: {order.product?.seller?.store_settings?.address?.city || 'N/A'}, {order.product?.seller?.store_settings?.address?.subCity || ''}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
-                        <p className="mt-1 text-sm text-gray-500">Price per item: ETB {order.product?.price}</p>
-                        
-                        {(order.payment_reference || order.tx_ref) && (
-                          <div className="mt-3 bg-gray-50 p-2 rounded-md flex justify-between items-center">
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">References</p>
-                              {order.tx_ref?.startsWith('CASH-') ? (
-                                <>
-                                  <p className="text-sm text-gray-600">
-                                    Payment Method: <span className="font-medium">Cash on Delivery/Pickup</span>
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    Reference: <span className="font-mono">{order.tx_ref}</span>
-                                  </p>
-                                </>
-                              ) : (
-                                <>
-                                  {order.payment_reference && (
-                                    <p className="text-sm text-gray-600">
-                                      Chapa: <span className="font-mono">{order.payment_reference}</span>
-                                    </p>
-                                  )}
-                                  {order.tx_ref && !order.tx_ref.startsWith('CASH-') && (
-                                    <p className="text-sm text-gray-600">
-                                      Merchant: <span className="font-mono">{order.tx_ref}</span>
-                                    </p>
-                                  )}
-                                </>
-                              )}
+
+                <div className="divide-y divide-gray-200">
+                  {orderGroup.orders.map((order: any) => (
+                    <div key={order.id} className="p-6 hover:bg-gray-50">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 w-20 h-20 bg-gray-100 rounded-md overflow-hidden">
+                          {order.product?.images && order.product.images.length > 0 ? (
+                            <Image
+                              src={order.product.images[0].image_url}
+                              alt={order.product.title}
+                              width={80}
+                              height={80}
+                              className="w-full h-full object-center object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
                             </div>
-                            {(order.receipt_url || (order.tx_ref?.startsWith('CASH-') && order.order_status === 'delivered')) && (
-                              <button
-                                onClick={async () => {
-                                  if (order.tx_ref?.startsWith('CASH-') && !order.receipt_url) {
-                                    // Generate receipt for cash payment
-                                    const receiptUrl = await generateCashReceipt(order);
-                                    if (receiptUrl) {
-                                      handleDownloadReceipt(receiptUrl, order.tx_ref);
-                                    }
-                                  } else {
-                                    handleDownloadReceipt(order.receipt_url, order.tx_ref);
-                                  }
-                                }}
-                                className="flex items-center space-x-2 text-red-600 hover:text-red-700"
+                          )}
+                        </div>
+                        <div className="ml-6 flex-1">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              <button 
+                                onClick={() => router.push(`/products/${order.product?.id}`)}
+                                className="hover:text-green-600"
                               >
-                                <ArrowDownTrayIcon className="h-5 w-5" />
-                                <span>View Receipt</span>
+                                {order.product?.title || 'Product Unavailable'}
                               </button>
-                            )}
+                            </h3>
+                            <p className="ml-4 text-lg font-medium text-gray-900">
+                              ETB {order.total_price?.toFixed(2) || '0.00'}
+                            </p>
                           </div>
-                        )}
+                          <div className="mt-2 space-y-1">
+                            <p className="mt-1 text-sm text-gray-500">
+                              Seller: {order.product?.seller?.store_settings?.name || 
+                                       order.product?.seller?.full_name || 
+                                       'Unknown Seller'}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500">
+                              Contact: {order.product?.seller?.store_settings?.email || 'N/A'} | {order.product?.seller?.store_settings?.phone || 'N/A'}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500">
+                              Address: {order.product?.seller?.store_settings?.address?.city || 'N/A'}, {order.product?.seller?.store_settings?.address?.subCity || ''}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
+                            <p className="mt-1 text-sm text-gray-500">Price per item: ETB {order.product?.price}</p>
+                            
+                            {order.selected_variant_sku && (
+                              <p className="mt-1 text-sm text-gray-500">Variant: {order.selected_variant_sku}</p>
+                            )}
+                            {order.selected_size && (
+                              <p className="mt-1 text-sm text-gray-500">Size: {order.selected_size}</p>
+                            )}
+                            {order.selected_color && (
+                              <p className="mt-1 text-sm text-gray-500">Color: {order.selected_color}</p>
+                            )}
+                            
+                            <p className="mt-1 text-sm text-gray-500">
+                              Delivery Method: {order.delivery_method ? order.delivery_method.replace('_', ' ').toUpperCase() : 'N/A'}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-                
+
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
                   <div className="flex justify-between items-center">
                     <div className="text-sm text-gray-500">
-                      {order.order_status === 'delivered' ? (
+                      {orderGroup.orders[0].order_status === 'delivered' ? (
                         <span className="flex items-center text-green-600">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                           </svg>
-                          Delivered on {formatDate(order.updated_at)}
+                          Delivered on {formatDate(orderGroup.orders[0].updated_at)}
                         </span>
-                      ) : order.order_status === 'shipped' ? (
+                      ) : orderGroup.orders[0].order_status === 'shipped' ? (
                         <span className="flex items-center text-purple-600">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
                             <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-5h2a1 1 0 00.9-.5l1.08-1.5-3.7-3.7A1 1 0 0010.46 4H3z" />
                           </svg>
-                          Shipped on {formatDate(order.updated_at)}
+                          Shipped on {formatDate(orderGroup.orders[0].updated_at)}
                         </span>
                       ) : (
                         <span>
-                          {order.order_status === 'cancelled' ? 'Cancelled' : 'Processing your order'}
+                          {orderGroup.orders[0].order_status === 'cancelled' ? 'Cancelled' : 'Processing your order'}
                         </span>
                       )}
                     </div>
-                    
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setIsDetailsModalOpen(true);
-                        }}
-                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                      >
-                        View Details
-                      </button>
 
-                      {order.order_status !== 'cancelled' && order.order_status !== 'delivered' && (
+                    <div className="flex space-x-3">
+                      {orderGroup.receipt_url && (
                         <button
-                          onClick={() => router.push(`/support?order=${order.id}`)}
+                          onClick={() => handleDownloadReceipt(orderGroup.receipt_url, orderGroup.tx_ref)}
+                          className="flex items-center space-x-2 text-red-600 hover:text-red-700"
+                        >
+                          <ArrowDownTrayIcon className="h-5 w-5" />
+                          <span>View Receipt</span>
+                        </button>
+                      )}
+
+                      {orderGroup.orders[0].order_status !== 'cancelled' && orderGroup.orders[0].order_status !== 'delivered' && (
+                        <button
+                          onClick={() => router.push(`/support?order=${orderGroup.orders[0].id}`)}
                           className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                         >
                           Contact Support
                         </button>
                       )}
-                      
-                      {order.order_status === 'delivered' && (
-                        <button
-                          onClick={() => router.push(`/products/${order.product.id}?review=true`)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-                        >
-                          Write a Review
-                        </button>
-                      )}
-                      
-                      <button
-                        onClick={() => router.push(`/products/${order.product.id}`)}
-                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                      >
-                        Buy Again
-                      </button>
                     </div>
                   </div>
                 </div>

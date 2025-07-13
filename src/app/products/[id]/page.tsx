@@ -11,6 +11,7 @@ import { cleanImageUrl } from '@/utils/url';
 import { getFlashSalePrices } from '@/utils/flashSales';
 import ProductRating from '@/components/ProductRating';
 import Link from 'next/link';
+import WishlistPopup from '@/components/WishlistPopup';
 
 type ProductImage = {
   id: string;
@@ -503,6 +504,7 @@ export default function ProductDetailPage() {
   const [activeTab, setActiveTab] = useState<TabType>('details');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null); // Track user id for like check
+  const [showWishlistPopup, setShowWishlistPopup] = useState(false);
   
   // Review pagination state
   const [currentReviewPage, setCurrentReviewPage] = useState(1);
@@ -684,7 +686,7 @@ export default function ProductDetailPage() {
     
     try {
       if (isLiked) {
-        // Unlike the product
+        // Unlike the product - only remove from likes table
         await supabase
           .from('likes')
           .delete()
@@ -702,24 +704,37 @@ export default function ProductDetailPage() {
         
         toast.success('Removed from favorites');
       } else {
-        // Like the product
-        await supabase
-          .from('likes')
-          .insert({
-            user_id: session.user.id,
-            product_id: productId
+        // Check if product is already in wishlist
+        const { data: wishlistItem } = await supabase
+          .from('wishlist')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('product_id', productId)
+          .single();
+
+        if (wishlistItem) {
+          // Product is in wishlist, just add to likes
+          await supabase
+            .from('likes')
+            .insert({
+              user_id: session.user.id,
+              product_id: productId
+            });
+            
+          setIsLiked(true);
+          setProduct(prev => {
+            if (!prev) return null;
+            return {
+            ...prev,
+              like_count: prev.like_count + 1
+            };
           });
           
-        setIsLiked(true);
-        setProduct(prev => {
-          if (!prev) return null;
-          return {
-          ...prev,
-            like_count: prev.like_count + 1
-          };
-        });
-        
-        toast.success('Added to favorites');
+          toast.success('Added to favorites');
+        } else {
+          // Product not in wishlist, show popup
+          setShowWishlistPopup(true);
+        }
       }
     } catch (error) {
       console.error('Error toggling like:', error);
@@ -847,27 +862,69 @@ export default function ProductDetailPage() {
           ...Object.entries(selectedCustomOptions).map(([key, value]) => `${key.toLowerCase()}-${value}`)
         ].filter(Boolean).join('_');
 
-        const cartItem = {
+        // Check if this exact variant combination already exists in cart
+        let existingItem = null;
+        
+        // For products with variants, check for exact match
+        if (product.available_variants?.length > 0) {
+          const { data } = await supabase
+            .from('cart_items')
+            .select('id, quantity')
+            .eq('user_id', session.user.id)
+            .eq('product_id', productId)
+            .eq('selected_size', selectedSize || null)
+            .eq('selected_color', selectedColor || null)
+            .eq('selected_variant_sku', variantSku || null)
+            .single();
+          existingItem = data;
+        } else {
+          // For products without variants, check for any existing item of this product
+          const { data } = await supabase
+            .from('cart_items')
+            .select('id, quantity')
+            .eq('user_id', session.user.id)
+            .eq('product_id', productId)
+            .is('selected_size', null)
+            .is('selected_color', null)
+            .is('selected_variant_sku', null)
+            .single();
+          existingItem = data;
+        }
+
+        if (existingItem) {
+          // Update quantity of existing item
+          const newQuantity = existingItem.quantity + quantity;
+          const { error: updateError } = await supabase
+            .from('cart_items')
+            .update({ 
+              quantity: newQuantity,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingItem.id);
+          
+          if (updateError) throw updateError;
+          toast.success(`Updated quantity in cart (${newQuantity} total)`);
+        } else {
+          // Create new cart item
+          const cartItem = {
             user_id: session.user.id,
             product_id: productId,
             quantity: quantity,
-          price: product.flash_sale_price || product.price,
-          delivery_fee: product.delivery_fee || 0,
-          selected_size: selectedSize || null,
-          selected_color: selectedColor || null,
-          selected_variant_sku: variantSku || null
-        };
+            price: product.flash_sale_price || product.price,
+            delivery_fee: product.delivery_fee || 0,
+            selected_size: selectedSize || null,
+            selected_color: selectedColor || null,
+            selected_variant_sku: variantSku || null
+          };
 
-        const { error: insertError } = await supabase
-          .from('cart_items')
-          .upsert(cartItem, {
-            onConflict: 'user_id,product_id',
-            ignoreDuplicates: false
-          });
-        
-        if (insertError) throw insertError;
+          const { error: insertError } = await supabase
+            .from('cart_items')
+            .insert(cartItem);
+          
+          if (insertError) throw insertError;
+          toast.success('Added to cart');
+        }
       
-      toast.success('Added to cart');
       router.push('/cart');
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -1014,6 +1071,27 @@ export default function ProductDetailPage() {
   
   return (
     <div className="bg-gray-50 mt-6">
+      {/* Wishlist Popup */}
+      {product && (
+        <WishlistPopup
+          isOpen={showWishlistPopup}
+          onClose={() => setShowWishlistPopup(false)}
+          productId={product.id}
+          productTitle={product.title}
+          onSuccess={() => {
+            // Update the UI to reflect the like
+            setIsLiked(true);
+            setProduct(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                like_count: prev.like_count + 1
+              };
+            });
+          }}
+        />
+      )}
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <nav className="flex mb-8" aria-label="Breadcrumb">
           <ol className="flex items-center space-x-2">

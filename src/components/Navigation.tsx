@@ -78,7 +78,6 @@ interface SearchResult {
 interface NavigationProps {
   userDetails: UserDetails | null;
   children?: React.ReactNode;
-  customCategories?: string[];
 }
 
 interface ProductUser {
@@ -118,7 +117,7 @@ const categories = [
   { id: 'accessories-2', label: 'Accessories', href: '/category/accessories' }, // If you need a second one, use a different key
 ];
 
-export default function Navigation({ userDetails, customCategories = [] }: NavigationProps) {
+export default function Navigation({ userDetails }: NavigationProps) {
   const { user, setUser } = useAuth();
   const { isOwner } = useOwnerCheck();
   const pathname = usePathname();
@@ -149,6 +148,25 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
   const lastScrollTimeRef = useRef<number>(Date.now());
   const [activeCategory, setActiveCategory] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [publicCustomCategories, setPublicCustomCategories] = useState<string[]>([]);
+
+  // Debug: Log publicCustomCategories changes
+  useEffect(() => {
+    console.log('publicCustomCategories updated:', publicCustomCategories);
+  }, [publicCustomCategories]);
+
+  // Debug: Add manual trigger for testing
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'F12') {
+        console.log('Manual trigger: Fetching custom categories...');
+        fetchPublicCustomCategories();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   const handleScroll = useCallback(() => {
     const currentTime = Date.now();
@@ -261,9 +279,15 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
 
   useEffect(() => {
     fetchFlashDeals();
+    fetchPublicCustomCategories();
     const interval = setInterval(fetchFlashDeals, 60000); // Refresh every minute
     return () => clearInterval(interval);
   }, []); // Empty dependency array since we want to fetch on mount
+
+  // Refetch custom categories when auth state changes
+  useEffect(() => {
+    fetchPublicCustomCategories();
+  }, [user]); // Refetch when user auth state changes
 
   useEffect(() => {
     if (user) {
@@ -308,7 +332,7 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
       if (!session) return;
 
       const { count, error } = await supabase
-        .from('likes')
+        .from('wishlist')
         .select('*', { count: 'exact' })
         .eq('user_id', session.user.id);
 
@@ -316,6 +340,46 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
       setWishlistCount(count || 0);
     } catch (error) {
       console.error('Error fetching wishlist count:', error);
+    }
+  };
+
+  const fetchPublicCustomCategories = async () => {
+    try {
+      console.log('Fetching public custom categories...');
+      
+      // Test the connection first
+      const { data: testData, error: testError } = await supabase
+        .from('custom_categories')
+        .select('count')
+        .limit(1);
+      
+      if (testError) {
+        console.error('Test query error:', testError);
+        return;
+      }
+      
+      console.log('Test query successful, proceeding with fetch...');
+      
+      const { data: customCategoriesData, error: customCategoriesError } = await supabase
+        .from('custom_categories')
+        .select('name')
+        .eq('is_active', true)
+        .order('name');
+      
+      if (customCategoriesError) {
+        console.error('Error fetching custom categories:', customCategoriesError);
+        return;
+      }
+      
+      if (customCategoriesData) {
+        console.log('Custom categories fetched:', customCategoriesData);
+        setPublicCustomCategories(customCategoriesData.map(cat => cat.name));
+      } else {
+        console.log('No custom categories found');
+        setPublicCustomCategories([]);
+      }
+    } catch (error) {
+      console.error('Error fetching custom categories:', error);
     }
   };
 
@@ -464,7 +528,7 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
     closeMenu();
   };
 
-  // Update the click outside handler to not close immediately on mobile
+  // Update the click outside handler to always hide mobile search bar, even if input is empty
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -476,11 +540,11 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
         // Add a small delay on mobile to allow for tap events
         const isMobile = window.innerWidth < 768;
         if (isMobile) {
-        setTimeout(() => {
+          setTimeout(() => {
             setIsMobileSearchVisible(false);
-          setSearchResults([]);
+            setSearchResults([]);
             setSearchQuery('');
-        }, 200);
+          }, 200);
         } else {
           setIsMobileSearchVisible(false);
           setSearchResults([]);
@@ -595,7 +659,7 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
           }));
 
         // Add custom category matches
-        const customCategoryMatches = customCategories
+        const customCategoryMatches = publicCustomCategories
           .filter(cat => cat.toLowerCase().includes(query.toLowerCase()))
           .map(cat => ({
             id: `custom-cat-${cat}`,
@@ -1170,7 +1234,7 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
                 ))}
                 
                 {/* Custom Categories */}
-                {customCategories.map((category, index) => (
+                {publicCustomCategories.map((category, index) => (
                   <button
                     key={`custom-${category}`}
                     onClick={() => {
@@ -1646,11 +1710,11 @@ export default function Navigation({ userDetails, customCategories = [] }: Navig
                 </div>
 
                 {/* Custom Categories Section */}
-                {customCategories.length > 0 && (
+                {publicCustomCategories.length > 0 && (
                   <div className="px-4 py-2">
                     <h4 className="text-sm font-medium text-gray-900 mb-2">Custom Categories</h4>
                     <div className="flex flex-wrap gap-2">
-                      {customCategories.map((category) => (
+                      {publicCustomCategories.map((category) => (
                         <button
                           key={category}
                           onClick={() => {

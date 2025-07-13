@@ -39,7 +39,7 @@ export default function CartIcon() {
         
       if (error) throw error;
       
-      // Calculate total items in cart
+      // Calculate total items in cart (sum of all quantities)
       const totalItems = data?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0;
       setCartCount(totalItems);
       

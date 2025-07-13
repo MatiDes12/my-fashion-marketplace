@@ -447,7 +447,13 @@ export default function CheckoutPage() {
         title: item.product.title,
         price: item.flash_sale_price || item.product.price,
         quantity: item.quantity,
-        images: item.product.images
+        images: item.product.images,
+        selected_size: item.selected_size,
+        selected_color: item.selected_color,
+        selected_variant_sku: item.selected_variant_sku,
+        delivery_method: item.delivery_method,
+        delivery_address: item.delivery_address,
+        owner: item.product.owner
       });
       
       // Calculate prices
@@ -537,9 +543,9 @@ export default function CheckoutPage() {
                               Color: <span className="font-medium">{item.selected_color}</span>
                             </p>
                           )}
-                          {item.selected_variant_sku && (
+                          {item.selected_variant_sku && !item.selected_size && !item.selected_color && (
                             <p className="text-sm text-gray-500">
-                              SKU: <span className="font-medium">{item.selected_variant_sku}</span>
+                              Variant: <span className="font-medium">{item.selected_variant_sku}</span>
                             </p>
                           )}
                         </div>

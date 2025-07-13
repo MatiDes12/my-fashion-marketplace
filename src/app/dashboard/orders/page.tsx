@@ -60,6 +60,32 @@ interface Order {
   selected_variant_sku?: string;
 }
 
+// Add new interface for grouped orders
+interface OrderGroup {
+  payment_reference: string;
+  orders: Order[];
+  total: number;
+  created_at: string;
+  payment_status: string;
+  order_status: string;
+  is_cash_payment: boolean;
+  tx_ref: string;
+  receipt_url: string;
+}
+
+// Helper function to get base payment reference
+const getBasePaymentRef = (paymentRef: string) => {
+  if (!paymentRef) return null;
+  // For cash payments, extract the base reference (before the last hyphen)
+  if (paymentRef.startsWith('CASH-')) {
+    const parts = paymentRef.split('-');
+    // Remove the last part (variant) and join back
+    return parts.slice(0, -1).join('-');
+  }
+  // For Chapa payments, use as is
+  return paymentRef;
+};
+
 interface OrderWithUser {
   id: string;
   created_at: string;
@@ -96,6 +122,7 @@ interface SupabaseOrder {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [groupedOrders, setGroupedOrders] = useState<OrderGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -140,7 +167,7 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [payoutStatusFilter, setPayoutStatusFilter] = useState('all');
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<OrderGroup[]>([]);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -491,6 +518,117 @@ export default function OrdersPage() {
     debugOrderData(supabase);
   }, []);
 
+  // Add useEffect to group orders whenever orders change
+  useEffect(() => {
+    if (!orders.length) return;
+
+    // Group orders by payment reference
+    const grouped = orders.reduce((acc: { [key: string]: Order[] }, order) => {
+      const baseRef = getBasePaymentRef(order.payment_reference || order.tx_ref || '');
+      if (!baseRef) return acc;
+      
+      if (!acc[baseRef]) {
+        acc[baseRef] = [];
+      }
+      acc[baseRef].push(order);
+      return acc;
+    }, {});
+
+    // Convert to array format
+    const groupedArray = Object.entries(grouped).map(([ref, orders]) => {
+      const total = orders.reduce((sum, order) => sum + order.total_price, 0);
+      const firstOrder = orders[0];
+      
+      return {
+        payment_reference: ref,
+        orders,
+        total,
+        created_at: firstOrder.created_at,
+        payment_status: firstOrder.payment_status || 'pending',
+        order_status: firstOrder.order_status,
+        is_cash_payment: ref.startsWith('CASH-'),
+        tx_ref: firstOrder.tx_ref || '',
+        receipt_url: firstOrder.receipt_url || ''
+      };
+    });
+
+    setGroupedOrders(groupedArray);
+    setFilteredOrders(groupedArray);
+  }, [orders]);
+
+  // Add a function to get the most recent order status from a group
+  const getGroupStatus = (group: OrderGroup) => {
+    if (group.orders.some(order => order.order_status === 'delivered')) return 'delivered';
+    if (group.orders.some(order => order.order_status === 'picked up')) return 'picked up';
+    if (group.orders.some(order => order.order_status === 'shipped')) return 'shipped';
+    if (group.orders.some(order => order.order_status === 'confirmed')) return 'confirmed';
+    if (group.orders.some(order => order.order_status === 'cancelled')) return 'cancelled';
+    return 'pending';
+  };
+
+  // Add a function to get the payment status of a group
+  const getGroupPaymentStatus = (group: OrderGroup) => {
+    if (group.orders.some(order => order.payment_status === 'paid')) return 'paid';
+    return 'pending';
+  };
+
+  // Add a function to get the payout status of a group
+  const getGroupPayoutStatus = (group: OrderGroup) => {
+    if (group.orders.some(order => order.transaction?.seller_payout_status === 'completed')) return 'completed';
+    if (group.orders.some(order => order.transaction?.seller_payout_status === 'pending')) return 'pending';
+    return 'not_eligible';
+  };
+
+  // Update filtering logic
+  useEffect(() => {
+    if (!groupedOrders) return;
+    
+    let filtered = [...groupedOrders];
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(group => 
+        group.orders.some(order => 
+          order.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.product?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.payment_reference?.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(group => 
+        group.orders.some(order => {
+          if (statusFilter === 'completed') {
+            return order.order_status === 'delivered' || order.order_status === 'picked up';
+          }
+          return order.order_status === statusFilter;
+        })
+      );
+    }
+    
+    // Apply payment status filter
+    if (paymentStatusFilter !== 'all') {
+      filtered = filtered.filter(group => 
+        group.orders.some(order => order.payment_status === paymentStatusFilter)
+      );
+    }
+    
+    // Apply payout status filter
+    if (payoutStatusFilter !== 'all') {
+      filtered = filtered.filter(group => 
+        group.orders.some(order => 
+          order.transaction?.seller_payout_status === payoutStatusFilter
+        )
+      );
+    }
+    
+    setFilteredOrders(filtered);
+  }, [groupedOrders, searchTerm, statusFilter, paymentStatusFilter, payoutStatusFilter]);
+
+  // Add pagination calculation
   const indexOfLastOrder = currentPage * itemsPerPage;
   const indexOfFirstOrder = indexOfLastOrder - itemsPerPage;
   const paginatedOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
@@ -500,9 +638,10 @@ export default function OrdersPage() {
     setCurrentPage(pageNumber);
   };
 
-  // Compute stats whenever orders change
+  // Update stats calculation for grouped orders
   useEffect(() => {
-    if (!orders) return;
+    if (!groupedOrders) return;
+    
     const byStatus = {
       pending: 0,
       confirmed: 0,
@@ -520,37 +659,40 @@ export default function OrdersPage() {
     let pendingOrders = 0;
     let moneyReceived = 0;
     let pendingPayouts = 0;
-    orders.forEach(order => {
-      // Status
-      if (order.order_status === 'pending') byStatus.pending++;
-      else if (order.order_status === 'confirmed') byStatus.confirmed++;
-      else if (order.order_status === 'shipped') byStatus.shipped++;
-      else if (order.order_status === 'delivered') {
-        byStatus.delivered++;
-        completedOrders++;
-      } else if (order.order_status === 'picked up') {
-        byStatus.pickedup++;
-        completedOrders++;
-      } else if (order.order_status === 'cancelled') byStatus.cancelled++;
-      // Pending orders
-      if (order.order_status === 'pending') pendingOrders++;
-      // Payment status
-      if (order.payment_status === 'paid') byPaymentStatus.paid++;
-      else if (order.payment_status === 'pending') byPaymentStatus.pending++;
-      else byPaymentStatus.other++;
 
-      // Payout status
-      if (order.transaction?.seller_payout_status === 'completed') {
-        moneyReceived += order.transaction.seller_payout_amount || 0;
-      } else if (order.transaction?.seller_payout_status === 'pending') {
-        pendingPayouts++;
-      } else if (order.transaction?.seller_payout_status === 'not_eligible') {
-        // This case is not directly tracked in the current stats, but can be inferred
-        // or added to the stats if needed. For now, we'll just count it.
-      }
+    groupedOrders.forEach(group => {
+      group.orders.forEach(order => {
+        // Status
+        if (order.order_status === 'pending') byStatus.pending++;
+        else if (order.order_status === 'confirmed') byStatus.confirmed++;
+        else if (order.order_status === 'shipped') byStatus.shipped++;
+        else if (order.order_status === 'delivered') {
+          byStatus.delivered++;
+          completedOrders++;
+        } else if (order.order_status === 'picked up') {
+          byStatus.pickedup++;
+          completedOrders++;
+        } else if (order.order_status === 'cancelled') byStatus.cancelled++;
+        
+        // Pending orders
+        if (order.order_status === 'pending') pendingOrders++;
+        
+        // Payment status
+        if (order.payment_status === 'paid') byPaymentStatus.paid++;
+        else if (order.payment_status === 'pending') byPaymentStatus.pending++;
+        else byPaymentStatus.other++;
+
+        // Payout status
+        if (order.transaction?.seller_payout_status === 'completed') {
+          moneyReceived += order.transaction.seller_payout_amount || 0;
+        } else if (order.transaction?.seller_payout_status === 'pending') {
+          pendingPayouts++;
+        }
+      });
     });
+
     setStats({
-      totalOrders: orders.length,
+      totalOrders: groupedOrders.reduce((total, group) => total + group.orders.length, 0),
       completedOrders,
       pendingOrders,
       moneyReceived,
@@ -560,388 +702,463 @@ export default function OrdersPage() {
       byPayoutStatus: {
         received: moneyReceived,
         pending: pendingPayouts,
-        notEligible: orders.filter(order => order.transaction?.seller_payout_status === 'not_eligible').length,
+        notEligible: groupedOrders.reduce((total, group) => 
+          total + group.orders.filter(order => 
+            order.transaction?.seller_payout_status === 'not_eligible'
+          ).length, 0),
       },
     });
-  }, [orders]);
-
-  // Filtering logic: status + payment status
-  useEffect(() => {
-    if (!orders) return;
-    let result = [...orders];
-    // Status filter
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'completed') {
-        result = result.filter(order => order.order_status === 'delivered' || order.order_status === 'picked up');
-      } else {
-        result = result.filter(order => order.order_status === statusFilter);
-      }
-    }
-    // Payment status filter
-    if (paymentStatusFilter !== 'all') {
-      result = result.filter(order => (order.payment_status || 'pending') === paymentStatusFilter);
-    }
-    // Payout status filter
-    if (payoutStatusFilter !== 'all') {
-      result = result.filter(order => (order.transaction?.seller_payout_status || 'pending') === payoutStatusFilter);
-    }
-    // Search filter (order id, customer, product, etc)
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      // Remove leading # for order id search
-      const searchNoHash = searchLower.startsWith('#') ? searchLower.slice(1) : searchLower;
-      result = result.filter(order => 
-        // Order ID match: ignore # in search and in display
-        order.id.toLowerCase().includes(searchNoHash) ||
-        order.id.toLowerCase().includes(searchLower.replace(/^#/, '')) ||
-        order.order_status.toLowerCase().includes(searchLower) ||
-        (order.payment_status || '').toLowerCase().includes(searchLower) ||
-        formatCurrency(order.total_price).toLowerCase().includes(searchLower) ||
-        order.user?.full_name?.toLowerCase().includes(searchLower) ||
-        order.user?.email?.toLowerCase().includes(searchLower) ||
-        order.product?.title?.toLowerCase().includes(searchLower)
-      );
-    }
-    setFilteredOrders(result);
-  }, [orders, searchTerm, statusFilter, paymentStatusFilter, payoutStatusFilter]);
+  }, [groupedOrders]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Stats Overview Section */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="bg-indigo-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-indigo-600">Total Orders</h3>
-              <p className="text-2xl font-bold text-indigo-900">{stats.totalOrders}</p>
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Orders Card */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total Orders</p>
+              <p className="text-2xl font-semibold text-gray-900 mt-1">{stats.totalOrders}</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-green-600">Completed Orders</h3>
-              <p className="text-2xl font-bold text-green-900">{stats.completedOrders}</p>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-yellow-600">Pending Orders</h3>
-              <p className="text-2xl font-bold text-yellow-900">{stats.pendingOrders}</p>
-            </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-blue-600">Paid</h3>
-              <p className="text-2xl font-bold text-blue-900">{stats.byPaymentStatus.paid}</p>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-orange-600">Payment Pending</h3>
-              <p className="text-2xl font-bold text-orange-900">{stats.byPaymentStatus.pending}</p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-gray-600">Cancelled</h3>
-              <p className="text-2xl font-bold text-gray-900">{stats.byStatus.cancelled}</p>
+            <div className="bg-blue-50 rounded-lg p-3">
+              <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
             </div>
           </div>
-          {/* Payout Overview Row */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-emerald-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-emerald-600">Money Received</h3>
-              <p className="text-2xl font-bold text-emerald-900">{formatCurrency(stats.moneyReceived)}</p>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div>
+              <span className="text-green-500 text-sm font-medium">{stats.completedOrders} completed</span>
+              <div className="text-xs text-gray-500 mt-1">
+                <div>Delivered: {stats.byStatus.delivered}</div>
+                <div>Picked up: {stats.byStatus.pickedup}</div>
+              </div>
             </div>
-            <div className="bg-amber-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-amber-600">Pending Payouts</h3>
-              <p className="text-2xl font-bold text-amber-900">{stats.pendingPayouts}</p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <h3 className="text-sm font-medium text-purple-600">Not Eligible</h3>
-              <p className="text-2xl font-bold text-purple-900">{stats.byPayoutStatus.notEligible}</p>
+            <div>
+              <span className="text-yellow-500 text-sm font-medium">{stats.pendingOrders} pending</span>
+              <div className="text-xs text-gray-500 mt-1">
+                <div>Processing: {stats.byStatus.confirmed}</div>
+                <div>Cancelled: {stats.byStatus.cancelled}</div>
+              </div>
             </div>
           </div>
-          {/* Status breakdown row */}
-          <div className="mt-4 grid grid-cols-3 md:grid-cols-6 gap-2 text-xs text-gray-600">
-            <div>Pending: <span className="font-bold">{stats.byStatus.pending}</span></div>
-            <div>Confirmed: <span className="font-bold">{stats.byStatus.confirmed}</span></div>
-            <div>Shipped: <span className="font-bold">{stats.byStatus.shipped}</span></div>
-            <div>Delivered: <span className="font-bold">{stats.byStatus.delivered}</span></div>
-            <div>Picked Up: <span className="font-bold">{stats.byStatus.pickedup}</span></div>
-            <div>Cancelled: <span className="font-bold">{stats.byStatus.cancelled}</span></div>
+        </div>
+
+        {/* Revenue Card */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Revenue</p>
+              <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(stats.moneyReceived)}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-3">
+              <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
           </div>
-          {/* Payment status breakdown row */}
-          <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-gray-600">
-            <div>Paid: <span className="font-bold">{stats.byPaymentStatus.paid}</span></div>
-            <div>Pending: <span className="font-bold">{stats.byPaymentStatus.pending}</span></div>
-            <div>Other: <span className="font-bold">{stats.byPaymentStatus.other}</span></div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div>
+              <span className="text-gray-500 text-sm">Pending</span>
+              <p className="text-sm font-medium text-gray-900">{formatCurrency(stats.pendingPayouts)}</p>
+            </div>
+            <div>
+              <span className="text-gray-500 text-sm">Not Eligible</span>
+              <p className="text-sm font-medium text-gray-900">{stats.byPayoutStatus.notEligible}</p>
+            </div>
           </div>
-          {/* Payout status breakdown row */}
-          <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-gray-600">
-            <div>Money Received: <span className="font-bold">{formatCurrency(stats.moneyReceived)}</span></div>
-            <div>Pending Payouts: <span className="font-bold">{stats.pendingPayouts}</span></div>
-            <div>Not Eligible: <span className="font-bold">{stats.byPayoutStatus.notEligible}</span></div>
+        </div>
+
+        {/* Delivery Status Card */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Delivery Status</p>
+              <p className="text-2xl font-semibold text-gray-900 mt-1">
+                {stats.byStatus.shipped + stats.byStatus.delivered + stats.byStatus.pickedup}
+              </p>
+            </div>
+            <div className="bg-indigo-50 rounded-lg p-3">
+              <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <div>
+              <span className="text-sm text-gray-500">Shipped</span>
+              <p className="text-sm font-medium text-gray-900">{stats.byStatus.shipped}</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Delivered</span>
+              <p className="text-sm font-medium text-gray-900">{stats.byStatus.delivered}</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Pickup</span>
+              <p className="text-sm font-medium text-gray-900">{stats.byStatus.pickedup}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment & Processing Card */}
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Processing</p>
+              <p className="text-2xl font-semibold text-gray-900 mt-1">
+                {stats.byStatus.confirmed + stats.byStatus.pending}
+              </p>
+            </div>
+            <div className="bg-purple-50 rounded-lg p-3">
+              <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div>
+              <span className="text-sm text-gray-500">Confirmed</span>
+              <p className="text-sm font-medium text-gray-900">{stats.byStatus.confirmed}</p>
+            </div>
+            <div>
+              <span className="text-sm text-gray-500">Pending</span>
+              <p className="text-sm font-medium text-gray-900">{stats.byStatus.pending}</p>
+            </div>
+            <div className="col-span-2 mt-2">
+              <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-purple-500 rounded-full"
+                  style={{ 
+                    width: `${Math.round((stats.byPaymentStatus.paid / (stats.byPaymentStatus.paid + stats.byPaymentStatus.pending)) * 100)}%` 
+                  }}
+                />
+              </div>
+              <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                <span>{stats.byPaymentStatus.paid} paid</span>
+                <span>{stats.byPaymentStatus.pending} pending</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {loading ? (
-          <LoadingSpinner />
-        ) : error ? (
-          <ErrorMessage message={error} />
-        ) : orders.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow">
-            <div className="p-12">
-              <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">No orders yet</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                When customers place orders for your products, they'll appear here.
-              </p>
+      {/* Search and Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Search Bar */}
+          <div className="lg:col-span-2">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search orders, customers, or products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2.5 pl-10 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
             </div>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Search and Filters */}
-            <div className="mb-6 flex flex-col sm:flex-row gap-4">
-              {/* Search Bar */}
-              <div className="flex-1">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search orders, customers, or products..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 pl-10 pr-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
 
-              {/* Status Filter */}
-              <div className="sm:w-48">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="picked up">Picked Up</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="completed">Completed (Delivered & Picked Up)</option>
-                </select>
-              </div>
-              {/* Payment Status Filter */}
-              <div className="sm:w-48">
-                <select
-                  value={paymentStatusFilter}
-                  onChange={(e) => setPaymentStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Payment Status</option>
-                  <option value="paid">Paid</option>
-                  <option value="pending">Pending</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              {/* Payout Status Filter */}
-              <div className="sm:w-48">
-                <select
-                  value={payoutStatusFilter}
-                  onChange={(e) => setPayoutStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Payout Status</option>
-                  <option value="completed">Completed</option>
-                  <option value="pending">Pending</option>
-                  <option value="not_eligible">Not Eligible</option>
-                </select>
-              </div>
-            </div>
+          {/* Status Filter */}
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="shipped">Shipped</option>
+              <option value="delivered">Delivered</option>
+              <option value="picked up">Picked Up</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
 
-            {/* Orders List */}
-            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+          {/* Payment Status Filter */}
+          <div>
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="all">All Payment Status</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Payout Status Filter */}
+          <div>
+            <select
+              value={payoutStatusFilter}
+              onChange={(e) => setPayoutStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="all">All Payout Status</option>
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+              <option value="not_eligible">Not Eligible</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-300">
                 <thead className="bg-gray-50">
                   <tr>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Order Info
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Order Info
                     </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Customer
                     </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Payment
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Payment
                     </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Money Received
                     </th>
-                      <th scope="col" className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {paginatedOrders.map((order) => (
-                      <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                              <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                              </svg>
-                            </div>
-                            <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            #{order.id.substring(0, 8)}
-                          </div>
-                              <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                                {order.product?.title || 'Unknown Product'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {new Date(order.created_at).toLocaleDateString()}
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedOrders.map((group) => (
+                    <tr key={group.payment_reference} className="group hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          {group.is_cash_payment ? 'Cash Payment' : 'Chapa Payment'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Ref: {group.payment_reference}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(group.created_at).toLocaleDateString()}
+                        </div>
+                        <details className="mt-2">
+                          <summary className="text-sm text-indigo-600 cursor-pointer hover:text-indigo-900">
+                            View {group.orders.length} items
+                          </summary>
+                          <div className="mt-2 space-y-2">
+                            {group.orders.map((order) => (
+                              <div key={order.id} className="pl-4 py-2 border-l-2 border-gray-200">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <div className="text-sm font-medium">{order.product?.title}</div>
+                                    <div className="text-xs text-gray-500">
+                                      Quantity: {order.quantity} | Price: {formatCurrency(order.total_price)}
+                                    </div>
+                                    {order.selected_variant_sku && (
+                                      <div className="text-xs text-gray-500">
+                                        Variant: {order.selected_variant_sku}
+                                      </div>
+                                    )}
+                                    {order.delivery_method && (
+                                      <div className="text-xs text-gray-500">
+                                        Delivery: {order.delivery_method.replace('_', ' ')}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedOrder(order);
+                                        setIsUpdateModalOpen(true);
+                                      }}
+                                      className="text-xs text-indigo-600 hover:text-indigo-900"
+                                    >
+                                      Update
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedOrder(order);
+                                        setIsViewModalOpen(true);
+                                      }}
+                                      className="text-xs text-gray-600 hover:text-gray-900"
+                                    >
+                                      View
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
+                            ))}
                           </div>
-                        </div>
+                        </details>
                       </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">{order.user?.full_name}</div>
-                          <div className="text-sm text-gray-500">{order.user?.email}</div>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{group.orders[0].user?.full_name}</div>
+                        <div className="text-sm text-gray-500">{group.orders[0].user?.email}</div>
+                        {group.orders[0].transaction?.customer_phone && (
+                          <div className="text-sm text-gray-500">{group.orders[0].transaction.customer_phone}</div>
+                        )}
                       </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">{formatCurrency(order.total_price)}</div>
-                          <div className="flex items-center">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                              ${order.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                              {order.payment_status === 'paid' ? 'Paid' : 'Pending'}
-                        </span>
-                        </div>
-                      </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                          ${order.order_status === 'delivered' || order.order_status === 'picked up' ? 'bg-green-100 text-green-800' : 
-                            order.order_status === 'cancelled' ? 'bg-red-100 text-red-800' : 
-                            order.order_status === 'shipped' ? 'bg-blue-100 text-blue-800' : 
-                              'bg-yellow-100 text-yellow-800'}`}>
-                          {order.order_status === 'picked up' ? 'Picked Up' : 
-                            order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
-                        </span>
-                      </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            ${order.transaction?.seller_payout_status === 'completed' ? 'bg-green-100 text-green-800' : 
-                              order.transaction?.seller_payout_status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
-                                'bg-gray-100 text-gray-800'}`}>
-                            {order.transaction?.seller_payout_status === 'completed' ? 'Completed' : 
-                              order.transaction?.seller_payout_status === 'pending' ? 'Pending' : 'Not Eligible'}
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{formatCurrency(group.total)}</div>
+                        <div className="flex items-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            group.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {group.payment_status === 'paid' ? 'Paid' : 'Pending'}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          {(() => {
+                            // Get unique statuses
+                            const uniqueStatuses = [...new Set(group.orders.map(o => o.order_status))];
+                            
+                            // If all orders have the same status, show just one badge
+                            if (uniqueStatuses.length === 1) {
+                              const status = uniqueStatuses[0];
+                              return (
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  status === 'delivered' || status === 'picked up'
+                                    ? 'bg-green-100 text-green-800'
+                                    : status === 'cancelled'
+                                    ? 'bg-red-100 text-red-800'
+                                    : status === 'shipped'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                </span>
+                              );
+                            }
+
+                            // Sort statuses by priority
+                            const statusPriority = {
+                              'delivered': 1,
+                              'picked up': 2,
+                              'shipped': 3,
+                              'confirmed': 4,
+                              'pending': 5,
+                              'cancelled': 6
+                            };
+
+                            // Count and sort statuses
+                            const statusGroups = uniqueStatuses.reduce((acc, status) => {
+                              acc[status] = group.orders.filter(o => o.order_status === status).length;
+                              return acc;
+                            }, {} as Record<string, number>);
+
+                            return Object.entries(statusGroups)
+                              .sort(([statusA], [statusB]) => 
+                                (statusPriority[statusA as keyof typeof statusPriority] || 99) - 
+                                (statusPriority[statusB as keyof typeof statusPriority] || 99)
+                              )
+                              .map(([status, count]) => (
+                                <span 
+                                  key={status}
+                                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                    status === 'delivered' || status === 'picked up'
+                                      ? 'bg-green-100 text-green-800'
+                                      : status === 'cancelled'
+                                      ? 'bg-red-100 text-red-800'
+                                      : status === 'shipped'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}
+                                >
+                                  {count > 1 ? `${count}× ` : ''}{status.charAt(0).toUpperCase() + status.slice(1)}
+                                </span>
+                              ));
+                          })()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          <div className="text-sm text-gray-900">
+                            {formatCurrency(group.orders.reduce((sum, order) => 
+                              sum + (order.transaction?.seller_payout_amount || 0), 0
+                            ))}
+                          </div>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            group.orders.some(o => o.transaction?.seller_payout_status === 'completed')
+                              ? 'bg-green-100 text-green-800'
+                              : group.orders.some(o => o.transaction?.seller_payout_status === 'pending')
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {group.orders.some(o => o.transaction?.seller_payout_status === 'completed')
+                              ? 'Completed'
+                              : group.orders.some(o => o.transaction?.seller_payout_status === 'pending')
+                              ? 'Pending'
+                              : 'Not Eligible'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
                         <div className="flex justify-end space-x-3">
-                          <button 
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setIsUpdateModalOpen(true);
-                            }}
+                          {group.receipt_url && (
+                            <a
+                              href={group.receipt_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                          >
-                              Update
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setIsViewModalOpen(true);
-                            }}
-                              className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                          >
-                              View
-                          </button>
+                            >
+                              Receipt
+                            </a>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              </div>
             </div>
-
-            {/* Add Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <button
-                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-500"
-                  >
-                    Next
-                  </button>
-                </div>
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
-                      <span className="font-medium">
-                        {Math.min(indexOfLastOrder, filteredOrders.length)}
-                      </span>{' '}
-                      of <span className="font-medium">{filteredOrders.length}</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      <button
-                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      {[...Array(totalPages)].map((_, i) => (
-                        <button
-                          key={i + 1}
-                          onClick={() => handlePageChange(i + 1)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === i + 1
-                              ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                          }`}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100"
-                      >
-                        <span className="sr-only">Next</span>
-                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </nav>
-              </div>
-            </div>
-              </div>
-            )}
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Pagination - update styles */}
+      {totalPages > 1 && (
+        <div className="px-6 py-4 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="hidden sm:block">
+              <p className="text-sm text-gray-700">
+                Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
+                <span className="font-medium">{Math.min(indexOfLastOrder, filteredOrders.length)}</span>{' '}
+                of <span className="font-medium">{filteredOrders.length}</span> results
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-50 disabled:text-gray-400"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Update Status Modal */}
       <div className={`fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity ${isUpdateModalOpen ? 'block' : 'hidden'}`}>
@@ -1065,361 +1282,185 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* View Details Modal */}
-      <div className={`fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity ${isViewModalOpen ? 'block' : 'hidden'} z-[100]`}>
-        <div className="fixed inset-0 z-[101] overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-            <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-              {/* Modal Header - Fixed */}
-              <div className="bg-white px-4 py-3 border-b border-gray-200 sticky top-0 z-[102]">
-                <h3 className="text-lg font-semibold leading-6 text-gray-900">
-                    Order Details
-                  </h3>
+      {/* View Modal */}
+      {isViewModalOpen && selectedOrder && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Order Group Details</h2>
+              <button
+                onClick={() => setIsViewModalOpen(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <span className="sr-only">Close</span>
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-8">
+              {/* Group Summary */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Group Summary</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Payment Reference</p>
+                    <p className="mt-1 text-sm text-gray-900">{selectedOrder.payment_reference}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Payment Method</p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {selectedOrder.payment_reference?.startsWith('CASH-') ? 'CASH' : 'CHAPA'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Orders</p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {groupedOrders.find(g => 
+                        g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))?.orders.length || 1}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {/* Scrollable Content */}
-              <div className="max-h-[calc(100vh-16rem)] overflow-y-auto px-4 py-4">
-                {selectedOrder && (
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Order ID</p>
-                      <p className="text-sm text-gray-900">#{selectedOrder.id.substring(0, 8)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Product</p>
-                      <p className="text-sm text-gray-900">{selectedOrder.product?.title}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Customer</p>
-                      <p className="text-sm text-gray-900">{selectedOrder.user?.full_name}</p>
-                      <p className="text-sm text-gray-500">{selectedOrder.user?.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Order Details</p>
-                      <p className="text-sm text-gray-900">Quantity: {selectedOrder.quantity}</p>
-                      <p className="text-sm text-gray-900">Total: {formatCurrency(selectedOrder.total_price)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Status</p>
-                      <p className="text-sm text-gray-900">{selectedOrder.order_status}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Order Date</p>
-                      <p className="text-sm text-gray-900">
-                        {new Date(selectedOrder.created_at).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-500 mb-2">Financial Breakdown</p>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Subtotal</span>
-                          <span className="text-gray-900">
-                            ETB {selectedOrder.transaction?.subtotal?.toFixed(2) || 
-                              ((selectedOrder.product?.price ?? 0) * (selectedOrder.quantity ?? 0)).toFixed(2)}
-                          </span>
-                  </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Platform Fee</span>
-                          <span className="text-red-600">
-                            -ETB {selectedOrder.transaction?.platform_fee?.toFixed(2) || '0.00'}
-                          </span>
-                </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Service Fee (3%)</span>
-                          <span className="text-red-600">
-                            -ETB {selectedOrder.transaction?.service_fee?.toFixed(2) || selectedOrder.service_fee?.toFixed(2) || '0.00'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Delivery Fee</span>
-                          <span className="text-gray-900">
-                            ETB {selectedOrder.transaction?.delivery_fee?.toFixed(2) || selectedOrder.delivery_fee?.toFixed(2) || '0.00'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">VAT</span>
-                          <span className="text-gray-900">
-                            ETB {selectedOrder.transaction?.vat_amount?.toFixed(2) || '0.00'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm font-medium pt-2 border-t">
-                          <span className="text-gray-900">Total Amount</span>
-                          <span className="text-gray-900">
-                            ETB {selectedOrder.transaction?.total_amount?.toFixed(2) || selectedOrder.total_price?.toFixed(2) || '0.00'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm font-medium pt-2">
-                          <span className="text-gray-900">Your Earnings</span>
-                          <span className="text-green-600">
-                            ETB {selectedOrder.transaction?.seller_payout_amount?.toFixed(2) || (selectedOrder.total_price - selectedOrder.service_fee)?.toFixed(2) || '0.00'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="mt-2 pt-2 border-t">
-                        <p className="text-sm text-gray-500">
-                          Payment Method: <span className="font-medium">{selectedOrder.transaction?.payment_method || 'Unknown'}</span>
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Payment Status: <span className="font-medium">{selectedOrder.payment_status}</span>
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Payout Status: <span className="font-medium">{selectedOrder.transaction?.payment_status || 'Pending'}</span>
-                        </p>
-                        {selectedOrder.tx_ref && (
-                          <p className="text-sm text-gray-500">
-                            Reference: <span className="font-mono text-xs">{selectedOrder.tx_ref}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-500 mb-2">Customer Information</p>
-                      <p className="text-sm text-gray-900">{selectedOrder.user?.full_name}</p>
-                      <p className="text-sm text-gray-500">{selectedOrder.user?.email}</p>
-                      <p className="text-sm text-gray-500">
-                        {selectedOrder.transaction?.customer_phone || 'No phone'}
-                      </p>
-                    </div>
-                    {selectedOrder.order_status === 'delivered' && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Delivered on {new Date(selectedOrder.created_at).toLocaleString()}
-                      </p>
-                    )}
-
-                    {/* Delivery Information Section */}
-                    <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">Delivery Information</h4>
-                      <div className="space-y-3">
-                        {/* Delivery Method */}
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div className="ml-3">
-                            <p className="text-sm text-gray-500">Delivery Method</p>
-                            <p className="text-sm font-medium text-gray-900">
-                              {selectedOrder?.delivery_method === 'home_delivery' 
-                                ? 'Home Delivery' 
-                                : selectedOrder?.delivery_method === 'store_pickup'
-                                ? 'Store Pickup'
-                                : 'Not specified'}
-                            </p>
+              {/* Orders in Group */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Orders in Group</h3>
+                <div className="space-y-6">
+                  {groupedOrders
+                    .find(g => g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))
+                    ?.orders.map((order) => (
+                      <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-medium text-gray-900">Order #{order.id.slice(0, 8)}</h4>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              order.order_status === 'delivered' || order.order_status === 'picked up'
+                                ? 'bg-green-100 text-green-800'
+                                : order.order_status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : order.order_status === 'shipped'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
+                            </span>
                           </div>
                         </div>
-
-                        {/* Delivery Fee */}
-                        {selectedOrder?.delivery_method === 'home_delivery' && (
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0">
-                              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            </div>
-                            <div className="ml-3">
-                              <p className="text-sm text-gray-500">Delivery Fee</p>
-                              <p className="text-sm font-medium text-gray-900">
-                                {formatCurrency(selectedOrder.delivery_fee || 0)}
-                              </p>
-                  </div>
-                </div>
-              )}
-
-                        {/* Delivery Address */}
-                        {selectedOrder?.delivery_address && (
-                          <div className="border-t border-gray-200 pt-3">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0 mt-1">
-                                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
+                        
+                        <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <div className="mb-4">
+                              <h5 className="text-sm font-medium text-gray-900 mb-1">{order.product?.title}</h5>
+                              <div className="text-sm text-gray-500">
+                                <p>Quantity: {order.quantity}</p>
+                                <p>Total: {formatCurrency(order.total_price)}</p>
+                                {order.selected_variant_sku && (
+                                  <p>SKU: {order.selected_variant_sku}</p>
+                                )}
                               </div>
-                              <div className="ml-3">
-                                <p className="text-sm text-gray-500">Delivery Address</p>
-                                {(() => {
-                                  try {
-                                    const addressObj = typeof selectedOrder.delivery_address === 'string' 
-                                      ? JSON.parse(selectedOrder.delivery_address)
-                                      : selectedOrder.delivery_address;
+                            </div>
 
-                                    return (
-                                      <div className="mt-1 space-y-1">
-                                        {/* Street Address */}
-                                        <p className="text-sm font-medium text-gray-900">
-                                          {Object.entries(addressObj)
-                                            .filter(([key]) => !isNaN(Number(key)))
-                                            .map(([_, value]) => value)
-                                            .join('')}
-                                        </p>
-                                        
-                                        {/* City and Sub-City */}
-                                        <p className="text-sm text-gray-700">
-                                          {addressObj.city}
-                                          {addressObj.subCity && `, ${addressObj.subCity}`}
-                                        </p>
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-900 mb-1">Customer</h5>
+                              <div className="text-sm text-gray-500">
+                                <p>{order.user?.full_name}</p>
+                                <p>{order.user?.email}</p>
+                                {order.transaction?.customer_phone && (
+                                  <p>{order.transaction.customer_phone}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
 
-                                        {/* Additional Details */}
-                                        <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
-                                          {addressObj.wereda && (
-                                            <span>Wereda: {addressObj.wereda}</span>
-                                          )}
-                                          {addressObj.kebele && (
-                                            <span>Kebele: {addressObj.kebele}</span>
-                                          )}
-                                          {addressObj.houseNo && (
-                                            <span>House No: {addressObj.houseNo}</span>
-                                          )}
-                                          {addressObj.landmark && (
-                                            <span>Landmark: {addressObj.landmark}</span>
+                          <div>
+                            <h5 className="text-sm font-medium text-gray-900 mb-1">Delivery Details</h5>
+                            <div className="text-sm text-gray-500">
+                              <p>Method: {order.delivery_method?.replace('_', ' ')}</p>
+                              {order.delivery_address && (
+                                <div className="mt-2">
+                                  {(() => {
+                                    try {
+                                      const address = JSON.parse(order.delivery_address);
+                                      return (
+                                        <div className="space-y-1">
+                                          <p>City: {address.city}</p>
+                                          <p>Sub City: {address.subCity}</p>
+                                          <p>Wereda: {address.wereda}</p>
+                                          <p>Kebele: {address.kebele}</p>
+                                          <p>House No: {address.houseNo}</p>
+                                          {address.landmark && <p>Landmark: {address.landmark}</p>}
+                                          {address.mapLink && (
+                                            <a
+                                              href={address.mapLink}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-indigo-600 hover:text-indigo-900 block mt-2"
+                                            >
+                                              View on Map
+                                            </a>
                                           )}
                                         </div>
-
-                                        {/* Map Link */}
-                                        {addressObj.mapLink && (
-                                          <a 
-                                            href={addressObj.mapLink}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-500 mt-2"
-                                          >
-                                            <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                            </svg>
-                                            View on Google Maps
-                                          </a>
-                                        )}
-                                      </div>
-                                    );
-                                  } catch (e) {
-                                    // Fallback for non-JSON address
-                                    return (
-                                      <p className="text-sm font-medium text-gray-900">
-                                        {selectedOrder.delivery_address}
-                                      </p>
-                                    );
-                                  }
-                                })()}
-                              </div>
+                                      );
+                                    } catch {
+                                      return <p>{order.delivery_address}</p>;
+                                    }
+                                  })()}
+                                </div>
+                              )}
                             </div>
                           </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Product Information */}
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm font-medium text-gray-500 mb-2">Product Information</p>
-                      <p className="text-sm text-gray-900">{selectedOrder.product?.title}</p>
-                      
-                      {/* Variant Information */}
-                      <div className="mt-3 grid grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-500">Size</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            {selectedOrder.selected_size || 'N/A'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Color</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            {selectedOrder.selected_color || 'N/A'}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">SKU</p>
-                          <p className="text-sm font-medium text-gray-900 font-mono">
-                            {selectedOrder.selected_variant_sku 
-                              ? selectedOrder.selected_variant_sku.split('-').slice(-2).join('-')
-                              : 'N/A'}
-                          </p>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
+                    ))}
+                </div>
               </div>
 
-              {/* Modal Footer - Fixed */}
-              <div className="bg-white px-4 py-3 border-t border-gray-200 sticky bottom-0 z-[102] sm:flex sm:flex-row-reverse sm:px-6">
-                <button
-                  type="button"
-                  onClick={() => setIsViewModalOpen(false)}
-                  className="inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
-                >
-                  Close
-                </button>
-                {/* Add Download Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    // Create a text version of the order details
-                    const orderDetails = `
-Order ID: ${selectedOrder?.id}
-Product: ${selectedOrder?.product?.title}
-Customer: ${selectedOrder?.user?.full_name}
-Email: ${selectedOrder?.user?.email}
-Order Date: ${new Date(selectedOrder?.created_at || '').toLocaleString()}
-Status: ${selectedOrder?.order_status}
-Total Amount: ${formatCurrency(selectedOrder?.total_price || 0)}
-Payment Status: ${selectedOrder?.payment_status}
-
-Delivery Information:
-Method: ${selectedOrder?.delivery_method === 'home_delivery' ? 'Home Delivery' : 'Store Pickup'}
-${selectedOrder?.delivery_fee ? `Delivery Fee: ${formatCurrency(selectedOrder?.delivery_fee)}` : ''}
-
-${(() => {
-  try {
-    const address = JSON.parse(selectedOrder?.delivery_address || '{}');
-    return `
-Delivery Address:
-${Object.entries(address)
-  .filter(([key]) => !isNaN(Number(key)))
-  .map(([_, value]) => value)
-  .join('')}
-${address.city}${address.subCity ? `, ${address.subCity}` : ''}
-${address.wereda ? `Wereda: ${address.wereda}` : ''}
-${address.kebele ? `Kebele: ${address.kebele}` : ''}
-${address.houseNo ? `House No: ${address.houseNo}` : ''}
-${address.landmark ? `Landmark: ${address.landmark}` : ''}`;
-  } catch (e) {
-    return selectedOrder?.delivery_address || '';
-  }
-})()}
-
-Financial Details:
-Subtotal: ${formatCurrency(selectedOrder?.transaction?.subtotal || 0)}
-Platform Fee: ${formatCurrency(selectedOrder?.transaction?.platform_fee || 0)}
-Service Fee (3%): ${formatCurrency(selectedOrder?.transaction?.service_fee || 0)}
-VAT: ${formatCurrency(selectedOrder?.transaction?.vat_amount || 0)}
-Total Amount: ${formatCurrency(selectedOrder?.transaction?.total_amount || 0)}
-`;
-
-                    // Create and download the file
-                    const blob = new Blob([orderDetails], { type: 'text/plain' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `order-${selectedOrder?.id.substring(0, 8)}.txt`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                  }}
-                  className="mr-3 inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                >
-                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Download Details
-                </button>
+              {/* Financial Summary */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Total Amount</p>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {formatCurrency(
+                        groupedOrders
+                          .find(g => g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))
+                          ?.orders.reduce((sum, order) => sum + order.total_price, 0) || 0
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Payment Status</p>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedOrder.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {selectedOrder.payment_status === 'paid' ? 'Paid' : 'Pending'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Payout Status</p>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedOrder.transaction?.seller_payout_status === 'completed'
+                        ? 'bg-green-100 text-green-800'
+                        : selectedOrder.transaction?.seller_payout_status === 'pending'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedOrder.transaction?.seller_payout_status === 'completed'
+                        ? 'Completed'
+                        : selectedOrder.transaction?.seller_payout_status === 'pending'
+                        ? 'Pending'
+                        : 'Not Eligible'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 } 

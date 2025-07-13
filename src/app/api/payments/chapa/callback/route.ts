@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
 
 // Create a Supabase client with service role
 const supabase = createClient(
@@ -24,16 +25,27 @@ const validateOrderData = (data: any) => {
   return true;
 };
 
+// Track processed transactions to prevent duplicates
+const processedTransactions = new Set<string>();
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tx_ref = searchParams.get('trx_ref') || searchParams.get('tx_ref');
   const status = searchParams.get('status');
+  const headersList = headers();
+  const isAjax = headersList.get('X-Requested-With') === 'XMLHttpRequest';
 
   console.log('[CHAPA CALLBACK] Starting callback processing:', { tx_ref, status });
 
   try {
     if (!tx_ref) {
       throw new Error('Missing transaction reference');
+    }
+
+    // Check if we've already processed this transaction
+    if (processedTransactions.has(tx_ref)) {
+      console.log('[CHAPA CALLBACK] Transaction already processed:', tx_ref);
+      return handleRedirect(tx_ref, true, isAjax);
     }
 
     // Verify with Chapa
@@ -63,15 +75,11 @@ export async function GET(request: Request) {
         throw new Error('Failed to check for existing orders');
       }
 
-      // If orders already exist for this tx_ref, skip processing
+      // If orders already exist for this tx_ref, return success
       if (existingOrders && existingOrders.length > 0) {
         console.log('[CHAPA CALLBACK] Order already exists for tx_ref:', tx_ref);
-        return new Response(null, {
-          status: 302,
-          headers: {
-            'Location': `/orders?payment_success=true&tx_ref=${tx_ref}`,
-          },
-        });
+        processedTransactions.add(tx_ref);
+        return handleRedirect(tx_ref, true, isAjax);
       }
 
       // Get temporary orders
@@ -85,105 +93,161 @@ export async function GET(request: Request) {
         throw new Error('Temporary orders not found or expired');
       }
 
+      console.log('[CHAPA CALLBACK] Found temporary orders:', tempOrders);
+
       // Process each temporary order
       for (const tempOrder of tempOrders) {
-        // Check product availability first
-        const { data: product, error: productCheckError } = await supabase
-          .from('products')
-          .select('quantity')
-          .eq('id', tempOrder.product_id)
-          .single();
+        try {
+          console.log('[CHAPA CALLBACK] Processing order for product:', tempOrder.product_id);
 
-        if (productCheckError) {
-          console.error('[CHAPA CALLBACK] Error checking product availability:', productCheckError);
-          continue;
-        }
+          // Generate a unique tx_ref for this specific order while maintaining link to original payment
+          const variantSuffix = tempOrder.selected_variant_sku 
+            ? `-${tempOrder.selected_variant_sku.replace(/[^a-zA-Z0-9]/g, '')}` 
+            : tempOrder.selected_size 
+              ? `-${tempOrder.selected_size.replace(/[^a-zA-Z0-9]/g, '')}` 
+              : tempOrder.selected_color 
+                ? `-${tempOrder.selected_color.replace(/[^a-zA-Z0-9]/g, '')}` 
+                : '-default';
+          
+          const uniqueOrderTxRef = `${tx_ref}-${tempOrder.product_id.substring(0, 8)}${variantSuffix}`;
+          
+          // Check if this specific order was already processed
+          const { data: existingOrder, error: existingOrderError } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('tx_ref', uniqueOrderTxRef)
+            .single();
 
-        if (!product || (product.quantity || 0) < tempOrder.quantity) {
-          console.error('[CHAPA CALLBACK] Insufficient quantity available for product:', tempOrder.product_id);
-          continue;
-        }
-
-        // Create order
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            user_id: tempOrder.user_id,
-            product_id: tempOrder.product_id,
-            quantity: tempOrder.quantity,
-            total_price: tempOrder.total_price,
-            platform_fee: tempOrder.platform_fee,
-            service_fee: tempOrder.service_fee,
-            ethiopia_tax: tempOrder.ethiopia_tax,
-            delivery_fee: tempOrder.delivery_fee,
-            tx_ref: tx_ref,
-            payment_status: 'paid',
-            order_status: 'confirmed',
-            payment_reference: reference,
-            receipt_url: receiptUrl,
-            delivery_method: tempOrder.delivery_method,
-            delivery_address: tempOrder.delivery_address,
-            selected_size: tempOrder.selected_size,
-            selected_color: tempOrder.selected_color,
-            selected_variant_sku: tempOrder.selected_variant_sku
-          })
-          .select()
-          .single();
-
-        if (orderError) {
-          // Check if error is due to unique constraint violation
-          if (orderError.code === '23505' && orderError.message.includes('unique_tx_ref')) {
-            console.log('[CHAPA CALLBACK] Order already exists for tx_ref:', tx_ref);
-            continue; // Skip to next order
+          if (existingOrderError && existingOrderError.code !== 'PGRST116') {
+            console.error('[CHAPA CALLBACK] Error checking existing order:', existingOrderError);
+            continue;
           }
-          console.error('[CHAPA CALLBACK] Error creating order:', orderError);
+
+          if (existingOrder) {
+            console.log('[CHAPA CALLBACK] Order already exists for product:', tempOrder.product_id, 'with variant:', {
+              sku: tempOrder.selected_variant_sku,
+              size: tempOrder.selected_size,
+              color: tempOrder.selected_color
+            });
+            continue;
+          }
+
+          // Check product availability first
+          const { data: product, error: productCheckError } = await supabase
+            .from('products')
+            .select('quantity, available_variants')
+            .eq('id', tempOrder.product_id)
+            .single();
+
+          if (productCheckError) {
+            console.error('[CHAPA CALLBACK] Error checking product availability:', productCheckError);
+            continue;
+          }
+
+          if (!product || (product.quantity || 0) < tempOrder.quantity) {
+            console.error('[CHAPA CALLBACK] Insufficient quantity available for product:', tempOrder.product_id);
+            continue;
+          }
+
+          // Create order with unique tx_ref
+          const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+              user_id: tempOrder.user_id,
+              product_id: tempOrder.product_id,
+              quantity: tempOrder.quantity,
+              total_price: tempOrder.total_price,
+              platform_fee: tempOrder.platform_fee,
+              service_fee: tempOrder.service_fee,
+              ethiopia_tax: tempOrder.ethiopia_tax,
+              delivery_fee: tempOrder.delivery_fee,
+              tx_ref: uniqueOrderTxRef, // Use the unique order tx_ref
+              payment_status: 'paid',
+              order_status: 'confirmed',
+              payment_reference: reference,
+              receipt_url: receiptUrl,
+              delivery_method: tempOrder.delivery_method,
+              delivery_address: tempOrder.delivery_address,
+              selected_size: tempOrder.selected_size,
+              selected_color: tempOrder.selected_color,
+              selected_variant_sku: tempOrder.selected_variant_sku
+            })
+            .select()
+            .single();
+
+          if (orderError) {
+            console.error('[CHAPA CALLBACK] Error creating order:', orderError);
+            throw orderError;
+          }
+
+          console.log('[CHAPA CALLBACK] Created order:', order);
+
+          // Update product quantity
+          let newQuantity = Math.max(0, (product.quantity || 0) - tempOrder.quantity);
+          let newVariants = product.available_variants;
+
+          // Update variant quantity if applicable
+          if (tempOrder.selected_variant_sku && Array.isArray(newVariants)) {
+            newVariants = newVariants.map((variant: any) => {
+              if (variant.sku === tempOrder.selected_variant_sku) {
+                return {
+                  ...variant,
+                  quantity: Math.max(0, (variant.quantity || 0) - tempOrder.quantity)
+                };
+              }
+              return variant;
+            });
+          }
+          
+          const { error: quantityUpdateError } = await supabase
+            .from('products')
+            .update({ 
+              quantity: newQuantity,
+              available_variants: newVariants,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', tempOrder.product_id);
+
+          if (quantityUpdateError) {
+            console.error('[CHAPA CALLBACK] Error updating product quantity:', quantityUpdateError);
+          }
+
+          // Create transaction
+          const { error: transactionError } = await supabase
+            .from('transactions')
+            .insert({
+              order_id: order.id,
+              payment_method: 'CHAPA',
+              payment_status: 'paid',
+              payment_type: 'order',
+              subtotal: tempOrder.total_price - tempOrder.delivery_fee,
+              platform_fee: tempOrder.platform_fee,
+              service_fee: tempOrder.service_fee,
+              vat_amount: tempOrder.ethiopia_tax,
+              delivery_fee: tempOrder.delivery_fee,
+              total_amount: tempOrder.total_price,
+              seller_id: tempOrder.seller_id,
+              customer_name: verifyData.data.first_name + ' ' + verifyData.data.last_name,
+              customer_email: verifyData.data.email,
+              customer_phone: tempOrder.customer_phone,
+              seller_payout_amount: tempOrder.total_price - tempOrder.service_fee,
+              seller_payout_status: 'pending',
+              platform_payout_status: 'completed'
+            });
+
+          if (transactionError) {
+            console.error('[CHAPA CALLBACK] Error creating transaction:', transactionError);
+          }
+
+          console.log('[CHAPA CALLBACK] Successfully processed order for product:', tempOrder.product_id);
+        } catch (error) {
+          console.error('[CHAPA CALLBACK] Error processing order:', error);
+          // Continue with next order even if this one fails
           continue;
-        }
-
-        // Update product quantity
-        const newQuantity = Math.max(0, (product.quantity || 0) - tempOrder.quantity);
-        
-        const { error: quantityUpdateError } = await supabase
-          .from('products')
-          .update({ 
-            quantity: newQuantity,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', tempOrder.product_id);
-
-        if (quantityUpdateError) {
-          console.error('[CHAPA CALLBACK] Error updating product quantity:', quantityUpdateError);
-          // Don't continue here as the order is already created
-        }
-
-        // Create transaction
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .insert({
-            order_id: order.id,
-            payment_method: 'CHAPA',
-            payment_status: 'paid',
-            subtotal: tempOrder.total_price - tempOrder.delivery_fee,
-            platform_fee: tempOrder.platform_fee,
-            service_fee: tempOrder.service_fee,
-            vat_amount: tempOrder.ethiopia_tax,
-            delivery_fee: tempOrder.delivery_fee,
-            total_amount: tempOrder.total_price,
-            seller_id: tempOrder.seller_id,
-            customer_name: verifyData.data.first_name + ' ' + verifyData.data.last_name,
-            customer_email: verifyData.data.email,
-            customer_phone: tempOrder.customer_phone,
-            seller_payout_amount: tempOrder.total_price - tempOrder.service_fee,
-            seller_payout_status: 'pending',
-            platform_payout_status: 'completed'
-          });
-
-        if (transactionError) {
-          console.error('[CHAPA CALLBACK] Error creating transaction:', transactionError);
         }
       }
 
-      // Delete temporary orders
+      // Delete temporary orders only after all are processed
       const { error: deleteError } = await supabase
         .from('temporary_orders')
         .delete()
@@ -205,34 +269,49 @@ export async function GET(request: Request) {
 
       console.log('[CHAPA CALLBACK] Successfully processed all orders and transactions');
 
-      return new Response(null, {
-        status: 302,
-        headers: {
-          'Location': `/orders?payment_success=true&tx_ref=${tx_ref}`,
-        },
-      });
+      // Add transaction to processed set after successful processing
+      processedTransactions.add(tx_ref);
+      return handleRedirect(tx_ref, true, isAjax);
     }
 
     throw new Error('Payment verification failed');
 
   } catch (error) {
     console.error('[CHAPA CALLBACK] Error:', error);
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': `/cart?payment_error=true&tx_ref=${tx_ref}`,
-      },
-    });
+    return handleRedirect(tx_ref, false, isAjax);
   }
 }
 
+// Helper function to handle redirects based on request type
+function handleRedirect(tx_ref: string | null, success: boolean, isAjax: boolean) {
+  const redirectUrl = success
+    ? `/orders?payment_success=true&tx_ref=${tx_ref}`
+    : `/cart?payment_error=true&tx_ref=${tx_ref}`;
+
+  if (isAjax) {
+    return NextResponse.json({ success, redirectUrl });
+  }
+
+  return NextResponse.redirect(new URL(redirectUrl, process.env.NEXT_PUBLIC_SITE_URL));
+}
+
+// Update POST handler to use the same redirect handling
 export async function POST(request: Request) {
+  const headersList = headers();
+  const isAjax = headersList.get('X-Requested-With') === 'XMLHttpRequest';
+
   try {
     const body = await request.json();
+    const tx_ref = body.tx_ref;
+
+    // Check if already processed
+    if (processedTransactions.has(tx_ref)) {
+      return handleRedirect(tx_ref, true, isAjax);
+    }
 
     // Verify the payment with Chapa
     const verifyResponse = await fetch(
-      `https://api.chapa.co/v1/transaction/verify/${body.tx_ref}`,
+      `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
       {
         headers: {
           'Authorization': `Bearer ${process.env.CHAPA_SECRET_KEY!}`,
@@ -244,14 +323,13 @@ export async function POST(request: Request) {
     const verifyData = await verifyResponse.json();
     
     if (verifyResponse.ok && verifyData.status === 'success') {
-      // Process the order here (same logic as GET handler)
-      // ...
-    return NextResponse.json({ success: true });
+      processedTransactions.add(tx_ref);
+      return handleRedirect(tx_ref, true, isAjax);
     }
 
     throw new Error('Payment verification failed');
   } catch (error) {
-    console.error('Callback error:', error);
-    return NextResponse.json({ success: false, error }, { status: 500 });
+    console.error('[CHAPA CALLBACK] Error:', error);
+    return handleRedirect(null, false, isAjax);
   }
 } 

@@ -87,8 +87,8 @@ interface SellerOrder {
     price: number;
     quantity: number;
     images?: any[];
-    delivery_method: 'home_delivery' | 'store_pickup';
-    delivery_address: any;
+    delivery_method?: 'home_delivery' | 'store_pickup' | 'delivery' | 'pickup';
+    delivery_address?: any;
     selected_size?: string | null;
     selected_color?: string | null;
     selected_variant_sku?: string | null;
@@ -347,6 +347,7 @@ export default function PaymentMethodModal({
 
   // Add this console.log to see what data we're receiving
   console.log('Sellers data:', sellers);
+  console.log('Sellers products:', sellers.map(seller => seller.products));
 
   // Get available payment methods for the seller
   const getAvailablePaymentMethods = () => {
@@ -388,47 +389,76 @@ export default function PaymentMethodModal({
         const supabase = createClientComponent();
         const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-          // Get customer's store settings to access their phone number
-          const { data: customerData, error: customerError } = await supabase
-            .from('users')
-            .select('store_settings')
-            .eq('id', userDetails?.id)
-            .single();
+        // Get customer's store settings to access their phone number
+        const { data: customerData, error: customerError } = await supabase
+          .from('users')
+          .select('store_settings')
+          .eq('id', userDetails?.id)
+          .single();
 
-          if (customerError) {
-            console.error('Error fetching customer data:', customerError);
-          }
+        if (customerError) {
+          console.error('Error fetching customer data:', customerError);
+        }
 
-          const customerPhone = customerData?.store_settings?.phone || null;
+        const customerPhone = customerData?.store_settings?.phone || null;
 
         // Process each seller's orders
         for (const seller of sellers) {
           for (const product of seller.products) {
-              // Get cart item details first
-              const { data: cartItem, error: cartError } = await supabase
-                .from('cart_items')
-                .select('*')
-                .eq('user_id', userDetails?.id)
-                .eq('product_id', product.id)
-                .single();
-
-              if (cartError) throw cartError;
-
-              // Update product quantities first
-              await updateProductQuantities(
-                product.id,
-                product.quantity,
-                cartItem.selected_size,
-                cartItem.selected_color,
-                cartItem.selected_variant_sku
-              );
+            // Generate unique tx_ref for each variant
+            const variantSuffix = product.selected_variant_sku 
+              ? `-${product.selected_variant_sku.replace(/[^a-zA-Z0-9]/g, '')}` 
+              : product.selected_size 
+                ? `-${product.selected_size.replace(/[^a-zA-Z0-9]/g, '')}` 
+                : product.selected_color 
+                  ? `-${product.selected_color.replace(/[^a-zA-Z0-9]/g, '')}` 
+                  : '-default';
             
-            const itemSubtotal = product.quantity * product.price;
-            const serviceFee = itemSubtotal * 0.03;
-              const itemDeliveryFee = cartItem.delivery_fee || 0;
-            const itemTotal = itemSubtotal + itemDeliveryFee;
+            const uniqueTxRef = `${txRef}${variantSuffix}`;
 
-              // Create order with cart item details
+            // Check for active flash sale for this product
+            const { data: flashSaleData, error: flashSaleError } = await supabase
+              .from('flash_sale_products')
+              .select(`
+                special_price,
+                flash_sales!inner (
+                  id,
+                  title,
+                  discount_percentage,
+                  start_time,
+                  end_time,
+                  is_active
+                )
+              `)
+              .eq('product_id', product.id)
+              .eq('flash_sales.is_active', true)
+              .gte('flash_sales.end_time', new Date().toISOString())
+              .lte('flash_sales.start_time', new Date().toISOString())
+              .single();
+
+            // Determine pricing with proper decimal handling
+            const originalPrice = Number(product.price);
+            const flashSalePrice = flashSaleData?.special_price ? Number(flashSaleData.special_price) : null;
+            const hasFlashSale = flashSalePrice !== null && flashSalePrice < originalPrice;
+            const actualPrice = hasFlashSale ? flashSalePrice : originalPrice;
+            
+            // Calculate amounts with proper decimal handling
+            const itemSubtotal = Number((product.quantity * actualPrice).toFixed(2));
+            const serviceFee = Number((itemSubtotal * 0.03).toFixed(2)); // 3% service fee
+            const itemDeliveryFee = Number(seller.deliveryFee || 0);
+            const itemTotal = Number((itemSubtotal + itemDeliveryFee).toFixed(2));
+            const sellerPayoutAmount = Number((itemTotal - serviceFee).toFixed(2));
+
+            // Update product quantities first
+            await updateProductQuantities(
+              product.id,
+              product.quantity,
+              product.selected_size,
+              product.selected_color,
+              product.selected_variant_sku
+            );
+          
+            // Create order with product data
             const { data: order, error: orderError } = await supabase
               .from('orders')
               .insert({
@@ -442,21 +472,21 @@ export default function PaymentMethodModal({
                 delivery_fee: itemDeliveryFee,
                 order_status: 'confirmed',
                 payment_status: 'pending',
-                payment_reference: txRef,
-                tx_ref: txRef,
-                receipt_url: `/api/receipts/cash/${txRef}`,
-                  delivery_method: cartItem.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
-                  delivery_address: cartItem.delivery_address,
-                  selected_size: cartItem.selected_size,
-                  selected_color: cartItem.selected_color,
-                  selected_variant_sku: cartItem.selected_variant_sku
+                payment_reference: uniqueTxRef,
+                tx_ref: uniqueTxRef,
+                receipt_url: `/api/receipts/cash/${uniqueTxRef}`,
+                delivery_method: product.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+                delivery_address: product.delivery_address,
+                selected_size: product.selected_size,
+                selected_color: product.selected_color,
+                selected_variant_sku: product.selected_variant_sku
               })
               .select()
               .single();
 
             if (orderError) throw orderError;
 
-              // Create transaction with customer's phone number
+            // Create transaction with flash sale information
             const { error: transactionError } = await supabase
               .from('transactions')
               .insert({
@@ -472,10 +502,19 @@ export default function PaymentMethodModal({
                 seller_id: product.owner.id,
                 customer_name: userDetails?.full_name,
                 customer_email: userDetails?.email,
-                  customer_phone: customerPhone,
-                seller_payout_amount: itemTotal - serviceFee,
+                customer_phone: customerPhone,
+                seller_payout_amount: sellerPayoutAmount,
                 seller_payout_status: 'pending',
-                platform_payout_status: 'pending'
+                platform_payout_status: 'pending',
+                flash_sale_applied: hasFlashSale,
+                original_price: hasFlashSale ? originalPrice : null,
+                flash_sale_price: hasFlashSale ? flashSalePrice : null,
+                flash_sale_discount_percentage: hasFlashSale && flashSaleData?.flash_sales?.[0]?.discount_percentage 
+                  ? flashSaleData.flash_sales[0].discount_percentage 
+                  : null,
+                flash_sale_title: hasFlashSale && flashSaleData?.flash_sales?.[0]?.title 
+                  ? flashSaleData.flash_sales[0].title 
+                  : null
               });
 
             if (transactionError) throw transactionError;
@@ -491,8 +530,16 @@ export default function PaymentMethodModal({
         onClose();
         toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
         
-        // Redirect to receipt page first
-        window.location.href = `/api/receipts/cash/${txRef}?redirect=/orders?payment_success=true%26tx_ref=${txRef}`;
+        // Redirect to receipt page first - use the first order's tx_ref for the main redirect
+        const firstOrderTxRef = sellers[0]?.products[0]?.selected_variant_sku 
+          ? `${txRef}-${sellers[0].products[0].selected_variant_sku.replace(/[^a-zA-Z0-9]/g, '')}` 
+          : sellers[0]?.products[0]?.selected_size 
+            ? `${txRef}-${sellers[0].products[0].selected_size.replace(/[^a-zA-Z0-9]/g, '')}` 
+            : sellers[0]?.products[0]?.selected_color 
+              ? `${txRef}-${sellers[0].products[0].selected_color.replace(/[^a-zA-Z0-9]/g, '')}` 
+              : `${txRef}-default`;
+        
+        window.location.href = `/api/receipts/cash/${firstOrderTxRef}?redirect=/orders?payment_success=true%26tx_ref=${firstOrderTxRef}`;
 
       } catch (error) {
         console.error('Order creation error:', error);
@@ -695,7 +742,7 @@ export default function PaymentMethodModal({
 
       setLocalProcessing(true);
       const totalAmount = sellers.reduce((sum, seller) => 
-        sum + seller.subtotal + seller.deliveryFee, 0
+        sum + seller.total, 0
       );
       const txRef = `tx-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       
@@ -725,21 +772,34 @@ export default function PaymentMethodModal({
       }
 
       // Store order data in temporary_orders table
+      console.log('Processing sellers:', sellers.length);
       for (const seller of sellers) {
+        console.log('Processing seller:', seller.sellerName, 'with products:', seller.products.length);
         for (const product of seller.products) {
-          // Get cart item details
-          const { data: cartItem } = await supabase
-            .from('cart_items')
-            .select('*')
-            .eq('user_id', userDetails.id)
-            .eq('product_id', product.id)
-            .single();
-
+          console.log('Processing product:', product.title, 'with variant:', {
+            selected_size: product.selected_size,
+            selected_color: product.selected_color,
+            selected_variant_sku: product.selected_variant_sku
+          });
+          
+          // Use the product data directly instead of trying to match cart items
           const itemSubtotal = product.quantity * product.price;
           const serviceFee = itemSubtotal * 0.03;
-          const itemTotal = itemSubtotal + (cartItem?.delivery_fee || 0);
+          const itemDeliveryFee = seller.deliveryFee || 0;
+          const itemTotal = itemSubtotal + itemDeliveryFee;
 
-          // Create temporary order
+          console.log('Creating temporary order for product:', {
+            productId: product.id,
+            quantity: product.quantity,
+            total: itemTotal,
+            variant: {
+              size: product.selected_size,
+              color: product.selected_color,
+              sku: product.selected_variant_sku
+            }
+          });
+
+          // Create temporary order for this product
           const { error: tempOrderError } = await supabase
             .from('temporary_orders')
             .insert({
@@ -751,18 +811,19 @@ export default function PaymentMethodModal({
               platform_fee: 0,
               service_fee: serviceFee,
               ethiopia_tax: 0,
-              delivery_fee: cartItem?.delivery_fee || 0,
-              delivery_method: cartItem?.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
-              delivery_address: cartItem?.delivery_address,
-              selected_size: cartItem?.selected_size,
-              selected_color: cartItem?.selected_color,
-              selected_variant_sku: cartItem?.selected_variant_sku,
+              delivery_fee: itemDeliveryFee,
+              delivery_method: product.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+              delivery_address: product.delivery_address,
+              selected_size: product.selected_size,
+              selected_color: product.selected_color,
+              selected_variant_sku: product.selected_variant_sku,
               customer_phone: customerPhone,
               seller_id: product.owner.id,
               expires_at: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes expiry
             });
 
           if (tempOrderError) {
+            console.error('Error creating temporary order:', tempOrderError);
             throw tempOrderError;
           }
         }
@@ -852,13 +913,27 @@ export default function PaymentMethodModal({
                         {/* Products list */}
                         <div className="space-y-2 mb-4">
                           {seller.products.map((product) => (
-                            <div key={product.id} className="flex justify-between items-center">
+                            <div 
+                              key={`${product.id}-${product.selected_variant_sku || 'default'}-${product.selected_size || 'default'}-${product.selected_color || 'default'}`} 
+                              className="flex justify-between items-center"
+                            >
                               <div>
                                 <span className="font-medium">
                                   {product.title}
+                                  {product.selected_variant_sku && (
+                                    <span className="text-sm text-gray-500 ml-2">
+                                      ({product.selected_variant_sku})
+                                    </span>
+                                  )}
                                 </span>
                                 <p className="text-sm text-gray-500">
                                   Quantity: {product.quantity}
+                                  {(product.selected_size || product.selected_color) && (
+                                    <span>
+                                      {product.selected_size && ` | Size: ${product.selected_size}`}
+                                      {product.selected_color && ` | Color: ${product.selected_color}`}
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                               <span className="text-gray-600">

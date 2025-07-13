@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 const marketingTabs = [
   { 
@@ -75,15 +76,56 @@ export default function MarketingPage() {
   };
 
   return (
-    <div className="py-6">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Marketing Tools</h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 py-16">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-0 w-full h-full">
+            <div className="absolute top-10 left-10 w-20 h-20 bg-white/10 rounded-full animate-pulse"></div>
+            <div className="absolute top-20 right-20 w-16 h-16 bg-white/10 rounded-full animate-pulse delay-1000"></div>
+            <div className="absolute bottom-10 left-1/4 w-12 h-12 bg-white/10 rounded-full animate-pulse delay-2000"></div>
+          </div>
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+              🚀 Marketing Tools
+            </h1>
+            <p className="text-xl text-blue-100 mb-6 max-w-3xl mx-auto">
+              Boost your sales with powerful marketing tools designed to grow your business!
+            </p>
+            <div className="flex items-center justify-center gap-6 text-white/90">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                <span className="font-medium">Grow Sales</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <span className="font-medium">Reach Customers</span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </div>
-      
-      {/* Tab Navigation */}
-      <div className="mt-4 mb-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-          <div className="bg-white rounded-lg shadow p-1 sm:p-2">
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Tab Navigation */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-8"
+        >
+          <div className="bg-white rounded-2xl shadow-lg p-2 border border-gray-100">
             <nav className="flex space-x-2" aria-label="Marketing">
               {marketingTabs.map((tab) => {
                 const isActive = pathname === tab.href;
@@ -92,10 +134,10 @@ export default function MarketingPage() {
                     key={tab.name}
                     href={tab.href}
                     className={`
-                      flex items-center px-4 py-2 rounded-md transition-all duration-200 ease-in-out
+                      flex items-center px-6 py-3 rounded-xl transition-all duration-300 ease-in-out transform hover:scale-105
                       ${isActive
-                        ? 'bg-red-500 text-white shadow-md'
-                        : 'text-gray-600 hover:bg-gray-100'
+                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                       }
                     `}
                     aria-current={isActive ? 'page' : undefined}
@@ -103,7 +145,7 @@ export default function MarketingPage() {
                     <span className={`${isActive ? 'text-white' : 'text-gray-500'}`}>
                       {tab.icon}
                     </span>
-                    <span className={`ml-2 font-medium text-sm`}>
+                    <span className={`ml-3 font-semibold text-sm`}>
                       {tab.name}
                     </span>
                     {isActive && (
@@ -117,100 +159,211 @@ export default function MarketingPage() {
               })}
             </nav>
           </div>
-        </div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-8">
-        {loading ? (
-          <LoadingSpinner />
-        ) : error ? (
-          <ErrorMessage message={error} />
-        ) : (
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg p-6">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Flash Sales Card */}
-              <div className="bg-white overflow-hidden shadow rounded-lg divide-y divide-gray-200">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 bg-red-100 rounded-md p-3">
-                      <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Flash Sales</dt>
-                        <dd className="flex items-baseline">
-                          <div className="text-2xl font-semibold text-gray-900">Create & Manage</div>
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="px-4 py-4 sm:px-6">
-                  <Link
-                    href="/dashboard/marketing/flash-sales"
-                    className="text-sm font-medium text-red-600 hover:text-red-500"
-                  >
-                    Manage Flash Sales <span aria-hidden="true">&rarr;</span>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Additional Marketing Tools Cards */}
-              <div className="bg-white overflow-hidden shadow rounded-lg divide-y divide-gray-200">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 bg-gray-100 rounded-md p-3">
-                      <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                      </svg>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Promotions</dt>
-                        <dd className="flex items-baseline">
-                          <div className="text-2xl font-semibold text-gray-900">Coming Soon</div>
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="px-4 py-4 sm:px-6">
-                  <span className="text-sm text-gray-500">
-                    Create and manage promotional campaigns
-                  </span>
-                </div>
-              </div>
-
-              {/* Email Marketing Card */}
-              <div className="bg-white overflow-hidden shadow rounded-lg divide-y divide-gray-200">
-                <div className="px-4 py-5 sm:p-6">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 bg-gray-100 rounded-md p-3">
-                      <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <div className="ml-5 w-0 flex-1">
-                      <dl>
-                        <dt className="text-sm font-medium text-gray-500 truncate">Email Marketing</dt>
-                        <dd className="flex items-baseline">
-                          <div className="text-2xl font-semibold text-gray-900">Coming Soon</div>
-                        </dd>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                <div className="px-4 py-4 sm:px-6">
-                  <span className="text-sm text-gray-500">
-                    Create email campaigns and newsletters
-                  </span>
-                </div>
-              </div>
+        </motion.div>
+        
+        <div className="max-w-7xl mx-auto">
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <LoadingSpinner />
             </div>
-          </div>
-        )}
+          ) : error ? (
+            <ErrorMessage message={error} />
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+                <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 p-8 text-white">
+                  <h2 className="text-3xl font-bold mb-2">Marketing Dashboard</h2>
+                  <p className="text-blue-100">Choose your marketing strategy and start growing your business!</p>
+                </div>
+                
+                <div className="p-8">
+                  <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Flash Sales Card */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="group"
+                    >
+                      <div className="bg-white overflow-hidden shadow-lg rounded-2xl border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+                        <div className="bg-gradient-to-br from-red-500 to-pink-500 p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="bg-white/20 p-3 rounded-xl">
+                              <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-white">⚡</div>
+                              <div className="text-xs text-red-100">Limited Time</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">Flash Sales</h3>
+                          <p className="text-gray-600 mb-4">
+                            Create time-limited sales with huge discounts to boost your revenue and attract customers.
+                          </p>
+                          <div className="space-y-3 mb-6">
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Time-limited discounts
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Boost sales & revenue
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Attract new customers
+                            </div>
+                          </div>
+                          <Link
+                            href="/dashboard/marketing/flash-sales"
+                            className="inline-flex items-center justify-center w-full bg-gradient-to-r from-red-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105"
+                          >
+                            Manage Flash Sales
+                            <svg className="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </Link>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Promotions Card */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="group"
+                    >
+                      <div className="bg-white overflow-hidden shadow-lg rounded-2xl border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+                        <div className="bg-gradient-to-br from-yellow-500 to-orange-500 p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="bg-white/20 p-3 rounded-xl">
+                              <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                              </svg>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-white">🎯</div>
+                              <div className="text-xs text-yellow-100">Coming Soon</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">Promotions</h3>
+                          <p className="text-gray-600 mb-4">
+                            Create and manage promotional campaigns to engage your customers and increase conversions.
+                          </p>
+                          <div className="space-y-3 mb-6">
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-yellow-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Campaign management
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-yellow-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Customer engagement
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-yellow-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Conversion tracking
+                            </div>
+                          </div>
+                          <button
+                            disabled
+                            className="inline-flex items-center justify-center w-full bg-gray-100 text-gray-400 px-6 py-3 rounded-xl font-semibold cursor-not-allowed"
+                          >
+                            Coming Soon
+                            <svg className="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Email Marketing Card */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                      className="group"
+                    >
+                      <div className="bg-white overflow-hidden shadow-lg rounded-2xl border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
+                        <div className="bg-gradient-to-br from-green-500 to-teal-500 p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="bg-white/20 p-3 rounded-xl">
+                              <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-white">📧</div>
+                              <div className="text-xs text-green-100">Coming Soon</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-6">
+                          <h3 className="text-xl font-bold text-gray-900 mb-2">Email Marketing</h3>
+                          <p className="text-gray-600 mb-4">
+                            Create email campaigns and newsletters to keep your customers informed and engaged.
+                          </p>
+                          <div className="space-y-3 mb-6">
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Email campaigns
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Newsletter templates
+                            </div>
+                            <div className="flex items-center text-sm text-gray-600">
+                              <svg className="w-4 h-4 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Analytics & insights
+                            </div>
+                          </div>
+                          <button
+                            disabled
+                            className="inline-flex items-center justify-center w-full bg-gray-100 text-gray-400 px-6 py-3 rounded-xl font-semibold cursor-not-allowed"
+                          >
+                            Coming Soon
+                            <svg className="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
       </div>
     </div>
   );
