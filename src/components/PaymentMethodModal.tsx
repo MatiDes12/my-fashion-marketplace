@@ -13,6 +13,7 @@ import { createClientComponent } from '@/lib/supabase';
 import { isMobile } from '@/utils/deviceDetection';
 import { useRouter } from 'next/navigation';
 import { MpesaService } from '@/lib/mpesa';
+import { generateUniquePickupCode } from '@/utils/pickupCode';
 
 type PaymentMethodType = keyof typeof PAYMENT_METHODS;
 
@@ -458,7 +459,17 @@ export default function PaymentMethodModal({
               product.selected_variant_sku
             );
           
+            // Add debug logging
+            console.log('Creating order with delivery method:', product.delivery_method);
+            console.log('Will generate pickup code:', product.delivery_method === 'pickup' || product.delivery_method === 'store_pickup');
+
             // Create order with product data
+            const pickupCode = product.delivery_method === 'pickup' || product.delivery_method === 'store_pickup' 
+              ? await generateUniquePickupCode()
+              : null;
+
+            console.log('Generated pickup code:', pickupCode);
+
             const { data: order, error: orderError } = await supabase
               .from('orders')
               .insert({
@@ -475,11 +486,14 @@ export default function PaymentMethodModal({
                 payment_reference: uniqueTxRef,
                 tx_ref: uniqueTxRef,
                 receipt_url: `/api/receipts/cash/${uniqueTxRef}`,
-                delivery_method: product.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+                delivery_method: product.delivery_method === 'delivery' || product.delivery_method === 'home_delivery' 
+                  ? 'home_delivery' 
+                  : 'store_pickup',
                 delivery_address: product.delivery_address,
                 selected_size: product.selected_size,
                 selected_color: product.selected_color,
-                selected_variant_sku: product.selected_variant_sku
+                selected_variant_sku: product.selected_variant_sku,
+                pickup_code: pickupCode
               })
               .select()
               .single();

@@ -11,6 +11,7 @@ import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import PickupCodeDisplay from '@/components/PickupCodeDisplay';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -28,6 +29,8 @@ export default function OrdersPage() {
   const [orderStatus, setOrderStatus] = useState<string>('all');
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const ordersPerPage = 10;
+  const [isPickupCodeModalOpen, setIsPickupCodeModalOpen] = useState(false);
+  const [selectedPickupOrder, setSelectedPickupOrder] = useState<any>(null);
   
   const fetchOrders = async (userId: string) => {
     const { data, error } = await supabase
@@ -460,6 +463,21 @@ export default function OrdersPage() {
                     </div>
 
                     <div className="flex space-x-3">
+                      {orderGroup.orders[0].pickup_code && (
+                        <button
+                          onClick={() => {
+                            setSelectedPickupOrder(orderGroup.orders[0]);
+                            setIsPickupCodeModalOpen(true);
+                          }}
+                          className="inline-flex items-center px-3 py-1 border border-green-600 shadow-sm text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+                          </svg>
+                          Show Pickup Code
+                        </button>
+                      )}
+
                       {orderGroup.receipt_url && (
                         <button
                           onClick={() => handleDownloadReceipt(orderGroup.receipt_url, orderGroup.tx_ref)}
@@ -616,6 +634,75 @@ export default function OrdersPage() {
                             )}
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  )}
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      {/* Pickup Code Modal */}
+      <Transition.Root show={isPickupCodeModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={setIsPickupCodeModalOpen}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-10 overflow-y-auto">
+            <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-sm sm:p-6">
+                  <div className="absolute right-0 top-0 pr-4 pt-4">
+                    <button
+                      type="button"
+                      className="rounded-md bg-white text-gray-400 hover:text-gray-500"
+                      onClick={() => setIsPickupCodeModalOpen(false)}
+                    >
+                      <XMarkIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+                  
+                  {selectedPickupOrder && (
+                    <div className="text-center">
+                      <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+                        Pickup Code
+                      </Dialog.Title>
+                      
+                      <div className="mt-4">
+                        <PickupCodeDisplay
+                          code={selectedPickupOrder.pickup_code}
+                          verified={selectedPickupOrder.pickup_code_verified}
+                          verifiedAt={selectedPickupOrder.pickup_code_verified_at}
+                          className="mx-auto"
+                        />
+                      </div>
+
+                      <div className="mt-6 text-sm text-gray-500">
+                        <p>Show this code to the seller when picking up your order.</p>
+                        {selectedPickupOrder.pickup_code_verified ? (
+                          <p className="text-green-600 mt-2">✓ Code verified on {new Date(selectedPickupOrder.pickup_code_verified_at).toLocaleDateString()}</p>
+                        ) : (
+                          <p className="mt-2">Code not yet verified</p>
+                        )}
                       </div>
                     </div>
                   )}

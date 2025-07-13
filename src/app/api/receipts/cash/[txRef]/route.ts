@@ -122,6 +122,13 @@ export async function GET(
               <span>Flash Sale: ${transaction.flash_sale_title} (${transaction.flash_sale_discount_percentage}% off)</span>
             </div>
           ` : ''}
+          ${order.delivery_method === 'store_pickup' && order.pickup_code ? `
+            <div class="pickup-code">
+              <div class="pickup-code-title">Pickup Code:</div>
+              <div class="pickup-code-value">${order.pickup_code}</div>
+              <div class="pickup-code-info">Show this code to the seller when picking up your order</div>
+            </div>
+          ` : ''}
         </div>
       `;
     };
@@ -282,6 +289,29 @@ export async function GET(
             @media print {
               .button-container { display: none; }
               body { background: white; }
+            }
+            .pickup-code {
+              margin-top: 10px;
+              padding: 10px;
+              border: 2px dashed #000;
+              text-align: center;
+            }
+            .pickup-code-title {
+              font-weight: bold;
+              font-size: 14px;
+              margin-bottom: 5px;
+            }
+            .pickup-code-value {
+              font-family: monospace;
+              font-size: 24px;
+              font-weight: bold;
+              letter-spacing: 2px;
+              margin: 5px 0;
+            }
+            .pickup-code-info {
+              font-size: 12px;
+              color: #666;
+              margin-top: 5px;
             }
           </style>
           ${redirectUrl ? `

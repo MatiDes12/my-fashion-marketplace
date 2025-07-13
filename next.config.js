@@ -5,19 +5,30 @@ const nextConfig = {
   swcMinify: true,
   images: {
     domains: [
-      'qrigmytqvxuzvrbphpcl.supabase.co'
+      'qrigmytqvxuzvrbphpcl.supabase.co',
+      'unpkg.com',
+      'tile.jawg.io'
     ],
     remotePatterns: [
       {
         protocol: 'https',
         hostname: '*.supabase.co',
         pathname: '/storage/v1/object/public/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.jawg.io',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'unpkg.com',
+        pathname: '/leaflet@**',
       }
     ],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
     minimumCacheTTL: 60,
-    // Add validation for the 'q' parameter
     dangerouslyAllowSVG: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; frame-src 'none'; sandbox;",
   },
@@ -25,21 +36,14 @@ const nextConfig = {
   compress: true,
   productionBrowserSourceMaps: false,
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
     ignoreBuildErrors: true,
   },
   eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
     ignoreDuringBuilds: true,
   },
   async headers() {
     return [
       {
-        // Apply these headers to all routes
         source: '/:path*',
         headers: [
           {
@@ -72,7 +76,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none'; upgrade-insecure-requests; block-all-mixed-content"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob: https://*.supabase.co https://*.jawg.io https://unpkg.com; font-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none'; upgrade-insecure-requests; block-all-mixed-content"
           },
           {
             key: 'X-Powered-By',
@@ -85,7 +89,6 @@ const nextConfig = {
         ]
       },
       {
-        // Add specific headers for Next.js Image Optimization API
         source: '/_next/image',
         headers: [
           {
@@ -94,7 +97,32 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; img-src 'self' data: https: blob:;"
+            value: "default-src 'self'; img-src 'self' data: https: blob: https://*.supabase.co https://*.jawg.io https://unpkg.com;"
+          }
+        ]
+      },
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=self'
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://*.vercel-scripts.com https://*.jsdelivr.net",
+              "script-src-elem 'self' 'unsafe-inline' https://*.vercel-scripts.com https://*.jsdelivr.net",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' blob: data: https: https://*.supabase.co https://*.jawg.io https://unpkg.com",
+              "media-src 'self' blob: data:",
+              "connect-src 'self' https://*.supabase.co https://va.vercel-scripts.com https://*.vercel-scripts.com https://*.jsdelivr.net wss://*.supabase.co https://*.jawg.io",
+              "frame-src 'self'",
+              "font-src 'self'",
+              "worker-src 'self' blob:",
+              "child-src 'self' blob:"
+            ].join('; ')
           }
         ]
       }

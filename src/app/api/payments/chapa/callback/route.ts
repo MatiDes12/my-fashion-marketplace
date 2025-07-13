@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { headers } from 'next/headers';
+import { generateUniquePickupCode } from '@/utils/pickupCode';
 
 // Create a Supabase client with service role
 const supabase = createClient(
@@ -150,6 +151,10 @@ export async function GET(request: Request) {
           }
 
           // Create order with unique tx_ref
+          const pickupCode = tempOrder.delivery_method === 'store_pickup' 
+            ? await generateUniquePickupCode()
+            : null;
+
           const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert({
@@ -161,7 +166,7 @@ export async function GET(request: Request) {
               service_fee: tempOrder.service_fee,
               ethiopia_tax: tempOrder.ethiopia_tax,
               delivery_fee: tempOrder.delivery_fee,
-              tx_ref: uniqueOrderTxRef, // Use the unique order tx_ref
+              tx_ref: uniqueOrderTxRef,
               payment_status: 'paid',
               order_status: 'confirmed',
               payment_reference: reference,
@@ -170,7 +175,8 @@ export async function GET(request: Request) {
               delivery_address: tempOrder.delivery_address,
               selected_size: tempOrder.selected_size,
               selected_color: tempOrder.selected_color,
-              selected_variant_sku: tempOrder.selected_variant_sku
+              selected_variant_sku: tempOrder.selected_variant_sku,
+              pickup_code: pickupCode
             })
             .select()
             .single();

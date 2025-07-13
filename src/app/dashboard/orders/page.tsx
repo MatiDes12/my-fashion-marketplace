@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { formatCurrency } from '@/utils/currency';
 import { toast } from 'react-hot-toast';
+import PickupCodeDisplay from '@/components/PickupCodeDisplay';
+import { Html5Qrcode } from 'html5-qrcode';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 interface User {
   id: string;
@@ -54,10 +57,13 @@ interface Order {
     seller_payout_amount?: number;
     platform_revenue?: number;
     seller_payout_status?: string;
-  };
+  } | null;
   selected_size?: string;
   selected_color?: string;
   selected_variant_sku?: string;
+  pickup_code?: string;
+  pickup_code_verified?: boolean;
+  pickup_code_verified_at?: string;
 }
 
 // Add new interface for grouped orders
@@ -168,6 +174,143 @@ export default function OrdersPage() {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [payoutStatusFilter, setPayoutStatusFilter] = useState('all');
   const [filteredOrders, setFilteredOrders] = useState<OrderGroup[]>([]);
+  const [isPickupVerifyModalOpen, setIsPickupVerifyModalOpen] = useState(false);
+  const [verifyingPickup, setVerifyingPickup] = useState(false);
+  const [pickupCode, setPickupCode] = useState('');
+  const [pickupError, setPickupError] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const [isCameraAvailable, setIsCameraAvailable] = useState(true);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerDivId = 'qr-reader';
+
+  // Function to generate a random pickup code
+  const generatePickupCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  // Function to verify pickup code
+  const verifyPickupCode = async (code: string) => {
+    setVerifyingPickup(true);
+    setPickupError(null);
+    
+    try {
+      // Normalize input code
+      const normalizedInputCode = code.trim().toUpperCase();
+      
+      // Find the order with this pickup code
+      const matchingOrder = orders.find(order => {
+        const orderPickupCode = order.pickup_code?.trim().toUpperCase();
+        return orderPickupCode === normalizedInputCode;
+      });
+
+      if (!matchingOrder) {
+        setPickupError('Invalid pickup code');
+        return;
+      }
+
+      // Update order status and verify pickup code
+      const { data: orderUpdate, error: orderError } = await supabase
+        .from('orders')
+        .update({
+          order_status: 'picked up',
+          pickup_code_verified: true,
+          pickup_code_verified_at: new Date().toISOString(),
+          payment_status: 'paid',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', matchingOrder.id)
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error('Order update error:', orderError);
+        throw orderError;
+      }
+
+      // Update transaction status if it exists
+      if (matchingOrder.transaction) {
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .update({
+            payment_status: 'paid',
+            platform_payout_status: 'completed',
+            seller_payout_status: 'pending',
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', matchingOrder.id);
+
+        if (transactionError) {
+          console.error('Transaction update error:', transactionError);
+          throw transactionError;
+        }
+      }
+
+      // Update local state
+      setOrders(prevOrders => prevOrders.map(order =>
+        order.id === matchingOrder.id
+          ? {
+              ...order,
+              order_status: 'picked up' as Order['order_status'],
+              pickup_code_verified: true,
+              pickup_code_verified_at: new Date().toISOString(),
+              payment_status: 'paid',
+              transaction: order.transaction ? {
+                ...order.transaction,
+                payment_status: 'paid',
+                platform_payout_status: 'completed',
+                seller_payout_status: 'pending'
+              } : null
+            }
+          : order
+      ));
+
+      // Close all modals and reset states
+      setIsPickupVerifyModalOpen(false);
+      setIsUpdateModalOpen(false);
+      setShowScanner(false);
+      setSelectedOrder(null);
+      setPickupCode('');
+      setIsScanning(false);
+      setSelectedImage(null);
+      setImagePreview(null);
+
+      // Show success message
+      toast.success('Pickup verified successfully', {
+        duration: 3000,
+        position: 'top-center',
+      });
+
+      // Refresh the orders list
+      router.refresh();
+
+    } catch (error) {
+      console.error('Error verifying pickup:', error);
+      setPickupError('Failed to verify pickup code');
+    } finally {
+      setVerifyingPickup(false);
+    }
+  };
+
+  const handleScanResult = (result: string) => {
+    if (result) {
+      setIsScanning(false);
+      setPickupCode(result);
+      verifyPickupCode(result);
+    }
+  };
+
+  const handleScanError = (error: any) => {
+    console.error('Scan error:', error);
+    toast.error('Failed to scan QR code');
+    setIsScanning(false);
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -180,39 +323,39 @@ export default function OrdersPage() {
           return;
         }
 
-        // Update the query to properly join with users table
+        // First get all products owned by the seller
         const { data: products, error: productsError } = await supabase
           .from('products')
+          .select('id, owner_id')
+          .eq('owner_id', session.user.id);
+
+        if (productsError) {
+          console.error('Products error:', productsError);
+          throw productsError;
+        }
+
+        if (!products || products.length === 0) {
+          setOrders([]);
+          return;
+        }
+
+        // Then fetch orders for these products directly
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
           .select(`
+            *,
+            product:products!inner(
             id,
             title,
             price,
-            orders (
-              id,
-              created_at,
-              updated_at,
-              quantity,
-              total_price,
-              order_status,
-              user_id,
-              service_fee,
-              delivery_fee,
-              payment_status,
-              payment_reference,
-              tx_ref,
-              receipt_url,
-              delivery_proof_image,
-              delivery_method,
-              delivery_address,
-              selected_size,
-              selected_color,
-              selected_variant_sku,
-              user:users!user_id (
+              owner_id
+            ),
+            user:users(
                 id,
                 full_name,
                 email
               ),
-              transaction:transactions (
+            transaction:transactions(
                 customer_phone,
                 payment_method,
                 payment_status,
@@ -225,62 +368,36 @@ export default function OrdersPage() {
                 seller_payout_amount,
                 platform_revenue,
                 seller_payout_status
-              )
             )
           `)
-          .eq('owner_id', session.user.id);
+          .in('product_id', products.map(p => p.id))
+          .order('created_at', { ascending: false });
 
-        if (productsError) {
-          console.error('Products error:', productsError);
-          throw productsError;
+        if (ordersError) {
+          console.error('Orders error:', ordersError);
+          throw ordersError;
         }
 
-        // Transform the data structure with proper user information
-        const allOrders: Order[] = products.flatMap(product => 
-          (product.orders || []).map((order: any) => ({
+        console.log('Raw orders data:', ordersData);
+
+        // Transform and set the orders
+        const transformedOrders = ordersData.map(order => {
+          console.log('Processing order:', {
             id: order.id,
-            created_at: order.created_at,
-            updated_at: order.updated_at,
-            user_id: order.user_id,
-            product_id: product.id,
-            quantity: order.quantity,
-            total_price: order.total_price,
-            order_status: order.order_status,
-            service_fee: order.service_fee || 0,
-            payment_status: order.payment_status,
-            payment_reference: order.payment_reference,
-            tx_ref: order.tx_ref,
-            receipt_url: order.receipt_url,
-            delivery_fee: order.delivery_fee || 0,
-            delivery_proof_image: order.delivery_proof_image,
-            delivery_method: order.delivery_method,
-            delivery_address: order.delivery_address,
-            selected_size: order.selected_size,
-            selected_color: order.selected_color,
-            selected_variant_sku: order.selected_variant_sku,
-            product: {
-              id: product.id,
-              title: product.title,
-              price: product.price,
-              owner_id: session.user.id
-            },
-            user: order.user && {
-              id: order.user.id,
-              full_name: order.user.full_name,
-              email: order.user.email
-            },
-            transaction: order.transaction?.[0] || null // Get the first transaction record
-          }))
-        );
+            pickup_code: order.pickup_code,
+            delivery_method: order.delivery_method
+          });
+          
+          return {
+            ...order,
+            product: order.product?.[0] || null,
+            user: order.user?.[0] || null,
+            transaction: order.transaction?.[0] || null
+          };
+        }) as Order[];
 
-        // Sort by date
-        const sortedOrders = allOrders.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-
-        console.log('Processed orders:', sortedOrders);
-
-        setOrders(sortedOrders);
+        console.log('Transformed orders:', transformedOrders);
+        setOrders(transformedOrders);
 
       } catch (error) {
         console.error('Error in fetchOrders:', error);
@@ -291,7 +408,6 @@ export default function OrdersPage() {
     };
     
     fetchOrders();
-    // fetchOrderStats(); // This function is no longer needed
   }, [router]);
 
   useEffect(() => {
@@ -386,6 +502,7 @@ export default function OrdersPage() {
     }
   };
 
+  // Modify handleUpdateStatus to handle pickup code generation
   const handleUpdateStatus = async (newStatus: Order['order_status']) => {
     if (!selectedOrder) return;
     
@@ -408,6 +525,9 @@ export default function OrdersPage() {
         return;
       }
 
+      // For pickup orders being confirmed, generate a pickup code
+      const pickupCode = isPickupOrder && newStatus === 'confirmed' ? generatePickupCode() : null;
+
       let deliveryProofUrl = selectedOrder.delivery_proof_image;
 
       // Only upload image for delivery orders
@@ -426,8 +546,9 @@ export default function OrdersPage() {
           order_status: newStatus,
           updated_at: new Date().toISOString(),
           delivery_proof_image: deliveryProofUrl,
-          // Only update payment_status to paid for delivered or picked up orders
-          ...((isMarkingDelivered || isMarkingPickedUp) ? { payment_status: 'paid' } : {})
+          ...(pickupCode ? { pickup_code: pickupCode } : {}),
+          // Only update payment_status to paid for delivered orders
+          ...(isMarkingDelivered ? { payment_status: 'paid' } : {})
         })
         .eq('id', selectedOrder.id)
         .select('*')
@@ -435,8 +556,8 @@ export default function OrdersPage() {
 
       if (orderError) throw orderError;
 
-      // If status is delivered or picked up, update the transaction
-      if (isMarkingDelivered || isMarkingPickedUp) {
+      // If status is delivered, update the transaction
+      if (isMarkingDelivered) {
         const { error: transactionError } = await supabase
           .from('transactions')
           .update({
@@ -444,15 +565,12 @@ export default function OrdersPage() {
             platform_payout_status: 'completed',
             seller_payout_status: 'pending',
             updated_at: new Date().toISOString(),
-            seller_id: session.user.id  // Add seller_id for RLS
+            seller_id: session.user.id
           })
           .eq('order_id', selectedOrder.id)
-          .eq('seller_id', session.user.id); // Add this condition for RLS
+          .eq('seller_id', session.user.id);
 
-        if (transactionError) {
-          console.error('Transaction update error:', transactionError);
-          throw transactionError;
-        }
+        if (transactionError) throw transactionError;
       }
 
       // Update the local state with the new order data
@@ -463,7 +581,8 @@ export default function OrdersPage() {
               order_status: newStatus,
               delivery_proof_image: deliveryProofUrl,
               updated_at: new Date().toISOString(),
-              ...((isMarkingDelivered || isMarkingPickedUp) ? {
+              ...(pickupCode ? { pickup_code: pickupCode } : {}),
+              ...(isMarkingDelivered ? {
                 payment_status: 'paid',
                 transaction: {
                   ...order.transaction,
@@ -478,7 +597,12 @@ export default function OrdersPage() {
 
       setIsUpdateModalOpen(false);
       setSelectedOrder(null);
+
+      if (pickupCode) {
+        toast.success(`Order confirmed! Pickup code: ${pickupCode}`);
+      } else {
       toast.success(`Order status updated to ${newStatus}`);
+      }
 
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -662,33 +786,33 @@ export default function OrdersPage() {
 
     groupedOrders.forEach(group => {
       group.orders.forEach(order => {
-        // Status
-        if (order.order_status === 'pending') byStatus.pending++;
-        else if (order.order_status === 'confirmed') byStatus.confirmed++;
-        else if (order.order_status === 'shipped') byStatus.shipped++;
-        else if (order.order_status === 'delivered') {
-          byStatus.delivered++;
-          completedOrders++;
-        } else if (order.order_status === 'picked up') {
-          byStatus.pickedup++;
-          completedOrders++;
-        } else if (order.order_status === 'cancelled') byStatus.cancelled++;
+      // Status
+      if (order.order_status === 'pending') byStatus.pending++;
+      else if (order.order_status === 'confirmed') byStatus.confirmed++;
+      else if (order.order_status === 'shipped') byStatus.shipped++;
+      else if (order.order_status === 'delivered') {
+        byStatus.delivered++;
+        completedOrders++;
+      } else if (order.order_status === 'picked up') {
+        byStatus.pickedup++;
+        completedOrders++;
+      } else if (order.order_status === 'cancelled') byStatus.cancelled++;
         
-        // Pending orders
-        if (order.order_status === 'pending') pendingOrders++;
+      // Pending orders
+      if (order.order_status === 'pending') pendingOrders++;
         
-        // Payment status
-        if (order.payment_status === 'paid') byPaymentStatus.paid++;
-        else if (order.payment_status === 'pending') byPaymentStatus.pending++;
-        else byPaymentStatus.other++;
+      // Payment status
+      if (order.payment_status === 'paid') byPaymentStatus.paid++;
+      else if (order.payment_status === 'pending') byPaymentStatus.pending++;
+      else byPaymentStatus.other++;
 
-        // Payout status
-        if (order.transaction?.seller_payout_status === 'completed') {
-          moneyReceived += order.transaction.seller_payout_amount || 0;
-        } else if (order.transaction?.seller_payout_status === 'pending') {
-          pendingPayouts++;
-        }
-      });
+      // Payout status
+      if (order.transaction?.seller_payout_status === 'completed') {
+        moneyReceived += order.transaction.seller_payout_amount || 0;
+      } else if (order.transaction?.seller_payout_status === 'pending') {
+        pendingPayouts++;
+      }
+    });
     });
 
     setStats({
@@ -710,6 +834,124 @@ export default function OrdersPage() {
     });
   }, [groupedOrders]);
 
+  // Add camera availability check
+  useEffect(() => {
+    // Check if camera is available
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          stream.getTracks().forEach(track => track.stop());
+          setIsCameraAvailable(true);
+        })
+        .catch(err => {
+          console.error('Camera check failed:', err);
+          setIsCameraAvailable(false);
+          if (err instanceof Error) {
+            if (err.name === 'NotAllowedError') {
+              setScannerError('Camera access was denied. Please check your browser permissions.');
+            } else if (err.name === 'NotFoundError') {
+              setScannerError('No camera found. Please ensure your device has a camera.');
+            } else if (err.name === 'NotReadableError') {
+              setScannerError('Camera is in use by another application. Please close other apps using the camera.');
+      } else {
+              setScannerError('Failed to access camera. Please try manual code entry.');
+            }
+          } else {
+            setScannerError('Failed to access camera. Please try manual code entry.');
+          }
+        });
+    } else {
+      setIsCameraAvailable(false);
+      setScannerError('Camera API not available. Please use manual code entry.');
+    }
+  }, []);
+
+  // Update the scanner initialization effect
+  useEffect(() => {
+    if (showScanner && isCameraAvailable) {
+      const html5QrCode = new Html5Qrcode(scannerDivId);
+      scannerRef.current = html5QrCode;
+
+      html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 200, height: 350 },
+          aspectRatio: 1.0
+        },
+        (decodedText) => {
+          console.log("QR Code detected:", decodedText);
+          setPickupCode(decodedText);
+          // Don't try to stop here - just hide the scanner
+          setShowScanner(false);
+          verifyPickupCode(decodedText);
+        },
+        (errorMessage) => {
+          console.log("QR Scan error:", errorMessage);
+        }
+      ).catch((err) => {
+        console.error("Failed to start scanner:", err);
+        if (err.message.includes('NotFoundError')) {
+          setScannerError('No camera found. Please ensure your device has a camera and it\'s not being used by another application.');
+        } else if (err.message.includes('NotAllowedError')) {
+          setScannerError('Camera access was denied. Please allow camera access in your browser settings.');
+        } else if (err.message.includes('NotReadableError')) {
+          setScannerError('Unable to access camera. The camera might be in use by another application.');
+        } else {
+          setScannerError('Failed to start scanner. Please try manual entry or check if your device has a camera.');
+        }
+      });
+    }
+
+    return () => {
+      if (scannerRef.current) {
+        // Only try to stop if we're still showing the scanner
+        if (showScanner) {
+          scannerRef.current.stop().catch(err => {
+            // Ignore the "not running" error
+            if (!err.message?.includes('Cannot stop, scanner is not running')) {
+              console.error('Error stopping scanner:', err);
+            }
+          });
+        }
+        scannerRef.current = null;
+      }
+    };
+  }, [showScanner, isCameraAvailable]);
+
+  // Add a function to handle starting the scanner
+  const startScanner = async () => {
+    setIsScanning(true);
+    setScannerError(null);
+    
+    try {
+      // Check if camera is available
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+      
+      if (cameras.length === 0) {
+        setScannerError('No camera found on your device. Please use manual entry.');
+        setIsCameraAvailable(false);
+        return;
+      }
+
+      setShowScanner(true);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setScannerError('Failed to access camera. Please check camera permissions or use manual entry.');
+      setIsCameraAvailable(false);
+    }
+  };
+
+  // Update the scan button click handler
+  const handleScanButtonClick = () => {
+    if (!isCameraAvailable) {
+      setScannerError('Camera is not available on this device. Please use manual entry.');
+      return;
+    }
+    startScanner();
+  };
+
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Stats Cards */}
@@ -726,24 +968,24 @@ export default function OrdersPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
-          </div>
+            </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div>
               <span className="text-green-500 text-sm font-medium">{stats.completedOrders} completed</span>
               <div className="text-xs text-gray-500 mt-1">
                 <div>Delivered: {stats.byStatus.delivered}</div>
                 <div>Picked up: {stats.byStatus.pickedup}</div>
-              </div>
+            </div>
             </div>
             <div>
               <span className="text-yellow-500 text-sm font-medium">{stats.pendingOrders} pending</span>
               <div className="text-xs text-gray-500 mt-1">
                 <div>Processing: {stats.byStatus.confirmed}</div>
                 <div>Cancelled: {stats.byStatus.cancelled}</div>
-              </div>
             </div>
           </div>
-        </div>
+            </div>
+            </div>
 
         {/* Revenue Card */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -756,19 +998,19 @@ export default function OrdersPage() {
               <svg className="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </div>
+          </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div>
               <span className="text-gray-500 text-sm">Pending</span>
               <p className="text-sm font-medium text-gray-900">{formatCurrency(stats.pendingPayouts)}</p>
-            </div>
+          </div>
             <div>
               <span className="text-gray-500 text-sm">Not Eligible</span>
               <p className="text-sm font-medium text-gray-900">{stats.byPayoutStatus.notEligible}</p>
-            </div>
           </div>
         </div>
+      </div>
 
         {/* Delivery Status Card */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -782,7 +1024,7 @@ export default function OrdersPage() {
             <div className="bg-indigo-50 rounded-lg p-3">
               <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+            </svg>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2">
@@ -814,7 +1056,7 @@ export default function OrdersPage() {
               <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </div>
+          </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div>
@@ -843,91 +1085,91 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Search and Filters */}
+            {/* Search and Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Search Bar */}
+              {/* Search Bar */}
           <div className="lg:col-span-2">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search orders, customers, or products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search orders, customers, or products..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-4 py-2.5 pl-10 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Filter */}
+          <div>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="picked up">Picked Up</option>
+                  <option value="cancelled">Cancelled</option>
+              <option value="completed">Completed</option>
+                </select>
+              </div>
+
+              {/* Payment Status Filter */}
+          <div>
+                <select
+                  value={paymentStatusFilter}
+                  onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                >
+                  <option value="all">All Payment Status</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              {/* Payout Status Filter */}
+          <div>
+                <select
+                  value={payoutStatusFilter}
+                  onChange={(e) => setPayoutStatusFilter(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                >
+                  <option value="all">All Payout Status</option>
+                  <option value="completed">Completed</option>
+                  <option value="pending">Pending</option>
+                  <option value="not_eligible">Not Eligible</option>
+                </select>
+          </div>
               </div>
             </div>
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="picked up">Picked Up</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
-
-          {/* Payment Status Filter */}
-          <div>
-            <select
-              value={paymentStatusFilter}
-              onChange={(e) => setPaymentStatusFilter(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Payment Status</option>
-              <option value="paid">Paid</option>
-              <option value="pending">Pending</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          {/* Payout Status Filter */}
-          <div>
-            <select
-              value={payoutStatusFilter}
-              onChange={(e) => setPayoutStatusFilter(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            >
-              <option value="all">All Payout Status</option>
-              <option value="completed">Completed</option>
-              <option value="pending">Pending</option>
-              <option value="not_eligible">Not Eligible</option>
-            </select>
-          </div>
-        </div>
-      </div>
 
       {/* Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
               <table className="min-w-full divide-y divide-gray-300">
                 <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order Info
+                        Order Info
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Customer
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Payment
+                        Payment
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -943,16 +1185,16 @@ export default function OrdersPage() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {paginatedOrders.map((group) => (
                     <tr key={group.payment_reference} className="group hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900">
                           {group.is_cash_payment ? 'Cash Payment' : 'Chapa Payment'}
-                        </div>
+                          </div>
                         <div className="text-sm text-gray-500">
                           Ref: {group.payment_reference}
-                        </div>
-                        <div className="text-sm text-gray-500">
+                          </div>
+                          <div className="text-sm text-gray-500">
                           {new Date(group.created_at).toLocaleDateString()}
-                        </div>
+                              </div>
                         <details className="mt-2">
                           <summary className="text-sm text-indigo-600 cursor-pointer hover:text-indigo-900">
                             View {group.orders.length} items
@@ -965,11 +1207,11 @@ export default function OrdersPage() {
                                     <div className="text-sm font-medium">{order.product?.title}</div>
                                     <div className="text-xs text-gray-500">
                                       Quantity: {order.quantity} | Price: {formatCurrency(order.total_price)}
-                                    </div>
+                          </div>
                                     {order.selected_variant_sku && (
                                       <div className="text-xs text-gray-500">
                                         Variant: {order.selected_variant_sku}
-                                      </div>
+                        </div>
                                     )}
                                     {order.delivery_method && (
                                       <div className="text-xs text-gray-500">
@@ -1003,24 +1245,24 @@ export default function OrdersPage() {
                           </div>
                         </details>
                       </td>
-                      <td className="px-6 py-4">
+                        <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">{group.orders[0].user?.full_name}</div>
                         <div className="text-sm text-gray-500">{group.orders[0].user?.email}</div>
                         {group.orders[0].transaction?.customer_phone && (
                           <div className="text-sm text-gray-500">{group.orders[0].transaction.customer_phone}</div>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                        <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">{formatCurrency(group.total)}</div>
-                        <div className="flex items-center">
+                          <div className="flex items-center">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             group.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                           }`}>
                             {group.payment_status === 'paid' ? 'Paid' : 'Pending'}
-                          </span>
+                        </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                        <td className="px-6 py-4">
                         <div className="flex flex-col gap-1">
                           {(() => {
                             // Get unique statuses
@@ -1040,7 +1282,7 @@ export default function OrdersPage() {
                                     : 'bg-yellow-100 text-yellow-800'
                                 }`}>
                                   {status.charAt(0).toUpperCase() + status.slice(1)}
-                                </span>
+                        </span>
                               );
                             }
 
@@ -1084,7 +1326,7 @@ export default function OrdersPage() {
                           })()}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                        <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <div className="text-sm text-gray-900">
                             {formatCurrency(group.orders.reduce((sum, order) => 
@@ -1105,8 +1347,8 @@ export default function OrdersPage() {
                               : 'Not Eligible'}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
+                        </td>
+                        <td className="px-6 py-4 text-right">
                         <div className="flex justify-end space-x-3">
                           {group.receipt_url && (
                             <a
@@ -1114,7 +1356,7 @@ export default function OrdersPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                            >
+                          >
                               Receipt
                             </a>
                           )}
@@ -1126,39 +1368,39 @@ export default function OrdersPage() {
               </table>
             </div>
           </div>
-        </div>
-      </div>
+              </div>
+            </div>
 
       {/* Pagination - update styles */}
-      {totalPages > 1 && (
+            {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-100">
           <div className="flex items-center justify-between">
             <div className="hidden sm:block">
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{indexOfFirstOrder + 1}</span> to{' '}
                 <span className="font-medium">{Math.min(indexOfLastOrder, filteredOrders.length)}</span>{' '}
-                of <span className="font-medium">{filteredOrders.length}</span> results
-              </p>
-            </div>
+                      of <span className="font-medium">{filteredOrders.length}</span> results
+                    </p>
+                  </div>
             <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
+                      <button
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
                 className="inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-50 disabled:text-gray-400"
-              >
+                      >
                 Previous
-              </button>
-              <button
-                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
                 className="inline-flex items-center px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-50 disabled:text-gray-400"
-              >
+                      >
                 Next
-              </button>
+                      </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+              </div>
+            )}
 
       {/* Update Status Modal */}
       <div className={`fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity ${isUpdateModalOpen ? 'block' : 'hidden'}`}>
@@ -1238,10 +1480,20 @@ export default function OrdersPage() {
                   <div className="mt-2 space-y-3">
                     {['pending', 'confirmed', 'shipped', 
                       selectedOrder?.delivery_method === 'store_pickup' ? 'picked up' : 'delivered', 
-                      'cancelled'].map((status) => (
+                      'cancelled'].map((status) => {
+                      const isPickupStatus = status === 'picked up';
+                      const handleClick = () => {
+                        if (isPickupStatus) {
+                          setIsPickupVerifyModalOpen(true);
+                        } else {
+                          handleUpdateStatus(status as Order['order_status']);
+                        }
+                      };
+
+                      return (
                       <button
                         key={status}
-                        onClick={() => handleUpdateStatus(status as Order['order_status'])}
+                          onClick={handleClick}
                         disabled={
                           updatingStatus || 
                           selectedOrder?.order_status === 'delivered' ||
@@ -1258,7 +1510,8 @@ export default function OrdersPage() {
                       >
                         {status.charAt(0).toUpperCase() + status.slice(1)}
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1297,35 +1550,35 @@ export default function OrdersPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-            </div>
+              </div>
 
             <div className="p-6 space-y-8">
               {/* Group Summary */}
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Group Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
+                    <div>
                     <p className="text-sm font-medium text-gray-500">Payment Reference</p>
                     <p className="mt-1 text-sm text-gray-900">{selectedOrder.payment_reference}</p>
-                  </div>
-                  <div>
+                    </div>
+                    <div>
                     <p className="text-sm font-medium text-gray-500">Payment Method</p>
                     <p className="mt-1 text-sm text-gray-900">
                       {selectedOrder.payment_reference?.startsWith('CASH-') ? 'CASH' : 'CHAPA'}
                     </p>
-                  </div>
-                  <div>
+                    </div>
+                    <div>
                     <p className="text-sm font-medium text-gray-500">Total Orders</p>
                     <p className="mt-1 text-sm text-gray-900">
                       {groupedOrders.find(g => 
                         g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))?.orders.length || 1}
                     </p>
-                  </div>
-                </div>
-              </div>
+                    </div>
+                    </div>
+                    </div>
 
               {/* Orders in Group */}
-              <div>
+                    <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Orders in Group</h3>
                 <div className="space-y-6">
                   {groupedOrders
@@ -1345,9 +1598,9 @@ export default function OrdersPage() {
                                 : 'bg-yellow-100 text-yellow-800'
                             }`}>
                               {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
-                            </span>
-                          </div>
-                        </div>
+                          </span>
+                  </div>
+                </div>
                         
                         <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
@@ -1358,9 +1611,9 @@ export default function OrdersPage() {
                                 <p>Total: {formatCurrency(order.total_price)}</p>
                                 {order.selected_variant_sku && (
                                   <p>SKU: {order.selected_variant_sku}</p>
-                                )}
-                              </div>
-                            </div>
+                        )}
+                      </div>
+                    </div>
 
                             <div>
                               <h5 className="text-sm font-medium text-gray-900 mb-1">Customer</h5>
@@ -1370,9 +1623,9 @@ export default function OrdersPage() {
                                 {order.transaction?.customer_phone && (
                                   <p>{order.transaction.customer_phone}</p>
                                 )}
-                              </div>
-                            </div>
                           </div>
+                          </div>
+                        </div>
 
                           <div>
                             <h5 className="text-sm font-medium text-gray-900 mb-1">Delivery Details</h5>
@@ -1380,10 +1633,10 @@ export default function OrdersPage() {
                               <p>Method: {order.delivery_method?.replace('_', ' ')}</p>
                               {order.delivery_address && (
                                 <div className="mt-2">
-                                  {(() => {
-                                    try {
+                                {(() => {
+                                  try {
                                       const address = JSON.parse(order.delivery_address);
-                                      return (
+                                    return (
                                         <div className="space-y-1">
                                           <p>City: {address.city}</p>
                                           <p>Sub City: {address.subCity}</p>
@@ -1394,34 +1647,34 @@ export default function OrdersPage() {
                                           {address.mapLink && (
                                             <a
                                               href={address.mapLink}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                               className="text-indigo-600 hover:text-indigo-900 block mt-2"
-                                            >
+                                          >
                                               View on Map
-                                            </a>
-                                          )}
-                                        </div>
-                                      );
+                                          </a>
+                                        )}
+                                      </div>
+                                    );
                                     } catch {
                                       return <p>{order.delivery_address}</p>;
-                                    }
-                                  })()}
-                                </div>
+                                  }
+                                })()}
+                              </div>
                               )}
                             </div>
                           </div>
                         </div>
                       </div>
                     ))}
-                </div>
-              </div>
+                      </div>
+                    </div>
 
               {/* Financial Summary */}
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Financial Summary</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
+                        <div>
                     <p className="text-sm font-medium text-gray-500">Total Amount</p>
                     <p className="mt-1 text-sm text-gray-900">
                       {formatCurrency(
@@ -1429,17 +1682,17 @@ export default function OrdersPage() {
                           .find(g => g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))
                           ?.orders.reduce((sum, order) => sum + order.total_price, 0) || 0
                       )}
-                    </p>
-                  </div>
-                  <div>
+                          </p>
+                        </div>
+                        <div>
                     <p className="text-sm font-medium text-gray-500">Payment Status</p>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       selectedOrder.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                     }`}>
                       {selectedOrder.payment_status === 'paid' ? 'Paid' : 'Pending'}
                     </span>
-                  </div>
-                  <div>
+                        </div>
+                        <div>
                     <p className="text-sm font-medium text-gray-500">Payout Status</p>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       selectedOrder.transaction?.seller_payout_status === 'completed'
@@ -1456,8 +1709,193 @@ export default function OrdersPage() {
                     </span>
                   </div>
                 </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+      {/* Add Pickup Code Display in Order Details */}
+      {selectedOrder?.pickup_code && (
+        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+          <PickupCodeDisplay
+            code={selectedOrder.pickup_code}
+            verified={selectedOrder.pickup_code_verified}
+            verifiedAt={selectedOrder.pickup_code_verified_at}
+          />
+              </div>
+      )}
+
+      {/* Add QR Code Scanner for Pickup Verification */}
+      <div className={`fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity ${isPickupVerifyModalOpen ? 'block' : 'hidden'}`}>
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <div className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+              <div className="absolute right-0 top-0 pr-4 pt-4">
+                <button
+                  onClick={() => {
+                    setIsPickupVerifyModalOpen(false);
+                    setPickupCode('');
+                    setPickupError(null);
+                    setIsScanning(false);
+                  }}
+                  className="rounded-md bg-white text-gray-400 hover:text-gray-500"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="sm:flex sm:items-start">
+                <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                  <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-4">
+                    Verify Pickup Code
+                  </h3>
+
+                  {isScanning ? (
+                    <div className="mt-4">
+                      <div className="mb-4">
+                <button
+                          onClick={() => setIsScanning(false)}
+                          className="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          ← Back to manual entry
+                        </button>
+                      </div>
+                      <div id={scannerDivId} className="w-full h-[300px]" />
+                      {scannerError && (
+                        <p className="mt-2 text-sm text-red-600">{scannerError}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-4">
+                        <label htmlFor="pickupCode" className="block text-sm font-medium text-gray-700">
+                          Enter Pickup Code
+                        </label>
+                        <div className="mt-1">
+                          <input
+                            type="text"
+                            name="pickupCode"
+                            id="pickupCode"
+                            value={pickupCode}
+                            onChange={(e) => setPickupCode(e.target.value.toUpperCase())}
+                            placeholder="Enter 8-digit code"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                            maxLength={8}
+                          />
+                        </div>
+                        {pickupError && (
+                          <p className="mt-2 text-sm text-red-600">{pickupError}</p>
+                        )}
+                      </div>
+
+                      <div className="mt-4">
+                        <button
+                          onClick={handleScanButtonClick}
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                        >
+                          <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-2 0h-2m-4 0H8m-4 0H4m12-8h2m-2 0h-2m-4 0H8m-4 0H4m12 4h2m-2 0h-2m-4 0H8m-4 0H4m12 8h2m-2 0h-2m-4 0H8m-4 0H4" />
+                          </svg>
+                          Scan QR Code
+                        </button>
+                        {scannerError && (
+                          <p className="mt-2 text-sm text-red-600">{scannerError}</p>
+                        )}
+                      </div>
+
+                      <div className="mt-6">
+                        <button
+                          onClick={() => verifyPickupCode(pickupCode)}
+                          disabled={verifyingPickup || !pickupCode}
+                          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-300"
+                        >
+                          {verifyingPickup ? 'Verifying...' : 'Verify Code'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* QR Scanner Modal */}
+      {showScanner && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* Scanner container */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            {/* Close button */}
+            <button
+              onClick={() => {
+                if (scannerRef.current) {
+                  scannerRef.current.stop().catch(console.error);
+                }
+                setShowScanner(false);
+                setScannerError(null);
+              }}
+              className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-white text-black rounded-full shadow-lg hover:bg-gray-200 text-2xl font-bold focus:outline-none"
+              aria-label="Close QR Scanner"
+            >
+              ×
+            </button>
+            {scannerError ? (
+              <div className="bg-white rounded-lg p-4 shadow text-center">
+                <div className="text-red-500 text-sm mb-2">{scannerError}</div>
+                <button
+                  onClick={() => {
+                    setShowScanner(false);
+                    setScannerError(null);
+                  }}
+                  className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                >
+                  Use Manual Entry
+                </button>
+              </div>
+            ) : !isCameraAvailable ? (
+              <div className="bg-white rounded-lg p-4 shadow text-center">
+                <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
+                <button
+                  onClick={() => {
+                    setShowScanner(false);
+                    setScannerError(null);
+                  }}
+                  className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                >
+                  Use Manual Entry
+                </button>
+            </div>
+            ) : (
+              <div className="relative flex flex-col items-center justify-center w-full h-full">
+                {/* Scanner frame and camera view */}
+                <div className="absolute left-1/2" style={{ top: '55%', transform: 'translate(-50%, -50%)' }}>
+                  <div className="relative w-64 h-64">
+                    {/* Camera view */}
+                    <div id={scannerDivId} className="w-full h-full overflow-hidden" />
+                    
+                    {/* White corner borders */}
+                    {/* Top-left */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white z-30" />
+                    {/* Top-right */}
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white z-30" />
+                    {/* Bottom-left */}
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white z-30" />
+                    {/* Bottom-right */}
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white z-30" />
+                    
+                    {/* Instruction text */}
+                    <div className="absolute w-full text-center" style={{ top: '104%' }}>
+                      <p className="text-sm text-white drop-shadow font-medium">Position QR code in frame</p>
+          </div>
+        </div>
+      </div>
+              </div>
+            )}
           </div>
         </div>
       )}
