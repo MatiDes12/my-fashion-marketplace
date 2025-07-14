@@ -15,6 +15,7 @@ interface User {
   id: string;
   full_name: string;
   email: string;
+  phone?: string;
 }
 
 interface Product {
@@ -123,6 +124,7 @@ interface SupabaseOrder {
     id: string;
     full_name: string;
     email: string;
+    phone?: string;
   };
 }
 
@@ -139,6 +141,30 @@ function useIsMobile() {
   }, []);
   return isMobile;
 }
+
+// Helper function to extract short reference
+const getShortReference = (paymentRef: string | undefined) => {
+  if (!paymentRef) return '';
+  // Extract the second-to-last part (the short ID)
+  const parts = paymentRef.split('-');
+  if (parts.length >= 2) {
+    return parts[parts.length - 2]; // Get second-to-last part
+  }
+  return paymentRef; // Return full reference if not enough parts
+};
+
+// Helper function to extract size and color from SKU
+const getSizeAndColorFromSku = (sku: string | undefined) => {
+  if (!sku) return '';
+  // Extract the size and color parts (last two parts)
+  const parts = sku.split('-');
+  if (parts.length >= 2) {
+    const size = parts[parts.length - 2]; // Second-to-last part
+    const color = parts[parts.length - 1]; // Last part
+    return `${size}-${color}`;
+  }
+  return sku; // Return full SKU if not enough parts
+};
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -253,35 +279,39 @@ export default function OrdersPage() {
           return;
         }
 
-        // Then fetch orders for these products directly
+        // Debug: Check what products we have
+        console.log('Seller products:', products);
+
+        // Then fetch orders for these products with proper joins
         const { data: ordersData, error: ordersError } = await supabase
           .from('orders')
           .select(`
             *,
             product:products!inner(
-            id,
-            title,
-            price,
+              id,
+              title,
+              price,
               owner_id
             ),
             user:users(
-                id,
-                full_name,
-                email
-              ),
+              id,
+              full_name,
+              email,
+              phone
+            ),
             transaction:transactions(
-                customer_phone,
-                payment_method,
-                payment_status,
-                subtotal,
-                platform_fee,
-                service_fee,
-                delivery_fee,
-                vat_amount,
-                total_amount,
-                seller_payout_amount,
-                platform_revenue,
-                seller_payout_status
+              customer_phone,
+              payment_method,
+              payment_status,
+              subtotal,
+              platform_fee,
+              service_fee,
+              delivery_fee,
+              vat_amount,
+              total_amount,
+              seller_payout_amount,
+              platform_revenue,
+              seller_payout_status
             )
           `)
           .in('product_id', products.map(p => p.id))
@@ -294,18 +324,78 @@ export default function OrdersPage() {
 
         console.log('Raw orders data:', ordersData);
 
+        // Collect all unique user_ids and product_ids that need to be fetched
+        const missingUserIds = ordersData
+          .filter(order => !order.user?.[0] && order.user_id)
+          .map(order => order.user_id);
+        
+        const missingProductIds = ordersData
+          .filter(order => !order.product?.[0] && order.product_id)
+          .map(order => order.product_id);
+
+        console.log('Missing user IDs:', missingUserIds);
+        console.log('Missing product IDs:', missingProductIds);
+
+        // Fetch missing user data in bulk
+        let bulkUserData: any[] = [];
+        if (missingUserIds.length > 0) {
+          const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id, full_name, email, phone')
+            .in('id', missingUserIds);
+          
+          if (!usersError && users) {
+            bulkUserData = users;
+            console.log('Bulk fetched user data:', bulkUserData);
+          } else {
+            console.error('Error fetching bulk user data:', usersError);
+          }
+        }
+
+        // Fetch missing product data in bulk
+        let bulkProductData: any[] = [];
+        if (missingProductIds.length > 0) {
+          const { data: products, error: productsError } = await supabase
+            .from('products')
+            .select('id, title, price, owner_id')
+            .in('id', missingProductIds);
+          
+          if (!productsError && products) {
+            bulkProductData = products;
+            console.log('Bulk fetched product data:', bulkProductData);
+          } else {
+            console.error('Error fetching bulk product data:', productsError);
+          }
+        }
+
         // Transform and set the orders
         const transformedOrders = ordersData.map(order => {
           console.log('Processing order:', {
             id: order.id,
+            user_id: order.user_id,
+            product_id: order.product_id,
             pickup_code: order.pickup_code,
-            delivery_method: order.delivery_method
+            delivery_method: order.delivery_method,
+            user: order.user,
+            product: order.product
           });
+          
+          // Get user data from join or bulk fetch
+          let userData = order.user?.[0] || null;
+          if (!userData && order.user_id) {
+            userData = bulkUserData.find(user => user.id === order.user_id) || null;
+          }
+
+          // Get product data from join or bulk fetch
+          let productData = order.product?.[0] || null;
+          if (!productData && order.product_id) {
+            productData = bulkProductData.find(product => product.id === order.product_id) || null;
+          }
           
           return {
             ...order,
-            product: order.product?.[0] || null,
-            user: order.user?.[0] || null,
+            product: productData,
+            user: userData,
             transaction: order.transaction?.[0] || null
           };
         }) as Order[];
@@ -823,12 +913,15 @@ export default function OrdersPage() {
     try {
       if (scannerRef.current && scannerRef.current.isScanning) {
         await scannerRef.current.stop();
-        setShowScanner(false);
-        setScannerError(null);
-        scannerRef.current = null;
       }
     } catch (err) {
       console.warn('Warning during scanner stop:', err);
+    } finally {
+      setShowScanner(false);
+      setScannerError(null);
+      scannerRef.current = null;
+      // Return to pickup code entry modal
+      setIsScanning(false);
     }
   };
 
@@ -970,6 +1063,13 @@ export default function OrdersPage() {
       return;
     }
     startScanner();
+  };
+
+  // Add a function to handle scanner close button
+  const handleScannerClose = async () => {
+    await safeStopScanner();
+    // Ensure we return to the pickup code entry modal
+    setIsPickupVerifyModalOpen(true);
   };
 
   {/* Mobile QR Scanner Modal */}
@@ -1267,7 +1367,7 @@ export default function OrdersPage() {
                           {group.is_cash_payment ? 'Cash Payment' : 'Chapa Payment'}
                           </div>
                         <div className="text-sm text-gray-500">
-                          Ref: {group.payment_reference}
+                          Ref: {getShortReference(group.payment_reference)}
                           </div>
                           <div className="text-sm text-gray-500">
                           {new Date(group.created_at).toLocaleDateString()}
@@ -1281,14 +1381,24 @@ export default function OrdersPage() {
                               <div key={order.id} className="pl-4 py-2 border-l-2 border-gray-200">
                                 <div className="flex justify-between items-center">
                                   <div>
-                                    <div className="text-sm font-medium">{order.product?.title}</div>
+                                    <div className="text-sm font-medium">{order.product?.title || 'Product not found'}</div>
                                     <div className="text-xs text-gray-500">
                                       Quantity: {order.quantity} | Price: {formatCurrency(order.total_price)}
                           </div>
                                     {order.selected_variant_sku && (
                                       <div className="text-xs text-gray-500">
-                                        Variant: {order.selected_variant_sku}
+                                        Variant: {getSizeAndColorFromSku(order.selected_variant_sku)}
                         </div>
+                                    )}
+                                    {order.selected_size && (
+                                      <div className="text-xs text-gray-500">
+                                        Size: {order.selected_size}
+                                      </div>
+                                    )}
+                                    {order.selected_color && (
+                                      <div className="text-xs text-gray-500">
+                                        Color: {order.selected_color}
+                                      </div>
                                     )}
                                     {order.delivery_method && (
                                       <div className="text-xs text-gray-500">
@@ -1323,10 +1433,16 @@ export default function OrdersPage() {
                         </details>
                       </td>
                         <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{group.orders[0].user?.full_name}</div>
-                        <div className="text-sm text-gray-500">{group.orders[0].user?.email}</div>
+                        <div className="text-sm text-gray-900">{group.orders[0].user?.full_name || 'Not available'}</div>
+                        <div className="text-sm text-gray-500">{group.orders[0].user?.email || 'Not available'}</div>
+                        {group.orders[0].user?.phone && (
+                          <div className="text-sm text-gray-500">{group.orders[0].user.phone}</div>
+                        )}
                         {group.orders[0].transaction?.customer_phone && (
                           <div className="text-sm text-gray-500">{group.orders[0].transaction.customer_phone}</div>
+                        )}
+                        {!group.orders[0].user && (
+                          <div className="text-sm text-gray-500">User ID: {group.orders[0].user_id}</div>
                         )}
                       </td>
                         <td className="px-6 py-4">
@@ -1636,7 +1752,7 @@ export default function OrdersPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                     <p className="text-sm font-medium text-gray-500">Payment Reference</p>
-                    <p className="mt-1 text-sm text-gray-900">{selectedOrder.payment_reference}</p>
+                    <p className="mt-1 text-sm text-gray-900">{getShortReference(selectedOrder.payment_reference )}</p>
                     </div>
                     <div>
                     <p className="text-sm font-medium text-gray-500">Payment Method</p>
@@ -1682,23 +1798,38 @@ export default function OrdersPage() {
                         <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
                             <div className="mb-4">
-                              <h5 className="text-sm font-medium text-gray-900 mb-1">{order.product?.title}</h5>
+                              <h5 className="text-sm font-medium text-gray-900 mb-1">{order.product?.title || 'Product not found'}</h5>
                               <div className="text-sm text-gray-500">
                                 <p>Quantity: {order.quantity}</p>
                                 <p>Total: {formatCurrency(order.total_price)}</p>
                                 {order.selected_variant_sku && (
-                                  <p>SKU: {order.selected_variant_sku}</p>
+                                  <p>Variant: {getSizeAndColorFromSku(order.selected_variant_sku)}</p>
                         )}
+                                {order.selected_size && (
+                                  <p>Size: {order.selected_size}</p>
+                                )}
+                                {order.selected_color && (
+                                  <p>Color: {order.selected_color}</p>
+                                )}
                       </div>
                     </div>
 
                             <div>
                               <h5 className="text-sm font-medium text-gray-900 mb-1">Customer</h5>
                               <div className="text-sm text-gray-500">
-                                <p>{order.user?.full_name}</p>
-                                <p>{order.user?.email}</p>
+                                <p>Name: {order.user?.full_name || 'Not available'}</p>
+                                <p>Email: {order.user?.email || 'Not available'}</p>
+                                {order.user?.phone && (
+                                  <p>Phone: {order.user.phone}</p>
+                                )}
                                 {order.transaction?.customer_phone && (
-                                  <p>{order.transaction.customer_phone}</p>
+                                  <p>Phone: {order.transaction.customer_phone}</p>
+                                )}
+                                {!order.user?.phone && !order.transaction?.customer_phone && (
+                                  <p>Phone: Not available</p>
+                                )}
+                                {!order.user && (
+                                  <p>User ID: {order.user_id}</p>
                                 )}
                           </div>
                           </div>
@@ -1830,7 +1961,7 @@ export default function OrdersPage() {
             {isScanning ? (
               <div className="mt-4 w-full relative flex items-center justify-center">
                 <button
-                  onClick={() => setIsScanning(false)}
+                  onClick={handleScannerClose}
                   className="text-sm text-gray-500 hover:text-gray-700 mb-4 absolute left-0 top-0"
                   style={{zIndex: 2}}
                 >
@@ -1904,7 +2035,7 @@ export default function OrdersPage() {
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 flex items-center justify-center">
             <button
-              onClick={safeStopScanner}
+              onClick={handleScannerClose}
               className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
               aria-label="Close QR Scanner"
             >
@@ -1914,10 +2045,7 @@ export default function OrdersPage() {
               <div className="bg-white rounded-lg p-4 shadow text-center">
                 <div className="text-red-500 text-sm mb-2">{scannerError}</div>
                 <button
-                  onClick={() => {
-                    setShowScanner(false);
-                    setScannerError(null);
-                  }}
+                  onClick={handleScannerClose}
                   className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
                 >
                   Use Manual Entry
@@ -1927,10 +2055,7 @@ export default function OrdersPage() {
               <div className="bg-white rounded-lg p-4 shadow text-center">
                 <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
                 <button
-                  onClick={() => {
-                    setShowScanner(false);
-                    setScannerError(null);
-                  }}
+                  onClick={handleScannerClose}
                   className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
                 >
                   Use Manual Entry
@@ -1977,7 +2102,7 @@ export default function OrdersPage() {
             }
           `}</style>
           <button
-            onClick={safeStopScanner}
+            onClick={handleScannerClose}
             className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
             aria-label="Close QR Scanner"
           >
@@ -1987,10 +2112,7 @@ export default function OrdersPage() {
             <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
               <div className="text-red-500 text-sm mb-2">{scannerError}</div>
               <button
-                onClick={() => {
-                  setShowScanner(false);
-                  setScannerError(null);
-                }}
+                onClick={handleScannerClose}
                 className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
               >
                 Use Manual Entry
@@ -2000,10 +2122,7 @@ export default function OrdersPage() {
             <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
               <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
               <button
-                onClick={() => {
-                  setShowScanner(false);
-                  setScannerError(null);
-                }}
+                onClick={handleScannerClose}
                 className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
               >
                 Use Manual Entry
