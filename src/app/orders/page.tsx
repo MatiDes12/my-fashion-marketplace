@@ -366,57 +366,57 @@ export default function OrdersPage() {
                     </div>
                   </div>
                 </div>
-
+                
                 <div className="divide-y divide-gray-200">
                   {orderGroup.orders.map((order: any) => (
                     <div key={order.id} className="p-6 hover:bg-gray-50">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 w-20 h-20 bg-gray-100 rounded-md overflow-hidden">
-                          {order.product?.images && order.product.images.length > 0 ? (
-                            <Image
-                              src={order.product.images[0].image_url}
-                              alt={order.product.title}
-                              width={80}
-                              height={80}
-                              className="w-full h-full object-center object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                          )}
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 w-20 h-20 bg-gray-100 rounded-md overflow-hidden">
+                      {order.product?.images && order.product.images.length > 0 ? (
+                        <Image
+                          src={order.product.images[0].image_url}
+                          alt={order.product.title}
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-center object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
                         </div>
-                        <div className="ml-6 flex-1">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-medium text-gray-900">
-                              <button 
-                                onClick={() => router.push(`/products/${order.product?.id}`)}
-                                className="hover:text-green-600"
-                              >
-                                {order.product?.title || 'Product Unavailable'}
-                              </button>
-                            </h3>
-                            <p className="ml-4 text-lg font-medium text-gray-900">
-                              ETB {order.total_price?.toFixed(2) || '0.00'}
-                            </p>
-                          </div>
-                          <div className="mt-2 space-y-1">
-                            <p className="mt-1 text-sm text-gray-500">
-                              Seller: {order.product?.seller?.store_settings?.name || 
-                                       order.product?.seller?.full_name || 
-                                       'Unknown Seller'}
-                            </p>
-                            <p className="mt-1 text-sm text-gray-500">
-                              Contact: {order.product?.seller?.store_settings?.email || 'N/A'} | {order.product?.seller?.store_settings?.phone || 'N/A'}
-                            </p>
-                            <p className="mt-1 text-sm text-gray-500">
-                              Address: {order.product?.seller?.store_settings?.address?.city || 'N/A'}, {order.product?.seller?.store_settings?.address?.subCity || ''}
-                            </p>
-                            <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
-                            <p className="mt-1 text-sm text-gray-500">Price per item: ETB {order.product?.price}</p>
-                            
+                      )}
+                    </div>
+                    <div className="ml-6 flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          <button 
+                            onClick={() => router.push(`/products/${order.product?.id}`)}
+                            className="hover:text-green-600"
+                          >
+                            {order.product?.title || 'Product Unavailable'}
+                          </button>
+                        </h3>
+                        <p className="ml-4 text-lg font-medium text-gray-900">
+                          ETB {order.total_price?.toFixed(2) || '0.00'}
+                        </p>
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        <p className="mt-1 text-sm text-gray-500">
+                          Seller: {order.product?.seller?.store_settings?.name || 
+                                   order.product?.seller?.full_name || 
+                                   'Unknown Seller'}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Contact: {order.product?.seller?.store_settings?.email || 'N/A'} | {order.product?.seller?.store_settings?.phone || 'N/A'}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Address: {order.product?.seller?.store_settings?.address?.city || 'N/A'}, {order.product?.seller?.store_settings?.address?.subCity || ''}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
+                        <p className="mt-1 text-sm text-gray-500">Price per item: ETB {order.product?.price}</p>
+                        
                             {order.selected_variant_sku && (
                               <p className="mt-1 text-sm text-gray-500">Variant: {order.selected_variant_sku}</p>
                             )}
@@ -425,7 +425,7 @@ export default function OrdersPage() {
                             )}
                             {order.selected_color && (
                               <p className="mt-1 text-sm text-gray-500">Color: {order.selected_color}</p>
-                            )}
+                                  )}
                             
                             <p className="mt-1 text-sm text-gray-500">
                               Delivery Method: {order.delivery_method ? order.delivery_method.replace('_', ' ').toUpperCase() : 'N/A'}
@@ -436,7 +436,7 @@ export default function OrdersPage() {
                     </div>
                   ))}
                 </div>
-
+                
                 <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
                   <div className="flex justify-between items-center">
                     <div className="text-sm text-gray-500">
@@ -461,7 +461,7 @@ export default function OrdersPage() {
                         </span>
                       )}
                     </div>
-
+                    
                     <div className="flex space-x-3">
                       {orderGroup.orders[0].pickup_code && (
                         <button
@@ -477,7 +477,7 @@ export default function OrdersPage() {
                           Show Pickup Code
                         </button>
                       )}
-
+                      
                       {orderGroup.receipt_url && (
                         <button
                           onClick={() => handleDownloadReceipt(orderGroup.receipt_url, orderGroup.tx_ref)}
@@ -487,14 +487,14 @@ export default function OrdersPage() {
                           <span>View Receipt</span>
                         </button>
                       )}
-
+                      
                       {orderGroup.orders[0].order_status !== 'cancelled' && orderGroup.orders[0].order_status !== 'delivered' && (
-                        <button
+                      <button
                           onClick={() => router.push(`/support?order=${orderGroup.orders[0].id}`)}
-                          className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                        >
+                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                      >
                           Contact Support
-                        </button>
+                      </button>
                       )}
                     </div>
                   </div>

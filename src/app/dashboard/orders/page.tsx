@@ -126,6 +126,20 @@ interface SupabaseOrder {
   };
 }
 
+// Add a simple device detection hook
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 640 || /Mobi|Android/i.test(navigator.userAgent));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  return isMobile;
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [groupedOrders, setGroupedOrders] = useState<OrderGroup[]>([]);
@@ -184,6 +198,7 @@ export default function OrdersPage() {
   const [isCameraAvailable, setIsCameraAvailable] = useState(true);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivId = 'qr-reader';
+  const isMobile = useIsMobile();
 
   // Function to generate a random pickup code
   const generatePickupCode = () => {
@@ -195,115 +210,14 @@ export default function OrdersPage() {
     return code;
   };
 
-  // Function to verify pickup code
-  const verifyPickupCode = async (code: string) => {
-    setVerifyingPickup(true);
-    setPickupError(null);
+  const handleScanResult = async (decodedText: string) => {
+    console.log("QR Code detected:", decodedText);
     
-    try {
-      // Normalize input code
-      const normalizedInputCode = code.trim().toUpperCase();
-      
-      // Find the order with this pickup code
-      const matchingOrder = orders.find(order => {
-        const orderPickupCode = order.pickup_code?.trim().toUpperCase();
-        return orderPickupCode === normalizedInputCode;
-      });
-
-      if (!matchingOrder) {
-        setPickupError('Invalid pickup code');
-        return;
-      }
-
-      // Update order status and verify pickup code
-      const { data: orderUpdate, error: orderError } = await supabase
-        .from('orders')
-        .update({
-          order_status: 'picked up',
-          pickup_code_verified: true,
-          pickup_code_verified_at: new Date().toISOString(),
-          payment_status: 'paid',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', matchingOrder.id)
-        .select()
-        .single();
-
-      if (orderError) {
-        console.error('Order update error:', orderError);
-        throw orderError;
-      }
-
-      // Update transaction status if it exists
-      if (matchingOrder.transaction) {
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .update({
-            payment_status: 'paid',
-            platform_payout_status: 'completed',
-            seller_payout_status: 'pending',
-            updated_at: new Date().toISOString()
-          })
-          .eq('order_id', matchingOrder.id);
-
-        if (transactionError) {
-          console.error('Transaction update error:', transactionError);
-          throw transactionError;
-        }
-      }
-
-      // Update local state
-      setOrders(prevOrders => prevOrders.map(order =>
-        order.id === matchingOrder.id
-          ? {
-              ...order,
-              order_status: 'picked up' as Order['order_status'],
-              pickup_code_verified: true,
-              pickup_code_verified_at: new Date().toISOString(),
-              payment_status: 'paid',
-              transaction: order.transaction ? {
-                ...order.transaction,
-                payment_status: 'paid',
-                platform_payout_status: 'completed',
-                seller_payout_status: 'pending'
-              } : null
-            }
-          : order
-      ));
-
-      // Close all modals and reset states
-      setIsPickupVerifyModalOpen(false);
-      setIsUpdateModalOpen(false);
-      setShowScanner(false);
-      setSelectedOrder(null);
-      setPickupCode('');
-      setIsScanning(false);
-      setSelectedImage(null);
-      setImagePreview(null);
-
-      // Show success message
-      toast.success('Pickup verified successfully', {
-        duration: 3000,
-        position: 'top-center',
-      });
-
-      // Refresh the orders list
-      router.refresh();
-
-    } catch (error) {
-      console.error('Error verifying pickup:', error);
-      setPickupError('Failed to verify pickup code');
-    } finally {
-      setVerifyingPickup(false);
-    }
-  };
-
-  const handleScanResult = (result: string) => {
-    if (result) {
-      setIsScanning(false);
-      setPickupCode(result);
-      verifyPickupCode(result);
-    }
+    // First safely stop the scanner
+    await safeStopScanner();
+    
+    // Then verify the code
+    await verifyPickupCode(decodedText);
   };
 
   const handleScanError = (error: any) => {
@@ -879,13 +793,7 @@ export default function OrdersPage() {
           qrbox: { width: 200, height: 350 },
           aspectRatio: 1.0
         },
-        (decodedText) => {
-          console.log("QR Code detected:", decodedText);
-          setPickupCode(decodedText);
-          // Don't try to stop here - just hide the scanner
-          setShowScanner(false);
-          verifyPickupCode(decodedText);
-        },
+        handleScanResult,
         (errorMessage) => {
           console.log("QR Scan error:", errorMessage);
         }
@@ -905,24 +813,136 @@ export default function OrdersPage() {
 
     return () => {
       if (scannerRef.current) {
-        // Only try to stop if we're still showing the scanner
-        if (showScanner) {
-          scannerRef.current.stop().catch(err => {
-            // Ignore the "not running" error
-            if (!err.message?.includes('Cannot stop, scanner is not running')) {
-              console.error('Error stopping scanner:', err);
-            }
-          });
-        }
-        scannerRef.current = null;
+        safeStopScanner();
       }
     };
   }, [showScanner, isCameraAvailable]);
+
+  // Add a safe scanner stop function
+  const safeStopScanner = async () => {
+    try {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        await scannerRef.current.stop();
+        setShowScanner(false);
+        setScannerError(null);
+        scannerRef.current = null;
+      }
+    } catch (err) {
+      console.warn('Warning during scanner stop:', err);
+    }
+  };
+
+  // Function to verify pickup code
+  const verifyPickupCode = async (code: string) => {
+    if (!selectedOrder) {
+      setPickupError('No order selected');
+      return;
+    }
+
+    setVerifyingPickup(true);
+    setPickupError(null);
+    
+    try {
+      // Normalize input code
+      const normalizedInputCode = code.trim().toUpperCase();
+      
+      // Call the API to verify the code
+      const response = await fetch('/api/orders/verify-pickup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          code: normalizedInputCode,
+          orderId: selectedOrder.id
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        setPickupError(data.error);
+        // For QR scanning failures, show toast and return to manual entry
+        if (showScanner) {
+          await safeStopScanner();
+          // Clear the scanned code
+          setPickupCode('');
+          // Show error toast
+          toast.error(data.error, {
+            duration: 3000,
+            position: 'top-center',
+          });
+          // Keep the pickup verify modal open but hide scanner
+          setShowScanner(false);
+          setIsScanning(false);
+        }
+        return;
+      }
+
+      // Update local state with the verified order
+      setOrders(prevOrders => prevOrders.map(order =>
+        order.id === selectedOrder.id
+          ? {
+              ...order,
+              order_status: 'picked up' as Order['order_status'],
+              pickup_code_verified: true,
+              pickup_code_verified_at: new Date().toISOString(),
+              payment_status: 'paid',
+              transaction: order.transaction ? {
+                ...order.transaction,
+                payment_status: 'paid',
+                platform_payout_status: 'completed',
+                seller_payout_status: 'pending'
+              } : null
+            }
+          : order
+      ));
+
+      // Close all modals and reset states
+      await safeStopScanner();
+      setIsPickupVerifyModalOpen(false);
+      setIsUpdateModalOpen(false);
+      setSelectedOrder(null);
+      setPickupCode('');
+      setIsScanning(false);
+      setSelectedImage(null);
+      setImagePreview(null);
+
+      // Show success message
+      toast.success('Pickup verified successfully', {
+        duration: 3000,
+        position: 'top-center',
+      });
+
+      // Refresh the orders list
+      router.refresh();
+
+    } catch (error) {
+      console.error('Error verifying pickup:', error);
+      setPickupError('Failed to verify pickup code. Please try again.');
+      if (showScanner) {
+        await safeStopScanner();
+        // Clear the scanned code
+        setPickupCode('');
+        // Show error toast
+        toast.error('Failed to verify pickup code. Please try again.', {
+          duration: 3000,
+          position: 'top-center',
+        });
+        // Keep the pickup verify modal open but hide scanner
+        setShowScanner(false);
+        setIsScanning(false);
+      }
+    } finally {
+      setVerifyingPickup(false);
+    }
+  };
 
   // Add a function to handle starting the scanner
   const startScanner = async () => {
     setIsScanning(true);
     setScannerError(null);
+    setPickupError(null);
     
     try {
       // Check if camera is available
@@ -951,6 +971,63 @@ export default function OrdersPage() {
     }
     startScanner();
   };
+
+  {/* Mobile QR Scanner Modal */}
+  {showScanner && isMobile && (
+    <div className="fixed inset-0 flex flex-col items-center justify-center z-50 bg-transparent">
+      {/* Scanner animation keyframes for red scanline */}
+      <style>{`
+        @keyframes scanline {
+          0% { top: 0; }
+          100% { top: calc(100% - 3px); }
+        }
+      `}</style>
+      <button
+        onClick={safeStopScanner}
+        className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
+        aria-label="Close QR Scanner"
+      >
+        ×
+      </button>
+      {scannerError ? (
+        <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
+          <div className="text-red-500 text-sm mb-2">{scannerError}</div>
+          <button
+            onClick={() => {
+              setShowScanner(false);
+              setScannerError(null);
+            }}
+            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+          >
+            Use Manual Entry
+          </button>
+        </div>
+      ) : !isCameraAvailable ? (
+        <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
+          <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
+          <button
+            onClick={() => {
+              setShowScanner(false);
+              setScannerError(null);
+            }}
+            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+          >
+            Use Manual Entry
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="w-[80vw] max-w-[350px] aspect-square mt-16 mb-4 flex items-center justify-center relative">
+            <div
+              id={scannerDivId}
+              className="w-full h-full rounded-lg overflow-hidden"
+            />
+          </div>
+          
+        </>
+      )}
+    </div>
+  )}
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1727,119 +1804,108 @@ export default function OrdersPage() {
       )}
 
       {/* Add QR Code Scanner for Pickup Verification */}
-      <div className={`fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity ${isPickupVerifyModalOpen ? 'block' : 'hidden'}`}>
-        <div className="fixed inset-0 z-10 overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <div className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-              <div className="absolute right-0 top-0 pr-4 pt-4">
+      {isPickupVerifyModalOpen && !(showScanner && isMobile) && (
+        <div className={`fixed inset-0 bg-gray-500 bg-opacity-60 flex items-center justify-center z-50`}>
+          {/* Red scanline animation for desktop */}
+          <style>{`
+            @keyframes desktop-scanline {
+              0% { top: 0%; }
+              100% { top: 100%; }
+            }
+          `}</style>
+          <div className="relative w-full max-w-xs sm:max-w-sm mx-auto bg-white rounded-2xl shadow-2xl px-6 py-6 sm:p-8 sm:py-10 flex flex-col items-center">
                 <button
-                  onClick={() => {
-                    setIsPickupVerifyModalOpen(false);
-                    setPickupCode('');
-                    setPickupError(null);
-                    setIsScanning(false);
-                  }}
-                  className="rounded-md bg-white text-gray-400 hover:text-gray-500"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+              onClick={() => {
+                setIsPickupVerifyModalOpen(false);
+                setPickupCode('');
+                setPickupError(null);
+                setIsScanning(false);
+              }}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full text-xl font-bold focus:outline-none"
+              aria-label="Close"
+            >
+              ×
                 </button>
-              </div>
-
-              <div className="sm:flex sm:items-start">
-                <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                  <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-4">
-                    Verify Pickup Code
-                  </h3>
-
-                  {isScanning ? (
-                    <div className="mt-4">
-                      <div className="mb-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 mt-2 text-center w-full">Verify Pickup Code</h3>
+            {isScanning ? (
+              <div className="mt-4 w-full relative flex items-center justify-center">
                 <button
-                          onClick={() => setIsScanning(false)}
-                          className="text-sm text-gray-500 hover:text-gray-700"
-                        >
-                          ← Back to manual entry
-                        </button>
-                      </div>
-                      <div id={scannerDivId} className="w-full h-[300px]" />
-                      {scannerError && (
-                        <p className="mt-2 text-sm text-red-600">{scannerError}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="mt-4">
-                        <label htmlFor="pickupCode" className="block text-sm font-medium text-gray-700">
-                          Enter Pickup Code
-                        </label>
-                        <div className="mt-1">
-                          <input
-                            type="text"
-                            name="pickupCode"
-                            id="pickupCode"
-                            value={pickupCode}
-                            onChange={(e) => setPickupCode(e.target.value.toUpperCase())}
-                            placeholder="Enter 8-digit code"
-                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                            maxLength={8}
-                          />
-                        </div>
-                        {pickupError && (
-                          <p className="mt-2 text-sm text-red-600">{pickupError}</p>
-                        )}
-                      </div>
-
-                      <div className="mt-4">
-                        <button
-                          onClick={handleScanButtonClick}
-                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                          <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-2 0h-2m-4 0H8m-4 0H4m12-8h2m-2 0h-2m-4 0H8m-4 0H4m12 4h2m-2 0h-2m-4 0H8m-4 0H4m12 8h2m-2 0h-2m-4 0H8m-4 0H4" />
-                          </svg>
-                          Scan QR Code
-                        </button>
-                        {scannerError && (
-                          <p className="mt-2 text-sm text-red-600">{scannerError}</p>
-                        )}
-                      </div>
-
-                      <div className="mt-6">
-                        <button
-                          onClick={() => verifyPickupCode(pickupCode)}
-                          disabled={verifyingPickup || !pickupCode}
-                          className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-300"
-                        >
-                          {verifyingPickup ? 'Verifying...' : 'Verify Code'}
-                        </button>
-                      </div>
-                    </>
+                  onClick={() => setIsScanning(false)}
+                  className="text-sm text-gray-500 hover:text-gray-700 mb-4 absolute left-0 top-0"
+                  style={{zIndex: 2}}
+                >
+                  ← Back to manual entry
+                </button>
+                <div className="w-full h-[220px] sm:h-[280px] rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center relative overflow-hidden">
+                  <div
+                    id={scannerDivId}
+                    className="w-full h-full rounded-lg"
+                  />
+                  {/* Red scanline for desktop only */}
+                  <div
+                    className="hidden sm:block absolute left-0 w-full h-[3px] bg-red-600"
+                    style={{
+                      animation: 'desktop-scanline 1.5s linear infinite alternate',
+                      zIndex: 10,
+                      transform: 'translateY(-50%)'
+                    }}
+                  />
+                </div>
+                {scannerError && (
+                  <p className="mt-2 text-sm text-red-600 text-center w-full" style={{zIndex: 2}}>{scannerError}</p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="mt-2 w-full">
+                  <label htmlFor="pickupCode" className="block text-sm font-medium text-gray-700 mb-1">
+                    Enter Pickup Code
+                  </label>
+                  <input
+                    type="text"
+                    name="pickupCode"
+                    id="pickupCode"
+                    value={pickupCode}
+                    onChange={(e) => setPickupCode(e.target.value.toUpperCase())}
+                    placeholder="Enter 8-digit code"
+                    className="block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 mb-2"
+                    maxLength={8}
+                  />
+                  {pickupError && (
+                    <p className="mt-1 text-sm text-red-600 text-center">{pickupError}</p>
                   )}
                 </div>
-              </div>
-            </div>
+                <div className="flex flex-col gap-3 w-full mt-4">
+                  <button
+                    onClick={handleScanButtonClick}
+                    className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-2 0h-2m-4 0H8m-4 0H4m12-8h2m-2 0h-2m-4 0H8m-4 0H4m12 4h2m-2 0h-2m-4 0H8m-4 0H4m12 8h2m-2 0h-2m-4 0H8m-4 0H4" />
+                    </svg>
+                    Scan QR Code
+                  </button>
+                  <button
+                    onClick={() => verifyPickupCode(pickupCode)}
+                    disabled={verifyingPickup || !pickupCode}
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-300 disabled:text-gray-400"
+                  >
+                    {verifyingPickup ? 'Verifying...' : 'Verify Code'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* QR Scanner Modal */}
       {showScanner && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          {/* Scanner container */}
           <div className="absolute inset-0 flex items-center justify-center">
-            {/* Close button */}
             <button
-              onClick={() => {
-                if (scannerRef.current) {
-                  scannerRef.current.stop().catch(console.error);
-                }
-                setShowScanner(false);
-                setScannerError(null);
-              }}
-              className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-white text-black rounded-full shadow-lg hover:bg-gray-200 text-2xl font-bold focus:outline-none"
+              onClick={safeStopScanner}
+              className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
               aria-label="Close QR Scanner"
             >
               ×
@@ -1890,13 +1956,69 @@ export default function OrdersPage() {
                     
                     {/* Instruction text */}
                     <div className="absolute w-full text-center" style={{ top: '104%' }}>
-                      <p className="text-sm text-white drop-shadow font-medium">Position QR code in frame</p>
+                      <p className="text-sm text-Black drop-shadow font-medium">Position QR code in frame</p>
           </div>
         </div>
       </div>
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Mobile QR Scanner Modal */}
+      {showScanner && isMobile && (
+        <div className="fixed inset-0 flex flex-col items-center justify-center z-50 bg-transparent">
+          {/* Scanner animation keyframes for red scanline */}
+          <style>{`
+            @keyframes scanline {
+              0% { top: 0; }
+              100% { top: calc(100% - 3px); }
+            }
+          `}</style>
+          <button
+            onClick={safeStopScanner}
+            className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
+            aria-label="Close QR Scanner"
+          >
+            ×
+          </button>
+          {scannerError ? (
+            <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
+              <div className="text-red-500 text-sm mb-2">{scannerError}</div>
+              <button
+                onClick={() => {
+                  setShowScanner(false);
+                  setScannerError(null);
+                }}
+                className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+              >
+                Use Manual Entry
+                </button>
+              </div>
+          ) : !isCameraAvailable ? (
+            <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
+              <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
+              <button
+                onClick={() => {
+                  setShowScanner(false);
+                  setScannerError(null);
+                }}
+                className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+              >
+                Use Manual Entry
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="w-[80vw] max-w-[350px] aspect-square mt-16 mb-4 flex items-center justify-center relative">
+                <div
+                  id={scannerDivId}
+                  className="w-full h-full rounded-lg overflow-hidden"
+                />
+          </div>
+            </>
+          )}
         </div>
       )}
     </div>

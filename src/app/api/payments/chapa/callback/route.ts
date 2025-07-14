@@ -133,62 +133,62 @@ export async function GET(request: Request) {
             continue;
           }
 
-          // Check product availability first
-          const { data: product, error: productCheckError } = await supabase
-            .from('products')
+        // Check product availability first
+        const { data: product, error: productCheckError } = await supabase
+          .from('products')
             .select('quantity, available_variants')
-            .eq('id', tempOrder.product_id)
-            .single();
+          .eq('id', tempOrder.product_id)
+          .single();
 
-          if (productCheckError) {
-            console.error('[CHAPA CALLBACK] Error checking product availability:', productCheckError);
-            continue;
-          }
+        if (productCheckError) {
+          console.error('[CHAPA CALLBACK] Error checking product availability:', productCheckError);
+          continue;
+        }
 
-          if (!product || (product.quantity || 0) < tempOrder.quantity) {
-            console.error('[CHAPA CALLBACK] Insufficient quantity available for product:', tempOrder.product_id);
-            continue;
-          }
+        if (!product || (product.quantity || 0) < tempOrder.quantity) {
+          console.error('[CHAPA CALLBACK] Insufficient quantity available for product:', tempOrder.product_id);
+          continue;
+        }
 
           // Create order with unique tx_ref
           const pickupCode = tempOrder.delivery_method === 'store_pickup' 
             ? await generateUniquePickupCode()
             : null;
 
-          const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-              user_id: tempOrder.user_id,
-              product_id: tempOrder.product_id,
-              quantity: tempOrder.quantity,
-              total_price: tempOrder.total_price,
-              platform_fee: tempOrder.platform_fee,
-              service_fee: tempOrder.service_fee,
-              ethiopia_tax: tempOrder.ethiopia_tax,
-              delivery_fee: tempOrder.delivery_fee,
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            user_id: tempOrder.user_id,
+            product_id: tempOrder.product_id,
+            quantity: tempOrder.quantity,
+            total_price: tempOrder.total_price,
+            platform_fee: tempOrder.platform_fee,
+            service_fee: tempOrder.service_fee,
+            ethiopia_tax: tempOrder.ethiopia_tax,
+            delivery_fee: tempOrder.delivery_fee,
               tx_ref: uniqueOrderTxRef,
-              payment_status: 'paid',
-              order_status: 'confirmed',
-              payment_reference: reference,
-              receipt_url: receiptUrl,
-              delivery_method: tempOrder.delivery_method,
-              delivery_address: tempOrder.delivery_address,
-              selected_size: tempOrder.selected_size,
-              selected_color: tempOrder.selected_color,
+            payment_status: 'paid',
+            order_status: 'confirmed',
+            payment_reference: reference,
+            receipt_url: receiptUrl,
+            delivery_method: tempOrder.delivery_method,
+            delivery_address: tempOrder.delivery_address,
+            selected_size: tempOrder.selected_size,
+            selected_color: tempOrder.selected_color,
               selected_variant_sku: tempOrder.selected_variant_sku,
               pickup_code: pickupCode
-            })
-            .select()
-            .single();
+          })
+          .select()
+          .single();
 
-          if (orderError) {
-            console.error('[CHAPA CALLBACK] Error creating order:', orderError);
+        if (orderError) {
+          console.error('[CHAPA CALLBACK] Error creating order:', orderError);
             throw orderError;
-          }
+        }
 
           console.log('[CHAPA CALLBACK] Created order:', order);
 
-          // Update product quantity
+        // Update product quantity
           let newQuantity = Math.max(0, (product.quantity || 0) - tempOrder.quantity);
           let newVariants = product.available_variants;
 
@@ -204,46 +204,46 @@ export async function GET(request: Request) {
               return variant;
             });
           }
-          
-          const { error: quantityUpdateError } = await supabase
-            .from('products')
-            .update({ 
-              quantity: newQuantity,
+        
+        const { error: quantityUpdateError } = await supabase
+          .from('products')
+          .update({ 
+            quantity: newQuantity,
               available_variants: newVariants,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', tempOrder.product_id);
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', tempOrder.product_id);
 
-          if (quantityUpdateError) {
-            console.error('[CHAPA CALLBACK] Error updating product quantity:', quantityUpdateError);
-          }
+        if (quantityUpdateError) {
+          console.error('[CHAPA CALLBACK] Error updating product quantity:', quantityUpdateError);
+        }
 
-          // Create transaction
-          const { error: transactionError } = await supabase
-            .from('transactions')
-            .insert({
-              order_id: order.id,
-              payment_method: 'CHAPA',
-              payment_status: 'paid',
+        // Create transaction
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            order_id: order.id,
+            payment_method: 'CHAPA',
+            payment_status: 'paid',
               payment_type: 'order',
-              subtotal: tempOrder.total_price - tempOrder.delivery_fee,
-              platform_fee: tempOrder.platform_fee,
-              service_fee: tempOrder.service_fee,
-              vat_amount: tempOrder.ethiopia_tax,
-              delivery_fee: tempOrder.delivery_fee,
-              total_amount: tempOrder.total_price,
-              seller_id: tempOrder.seller_id,
-              customer_name: verifyData.data.first_name + ' ' + verifyData.data.last_name,
-              customer_email: verifyData.data.email,
-              customer_phone: tempOrder.customer_phone,
-              seller_payout_amount: tempOrder.total_price - tempOrder.service_fee,
-              seller_payout_status: 'pending',
-              platform_payout_status: 'completed'
-            });
+            subtotal: tempOrder.total_price - tempOrder.delivery_fee,
+            platform_fee: tempOrder.platform_fee,
+            service_fee: tempOrder.service_fee,
+            vat_amount: tempOrder.ethiopia_tax,
+            delivery_fee: tempOrder.delivery_fee,
+            total_amount: tempOrder.total_price,
+            seller_id: tempOrder.seller_id,
+            customer_name: verifyData.data.first_name + ' ' + verifyData.data.last_name,
+            customer_email: verifyData.data.email,
+            customer_phone: tempOrder.customer_phone,
+            seller_payout_amount: tempOrder.total_price - tempOrder.service_fee,
+            seller_payout_status: 'pending',
+            platform_payout_status: 'completed'
+          });
 
-          if (transactionError) {
-            console.error('[CHAPA CALLBACK] Error creating transaction:', transactionError);
-          }
+        if (transactionError) {
+          console.error('[CHAPA CALLBACK] Error creating transaction:', transactionError);
+        }
 
           console.log('[CHAPA CALLBACK] Successfully processed order for product:', tempOrder.product_id);
         } catch (error) {

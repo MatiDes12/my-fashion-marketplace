@@ -154,7 +154,7 @@ export async function GET(
               margin: 0 auto; 
               background: white;
               padding: 25px;
-              border: 1px solid #ccc;
+              border: 1px solid #ccc; 
             }
             .header { 
               text-align: center; 
@@ -346,8 +346,8 @@ export async function GET(
               <div>Transaction: ${params.txRef}</div>
               <div>Customer: ${orders[0].user?.full_name || 'N/A'}</div>
               <div>Payment Method: CASH</div>
-            </div>
-
+                </div>
+                
             <div class="divider"></div>
 
             <div class="items-section">
@@ -356,7 +356,7 @@ export async function GET(
                   ${formatItemDisplay(order)}
                 `).join('')}
               `).join('')}
-            </div>
+              </div>
 
             <div class="totals-section">
               <div class="total-row">
@@ -367,7 +367,7 @@ export async function GET(
                 }, 0).toFixed(2)}</span>
               </div>
               <div class="total-row">
-                <span>Delivery Fee:</span>
+                      <span>Delivery Fee:</span>
                 <span>ETB ${orders.reduce((sum, order) => sum + (order.delivery_fee || 0), 0).toFixed(2)}</span>
               </div>
               <div class="total-row grand-total">
@@ -377,7 +377,7 @@ export async function GET(
                   return sum + (transaction?.total_amount || order.total_price || 0);
                 }, 0).toFixed(2)}</span>
               </div>
-            </div>
+              </div>
 
             <div class="divider"></div>
 
@@ -399,11 +399,11 @@ export async function GET(
               <a href="/orders" class="view-orders-btn">
                 VIEW MY ORDERS
               </a>
-              ${redirectUrl ? `
+            ${redirectUrl ? `
                 <div style="text-align: center; margin-top: 10px; font-size: 10px; color: #666;">
                   Redirecting to orders page in 8 seconds...
-                </div>
-              ` : ''}
+              </div>
+            ` : ''}
             </div>
           </div>
         </body>
@@ -420,4 +420,4 @@ export async function GET(
     console.error('Error generating receipt:', error);
     return new NextResponse('Error generating receipt', { status: 500 });
   }
-}
+} 

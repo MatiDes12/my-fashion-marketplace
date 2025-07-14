@@ -390,18 +390,18 @@ export default function PaymentMethodModal({
         const supabase = createClientComponent();
         const txRef = `CASH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        // Get customer's store settings to access their phone number
-        const { data: customerData, error: customerError } = await supabase
-          .from('users')
-          .select('store_settings')
-          .eq('id', userDetails?.id)
-          .single();
+          // Get customer's store settings to access their phone number
+          const { data: customerData, error: customerError } = await supabase
+            .from('users')
+            .select('store_settings')
+            .eq('id', userDetails?.id)
+            .single();
 
-        if (customerError) {
-          console.error('Error fetching customer data:', customerError);
-        }
+          if (customerError) {
+            console.error('Error fetching customer data:', customerError);
+          }
 
-        const customerPhone = customerData?.store_settings?.phone || null;
+          const customerPhone = customerData?.store_settings?.phone || null;
 
         // Process each seller's orders
         for (const seller of sellers) {
@@ -431,11 +431,11 @@ export default function PaymentMethodModal({
                   is_active
                 )
               `)
-              .eq('product_id', product.id)
+                .eq('product_id', product.id)
               .eq('flash_sales.is_active', true)
               .gte('flash_sales.end_time', new Date().toISOString())
               .lte('flash_sales.start_time', new Date().toISOString())
-              .single();
+                .single();
 
             // Determine pricing with proper decimal handling
             const originalPrice = Number(product.price);
@@ -450,15 +450,15 @@ export default function PaymentMethodModal({
             const itemTotal = Number((itemSubtotal + itemDeliveryFee).toFixed(2));
             const sellerPayoutAmount = Number((itemTotal - serviceFee).toFixed(2));
 
-            // Update product quantities first
-            await updateProductQuantities(
-              product.id,
-              product.quantity,
+              // Update product quantities first
+              await updateProductQuantities(
+                product.id,
+                product.quantity,
               product.selected_size,
               product.selected_color,
               product.selected_variant_sku
-            );
-          
+              );
+            
             // Add debug logging
             console.log('Creating order with delivery method:', product.delivery_method);
             console.log('Will generate pickup code:', product.delivery_method === 'pickup' || product.delivery_method === 'store_pickup');
@@ -516,7 +516,7 @@ export default function PaymentMethodModal({
                 seller_id: product.owner.id,
                 customer_name: userDetails?.full_name,
                 customer_email: userDetails?.email,
-                customer_phone: customerPhone,
+                  customer_phone: customerPhone,
                 seller_payout_amount: sellerPayoutAmount,
                 seller_payout_status: 'pending',
                 platform_payout_status: 'pending',
@@ -801,7 +801,7 @@ export default function PaymentMethodModal({
           const serviceFee = itemSubtotal * 0.03;
           const itemDeliveryFee = seller.deliveryFee || 0;
           const itemTotal = itemSubtotal + itemDeliveryFee;
-
+            
           console.log('Creating temporary order for product:', {
             productId: product.id,
             quantity: product.quantity,

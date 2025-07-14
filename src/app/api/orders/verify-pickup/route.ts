@@ -6,7 +6,7 @@ import { verifyPickupCode } from '@/utils/pickupCode';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { code } = body;
+    const { code, orderId } = body;
 
     if (!code) {
       return NextResponse.json({ 
@@ -15,25 +15,37 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const success = await verifyPickupCode(code);
-
-    if (!success) {
+    if (!orderId) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Invalid or already verified pickup code' 
+        error: 'Order ID is required' 
+      }, { status: 400 });
+    }
+
+    // Normalize the code
+    const normalizedCode = code.trim().toUpperCase();
+    
+    const result = await verifyPickupCode(normalizedCode, orderId);
+    console.log('Verification result:', result);
+
+    if (!result.success) {
+      return NextResponse.json({ 
+        success: false, 
+        error: result.error || 'Failed to verify pickup code'
       }, { status: 400 });
     }
 
     return NextResponse.json({ 
       success: true,
-      message: 'Pickup code verified successfully'
+      message: 'Pickup code verified successfully',
+      order: result.order
     });
 
   } catch (error) {
-    console.error('Error verifying pickup code:', error);
+    console.error('Error in verify-pickup API:', error);
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to verify pickup code' 
+      error: error instanceof Error ? error.message : 'Failed to verify pickup code' 
     }, { status: 500 });
   }
 } 
