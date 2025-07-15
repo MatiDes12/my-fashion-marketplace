@@ -447,6 +447,13 @@ export default function OrdersPage() {
                           </svg>
                           Delivered on {formatDate(orderGroup.orders[0].updated_at)}
                         </span>
+                      ) : orderGroup.orders[0].order_status === 'picked up' ? (
+                        <span className="flex items-center text-green-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Picked up on {formatDate(orderGroup.orders[0].updated_at)}
+                        </span>
                       ) : orderGroup.orders[0].order_status === 'shipped' ? (
                         <span className="flex items-center text-purple-600">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -488,7 +495,7 @@ export default function OrdersPage() {
                         </button>
                       )}
                       
-                      {orderGroup.orders[0].order_status !== 'cancelled' && orderGroup.orders[0].order_status !== 'delivered' && (
+                      {orderGroup.orders[0].order_status !== 'cancelled' && orderGroup.orders[0].order_status !== 'delivered' && orderGroup.orders[0].order_status !== 'picked up' && (
                       <button
                           onClick={() => router.push(`/support?order=${orderGroup.orders[0].id}`)}
                         className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"

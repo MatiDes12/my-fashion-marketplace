@@ -89,6 +89,27 @@ export async function verifyPickupCode(code: string, orderId: string): Promise<{
       };
     }
 
+    // Update transaction payment status
+    console.log('Attempting to update transaction for order:', orderId);
+    
+    const { data: transactionData, error: transactionError } = await supabase
+      .from('transactions')
+      .update({
+        payment_status: 'paid',
+        platform_payout_status: 'completed',
+        seller_payout_status: 'pending',
+        updated_at: new Date().toISOString()
+      })
+      .eq('order_id', orderId)
+      .select();
+
+    if (transactionError) {
+      console.error('Error updating transaction:', transactionError);
+      // Don't fail the whole operation, just log the error
+    } else {
+      console.log('Transaction updated successfully for order:', orderId, 'Updated rows:', transactionData);
+    }
+
     return {
       success: true,
       order: updatedOrder

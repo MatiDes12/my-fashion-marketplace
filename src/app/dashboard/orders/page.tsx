@@ -128,29 +128,45 @@ interface SupabaseOrder {
   };
 }
 
-// Add a simple device detection hook
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
+// Enhanced device detection hook
+function useDeviceType() {
+  const [deviceType, setDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 640 || /Mobi|Android/i.test(navigator.userAgent));
+    const checkDeviceType = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isIPad = /ipad/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isTablet = /tablet|ipad|playbook|silk/i.test(userAgent) || isIPad;
+      const isMobile = /mobi|android|iphone|ipod|blackberry|opera mini|windows phone/i.test(userAgent);
+      const isDesktop = !isMobile && !isTablet;
+      
+      if (isTablet || isIPad) {
+        setDeviceType('tablet');
+      } else if (isMobile) {
+        setDeviceType('mobile');
+      } else {
+        setDeviceType('desktop');
+      }
     };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    
+    checkDeviceType();
+    window.addEventListener('resize', checkDeviceType);
+    return () => window.removeEventListener('resize', checkDeviceType);
   }, []);
-  return isMobile;
+  
+  return deviceType;
 }
 
 // Helper function to extract short reference
 const getShortReference = (paymentRef: string | undefined) => {
   if (!paymentRef) return '';
-  // Extract the second-to-last part (the short ID)
+  // Extract the third part (the short ID) for CASH payments
   const parts = paymentRef.split('-');
-  if (parts.length >= 2) {
-    return parts[parts.length - 2]; // Get second-to-last part
+  if (paymentRef.startsWith('CASH-') && parts.length >= 4) {
+    return parts[2]; // Get third part (index 2)
   }
-  return paymentRef; // Return full reference if not enough parts
+  // For non-CASH payments, return the full reference
+  return paymentRef;
 };
 
 // Helper function to extract size and color from SKU
@@ -224,7 +240,8 @@ export default function OrdersPage() {
   const [isCameraAvailable, setIsCameraAvailable] = useState(true);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivId = 'qr-reader';
-  const isMobile = useIsMobile();
+  const deviceType = useDeviceType();
+  const [showDeliveryProofNotification, setShowDeliveryProofNotification] = useState(false);
 
   // Function to generate a random pickup code
   const generatePickupCode = () => {
@@ -523,9 +540,18 @@ export default function OrdersPage() {
       const isMarkingPickedUp = newStatus === 'picked up';
       const isPickupOrder = selectedOrder.delivery_method === 'store_pickup';
 
+      console.log('Status update debug:', {
+        newStatus,
+        isCashPayment,
+        isMarkingDelivered,
+        isMarkingPickedUp,
+        isPickupOrder,
+        orderId: selectedOrder.id
+      });
+
       // Only require image for delivery orders being marked as delivered
       if (isMarkingDelivered && !isPickupOrder && !selectedImage && !selectedOrder.delivery_proof_image) {
-        alert('Please upload delivery proof image before marking as delivered');
+        setShowDeliveryProofNotification(true);
         return;
       }
 
@@ -551,8 +577,8 @@ export default function OrdersPage() {
           updated_at: new Date().toISOString(),
           delivery_proof_image: deliveryProofUrl,
           ...(pickupCode ? { pickup_code: pickupCode } : {}),
-          // Only update payment_status to paid for delivered orders
-          ...(isMarkingDelivered ? { payment_status: 'paid' } : {})
+          // Only update payment_status to paid for delivered/picked up orders
+          ...(isMarkingDelivered || isMarkingPickedUp ? { payment_status: 'paid' } : {})
         })
         .eq('id', selectedOrder.id)
         .select('*')
@@ -560,21 +586,29 @@ export default function OrdersPage() {
 
       if (orderError) throw orderError;
 
-      // If status is delivered, update the transaction
-      if (isMarkingDelivered) {
-        const { error: transactionError } = await supabase
+      // If status is delivered or picked up, update the transaction
+      if (isMarkingDelivered || isMarkingPickedUp) {
+        console.log('Updating transaction for order:', selectedOrder.id, 'Status:', newStatus);
+        
+        const { data: transactionData, error: transactionError } = await supabase
           .from('transactions')
           .update({
             payment_status: 'paid',
             platform_payout_status: 'completed',
             seller_payout_status: 'pending',
-            updated_at: new Date().toISOString(),
-            seller_id: session.user.id
+            updated_at: new Date().toISOString()
           })
           .eq('order_id', selectedOrder.id)
-          .eq('seller_id', session.user.id);
+          .select();
 
-        if (transactionError) throw transactionError;
+        if (transactionError) {
+          console.error('Transaction update error:', transactionError);
+          // Don't throw error here, just log it
+        } else {
+          console.log('Transaction updated successfully for order:', selectedOrder.id, 'Updated rows:', transactionData);
+        }
+      } else {
+        console.log('Not updating transaction - conditions not met:', { isMarkingDelivered, isMarkingPickedUp });
       }
 
       // Update the local state with the new order data
@@ -586,7 +620,7 @@ export default function OrdersPage() {
               delivery_proof_image: deliveryProofUrl,
               updated_at: new Date().toISOString(),
               ...(pickupCode ? { pickup_code: pickupCode } : {}),
-              ...(isMarkingDelivered ? {
+              ...(isMarkingDelivered || isMarkingPickedUp ? {
                 payment_status: 'paid',
                 transaction: {
                   ...order.transaction,
@@ -876,13 +910,22 @@ export default function OrdersPage() {
       const html5QrCode = new Html5Qrcode(scannerDivId);
       scannerRef.current = html5QrCode;
 
+      // Configure scanner based on device type
+      const config = deviceType === 'tablet' || deviceType === 'desktop' 
+        ? {
+            fps: 10,
+            qrbox: { width: 300, height: 300 },
+            aspectRatio: 1.0
+          }
+        : {
+            fps: 10,
+            qrbox: { width: 200, height: 350 },
+            aspectRatio: 1.0
+          };
+
       html5QrCode.start(
         { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 200, height: 350 },
-          aspectRatio: 1.0
-        },
+        config,
         handleScanResult,
         (errorMessage) => {
           console.log("QR Scan error:", errorMessage);
@@ -1071,63 +1114,6 @@ export default function OrdersPage() {
     // Ensure we return to the pickup code entry modal
     setIsPickupVerifyModalOpen(true);
   };
-
-  {/* Mobile QR Scanner Modal */}
-  {showScanner && isMobile && (
-    <div className="fixed inset-0 flex flex-col items-center justify-center z-50 bg-transparent">
-      {/* Scanner animation keyframes for red scanline */}
-      <style>{`
-        @keyframes scanline {
-          0% { top: 0; }
-          100% { top: calc(100% - 3px); }
-        }
-      `}</style>
-      <button
-        onClick={safeStopScanner}
-        className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
-        aria-label="Close QR Scanner"
-      >
-        ×
-      </button>
-      {scannerError ? (
-        <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
-          <div className="text-red-500 text-sm mb-2">{scannerError}</div>
-          <button
-            onClick={() => {
-              setShowScanner(false);
-              setScannerError(null);
-            }}
-            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-          >
-            Use Manual Entry
-          </button>
-        </div>
-      ) : !isCameraAvailable ? (
-        <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
-          <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
-          <button
-            onClick={() => {
-              setShowScanner(false);
-              setScannerError(null);
-            }}
-            className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-          >
-            Use Manual Entry
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="w-[80vw] max-w-[350px] aspect-square mt-16 mb-4 flex items-center justify-center relative">
-            <div
-              id={scannerDivId}
-              className="w-full h-full rounded-lg overflow-hidden"
-            />
-          </div>
-          
-        </>
-      )}
-    </div>
-  )}
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1728,6 +1714,42 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {/* Delivery Proof Notification */}
+      {showDeliveryProofNotification && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-8 w-8 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="ml-3 w-0 flex-1">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Delivery Proof Required
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Please upload a delivery proof image before marking this order as delivered. This helps ensure proper delivery confirmation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowDeliveryProofNotification(false)}
+                  className="inline-flex justify-center rounded-md border border-transparent bg-orange-100 px-4 py-2 text-sm font-medium text-orange-900 hover:bg-orange-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View Modal */}
       {isViewModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
@@ -1935,7 +1957,7 @@ export default function OrdersPage() {
       )}
 
       {/* Add QR Code Scanner for Pickup Verification */}
-      {isPickupVerifyModalOpen && !(showScanner && isMobile) && (
+      {isPickupVerifyModalOpen && !(showScanner && deviceType === 'mobile') && (
         <div className={`fixed inset-0 bg-gray-500 bg-opacity-60 flex items-center justify-center z-50`}>
           {/* Red scanline animation for desktop */}
           <style>{`
@@ -2030,8 +2052,8 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* QR Scanner Modal */}
-      {showScanner && (
+      {/* QR Scanner Modal for Desktop/Tablet */}
+      {showScanner && deviceType !== 'mobile' && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 flex items-center justify-center">
             <button
@@ -2092,52 +2114,80 @@ export default function OrdersPage() {
       )}
 
       {/* Mobile QR Scanner Modal */}
-      {showScanner && isMobile && (
-        <div className="fixed inset-0 flex flex-col items-center justify-center z-50 bg-transparent">
-          {/* Scanner animation keyframes for red scanline */}
-          <style>{`
-            @keyframes scanline {
-              0% { top: 0; }
-              100% { top: calc(100% - 3px); }
-            }
-          `}</style>
-          <button
-            onClick={handleScannerClose}
-            className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
-            aria-label="Close QR Scanner"
-          >
-            ×
-          </button>
-          {scannerError ? (
-            <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
-              <div className="text-red-500 text-sm mb-2">{scannerError}</div>
-              <button
-                onClick={handleScannerClose}
-                className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-              >
-                Use Manual Entry
+      {showScanner && deviceType === 'mobile' && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 flex items-center justify-center">
+            {/* Mobile scanner animation keyframes for red scanline */}
+            <style>{`
+              @keyframes mobile-scanline {
+                0% { top: 0%; }
+                100% { top: 100%; }
+              }
+            `}</style>
+            <button
+              onClick={handleScannerClose}
+              className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg text-2xl font-bold focus:outline-none"
+              aria-label="Close QR Scanner"
+            >
+              ×
+            </button>
+            {scannerError ? (
+              <div className="bg-white rounded-lg p-4 shadow text-center">
+                <div className="text-red-500 text-sm mb-2">{scannerError}</div>
+                <button
+                  onClick={handleScannerClose}
+                  className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                >
+                  Use Manual Entry
                 </button>
               </div>
-          ) : !isCameraAvailable ? (
-            <div className="bg-white rounded-lg p-4 shadow text-center mt-8">
-              <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
-              <button
-                onClick={handleScannerClose}
-                className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-              >
-                Use Manual Entry
-              </button>
+            ) : !isCameraAvailable ? (
+              <div className="bg-white rounded-lg p-4 shadow text-center">
+                <p className="text-gray-600 text-sm mb-2">Camera is not available on this device.</p>
+                <button
+                  onClick={handleScannerClose}
+                  className="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                >
+                  Use Manual Entry
+                </button>
             </div>
-          ) : (
-            <>
-              <div className="w-[80vw] max-w-[350px] aspect-square mt-16 mb-4 flex items-center justify-center relative">
-                <div
-                  id={scannerDivId}
-                  className="w-full h-full rounded-lg overflow-hidden"
-                />
+            ) : (
+              <div className="relative flex flex-col items-center justify-center w-full h-full">
+                {/* Scanner frame and camera view */}
+                <div className="absolute left-1/2" style={{ top: '55%', transform: 'translate(-50%, -50%)' }}>
+                  <div className="relative w-64 h-64">
+                    {/* Camera view */}
+                    <div id={scannerDivId} className="w-full h-full overflow-hidden" />
+                    
+                    {/* White corner borders */}
+                    {/* Top-left */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white z-30" />
+                    {/* Top-right */}
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white z-30" />
+                    {/* Bottom-left */}
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white z-30" />
+                    {/* Bottom-right */}
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white z-30" />
+                    
+                    {/* Red scanline for mobile */}
+                    <div
+                      className="absolute left-0 w-full h-[3px] bg-red-600"
+                      style={{
+                        animation: 'mobile-scanline 1.5s linear infinite alternate',
+                        zIndex: 10,
+                        transform: 'translateY(-50%)'
+                      }}
+                    />
+                    
+                    {/* Instruction text */}
+                    <div className="absolute w-full text-center" style={{ top: '104%' }}>
+                      <p className="text-sm text-Black drop-shadow font-medium" style={{ marginTop: '-10px' }}>Position QR code in frame</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-            </>
-          )}
         </div>
       )}
     </div>

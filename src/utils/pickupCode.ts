@@ -130,6 +130,24 @@ export async function verifyPickupCodeClient(code: string, orderId: string): Pro
       };
     }
 
+    // Update transaction payment status
+    const { error: transactionError } = await supabase
+      .from('transactions')
+      .update({
+        payment_status: 'paid',
+        platform_payout_status: 'completed',
+        seller_payout_status: 'pending',
+        updated_at: new Date().toISOString()
+      })
+      .eq('order_id', orderId);
+
+    if (transactionError) {
+      console.error('Error updating transaction:', transactionError);
+      // Don't fail the whole operation, just log the error
+    } else {
+      console.log('Transaction updated successfully for order:', orderId);
+    }
+
     return {
       success: true,
       order: updatedOrder
