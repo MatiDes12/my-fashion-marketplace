@@ -584,19 +584,28 @@ function ProductsPage() {
             {/* Products Display */}
             <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
               {getFilteredProducts(getSortedProducts(products)).map((product) => (
-                <div key={product.id} className={`bg-white rounded-lg shadow-sm overflow-hidden
-                  ${viewMode === 'list' ? 'flex' : ''}`}>
+                <div key={product.id} className={`bg-white rounded-lg shadow-sm overflow-hidden${viewMode === 'list' ? ' flex' : ''}`}>
                   {/* Product Image */}
-                  <div className={viewMode === 'list' ? 'w-48 h-48 flex-shrink-0' : 'relative h-48'}>
+                  <div className={viewMode === 'list' ? 'w-48 h-48 flex-shrink-0 relative' : 'relative h-48'}>
                     {product.product_images && product.product_images.length > 0 ? (
                       <div className="w-full h-full">
-                        <Image
-                          src={formatImageUrl(product.product_images[0].image_url)}
-                          alt={product.title}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
+                        {viewMode === 'list' ? (
+                          <Image
+                            src={formatImageUrl(product.product_images[0].image_url)}
+                            alt={product.title}
+                            width={192}
+                            height={192}
+                            className="object-cover rounded-l-lg"
+                          />
+                        ) : (
+                          <Image
+                            src={formatImageUrl(product.product_images[0].image_url)}
+                            alt={product.title}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          />
+                        )}
                       </div>
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -606,13 +615,13 @@ function ProductsPage() {
                   </div>
 
                   {/* Product Info */}
-                  <div className="p-3 flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
+                  <div className="p-4 flex-1">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
                         <h3 className="text-lg font-medium text-gray-900 mb-1">{product.title}</h3>
                         <p className="text-sm text-gray-500 line-clamp-2">{product.description}</p>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ml-3 ${
                         product.quantity > 10 ? 'bg-green-100 text-green-800' :
                         product.quantity > 0 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
@@ -623,10 +632,20 @@ function ProductsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="text-xl font-medium text-green-600">
-                        {formatCurrency(product.price)}
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <span className="text-xl font-medium text-green-600">
+                          {formatCurrency(product.price)}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          Quantity: {product.quantity}
+                        </span>
+                        {product.category && (
+                          <span className="text-sm text-gray-500">
+                            Category: {product.category}
+                          </span>
+                        )}
+                      </div>
                       <Link
                         href={`/dashboard/products/edit/${product.id}`}
                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
