@@ -598,13 +598,13 @@ function ProductsPage() {
                             className="object-cover rounded-l-lg"
                           />
                         ) : (
-                          <Image
-                            src={formatImageUrl(product.product_images[0].image_url)}
-                            alt={product.title}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          />
+                        <Image
+                          src={formatImageUrl(product.product_images[0].image_url)}
+                          alt={product.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        />
                         )}
                       </div>
                     ) : (
@@ -634,9 +634,9 @@ function ProductsPage() {
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <span className="text-xl font-medium text-green-600">
-                          {formatCurrency(product.price)}
-                        </span>
+                      <span className="text-xl font-medium text-green-600">
+                        {formatCurrency(product.price)}
+                      </span>
                         <span className="text-sm text-gray-500">
                           Quantity: {product.quantity}
                         </span>

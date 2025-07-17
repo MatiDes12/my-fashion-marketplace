@@ -1247,10 +1247,10 @@ export default function ProductDetailPage() {
                             <path 
                               fillRule="evenodd" 
                               d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
-                            />
-                          </svg>
-                        </div>
-                      )}
+                              />
+                            </svg>
+                          </div>
+                        )}
                   </div>
                 </div>
               </div>
@@ -1695,51 +1695,110 @@ export default function ProductDetailPage() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Available Options</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Sizes */}
-                      {product.sizes && product.sizes.length > 0 && (
-                  <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-2">Available Sizes</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {product.sizes.map((size, index) => (
-                              <span key={index} className="px-3 py-1 bg-white border border-gray-200 rounded-md text-sm text-gray-700">
-                                {size}
-                              </span>
-                            ))}
-                  </div>
-                        </div>
-                      )}
-
-                      {/* Colors */}
-                      {product.colors && product.colors.length > 0 && (
-                  <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-2">Available Colors</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {product.colors.map((color, index) => (
-                              <span key={index} className="px-3 py-1 bg-white border border-gray-200 rounded-md text-sm text-gray-700">
-                                {color}
-                              </span>
-                            ))}
-                  </div>
-                        </div>
-                      )}
+    
                     </div>
 
                     {/* Variants */}
                     {product.available_variants && product.available_variants.length > 0 && (
                       <div className="mt-6">
-                        <h4 className="text-sm font-medium text-gray-500 mb-2">Available Variants</h4>
+                        <h4 className="text-sm font-medium text-gray-700 mb-4">Available Variants</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {product.available_variants.map((variant, index) => (
-                            <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
-                              <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div>Size: <span className="font-medium">{variant.size}</span></div>
-                                <div>Color: <span className="font-medium">{variant.color}</span></div>
-                                <div>SKU: <span className="font-medium">{variant.sku}</span></div>
-                                <div>Stock: <span className="font-medium">{variant.quantity}</span></div>
+                          {product.available_variants.map((variant: any, index: number) => {
+                            // Extract all variant properties except quantity and sku
+                            const variantProps = Object.entries(variant).filter(([key]) => 
+                              !['quantity', 'sku'].includes(key)
+                            );
+
+                            return (
+                              <div 
+                                key={variant.sku || index} 
+                                className={`p-4 rounded-lg border ${
+                                  variant.quantity > 0 ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200'
+                                }`}
+                              >
+                                <div className="space-y-2">
+                                  {/* Variant Properties */}
+                                  {variantProps.map(([key, value]) => (
+                                    <div key={key} className="flex justify-between items-center">
+                                      <span className="text-sm text-gray-600 capitalize">
+                                        {key.replace(/_/g, ' ')}:
+                                      </span>
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {typeof value === 'string' ? value : JSON.stringify(value)}
+                                      </span>
+                                    </div>
+                                  ))}
+
+                                  {/* Stock Status */}
+                                  <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                                    <span className="text-sm text-gray-600">Stock:</span>
+                                    <div className="flex items-center">
+                                      {variant.quantity > 0 ? (
+                                        <>
+                                          <span className="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+                                          <span className="text-sm font-medium text-green-700">
+                                            {variant.quantity} available
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="h-2 w-2 rounded-full bg-red-500 mr-2"></span>
+                                          <span className="text-sm font-medium text-red-700">
+                                            Out of stock
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* SKU */}
+                                  <div className="flex justify-between items-center text-xs text-gray-500">
+                                    <span>SKU:</span>
+                                    <span>{variant.sku}</span>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
+                    )}
+
+                    {/* If no variants but has sizes or colors, show those instead */}
+                    {(!product.available_variants || product.available_variants.length === 0) && (
+                      <>
+                        {product.sizes && product.sizes.length > 0 && (
+                          <div className="mt-6">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Available Sizes</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {product.sizes.map((size: string) => (
+                                <span
+                                  key={size}
+                                  className="px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded-full"
+                                >
+                                  {size}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {product.colors && product.colors.length > 0 && (
+                          <div className="mt-6">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Available Colors</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {product.colors.map((color: string) => (
+                                <span
+                                  key={color}
+                                  className="px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded-full"
+                                >
+                                  {color}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 

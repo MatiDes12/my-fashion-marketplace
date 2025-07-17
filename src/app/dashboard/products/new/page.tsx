@@ -192,8 +192,61 @@ function NewProductPage() {
         throw new Error('You must be logged in to create a product');
       }
 
+      // Generate variants based on sizes and colors if no specific variants are set
+      let finalVariants = variants;
+      if (variants.length === 0 && (sizes.length > 0 || colors.length > 0)) {
+        const generatedVariants = [];
+        
+        if (sizes.length > 0 && colors.length > 0) {
+          // Generate combinations of sizes and colors
+          for (const size of sizes) {
+            for (const color of colors) {
+              generatedVariants.push({
+                size,
+                color,
+                quantity: Math.floor(parseInt(quantity) / (sizes.length * colors.length)),
+                sku: `${size}-${color}`.toLowerCase().replace(/\s+/g, '-')
+              });
+            }
+          }
+        } else if (sizes.length > 0) {
+          // Generate variants for sizes only
+          for (const size of sizes) {
+            generatedVariants.push({
+              size,
+              quantity: Math.floor(parseInt(quantity) / sizes.length),
+              sku: size.toLowerCase().replace(/\s+/g, '-')
+            });
+          }
+        } else if (colors.length > 0) {
+          // Generate variants for colors only
+          for (const color of colors) {
+            generatedVariants.push({
+              color,
+              quantity: Math.floor(parseInt(quantity) / colors.length),
+              sku: color.toLowerCase().replace(/\s+/g, '-')
+            });
+          }
+        }
+        
+        finalVariants = generatedVariants;
+      } else if (variants.length === 0 && customVariantTypes.length > 0) {
+        // Handle custom variant types
+        const generatedVariants = [];
+        for (const type of customVariantTypes) {
+          for (const option of type.options) {
+            generatedVariants.push({
+              [type.name.toLowerCase().replace(/\s+/g, '_')]: option,
+              quantity: Math.floor(parseInt(quantity) / type.options.length),
+              sku: option.toLowerCase().replace(/\s+/g, '-')
+            });
+          }
+        }
+        finalVariants = generatedVariants;
+      }
+
       // Prepare variants data - flatten custom options into the variant object
-      const flattenedVariants = variants.map(variant => {
+      const flattenedVariants = finalVariants.map(variant => {
         // Start with basic variant properties
         const flatVariant: any = {
           size: variant.size,

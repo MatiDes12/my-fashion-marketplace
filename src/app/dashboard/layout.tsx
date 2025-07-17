@@ -211,6 +211,7 @@ export default function DashboardLayout({
     },
     { name: 'Payment Settings', href: '/dashboard/payment-settings', icon: PaymentSettingsIcon, show: true },
     { name: 'Subscription', href: '/dashboard/subscription', icon: SubscriptionIcon, show: true },
+    { name: 'Delivery', href: '/dashboard/delivery', icon: DeliveryIcon, show: true },
     { name: 'Store Setup', href: '/dashboard/settings', icon: StoreIcon, show: true },
     { 
       name: 'Get Support',
@@ -519,6 +520,14 @@ function LightningBoltIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3l-3 3m0 0l-3-3m3 3M13 10V3l-3 3m0 0l-3-3m3 3" />
+    </svg>
+  );
+}
+
+function DeliveryIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
     </svg>
   );
 } 
