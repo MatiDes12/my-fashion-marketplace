@@ -85,7 +85,7 @@ function DeliveryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<'accounts' | 'tracking' | 'orders'>('accounts');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'tracking' | 'orders' | 'shipped'>('accounts');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -93,6 +93,19 @@ function DeliveryPage() {
     phone_number: '',
     email: ''
   });
+
+  // Filter states for shipped orders
+  const [shippedFilter, setShippedFilter] = useState('all'); // 'all', 'assigned', 'unassigned'
+  const [shippedSearchTerm, setShippedSearchTerm] = useState('');
+  
+  // Access token generation states
+  const [generatingToken, setGeneratingToken] = useState<string | null>(null);
+  const [generatedToken, setGeneratedToken] = useState<{
+    accountId: string;
+    token: string;
+    link: string;
+    expiresAt: string;
+  } | null>(null);
 
   const router = useRouter();
   const supabase = createClientComponent();
@@ -295,6 +308,68 @@ function DeliveryPage() {
     }).format(amount);
   };
 
+  const generateAccessToken = async (accountId: string) => {
+    try {
+      setGeneratingToken(accountId);
+      
+      const response = await fetch('/api/delivery/generate-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ deliveryAccountId: accountId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setGeneratedToken({
+          accountId,
+          token: data.accessToken,
+          link: data.accessLink,
+          expiresAt: data.expiresAt
+        });
+        toast.success('Access token generated successfully!');
+      } else {
+        toast.error(data.error || 'Failed to generate access token');
+      }
+    } catch (error) {
+      console.error('Error generating access token:', error);
+      toast.error('Failed to generate access token');
+    } finally {
+      setGeneratingToken(null);
+    }
+  };
+
+  // Helper functions for shipped orders filtering
+  const getShippedOrders = () => {
+    return pendingOrders.filter(order => order.order_status === 'shipped');
+  };
+
+  const getFilteredShippedOrders = () => {
+    let filtered = getShippedOrders();
+
+    // Apply search filter
+    if (shippedSearchTerm) {
+      filtered = filtered.filter(order => 
+        order.users.full_name.toLowerCase().includes(shippedSearchTerm.toLowerCase()) ||
+        order.products.title.toLowerCase().includes(shippedSearchTerm.toLowerCase()) ||
+        order.id.toLowerCase().includes(shippedSearchTerm.toLowerCase())
+      );
+    }
+
+    // Apply assignment filter
+    if (shippedFilter === 'assigned') {
+      const assignedOrderIds = new Set(deliveryTracking.map(t => t.order_id));
+      filtered = filtered.filter(order => assignedOrderIds.has(order.id));
+    } else if (shippedFilter === 'unassigned') {
+      const assignedOrderIds = new Set(deliveryTracking.map(t => t.order_id));
+      filtered = filtered.filter(order => !assignedOrderIds.has(order.id));
+    }
+
+    return filtered;
+  };
+
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
@@ -349,6 +424,21 @@ function DeliveryPage() {
                 {pendingOrders.length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {pendingOrders.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('shipped')}
+                className={`${
+                  activeTab === 'shipped'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm relative`}
+              >
+                Shipped Orders ({getShippedOrders().length})
+                {getShippedOrders().filter(order => !deliveryTracking.some(t => t.order_id === order.id)).length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {getShippedOrders().filter(order => !deliveryTracking.some(t => t.order_id === order.id)).length}
                   </span>
                 )}
               </button>
@@ -461,34 +551,74 @@ function DeliveryPage() {
                           <p className="text-xs text-gray-600 mb-2 font-medium">Access Information:</p>
                           <div className="space-y-2">
                             <div>
-                              <p className="text-xs text-gray-600 mb-1">Access Code:</p>
+                              <p className="text-xs text-gray-600 mb-1">Phone Number:</p>
                               <p className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border">{account.phone_number}</p>
                             </div>
-                            <div>
-                              <p className="text-xs text-gray-600 mb-1">Login URL:</p>
-                              <div className="flex items-center space-x-2">
-                                <p className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border flex-1">
-                                  https://www.avrioxshop.com/delivery/login
-                                </p>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(`Access Code: ${account.phone_number}\nLogin URL: https://www.avrioxshop.com/delivery/login`);
-                                    toast.success('Access information copied to clipboard!');
-                                  }}
-                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                                >
-                                  <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                  </svg>
-                                  Copy
-                                </button>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => generateAccessToken(account.id)}
+                                disabled={generatingToken === account.id}
+                                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors disabled:opacity-50"
+                              >
+                                {generatingToken === account.id ? (
+                                  <>
+                                    <svg className="animate-spin h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Generating...
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    Generate Access Link
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            
+                            {/* Show generated token if available */}
+                            {generatedToken && generatedToken.accountId === account.id && (
+                              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
+                                <p className="text-xs text-green-800 mb-2 font-medium">Generated Access Information:</p>
+                                <div className="space-y-2">
+                                  <div>
+                                    <p className="text-xs text-gray-600 mb-1">Access Token:</p>
+                                    <p className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border">{generatedToken.token}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-600 mb-1">Access Link:</p>
+                                    <div className="flex items-center space-x-2">
+                                      <p className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border flex-1 text-xs">
+                                        {generatedToken.link}
+                                      </p>
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(`Access Token: ${generatedToken.token}\nAccess Link: ${generatedToken.link}\nExpires: ${new Date(generatedToken.expiresAt).toLocaleString()}`);
+                                          toast.success('Access information copied to clipboard!');
+                                        }}
+                                        className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                                      >
+                                        <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        Copy
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-600">
+                                    Expires: {new Date(generatedToken.expiresAt).toLocaleString()}
+                                  </div>
+                                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                                    <p className="text-xs text-blue-800">
+                                      💡 Share this access link with the delivery person. The token will expire in 24 hours for security.
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                              <p className="text-xs text-blue-800">
-                                💡 Share this information with the delivery person. They can use their phone number as the access code to log in.
-                              </p>
-                            </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -729,6 +859,275 @@ function DeliveryPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'shipped' ? (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                Shipped Orders ({getShippedOrders().length})
+              </h3>
+              
+              {/* Filters */}
+              <div className="mb-6 bg-gray-50 rounded-lg p-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Search */}
+                  <div className="flex-1">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by customer name, product, or order ID..."
+                        value={shippedSearchTerm}
+                        onChange={(e) => setShippedSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Assignment Filter */}
+                  <div className="flex gap-4">
+                    <select
+                      value={shippedFilter}
+                      onChange={(e) => setShippedFilter(e.target.value)}
+                      className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value="all">All Shipped Orders</option>
+                      <option value="unassigned">Unassigned Only</option>
+                      <option value="assigned">Assigned Only</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {getFilteredShippedOrders().length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">
+                    {getShippedOrders().length === 0 
+                      ? "No shipped orders found." 
+                      : "No shipped orders match your filters."}
+                  </p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    {getShippedOrders().length === 0 
+                      ? "Orders will appear here when they are marked as shipped." 
+                      : "Try adjusting your search or filter criteria."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {getFilteredShippedOrders().map((order) => {
+                    const isAssigned = deliveryTracking.some(t => t.order_id === order.id);
+                    const assignedTracking = deliveryTracking.find(t => t.order_id === order.id);
+                    
+                    return (
+                      <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="text-lg font-medium text-gray-900">
+                                Order #{order.id.slice(0, 8)}
+                              </h4>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {new Date(order.created_at).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </p>
+                              {isAssigned && assignedTracking && (
+                                <p className="text-sm text-blue-600 mt-1">
+                                  <svg className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                  Assigned to: {assignedTracking.delivery_accounts.delivery_person_name} ({assignedTracking.delivery_accounts.phone_number})
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xl font-semibold text-green-600">
+                                {formatCurrency(order.total_price)}
+                              </p>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                isAssigned ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                              }`}>
+                                {isAssigned ? 'Assigned' : 'Ready for Assignment'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="px-6 py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Customer Information */}
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-900 mb-3">Customer Information</h5>
+                              <div className="space-y-2">
+                                <div className="flex items-center">
+                                  <svg className="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                  <span className="text-sm text-gray-900">{order.users.full_name}</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <svg className="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                  </svg>
+                                  <span className="text-sm text-gray-600">{order.users.email}</span>
+                                </div>
+                                {order.users.phone && (
+                                  <div className="flex items-center">
+                                    <svg className="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                    <span className="text-sm text-gray-600">{order.users.phone}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Product Information */}
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-900 mb-3">Product Information</h5>
+                              <div className="space-y-2">
+                                <div className="flex items-start">
+                                  <svg className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                  </svg>
+                                  <div className="text-sm text-gray-900">
+                                    <p className="font-medium">{order.products.title}</p>
+                                    <p className="text-gray-600 text-xs line-clamp-2">{order.products.description}</p>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <span className="text-xs text-gray-500">
+                                        Qty: {order.quantity} × {formatCurrency(order.products.price)}
+                                      </span>
+                                      <span className="text-xs font-medium text-green-600">
+                                        {formatCurrency(order.products.price * order.quantity)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Delivery Address */}
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-900 mb-3">Delivery Address</h5>
+                              <div className="space-y-2">
+                                {(() => {
+                                  try {
+                                    const address = JSON.parse(order.delivery_address);
+                                    return (
+                                      <div className="space-y-1">
+                                        <div className="flex items-start">
+                                          <svg className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                          </svg>
+                                          <div className="text-sm text-gray-600">
+                                            <p className="font-medium">{address.houseNo} {address.landmark || ''}</p>
+                                            <p>{address.city}, {address.subCity}</p>
+                                            <p>Wereda: {address.wereda}, Kebele: {address.kebele}</p>
+                                            {address.mapLink && (
+                                              <a
+                                                href={address.mapLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-indigo-600 hover:text-indigo-900 text-xs inline-flex items-center mt-1"
+                                              >
+                                                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                                View on Map
+                                              </a>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  } catch {
+                                    return (
+                                      <div className="flex items-start">
+                                        <svg className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        <span className="text-sm text-gray-600">{order.delivery_address}</span>
+                                      </div>
+                                    );
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Assignment Actions */}
+                          <div className="mt-6 pt-4 border-t border-gray-200">
+                            <div className="flex justify-between items-center">
+                              <div className="text-sm text-gray-500">
+                                {isAssigned ? (
+                                  <>
+                                    <span className="font-medium text-blue-600">Already assigned</span>
+                                    <p className="text-xs mt-1">This order has been assigned to a delivery person</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-medium text-green-600">Ready for assignment</span>
+                                    <p className="text-xs mt-1">Select a delivery person to assign this order</p>
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                {!isAssigned ? (
+                                  deliveryAccounts.filter(acc => acc.is_active).length > 0 ? (
+                                    <div className="flex items-center space-x-2">
+                                      <label htmlFor={`assign-shipped-${order.id}`} className="text-sm font-medium text-gray-700">
+                                        Assign to:
+                                      </label>
+                                      <select
+                                        id={`assign-shipped-${order.id}`}
+                                        onChange={(e) => {
+                                          if (e.target.value) {
+                                            assignDelivery(order.id, e.target.value);
+                                          }
+                                        }}
+                                        className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                        defaultValue=""
+                                      >
+                                        <option value="" disabled>
+                                          Select delivery person
+                                        </option>
+                                        {deliveryAccounts.filter(acc => acc.is_active).map(account => (
+                                          <option key={account.id} value={account.id}>
+                                            {account.delivery_person_name} ({account.phone_number})
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm text-gray-500 bg-yellow-50 px-3 py-2 rounded-md">
+                                      No active delivery accounts available
+                                    </div>
+                                  )
+                                ) : (
+                                  <div className="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
+                                    ✓ Assigned to delivery person
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

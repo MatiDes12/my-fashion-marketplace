@@ -1,56 +1,70 @@
 'use client';
 
-import { useState } from 'react';
-import { createClientComponent } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 
 export default function DeliveryLogin() {
-  const [accessCode, setAccessCode] = useState('');
+  const [accessToken, setAccessToken] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validatingToken, setValidatingToken] = useState(false);
   const router = useRouter();
-  const supabase = createClientComponent();
+  const searchParams = useSearchParams();
+
+  // Check for token in URL on component mount
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (token) {
+      setAccessToken(token);
+      handleTokenValidation(token);
+    }
+  }, [searchParams]);
+
+  const handleTokenValidation = async (token: string) => {
+    setValidatingToken(true);
+    
+    try {
+      const response = await fetch('/api/delivery/validate-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ accessToken: token }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Store delivery account info in session storage
+        sessionStorage.setItem('deliveryAccount', JSON.stringify(data.deliveryAccount));
+        toast.success(`Welcome, ${data.deliveryAccount.name}!`);
+        router.push('/delivery');
+      } else {
+        toast.error(data.error || 'Invalid access token');
+        // Clear the token from URL
+        router.replace('/delivery/login');
+      }
+    } catch (error) {
+      console.error('Token validation error:', error);
+      toast.error('Failed to validate access token');
+      router.replace('/delivery/login');
+    } finally {
+      setValidatingToken(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    try {
-      // Find delivery account by access code (using phone number as access code)
-      const { data: accountData, error: accountError } = await supabase
-        .from('delivery_accounts')
-        .select('id, delivery_person_name, phone_number, is_active')
-        .eq('phone_number', accessCode)
-        .eq('is_active', true)
-        .single();
-
-      if (accountError || !accountData) {
-        toast.error('Invalid access code or account not found.');
-        return;
-      }
-
-      if (!accountData.is_active) {
-        toast.error('This delivery account is not active.');
-        return;
-      }
-
-      // Store delivery account info in session storage for the delivery dashboard
-      sessionStorage.setItem('deliveryAccount', JSON.stringify({
-        id: accountData.id,
-        name: accountData.delivery_person_name,
-        phone: accountData.phone_number
-      }));
-
-      toast.success(`Welcome, ${accountData.delivery_person_name}!`);
-      router.push('/delivery');
-    } catch (error: any) {
-      console.error('Login error:', error);
-      toast.error('Invalid access code. Please check with your administrator.');
-    } finally {
-      setLoading(false);
+    if (!accessToken.trim()) {
+      toast.error('Please enter your access token');
+      return;
     }
+    
+    setLoading(true);
+    await handleTokenValidation(accessToken.trim());
+    setLoading(false);
   };
 
   return (
@@ -66,48 +80,56 @@ export default function DeliveryLogin() {
             Delivery Dashboard Access
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Enter your access code to view your deliveries
+            {validatingToken ? 'Validating your access token...' : 'Enter your access token to view your deliveries'}
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div>
-            <label htmlFor="access-code" className="sr-only">
-              Access Code
-            </label>
-            <input
-              id="access-code"
-              name="accessCode"
-              type="text"
-              required
-              value={accessCode}
-              onChange={(e) => setAccessCode(e.target.value)}
-              className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm"
-              placeholder="Enter your phone number (e.g., +251912345678)"
-            />
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-            >
-              {loading ? <LoadingSpinner /> : 'Access Dashboard'}
-            </button>
-          </div>
-
+        
+        {validatingToken ? (
           <div className="text-center">
-            <p className="text-sm text-gray-500 mb-2">
-              Your access code is your phone number
-            </p>
-            <Link
-              href="/"
-              className="font-medium text-green-600 hover:text-green-500"
-            >
-              Back to Homepage
-            </Link>
+            <LoadingSpinner />
+            <p className="mt-4 text-sm text-gray-600">Please wait while we validate your access...</p>
           </div>
-        </form>
+        ) : (
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+            <div>
+              <label htmlFor="access-token" className="sr-only">
+                Access Token
+              </label>
+              <input
+                id="access-token"
+                name="accessToken"
+                type="text"
+                required
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm"
+                placeholder="Enter your access token (e.g., ABC123DEF456)"
+              />
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+              >
+                {loading ? <LoadingSpinner /> : 'Access Dashboard'}
+              </button>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-500 mb-2">
+                Your access token was provided by your administrator
+              </p>
+              <Link
+                href="/"
+                className="font-medium text-green-600 hover:text-green-500"
+              >
+                Back to Homepage
+              </Link>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
