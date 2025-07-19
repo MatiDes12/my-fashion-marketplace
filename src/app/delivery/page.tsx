@@ -68,9 +68,61 @@ function DeliveryDashboard() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showDeliveryProofNotification, setShowDeliveryProofNotification] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
 
   const router = useRouter();
   const supabase = createClientComponent();
+
+  // Tab configuration
+  const tabs = [
+    { 
+      id: 'all', 
+      label: 'All Deliveries', 
+      count: deliveries.length,
+      icon: '📦',
+      color: 'gray'
+    },
+    { 
+      id: 'assigned', 
+      label: 'Assigned', 
+      count: deliveries.filter(d => d.status === 'assigned').length,
+      icon: '⏰',
+      color: 'amber'
+    },
+    { 
+      id: 'picked_up', 
+      label: 'Picked Up', 
+      count: deliveries.filter(d => d.status === 'picked_up').length,
+      icon: '📥',
+      color: 'blue'
+    },
+    { 
+      id: 'in_transit', 
+      label: 'In Transit', 
+      count: deliveries.filter(d => d.status === 'in_transit').length,
+      icon: '🚚',
+      color: 'blue'
+    },
+    { 
+      id: 'delivered', 
+      label: 'Delivered', 
+      count: deliveries.filter(d => d.status === 'delivered').length,
+      icon: '✅',
+      color: 'emerald'
+    },
+    { 
+      id: 'failed', 
+      label: 'Failed', 
+      count: deliveries.filter(d => d.status === 'failed').length,
+      icon: '❌',
+      color: 'red'
+    },
+  ];
+
+  // Filter deliveries based on active tab
+  const filteredDeliveries = activeTab === 'all' 
+    ? deliveries 
+    : deliveries.filter(delivery => delivery.status === activeTab);
 
   useEffect(() => {
     // Get delivery account from cookies
@@ -249,27 +301,36 @@ function DeliveryDashboard() {
   if (error) return <ErrorMessage message={error} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       {/* Header */}
-      <div className="bg-white shadow-lg border-b">
+      <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 sm:py-6 space-y-4 sm:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                  <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="h-5 w-5 sm:h-6 sm:w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                 </div>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Delivery Dashboard</h1>
-                <p className="text-lg text-gray-600">Welcome back, <span className="font-semibold text-green-600">{deliveryAccount.name}</span></p>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Delivery Dashboard</h1>
+                <p className="text-sm sm:text-base text-gray-600">Welcome back, <span className="font-semibold text-emerald-600">{deliveryAccount.name}</span></p>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+              className="inline-flex items-center px-3 py-2 sm:px-4 sm:py-2 border border-red-200 text-sm font-medium rounded-lg text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 shadow-sm"
             >
               <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -282,60 +343,68 @@ function DeliveryDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Enhanced Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
               </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">Total Deliveries</h3>
-                <p className="text-3xl font-bold text-gray-900">{deliveries.length}</p>
+              <div className="ml-3 sm:ml-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-500">Total</h3>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{deliveries.length}</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-500">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 border-l-4 border-amber-500 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">Assigned</h3>
-                <p className="text-3xl font-bold text-yellow-600">
+              <div className="ml-3 sm:ml-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-500">Assigned</h3>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-amber-600">
                   {deliveries.filter(d => d.status === 'assigned').length}
                 </p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
               </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">In Transit</h3>
-                <p className="text-3xl font-bold text-blue-600">
+              <div className="ml-3 sm:ml-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-500">In Transit</h3>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600">
                   {deliveries.filter(d => d.status === 'in_transit').length}
                 </p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6 border-l-4 border-emerald-500 hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                </div>
               </div>
-              <div className="ml-4">
-                <h3 className="text-sm font-medium text-gray-500">Delivered</h3>
-                <p className="text-3xl font-bold text-green-600">
+              <div className="ml-3 sm:ml-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-500">Delivered</h3>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-emerald-600">
                   {deliveries.filter(d => d.status === 'delivered').length}
                 </p>
               </div>
@@ -344,51 +413,112 @@ function DeliveryDashboard() {
         </div>
 
         {/* Enhanced Deliveries List */}
-        <div className="bg-white shadow-xl rounded-xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <svg className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Your Deliveries ({deliveries.length})
+        <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-200">
+          <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+                  Your Deliveries ({filteredDeliveries.length})
                 </h3>
               </div>
             </div>
           </div>
-          <div className="p-6">
-            {deliveries.length === 0 ? (
+
+          {/* Tabs */}
+          <div className="border-b border-gray-200 bg-white">
+            <div className="px-4 sm:px-6">
+              <div className="flex space-x-1 sm:space-x-2 overflow-x-auto scrollbar-hide">
+                {tabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const colorClasses = {
+                    gray: isActive ? 'bg-gray-100 text-gray-700 border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50',
+                    amber: isActive ? 'bg-amber-100 text-amber-700 border-amber-200' : 'text-amber-600 hover:text-amber-700 hover:bg-amber-50',
+                    blue: isActive ? 'bg-blue-100 text-blue-700 border-blue-200' : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50',
+                    emerald: isActive ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50',
+                    red: isActive ? 'bg-red-100 text-red-700 border-red-200' : 'text-red-600 hover:text-red-700 hover:bg-red-50',
+                  };
+
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap border ${
+                        isActive
+                          ? `${colorClasses[tab.color as keyof typeof colorClasses]} shadow-sm`
+                          : `${colorClasses[tab.color as keyof typeof colorClasses]} border-transparent`
+                      }`}
+                    >
+                      <span className="flex items-center space-x-1 sm:space-x-2">
+                        <span className="text-sm sm:text-base">{tab.icon}</span>
+                        <span>{tab.label}</span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                          isActive
+                            ? tab.color === 'gray' ? 'bg-gray-200 text-gray-800' :
+                              tab.color === 'amber' ? 'bg-amber-200 text-amber-800' :
+                              tab.color === 'blue' ? 'bg-blue-200 text-blue-800' :
+                              tab.color === 'emerald' ? 'bg-emerald-200 text-emerald-800' :
+                              'bg-red-200 text-red-800'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-6">
+            {filteredDeliveries.length === 0 ? (
               <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                <h3 className="mt-4 text-lg font-medium text-gray-900">No deliveries assigned</h3>
-                <p className="mt-2 text-gray-500">You'll see your deliveries here once they're assigned to you.</p>
+                <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {activeTab === 'all' 
+                    ? 'No deliveries assigned' 
+                    : `No ${tabs.find(t => t.id === activeTab)?.label.toLowerCase()} deliveries`
+                  }
+                </h3>
+                <p className="text-gray-500">
+                  {activeTab === 'all' 
+                    ? "You'll see your deliveries here once they're assigned to you."
+                    : `No deliveries are currently ${activeTab.replace('_', ' ')}.`
+                  }
+                </p>
               </div>
             ) : (
-              <div className="space-y-6">
-                {deliveries.map((delivery) => (
-                  <div key={delivery.id} className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+              <div className="space-y-4 sm:space-y-6">
+                {filteredDeliveries.map((delivery) => (
+                  <div key={delivery.id} className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
                     {/* Header */}
-                    <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                      <div className="flex justify-between items-start">
+                    <div className="px-4 sm:px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-3 sm:space-y-0">
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
-                            <div className="w-10 h-10 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
-                              <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-lg flex items-center justify-center">
+                              <svg className="h-4 w-4 sm:h-5 sm:w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                               </svg>
                             </div>
                           </div>
                           <div>
-                            <h4 className="text-lg font-semibold text-gray-900">
+                            <h4 className="text-base sm:text-lg font-semibold text-gray-900">
                               Order #{delivery.order.id.slice(0, 8)}
                             </h4>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-xs sm:text-sm text-gray-500">
                               Assigned: {new Date(delivery.assigned_at).toLocaleDateString('en-US', {
                                 year: 'numeric',
-                                month: 'long',
+                                month: 'short',
                                 day: 'numeric',
                                 hour: '2-digit',
                                 minute: '2-digit'
@@ -396,14 +526,14 @@ function DeliveryDashboard() {
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-green-600">
-                            ${delivery.order.total_price}
+                        <div className="flex flex-col sm:text-right space-y-2">
+                          <p className="text-xl sm:text-2xl font-bold text-emerald-600">
+                            ETB {delivery.order.total_price?.toFixed(2) || '0.00'}
                           </p>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                            delivery.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                          <span className={`inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${
+                            delivery.status === 'delivered' ? 'bg-emerald-100 text-emerald-800' :
                             delivery.status === 'in_transit' ? 'bg-blue-100 text-blue-800' :
-                            delivery.status === 'picked_up' ? 'bg-yellow-100 text-yellow-800' :
+                            delivery.status === 'picked_up' ? 'bg-amber-100 text-amber-800' :
                             delivery.status === 'failed' ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
@@ -414,33 +544,35 @@ function DeliveryDashboard() {
                     </div>
 
                     {/* Content */}
-                    <div className="px-6 py-4">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="px-4 sm:px-6 py-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                         {/* Customer Information */}
                         <div className="space-y-4">
                           <div>
                             <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                              <svg className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                              </svg>
-                              Customer Information
-                            </h5>
-                            <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                              <div className="flex items-center">
-                                <svg className="h-4 w-4 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <div className="w-6 h-6 bg-gray-100 rounded-lg flex items-center justify-center mr-2">
+                                <svg className="h-3 w-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
-                                <span className="text-sm font-medium text-gray-900">{delivery.order.users.full_name}</span>
+                              </div>
+                              Customer Information
+                            </h5>
+                            <div className="bg-gray-50 rounded-lg p-3 sm:p-4 space-y-2">
+                              <div className="flex items-center">
+                                <svg className="h-4 w-4 text-gray-400 mr-2 sm:mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span className="text-sm font-medium text-gray-900 truncate">{delivery.order.users.full_name}</span>
                               </div>
                               <div className="flex items-center">
-                                <svg className="h-4 w-4 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="h-4 w-4 text-gray-400 mr-2 sm:mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
-                                <span className="text-sm text-gray-600">{delivery.order.users.email}</span>
+                                <span className="text-sm text-gray-600 truncate">{delivery.order.users.email}</span>
                               </div>
                               {delivery.order.users.phone && (
                                 <div className="flex items-center">
-                                  <svg className="h-4 w-4 text-gray-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <svg className="h-4 w-4 text-gray-400 mr-2 sm:mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                   </svg>
                                   <span className="text-sm text-gray-600">{delivery.order.users.phone}</span>
@@ -452,25 +584,27 @@ function DeliveryDashboard() {
                           {/* Product Information */}
                           <div>
                             <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                              <svg className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                              </svg>
-                              Product Information
-                            </h5>
-                            <div className="bg-blue-50 rounded-lg p-4 space-y-2">
-                              <div className="flex items-start">
-                                <svg className="h-4 w-4 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mr-2">
+                                <svg className="h-3 w-3 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                 </svg>
-                                <div className="text-sm text-blue-900">
-                                  <p className="font-semibold">{delivery.order.products.title}</p>
+                              </div>
+                              Product Information
+                            </h5>
+                            <div className="bg-blue-50 rounded-lg p-3 sm:p-4 space-y-2">
+                              <div className="flex items-start">
+                                <svg className="h-4 w-4 text-blue-500 mr-2 sm:mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                                <div className="text-sm text-blue-900 min-w-0 flex-1">
+                                  <p className="font-semibold truncate">{delivery.order.products.title}</p>
                                   <p className="text-xs text-blue-700 mt-1 line-clamp-2">{delivery.order.products.description}</p>
                                   <div className="flex items-center justify-between mt-2">
                                     <span className="text-xs text-blue-600">
-                                      Quantity: {delivery.order.quantity}
+                                      Qty: {delivery.order.quantity}
                                     </span>
                                     <span className="text-xs font-medium text-blue-800">
-                                      ${delivery.order.products.price} each
+                                      ETB {delivery.order.products.price} each
                                     </span>
                                   </div>
                                 </div>
@@ -482,17 +616,19 @@ function DeliveryDashboard() {
                           {delivery.order.pickup_code && (
                             <div>
                               <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                                <svg className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                </svg>
+                                <div className="w-6 h-6 bg-amber-100 rounded-lg flex items-center justify-center mr-2">
+                                  <svg className="h-3 w-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                  </svg>
+                                </div>
                                 Pickup Code
                               </h5>
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <p className="text-sm text-yellow-800">
+                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 sm:p-4">
+                                <p className="text-sm text-amber-800">
                                   <span className="font-semibold">Code:</span> 
-                                  <span className="font-mono font-bold text-lg ml-2 text-yellow-900">{delivery.order.pickup_code}</span>
+                                  <span className="font-mono font-bold text-base sm:text-lg ml-2 text-amber-900">{delivery.order.pickup_code}</span>
                                 </p>
-                                <p className="text-xs text-yellow-700 mt-1">Use this code when collecting the order</p>
+                                <p className="text-xs text-amber-700 mt-1">Use this code when collecting the order</p>
                               </div>
                             </div>
                           )}
@@ -501,16 +637,39 @@ function DeliveryDashboard() {
                         {/* Delivery Address */}
                         <div>
                           <h5 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                            <svg className="h-4 w-4 mr-2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
+                            <div className="w-6 h-6 bg-emerald-100 rounded-lg flex items-center justify-center mr-2">
+                              <svg className="h-3 w-3 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            </div>
                             Delivery Address
                           </h5>
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             {(() => {
                               try {
                                 const address = JSON.parse(delivery.order.delivery_address);
+                                
+                                // Extract street address from character keys (0, 1, 2, etc.)
+                                const streetAddressParts = [];
+                                let i = 0;
+                                while (address[i] !== undefined) {
+                                  streetAddressParts.push(address[i]);
+                                  i++;
+                                }
+                                const streetAddress = streetAddressParts.join('');
+                                
+                                // Build the full address
+                                const addressParts = [
+                                  address.houseNo && `House No. ${address.houseNo}`,
+                                  streetAddress,
+                                  address.landmark && `Near: ${address.landmark}`,
+                                  address.kebele && `Kebele ${address.kebele}`,
+                                  address.wereda && `Wereda ${address.wereda}`,
+                                  address.subCity,
+                                  address.city
+                                ].filter(Boolean);
+                                
                                 return (
                                   <div className="space-y-2">
                                     <div className="flex items-start">
@@ -518,10 +677,12 @@ function DeliveryDashboard() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                       </svg>
-                                      <div className="text-sm text-blue-900">
-                                        <p className="font-medium">{address.houseNo} {address.landmark || ''}</p>
-                                        <p>{address.city}, {address.subCity}</p>
-                                        <p>Wereda: {address.wereda}, Kebele: {address.kebele}</p>
+                                      <div className="text-sm text-blue-900 space-y-1">
+                                        {addressParts.map((part, index) => (
+                                          <p key={index} className="text-xs">
+                                            {part}
+                                          </p>
+                                        ))}
                                         {address.mapLink && (
                                           <a
                                             href={address.mapLink}
@@ -556,14 +717,16 @@ function DeliveryDashboard() {
                       </div>
 
                       {/* Action Button */}
-                      <div className="mt-6 pt-4 border-t border-gray-200">
+                      <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200">
                         <div className="flex justify-end">
                           {delivery.status === 'delivered' ? (
                             <div className="flex items-center space-x-2">
-                              <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <span className="text-green-600 font-medium">Delivery Completed</span>
+                              <div className="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <svg className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <span className="text-emerald-600 font-medium text-sm sm:text-base">Delivery Completed</span>
                             </div>
                           ) : (
                             <button
@@ -576,9 +739,9 @@ function DeliveryDashboard() {
                                 });
                                 setShowUpdateModal(true);
                               }}
-                              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 shadow-lg"
+                              className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 border border-transparent text-sm sm:text-base font-medium rounded-lg text-white bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 shadow-sm hover:shadow-md"
                             >
-                              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg className="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                               </svg>
                               Update Status
@@ -597,16 +760,16 @@ function DeliveryDashboard() {
         {/* Enhanced Update Status Modal */}
         {showUpdateModal && selectedDelivery && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-10 mx-auto p-0 border w-full max-w-md shadow-2xl rounded-xl bg-white">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+            <div className="relative top-4 sm:top-10 mx-auto p-0 border w-full max-w-md shadow-2xl rounded-xl bg-white">
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-lg flex items-center justify-center">
                       <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                       Update Delivery Status
                     </h3>
                   </div>
@@ -618,9 +781,9 @@ function DeliveryDashboard() {
                       setSelectedImage(null);
                       setImagePreview(null);
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 p-1"
                   >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>

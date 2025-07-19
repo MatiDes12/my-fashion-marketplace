@@ -482,10 +482,10 @@ export default function OrdersPage() {
         throw new Error('File type must be JPEG, PNG, or GIF');
       }
 
-      // Create a unique file path
+      // Create a unique file path with order-specific folder structure
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${session.user.id}/${fileName}`;
+      const filePath = `${selectedOrder?.id || session.user.id}/${fileName}`; // Use order ID as folder name
 
       console.log('Attempting to upload to:', filePath);
 
@@ -1901,6 +1901,37 @@ export default function OrdersPage() {
                               </div>
                               )}
                             </div>
+                            
+                            {/* Delivery Proof Image */}
+                            {order.order_status === 'delivered' && order.delivery_proof_image && (
+                              <div className="mt-3">
+                                <h6 className="text-xs font-medium text-gray-700 mb-2">Delivery Proof</h6>
+                                <div className="relative h-24 bg-white rounded border border-gray-200 overflow-hidden">
+                                  <img
+                                    src={order.delivery_proof_image}
+                                    alt="Delivery proof"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      const container = target.parentElement;
+                                      if (container) {
+                                        container.innerHTML = `
+                                          <div class="flex items-center justify-center h-full bg-gray-50">
+                                            <div class="text-center">
+                                              <svg class="mx-auto h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                              </svg>
+                                              <p class="mt-1 text-xs text-gray-500">Image not available</p>
+                                            </div>
+                                          </div>
+                                        `;
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

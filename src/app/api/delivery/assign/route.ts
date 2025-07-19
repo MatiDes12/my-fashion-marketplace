@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     // Verify the delivery account belongs to the seller
     const { data: accountData, error: accountError } = await supabase
       .from('delivery_accounts')
-      .select('seller_id, is_active')
+      .select('seller_id, is_active, delivery_person_name, phone_number')
       .eq('id', deliveryAccountId)
       .single();
 
@@ -82,6 +82,34 @@ export async function POST(request: NextRequest) {
     if (deliveryError) {
       console.error('Error creating delivery tracking:', deliveryError);
       return NextResponse.json({ error: 'Failed to assign delivery' }, { status: 500 });
+    }
+
+    // Create initial delivery status entry for customer tracking
+    const { error: statusError } = await supabase
+      .from('delivery_statuses')
+      .insert({
+        order_id: orderId,
+        delivery_account_id: deliveryAccountId,
+        status: 'confirmed',
+        notes: `Delivery assigned to ${accountData.delivery_person_name}`,
+        delivery_person_name: accountData.delivery_person_name,
+        delivery_person_phone: accountData.phone_number
+      });
+
+    if (statusError) {
+      console.error('Error creating delivery status entry:', statusError);
+      // Don't return error here as delivery tracking was already created
+    }
+
+    // Update order status to confirmed
+    const { error: orderUpdateError } = await supabase
+      .from('orders')
+      .update({ order_status: 'confirmed' })
+      .eq('id', orderId);
+
+    if (orderUpdateError) {
+      console.error('Error updating order status:', orderUpdateError);
+      // Don't return error here as delivery tracking was already created
     }
 
     return NextResponse.json({ 

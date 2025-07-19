@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File type must be JPEG, PNG, or GIF' }, { status: 400 });
     }
 
-    // Create a unique file path
+    // Create a unique file path with delivery folder structure
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `delivery-proofs/${fileName}`;
+    const filePath = `${deliveryId}/${fileName}`; // Save in delivery-specific folder
 
     // Upload image to Supabase Storage
     const { error: uploadError, data } = await supabase.storage

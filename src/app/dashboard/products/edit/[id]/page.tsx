@@ -115,6 +115,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     pickup_location: '',
     delivery_time: ''
   });
+  const [useStoreAddress, setUseStoreAddress] = useState(false);
+  const [storeAddress, setStoreAddress] = useState('');
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isSavingCustomCategory, setIsSavingCustomCategory] = useState(false);
 
@@ -144,6 +146,43 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         
         if (!customCategoriesError && customCategoriesData) {
           setCustomCategories(customCategoriesData.map(cat => cat.name));
+        }
+
+        // Fetch user's store address
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('store_settings')
+            .eq('id', session.user.id)
+            .single();
+
+          if (userData?.store_settings?.address) {
+            const address = userData.store_settings.address;
+            
+            // Extract street address from character keys (0, 1, 2, etc.)
+            const streetAddressParts = [];
+            let i = 0;
+            while (address[i] !== undefined) {
+              streetAddressParts.push(address[i]);
+              i++;
+            }
+            const streetAddress = streetAddressParts.join('');
+            
+            // Build the full address
+            const addressParts = [
+              address.houseNo,
+              streetAddress,
+              address.landmark,
+              address.kebele,
+              address.wereda,
+              address.subCity,
+              address.city
+            ].filter(Boolean);
+            
+            const formattedAddress = addressParts.join(', ');
+            setStoreAddress(formattedAddress);
+          }
         }
 
         // Fetch product with images from the product_images table
@@ -464,6 +503,10 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
       // Validate required fields
       if (!title || !description || !price || !category || !quantity) {
         throw new Error('Please fill in all required fields');
+      }
+
+      if (deliveryOptions.pickup && !deliveryOptions.pickup_location) {
+        throw new Error('Please provide a pickup location when store pickup is selected');
       }
 
       // Generate variants based on sizes and colors if no specific variants are set
@@ -1094,20 +1137,55 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     </div>
 
                     {deliveryOptions.pickup && (
-                      <div className="ml-7">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Pickup Location
-                        </label>
-                        <textarea
-                          value={deliveryOptions.pickup_location}
-                          onChange={(e) => setDeliveryOptions(prev => ({
-                            ...prev,
-                            pickup_location: e.target.value
-                          }))}
-                          placeholder="Enter pickup address and instructions"
-                          className={textareaClasses}
-                          rows={2}
-                        />
+                      <div className="ml-7 space-y-4">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            id="useStoreAddress"
+                            checked={useStoreAddress}
+                            onChange={(e) => {
+                              setUseStoreAddress(e.target.checked);
+                              if (e.target.checked) {
+                                setDeliveryOptions(prev => ({
+                                  ...prev,
+                                  pickup_location: storeAddress
+                                }));
+                              } else {
+                                setDeliveryOptions(prev => ({
+                                  ...prev,
+                                  pickup_location: ''
+                                }));
+                              }
+                            }}
+                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="useStoreAddress" className="text-sm text-gray-700">
+                            Use my store address
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Pickup Location <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            value={deliveryOptions.pickup_location}
+                            onChange={(e) => setDeliveryOptions(prev => ({
+                              ...prev,
+                              pickup_location: e.target.value
+                            }))}
+                            placeholder={useStoreAddress ? storeAddress : "Enter pickup address and instructions"}
+                            className={textareaClasses}
+                            rows={3}
+                            required={deliveryOptions.pickup}
+                            disabled={useStoreAddress}
+                          />
+                          {useStoreAddress && storeAddress && (
+                            <p className="mt-1 text-sm text-gray-500">
+                              Using your store address: {storeAddress}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
 

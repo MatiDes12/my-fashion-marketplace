@@ -7,11 +7,38 @@ import Image from 'next/image';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { toast } from 'react-hot-toast';
-import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, TruckIcon, MapPinIcon, CheckCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import PickupCodeDisplay from '@/components/PickupCodeDisplay';
+import DeliveryMap from '@/components/DeliveryMap';
+
+// Add delivery tracking types
+interface DeliveryStatus {
+  id: string;
+  order_id: string;
+  delivery_account_id?: string;
+  status: 'pending' | 'confirmed' | 'shipped' | 'in_transit' | 'out_for_delivery' | 'delivered';
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+  created_at: string;
+  delivery_person_name?: string;
+  delivery_person_phone?: string;
+  proof_image?: string;
+}
+
+interface TrackingStep {
+  status: DeliveryStatus['status'];
+  title: string;
+  description: string;
+  icon: React.ComponentType<any>;
+  completed: boolean;
+  current: boolean;
+  timestamp?: string;
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -32,6 +59,12 @@ export default function OrdersPage() {
   const [isPickupCodeModalOpen, setIsPickupCodeModalOpen] = useState(false);
   const [selectedPickupOrder, setSelectedPickupOrder] = useState<any>(null);
   
+  // Add delivery tracking states
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<any>(null);
+  const [deliveryStatuses, setDeliveryStatuses] = useState<DeliveryStatus[]>([]);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+
   const fetchOrders = async (userId: string) => {
     const { data, error } = await supabase
       .from('orders')
@@ -277,6 +310,152 @@ export default function OrdersPage() {
       return null;
     }
   };
+
+  // Add function to fetch delivery statuses
+  const fetchDeliveryStatuses = async (orderId: string) => {
+    try {
+      setTrackingLoading(true);
+      const response = await fetch(`/api/delivery/status/${orderId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch delivery statuses');
+      }
+      
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Error fetching delivery statuses:', error);
+      return [];
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  // Add function to generate tracking steps
+  const generateTrackingSteps = (order: any, statuses: DeliveryStatus[]): TrackingStep[] => {
+    const currentStatus = order.order_status;
+    
+    // Get the latest delivery status to determine the actual progress
+    const latestDeliveryStatus = statuses.length > 0 ? statuses[statuses.length - 1].status : null;
+    
+    // Check if any delivery status indicates in_transit
+    const hasInTransitStatus = statuses.some(s => s.status === 'in_transit' || s.status === 'out_for_delivery');
+    
+    const steps: TrackingStep[] = [
+      {
+        status: 'pending',
+        title: 'Order Placed',
+        description: 'Your order has been placed and is being processed',
+        icon: ClockIcon,
+        completed: ['pending', 'confirmed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered'].includes(currentStatus),
+        current: currentStatus === 'pending',
+        timestamp: order.created_at
+      },
+      {
+        status: 'confirmed',
+        title: 'Order Confirmed',
+        description: 'Your order has been confirmed by the seller',
+        icon: CheckCircleIcon,
+        completed: ['confirmed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered'].includes(currentStatus) || latestDeliveryStatus === 'confirmed',
+        current: currentStatus === 'confirmed' && !hasInTransitStatus && latestDeliveryStatus !== 'delivered',
+        timestamp: statuses.find(s => s.status === 'confirmed')?.created_at
+      },
+      {
+        status: 'shipped',
+        title: 'Order Shipped',
+        description: 'Your order has been shipped and is on its way',
+        icon: TruckIcon,
+        completed: ['shipped', 'in_transit', 'out_for_delivery', 'delivered'].includes(currentStatus) || hasInTransitStatus || latestDeliveryStatus === 'delivered',
+        current: currentStatus === 'shipped' && !hasInTransitStatus && latestDeliveryStatus !== 'delivered',
+        timestamp: statuses.find(s => s.status === 'shipped')?.created_at
+      },
+      {
+        status: 'in_transit',
+        title: 'In Transit',
+        description: 'Your order is being transported to your location',
+        icon: TruckIcon,
+        completed: hasInTransitStatus || latestDeliveryStatus === 'delivered',
+        current: hasInTransitStatus && latestDeliveryStatus !== 'delivered',
+        timestamp: statuses.find(s => s.status === 'in_transit')?.created_at || statuses.find(s => s.status === 'out_for_delivery')?.created_at
+      },
+      {
+        status: 'delivered',
+        title: 'Delivered',
+        description: 'Your order has been successfully delivered',
+        icon: CheckCircleIcon,
+        completed: currentStatus === 'delivered' || latestDeliveryStatus === 'delivered',
+        current: latestDeliveryStatus === 'delivered',
+        timestamp: statuses.find(s => s.status === 'delivered')?.created_at
+      }
+    ];
+
+    // If delivered, mark all steps as completed
+    if (currentStatus === 'delivered' || latestDeliveryStatus === 'delivered') {
+      steps.forEach(step => {
+        step.completed = true;
+        step.current = false;
+      });
+      // Mark delivered as current
+      steps[steps.length - 1].current = true;
+    }
+
+    return steps;
+  };
+
+  // Add function to handle tracking modal open
+  const handleTrackingOpen = async (order: any) => {
+    setSelectedTrackingOrder(order);
+    setIsTrackingModalOpen(true);
+    
+    // Fetch delivery statuses
+    const statuses = await fetchDeliveryStatuses(order.id);
+    setDeliveryStatuses(statuses);
+  };
+
+  // Add function to format timestamp
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Add function to get delivery person info
+  const getDeliveryPersonInfo = () => {
+    const lastStatus = deliveryStatuses[deliveryStatuses.length - 1];
+    if (lastStatus?.delivery_person_name) {
+      return {
+        name: lastStatus.delivery_person_name,
+        phone: lastStatus.delivery_person_phone
+      };
+    }
+    return null;
+  };
+
+  // Add function to clean up image URL
+  const cleanImageUrl = (url: string | undefined): string => {
+    if (!url) return '';
+    
+    // Fix duplicate path segments in Supabase storage URLs
+    if (url.includes('/delivery-proofs/delivery-proofs/')) {
+      return url.replace('/delivery-proofs/delivery-proofs/', '/delivery-proofs/');
+    }
+    
+    // Also handle cases where the URL might have other path issues
+    if (url.includes('/storage/v1/object/public/delivery-proofs/')) {
+      // Ensure the URL is properly formatted
+      const baseUrl = url.split('/storage/v1/object/public/delivery-proofs/')[0];
+      const fileName = url.split('/delivery-proofs/').pop();
+      if (fileName) {
+        return `${baseUrl}/storage/v1/object/public/delivery-proofs/${fileName}`;
+      }
+    }
+    
+    return url;
+  };
   
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -370,66 +549,206 @@ export default function OrdersPage() {
                 <div className="divide-y divide-gray-200">
                   {orderGroup.orders.map((order: any) => (
                     <div key={order.id} className="p-6 hover:bg-gray-50">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 w-20 h-20 bg-gray-100 rounded-md overflow-hidden">
-                      {order.product?.images && order.product.images.length > 0 ? (
-                        <Image
-                          src={order.product.images[0].image_url}
-                          alt={order.product.title}
-                          width={80}
-                          height={80}
-                          className="w-full h-full object-center object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
+                      <div className="flex items-start space-x-4">
+                        {/* Product Image */}
+                        <div className="flex-shrink-0 w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
+                          {order.product?.images && order.product.images.length > 0 ? (
+                            <Image
+                              src={order.product.images[0].image_url}
+                              alt={order.product.title}
+                              width={96}
+                              height={96}
+                              className="w-full h-full object-center object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="ml-6 flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          <button 
-                            onClick={() => router.push(`/products/${order.product?.id}`)}
-                            className="hover:text-green-600"
-                          >
-                            {order.product?.title || 'Product Unavailable'}
-                          </button>
-                        </h3>
-                        <p className="ml-4 text-lg font-medium text-gray-900">
-                          ETB {order.total_price?.toFixed(2) || '0.00'}
-                        </p>
-                      </div>
-                      <div className="mt-2 space-y-1">
-                        <p className="mt-1 text-sm text-gray-500">
-                          Seller: {order.product?.seller?.store_settings?.name || 
-                                   order.product?.seller?.full_name || 
-                                   'Unknown Seller'}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500">
-                          Contact: {order.product?.seller?.store_settings?.email || 'N/A'} | {order.product?.seller?.store_settings?.phone || 'N/A'}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500">
-                          Address: {order.product?.seller?.store_settings?.address?.city || 'N/A'}, {order.product?.seller?.store_settings?.address?.subCity || ''}
-                        </p>
-                        <p className="mt-1 text-sm text-gray-500">Quantity: {order.quantity}</p>
-                        <p className="mt-1 text-sm text-gray-500">Price per item: ETB {order.product?.price}</p>
-                        
-                            {order.selected_variant_sku && (
-                              <p className="mt-1 text-sm text-gray-500">Variant: {order.selected_variant_sku}</p>
-                            )}
-                            {order.selected_size && (
-                              <p className="mt-1 text-sm text-gray-500">Size: {order.selected_size}</p>
-                            )}
-                            {order.selected_color && (
-                              <p className="mt-1 text-sm text-gray-500">Color: {order.selected_color}</p>
+
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                <button 
+                                  onClick={() => router.push(`/products/${order.product?.id}`)}
+                                  className="hover:text-green-600 transition-colors"
+                                >
+                                  {order.product?.title || 'Product Unavailable'}
+                                </button>
+                              </h3>
+                              
+                              {/* Product Specifications */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                <div className="space-y-2">
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <span className="font-medium w-20">Quantity:</span>
+                                    <span>{order.quantity}</span>
+                                  </div>
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <span className="font-medium w-20">Price:</span>
+                                    <span>ETB {order.product?.price}</span>
+                                  </div>
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <span className="font-medium w-20">Total:</span>
+                                    <span className="font-semibold text-gray-900">ETB {order.total_price?.toFixed(2) || '0.00'}</span>
+                                  </div>
+                                  {order.selected_variant_sku && (
+                                    <div className="flex items-center text-sm text-gray-600">
+                                      <span className="font-medium w-20">SKU:</span>
+                                      <span>{order.selected_variant_sku}</span>
+                                    </div>
                                   )}
-                            
-                            <p className="mt-1 text-sm text-gray-500">
-                              Delivery Method: {order.delivery_method ? order.delivery_method.replace('_', ' ').toUpperCase() : 'N/A'}
-                            </p>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  {order.selected_size && (
+                                    <div className="flex items-center text-sm text-gray-600">
+                                      <span className="font-medium w-20">Size:</span>
+                                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">{order.selected_size}</span>
+                                    </div>
+                                  )}
+                                  {order.selected_color && (
+                                    <div className="flex items-center text-sm text-gray-600">
+                                      <span className="font-medium w-20">Color:</span>
+                                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">{order.selected_color}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <span className="font-medium w-20">Delivery:</span>
+                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                      {order.delivery_method ? order.delivery_method.replace('_', ' ').toUpperCase() : 'N/A'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Seller Information */}
+                              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-2">Seller Information</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-sm text-gray-600">
+                                      <span className="font-medium">Name:</span> {order.product?.seller?.store_settings?.name || 
+                                               order.product?.seller?.full_name || 
+                                               'Unknown Seller'}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      <span className="font-medium">Email:</span> {order.product?.seller?.store_settings?.email || 'N/A'}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      <span className="font-medium">Phone:</span> {order.product?.seller?.store_settings?.phone || 'N/A'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Addresses */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                {/* Store Address */}
+                                {order.product?.seller?.store_settings?.address && (
+                                  <div className="bg-blue-50 rounded-lg p-4">
+                                    <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
+                                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                      </svg>
+                                      Store Address
+                                    </h4>
+                                    {(() => {
+                                      const address = order.product.seller.store_settings.address;
+                                      const streetAddressParts = [];
+                                      let i = 0;
+                                      while (address[i] !== undefined) {
+                                        streetAddressParts.push(address[i]);
+                                        i++;
+                                      }
+                                      const streetAddress = streetAddressParts.join('');
+                                      
+                                      const addressParts = [
+                                        address.houseNo && `House No. ${address.houseNo}`,
+                                        streetAddress,
+                                        address.landmark && `Near: ${address.landmark}`,
+                                        address.kebele && `Kebele ${address.kebele}`,
+                                        address.wereda && `Wereda ${address.wereda}`,
+                                        address.subCity,
+                                        address.city
+                                      ].filter(Boolean);
+                                      
+                                      return (
+                                        <div className="text-sm text-blue-800 space-y-1">
+                                          {addressParts.map((part, index) => (
+                                            <p key={index} className="text-xs">
+                                              {part}
+                                            </p>
+                                          ))}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+
+                                {/* Delivery Address */}
+                                {order.delivery_address && (
+                                  <div className="bg-green-50 rounded-lg p-4">
+                                    <h4 className="text-sm font-semibold text-green-900 mb-2 flex items-center">
+                                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      </svg>
+                                      Delivery Address
+                                    </h4>
+                                    {(() => {
+                                      let deliveryAddress;
+                                      try {
+                                        deliveryAddress = typeof order.delivery_address === 'string' 
+                                          ? JSON.parse(order.delivery_address) 
+                                          : order.delivery_address;
+                                      } catch (e) {
+                                        deliveryAddress = { address: order.delivery_address };
+                                      }
+
+                                      if (deliveryAddress.address) {
+                                        return (
+                                          <p className="text-sm text-green-800 text-xs">
+                                            {deliveryAddress.address}
+                                          </p>
+                                        );
+                                      } else if (deliveryAddress.city || deliveryAddress.subCity) {
+                                        const addressParts = [
+                                          deliveryAddress.houseNo && `House No. ${deliveryAddress.houseNo}`,
+                                          deliveryAddress.streetAddress,
+                                          deliveryAddress.landmark && `Near: ${deliveryAddress.landmark}`,
+                                          deliveryAddress.kebele && `Kebele ${deliveryAddress.kebele}`,
+                                          deliveryAddress.wereda && `Wereda ${deliveryAddress.wereda}`,
+                                          deliveryAddress.subCity,
+                                          deliveryAddress.city
+                                        ].filter(Boolean);
+
+                                        return (
+                                          <div className="text-sm text-green-800 space-y-1">
+                                            {addressParts.map((part, index) => (
+                                              <p key={index} className="text-xs">
+                                                {part}
+                                              </p>
+                                            ))}
+                                          </div>
+                                        );
+                                      } else {
+                                        return (
+                                          <p className="text-sm text-green-800 text-xs">
+                                            Address not available
+                                          </p>
+                                        );
+                                      }
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -470,6 +789,22 @@ export default function OrdersPage() {
                     </div>
                     
                     <div className="flex space-x-3">
+                      {/* Add Track Delivery Button */}
+                      {orderGroup.orders[0].delivery_method === 'home_delivery' && 
+                       orderGroup.orders[0].order_status !== 'cancelled' && (
+                        <button
+                          onClick={() => handleTrackingOpen(orderGroup.orders[0])}
+                          className={`inline-flex items-center px-3 py-1 border shadow-sm text-sm font-medium rounded-md ${
+                            orderGroup.orders[0].order_status === 'delivered' 
+                              ? 'border-green-600 text-green-600 bg-white hover:bg-green-50'
+                              : 'border-blue-600 text-blue-600 bg-white hover:bg-blue-50'
+                          }`}
+                        >
+                          <TruckIcon className="h-4 w-4 mr-2" />
+                          {orderGroup.orders[0].order_status === 'delivered' ? 'View Delivery' : 'Track Delivery'}
+                        </button>
+                      )}
+                      
                       {orderGroup.orders[0].pickup_code && (
                         <button
                           onClick={() => {
@@ -711,6 +1046,336 @@ export default function OrdersPage() {
                           <p className="mt-2">Code not yet verified</p>
                         )}
                       </div>
+                    </div>
+                  )}
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
+
+      {/* Delivery Tracking Modal */}
+      <Transition.Root show={isTrackingModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-[9999]" onClose={setIsTrackingModalOpen}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 z-[9999] overflow-y-auto">
+            <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                enterTo="opacity-100 translate-y-0 sm:scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+                leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              >
+                <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl sm:p-6">
+                  <div className="absolute right-0 top-0 pr-4 pt-4">
+                    <button
+                      type="button"
+                      className="rounded-md bg-white text-gray-400 hover:text-gray-500"
+                      onClick={() => setIsTrackingModalOpen(false)}
+                    >
+                      <XMarkIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+                  
+                  {selectedTrackingOrder && (
+                    <div className="space-y-6">
+                      <div>
+                        <Dialog.Title as="h3" className="text-lg font-semibold leading-6 text-gray-900">
+                          Delivery Tracking
+                        </Dialog.Title>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Order #{selectedTrackingOrder.id.substring(0, 8)} • {selectedTrackingOrder.product?.title}
+                        </p>
+                      </div>
+
+                      {trackingLoading ? (
+                        <div className="flex justify-center py-8">
+                          <LoadingSpinner />
+                        </div>
+                      ) : (
+                        <>
+                          {/* Delivery Person Info - Now handled by DeliveryMap component */}
+
+                          {/* Enhanced Tracking Timeline */}
+                          <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                            <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mr-3">
+                                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                              </div>
+                              Delivery Progress
+                            </h4>
+                            <div className="space-y-6">
+                              {generateTrackingSteps(selectedTrackingOrder, deliveryStatuses).map((step, index) => (
+                                <div key={step.status} className="relative">
+                                  {/* Connection line */}
+                                  {index < generateTrackingSteps(selectedTrackingOrder, deliveryStatuses).length - 1 && (
+                                    <div className={`absolute left-4 top-8 w-0.5 h-8 ${
+                                      step.completed ? 'bg-green-200' : 'bg-gray-200'
+                                    }`}></div>
+                                  )}
+                                  
+                                  <div className="flex items-start space-x-4">
+                                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                                      step.completed 
+                                        ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white' 
+                                        : step.current 
+                                          ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white animate-pulse'
+                                          : 'bg-gray-200 text-gray-400'
+                                    }`}>
+                                      {step.completed ? (
+                                        <CheckCircleIcon className="h-5 w-5" />
+                                      ) : (
+                                        <step.icon className="h-4 w-4" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className={`p-4 rounded-xl ${
+                                        step.completed 
+                                          ? 'bg-green-50 border border-green-200' 
+                                          : step.current 
+                                            ? 'bg-blue-50 border border-blue-200'
+                                            : 'bg-gray-50 border border-gray-200'
+                                      }`}>
+                                        <p className={`text-sm font-semibold ${
+                                          step.completed 
+                                            ? 'text-green-900' 
+                                            : step.current 
+                                              ? 'text-blue-900'
+                                              : 'text-gray-500'
+                                        }`}>
+                                          {step.title}
+                                        </p>
+                                        <p className={`text-sm mt-1 ${
+                                          step.completed 
+                                            ? 'text-green-700' 
+                                            : step.current 
+                                              ? 'text-blue-700'
+                                              : 'text-gray-500'
+                                        }`}>
+                                          {step.description}
+                                        </p>
+                                        {step.timestamp && (
+                                          <p className={`text-xs mt-2 ${
+                                            step.completed 
+                                              ? 'text-green-600' 
+                                              : step.current 
+                                                ? 'text-blue-600'
+                                                : 'text-gray-400'
+                                          }`}>
+                                            {formatTimestamp(step.timestamp)}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Enhanced Delivery Map Section */}
+                          <div className="mb-6">
+                            <DeliveryMap
+                              storeLocation={selectedTrackingOrder.product?.seller?.store_settings?.address ? {
+                                latitude: selectedTrackingOrder.product.seller.store_settings.address.coordinates?.lat || 
+                                         selectedTrackingOrder.product.seller.store_settings.address.latitude || 
+                                         selectedTrackingOrder.product.seller.store_settings.address.lat || 0,
+                                longitude: selectedTrackingOrder.product.seller.store_settings.address.coordinates?.lng || 
+                                          selectedTrackingOrder.product.seller.store_settings.address.longitude || 
+                                          selectedTrackingOrder.product.seller.store_settings.address.lng || 0,
+                                address: selectedTrackingOrder.product.seller.store_settings.address
+                              } : undefined}
+                              deliveryLocation={selectedTrackingOrder.delivery_address ? {
+                                latitude: typeof selectedTrackingOrder.delivery_address === 'string' 
+                                  ? (() => {
+                                      try {
+                                        const parsed = JSON.parse(selectedTrackingOrder.delivery_address);
+                                        return parsed.latitude || parsed.lat || 0;
+                                      } catch {
+                                        return 0;
+                                      }
+                                    })()
+                                  : selectedTrackingOrder.delivery_address?.latitude || 
+                                    selectedTrackingOrder.delivery_address?.lat || 0,
+                                longitude: typeof selectedTrackingOrder.delivery_address === 'string' 
+                                  ? (() => {
+                                      try {
+                                        const parsed = JSON.parse(selectedTrackingOrder.delivery_address);
+                                        return parsed.longitude || parsed.lng || 0;
+                                      } catch {
+                                        return 0;
+                                      }
+                                    })()
+                                  : selectedTrackingOrder.delivery_address?.longitude || 
+                                    selectedTrackingOrder.delivery_address?.lng || 0,
+                                address: typeof selectedTrackingOrder.delivery_address === 'string' 
+                                  ? (() => {
+                                      try {
+                                        return JSON.parse(selectedTrackingOrder.delivery_address);
+                                      } catch {
+                                        return { address: selectedTrackingOrder.delivery_address };
+                                      }
+                                    })()
+                                  : selectedTrackingOrder.delivery_address
+                              } : undefined}
+                              currentLocation={deliveryStatuses.length > 0 ? {
+                                latitude: deliveryStatuses[deliveryStatuses.length - 1].latitude || 0,
+                                longitude: deliveryStatuses[deliveryStatuses.length - 1].longitude || 0
+                              } : undefined}
+                              deliveryStatus={selectedTrackingOrder.order_status}
+                              deliveryPerson={getDeliveryPersonInfo() || undefined}
+                              estimatedDeliveryTime="30-60 minutes"
+                              className="w-full"
+                            />
+                          </div>
+
+                          {/* Enhanced Delivery Proof Image */}
+                          {(deliveryStatuses.length > 0 && deliveryStatuses[deliveryStatuses.length - 1].proof_image) || 
+                           (selectedTrackingOrder.order_status === 'delivered' && selectedTrackingOrder.delivery_proof_image) ? (
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 shadow-sm border border-green-200">
+                              <h4 className="text-lg font-semibold text-green-900 mb-4 flex items-center">
+                                <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mr-3">
+                                  <CheckCircleIcon className="h-5 w-5 text-white" />
+                                </div>
+                                Delivery Proof
+                              </h4>
+                              
+                              <div className="relative bg-white rounded-xl overflow-hidden shadow-lg border border-green-200">
+                                <img
+                                  src={cleanImageUrl(
+                                    deliveryStatuses.length > 0 && deliveryStatuses[deliveryStatuses.length - 1].proof_image
+                                      ? deliveryStatuses[deliveryStatuses.length - 1].proof_image
+                                      : selectedTrackingOrder.delivery_proof_image
+                                  )}
+                                  alt="Delivery proof"
+                                  className="w-full h-64 object-cover"
+                                  onError={(e) => {
+                                    const imageUrl = deliveryStatuses.length > 0 && deliveryStatuses[deliveryStatuses.length - 1].proof_image
+                                      ? deliveryStatuses[deliveryStatuses.length - 1].proof_image
+                                      : selectedTrackingOrder.delivery_proof_image;
+                                    console.error('Failed to load delivery proof image (img tag):', imageUrl);
+                                    console.error('Cleaned URL:', cleanImageUrl(imageUrl));
+                                    console.error('Error event:', e);
+                                    // Show error message
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const container = target.parentElement;
+                                    if (container) {
+                                      container.innerHTML = `
+                                        <div class="flex items-center justify-center h-64 bg-gray-100">
+                                          <div class="text-center">
+                                            <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            <p class="mt-3 text-sm text-gray-500">Failed to load image</p>
+                                            <p class="text-xs text-gray-400 mt-1">${imageUrl}</p>
+                                          </div>
+                                        </div>
+                                      `;
+                                    }
+                                  }}
+                                  onLoad={() => {
+                                    console.log('Delivery proof image loaded successfully (img tag)');
+                                  }}
+                                />
+                                
+                                {/* Overlay with timestamp */}
+                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                                  <p className="text-white text-sm font-medium">
+                                    Proof captured on {formatTimestamp(
+                                      deliveryStatuses.length > 0 && deliveryStatuses[deliveryStatuses.length - 1].proof_image
+                                        ? deliveryStatuses[deliveryStatuses.length - 1].created_at
+                                        : selectedTrackingOrder.updated_at || selectedTrackingOrder.created_at
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-4 flex items-center justify-center">
+                                <div className="flex items-center space-x-2 text-green-700">
+                                  <CheckCircleIcon className="h-5 w-5" />
+                                  <span className="text-sm font-medium">Delivery confirmed with photo proof</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Enhanced Latest Status Notes */}
+                          {deliveryStatuses.length > 0 && deliveryStatuses[deliveryStatuses.length - 1].notes && (
+                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 shadow-sm border border-blue-200">
+                              <h4 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
+                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mr-3">
+                                  <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </div>
+                                Latest Update
+                              </h4>
+                              <div className="bg-white rounded-xl p-4 border border-blue-100">
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                  {deliveryStatuses[deliveryStatuses.length - 1].notes}
+                                </p>
+                                <div className="mt-3 flex items-center space-x-2 text-blue-600">
+                                  <ClockIcon className="h-4 w-4" />
+                                  <span className="text-xs font-medium">
+                                    {formatTimestamp(deliveryStatuses[deliveryStatuses.length - 1].created_at)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Enhanced Delivery Completion Message */}
+                          {selectedTrackingOrder.order_status === 'delivered' && (
+                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 shadow-sm border border-green-200">
+                              <div className="text-center">
+                                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                                  <CheckCircleIcon className="h-8 w-8 text-white" />
+                                </div>
+                                <h4 className="text-xl font-bold text-green-900 mb-2">
+                                  🎉 Delivery Completed Successfully!
+                                </h4>
+                                <p className="text-sm text-green-700 mb-4">
+                                  Your order has been delivered and signed for. Thank you for choosing our service!
+                                </p>
+                                <div className="bg-white rounded-xl p-4 border border-green-200">
+                                  <div className="flex items-center justify-center space-x-4 text-sm text-green-700">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span>Package received</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span>Proof captured</span>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span>Order complete</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
                 </Dialog.Panel>

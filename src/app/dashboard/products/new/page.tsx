@@ -60,7 +60,9 @@ function NewProductPage() {
   const [faqs, setFaqs] = useState<Array<{question: string; answer: string}>>([]);
   const [deliveryOptions, setDeliveryOptions] = useState({
     delivery: true,
-    pickup: true
+    pickup: true,
+    pickup_location: '',
+    delivery_time: ''
   });
   const [pickupLocation, setPickupLocation] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
@@ -69,6 +71,8 @@ function NewProductPage() {
   const supabase = createClientComponent();
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isSavingCustomCategory, setIsSavingCustomCategory] = useState(false);
+  const [useStoreAddress, setUseStoreAddress] = useState(false);
+  const [storeAddress, setStoreAddress] = useState('');
 
   // Add useEffect to fetch custom categories on component mount
   useEffect(() => {
@@ -89,6 +93,52 @@ function NewProductPage() {
     };
     
     fetchCustomCategories();
+  }, [supabase]);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('store_settings')
+            .eq('id', session.user.id)
+            .single();
+
+          if (userData?.store_settings?.address) {
+            const address = userData.store_settings.address;
+            
+            // Extract street address from character keys (0, 1, 2, etc.)
+            const streetAddressParts = [];
+            let i = 0;
+            while (address[i] !== undefined) {
+              streetAddressParts.push(address[i]);
+              i++;
+            }
+            const streetAddress = streetAddressParts.join('');
+            
+            // Build the full address
+            const addressParts = [
+              address.houseNo,
+              streetAddress,
+              address.landmark,
+              address.kebele,
+              address.wereda,
+              address.subCity,
+              address.city
+            ].filter(Boolean);
+            
+            const formattedAddress = addressParts.join(', ');
+            setStoreAddress(formattedAddress);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
   }, [supabase]);
 
   // Add function to save custom category
@@ -170,6 +220,7 @@ function NewProductPage() {
     if (showCustomCategory && !customCategory) missing.category = true;
     if (!quantity) missing.quantity = true;
     if (images.length < 4) missing.images = true;
+    if (deliveryOptions.pickup && !pickupLocation) missing.pickupLocation = true;
 
     if (Object.keys(missing).length > 0) {
       setMissingFields(missing);
@@ -1697,17 +1748,46 @@ function NewProductPage() {
                     </div>
 
                     {deliveryOptions.pickup && (
-                      <div className="ml-7">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Pickup Location
-                        </label>
-                        <textarea
-                          value={pickupLocation}
-                          onChange={(e) => setPickupLocation(e.target.value)}
-                          placeholder="Enter pickup address and instructions"
-                          className={textareaClasses}
-                          rows={2}
-                        />
+                      <div className="ml-7 space-y-4">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            id="useStoreAddress"
+                            checked={useStoreAddress}
+                            onChange={(e) => {
+                              setUseStoreAddress(e.target.checked);
+                              if (e.target.checked) {
+                                setPickupLocation(storeAddress);
+                              } else {
+                                setPickupLocation('');
+                              }
+                            }}
+                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="useStoreAddress" className="text-sm text-gray-700">
+                            Use my store address
+                          </label>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Pickup Location <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            value={pickupLocation}
+                            onChange={(e) => setPickupLocation(e.target.value)}
+                            placeholder={useStoreAddress ? storeAddress : "Enter pickup address and instructions"}
+                            className={textareaClasses}
+                            rows={3}
+                            required={deliveryOptions.pickup}
+                            disabled={useStoreAddress}
+                          />
+                          {useStoreAddress && storeAddress && (
+                            <p className="mt-1 text-sm text-gray-500">
+                              Using your store address: {storeAddress}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
 

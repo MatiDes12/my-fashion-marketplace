@@ -22,21 +22,24 @@ interface DeliveryOptions {
   [key: string]: boolean;
 }
 
+interface Address {
+  city: string;
+  kebele: string;
+  wereda: string;
+  houseNo: string;
+  mapLink?: string;
+  subCity: string;
+  landmark?: string;
+  [key: string]: any; // Add index signature for character keys (0, 1, 2, etc.)
+}
+
 interface StoreSettings {
   name: string;
   description: string;
   shortDescription: string;
   logo_url: string;
   banner_url: string;
-  address: {
-    city: string;
-    subCity: string;
-    wereda: string;
-    kebele: string;
-    houseNo: string;
-    landmark: string;
-    mapLink: string;
-  };
+  address: Address;
   phone: string;
   alternativePhone: string;
   socialMedia: {
@@ -399,20 +402,38 @@ export default function StorePage() {
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Location</h2>
                 <div className="mt-4 space-y-2">
-                  <p className="text-gray-600">
-                    {[
-                      store.address.city,
-                      store.address.subCity,
-                      store.address.wereda && `Wereda ${store.address.wereda}`,
-                      store.address.kebele && `Kebele ${store.address.kebele}`,
-                      store.address.houseNo && `House No. ${store.address.houseNo}`,
-                    ]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </p>
-                  {store.address.landmark && (
-                    <p className="text-gray-600">Near: {store.address.landmark}</p>
-                  )}
+                  {/* Extract street address from character keys */}
+                  {(() => {
+                    const address = store.address;
+                    const streetAddressParts = [];
+                    let i = 0;
+                    while (address[i] !== undefined) {
+                      streetAddressParts.push(address[i]);
+                      i++;
+                    }
+                    const streetAddress = streetAddressParts.join('');
+                    
+                    const addressParts = [
+                      address.houseNo && `House No. ${address.houseNo}`,
+                      streetAddress,
+                      address.landmark && `Near: ${address.landmark}`,
+                      address.kebele && `Kebele ${address.kebele}`,
+                      address.wereda && `Wereda ${address.wereda}`,
+                      address.subCity,
+                      address.city
+                    ].filter(Boolean);
+                    
+                    return (
+                      <>
+                        {addressParts.map((part, index) => (
+                          <p key={index} className="text-gray-600">
+                            {part}
+                          </p>
+                        ))}
+                      </>
+                    );
+                  })()}
+                  
                   {store.address.mapLink && (
                     <a
                       href={store.address.mapLink}

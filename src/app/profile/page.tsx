@@ -18,6 +18,7 @@ interface Address {
   mapLink?: string;
   subCity: string;
   landmark?: string;
+  [key: string]: any; // Add index signature for character keys (0, 1, 2, etc.)
 }
 
 interface SEO {
@@ -646,6 +647,29 @@ export default function ProfilePage() {
                     </p>
                   </div>
                 )}
+                {/* Display street address if available */}
+                {(() => {
+                  const address = profile.store_settings.address;
+                  const streetAddressParts = [];
+                  let i = 0;
+                  while (address[i] !== undefined) {
+                    streetAddressParts.push(address[i]);
+                    i++;
+                  }
+                  const streetAddress = streetAddressParts.join('');
+                  
+                  if (streetAddress) {
+                    return (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Street Address</label>
+                        <p className="mt-1 text-sm text-gray-900">
+                          {streetAddress}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             </div>
           )}
@@ -752,20 +776,40 @@ export default function ProfilePage() {
               <div className="sm:grid sm:grid-cols-3 sm:gap-4">
                 <label className="text-sm font-medium text-gray-700">Address</label>
                 <div className="sm:col-span-2 space-y-2">
-                  <p className="text-sm text-gray-900">
-                    {profile?.store_settings?.address?.houseNo}, {profile?.store_settings?.address?.subCity}
-                  </p>
-                  <p className="text-sm text-gray-900">
-                    Wereda: {profile?.store_settings?.address?.wereda}, Kebele: {profile?.store_settings?.address?.kebele}
-                  </p>
-                  <p className="text-sm text-gray-900">
-                    {profile?.store_settings?.address?.city}
-                  </p>
-                  {profile?.store_settings?.address?.landmark && (
-                    <p className="text-sm text-gray-900">
-                      Landmark: {profile?.store_settings?.address?.landmark}
-                    </p>
-                  )}
+                  {/* Extract and display complete address */}
+                  {(() => {
+                    const address = profile?.store_settings?.address;
+                    if (!address) return <p className="text-sm text-gray-900">No address set</p>;
+                    
+                    const streetAddressParts = [];
+                    let i = 0;
+                    while (address[i] !== undefined) {
+                      streetAddressParts.push(address[i]);
+                      i++;
+                    }
+                    const streetAddress = streetAddressParts.join('');
+                    
+                    const addressParts = [
+                      address.houseNo && `House No. ${address.houseNo}`,
+                      streetAddress,
+                      address.landmark && `Landmark: ${address.landmark}`,
+                      address.kebele && `Kebele ${address.kebele}`,
+                      address.wereda && `Wereda ${address.wereda}`,
+                      address.subCity,
+                      address.city
+                    ].filter(Boolean);
+                    
+                    return (
+                      <>
+                        {addressParts.map((part, index) => (
+                          <p key={index} className="text-sm text-gray-900">
+                            {part}
+                          </p>
+                        ))}
+                      </>
+                    );
+                  })()}
+                  
                   {profile?.store_settings?.address?.mapLink && (
                     <a 
                       href={profile.store_settings.address.mapLink}
