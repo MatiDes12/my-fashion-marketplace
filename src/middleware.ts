@@ -64,11 +64,20 @@ function detectMaliciousRequest(request: NextRequest) {
 }
 
 export async function middleware(req: NextRequest) {
-  // Skip middleware for static files
+  // List of public API endpoints that don't require authentication
+  const publicApiRoutes = [
+    '/api/delivery/validate-token',
+    '/api/delivery/update-status',
+    '/api/delivery/get-deliveries',
+    '/api/delivery/upload-proof'
+  ];
+
+  // Skip middleware for static files and specific public routes
   if (
     req.nextUrl.pathname.startsWith('/_next/static') ||
     req.nextUrl.pathname.startsWith('/static') ||
-    req.nextUrl.pathname.startsWith('/api')
+    req.nextUrl.pathname.startsWith('/delivery/login') ||
+    publicApiRoutes.includes(req.nextUrl.pathname)
   ) {
     return NextResponse.next();
   }
@@ -122,7 +131,8 @@ export async function middleware(req: NextRequest) {
     if (
       req.nextUrl.pathname.startsWith('/dashboard') ||
       req.nextUrl.pathname.startsWith('/admin') ||
-      req.nextUrl.pathname === '/auth/callback'
+      req.nextUrl.pathname === '/auth/callback' ||
+      (req.nextUrl.pathname.startsWith('/delivery') && !req.nextUrl.pathname.startsWith('/delivery/login'))
     ) {
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -146,6 +156,15 @@ export async function middleware(req: NextRequest) {
         
         if (roleError || data?.role !== 'owner') {
           return NextResponse.redirect(new URL('/?message=Access+denied', req.url));
+        }
+      }
+
+      // For delivery routes (except login), check delivery session
+      if (req.nextUrl.pathname.startsWith('/delivery') && !req.nextUrl.pathname.startsWith('/delivery/login')) {
+        // Check if delivery account info exists in session storage
+        const deliveryAccount = req.cookies.get('deliveryAccount');
+        if (!deliveryAccount) {
+          return NextResponse.redirect(new URL('/delivery/login', req.url));
         }
       }
 

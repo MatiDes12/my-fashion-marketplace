@@ -32,7 +32,7 @@ type DeliveryTracking = {
       email: string;
       phone: string;
     };
-    product: {
+    products: {
       id: string;
       title: string;
       description: string;
@@ -73,8 +73,14 @@ function DeliveryDashboard() {
   const supabase = createClientComponent();
 
   useEffect(() => {
-    // Check if delivery account is stored in session storage
-    const storedAccount = sessionStorage.getItem('deliveryAccount');
+    // Get delivery account from cookies
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()?.split(';').shift();
+    };
+
+    const storedAccount = getCookie('deliveryAccount');
     if (!storedAccount) {
       router.push('/delivery/login');
       return;
@@ -95,40 +101,24 @@ function DeliveryDashboard() {
     try {
       setLoading(true);
 
-      // Fetch deliveries for this delivery person
-      const { data: deliveriesData, error: deliveriesError } = await supabase
-        .from('delivery_tracking')
-        .select(`
-          *,
-          order:orders(
-            id,
-            user_id,
-            total_price,
-            delivery_address,
-            delivery_method,
-            pickup_code,
-            product_id,
-            quantity,
-            users!inner(full_name, email, phone),
-            product:products(
-              id,
-              title,
-              description,
-              price
-            )
-          ),
-          delivery_account:delivery_accounts(
-            id,
-            delivery_person_name,
-            phone_number
-          )
-        `)
-        .eq('delivery_account_id', deliveryAccount.id)
-        .order('assigned_at', { ascending: false });
+      // Fetch deliveries using the API endpoint
+      const response = await fetch('/api/delivery/get-deliveries', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          deliveryAccountId: deliveryAccount.id 
+        }),
+      });
 
-      if (deliveriesError) throw deliveriesError;
+      const data = await response.json();
 
-      setDeliveries(deliveriesData || []);
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch deliveries');
+      }
+
+      setDeliveries(data.deliveries || []);
     } catch (error) {
       console.error('Error fetching deliveries:', error);
       setError('Failed to load deliveries');
@@ -147,49 +137,26 @@ function DeliveryDashboard() {
     try {
       setUploadingImage(true);
 
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        throw new Error('File size must be less than 10MB');
+      if (!selectedDelivery) {
+        throw new Error('No delivery selected');
       }
 
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('File type must be JPEG, PNG, or GIF');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('deliveryId', selectedDelivery.id);
+
+      const response = await fetch('/api/delivery/upload-proof', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload image');
       }
 
-      // Create a unique file path
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `delivery-proofs/${fileName}`;
-
-      console.log('Attempting to upload to:', filePath);
-
-      // Upload image to Supabase Storage
-      const { error: uploadError, data } = await supabase.storage
-        .from('delivery-proofs')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        console.error('Upload error details:', uploadError);
-        throw new Error(`Upload failed: ${uploadError.message}`);
-      }
-
-      // Get public URL using the correct method
-      const publicUrl = supabase.storage
-        .from('delivery-proofs')
-        .getPublicUrl(filePath).data.publicUrl;
-
-      if (!publicUrl) {
-        throw new Error('Failed to get public URL');
-      }
-
-      console.log('Upload successful, public URL:', publicUrl);
-      return publicUrl;
-
+      return data.url;
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to upload image');
@@ -269,7 +236,8 @@ function DeliveryDashboard() {
   };
 
   const handleLogout = async () => {
-    sessionStorage.removeItem('deliveryAccount');
+    // Clear the delivery account cookie
+    document.cookie = 'deliveryAccount=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
     router.push('/delivery/login');
   };
 
@@ -495,14 +463,14 @@ function DeliveryDashboard() {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                 </svg>
                                 <div className="text-sm text-blue-900">
-                                  <p className="font-semibold">{delivery.order.product.title}</p>
-                                  <p className="text-xs text-blue-700 mt-1 line-clamp-2">{delivery.order.product.description}</p>
+                                  <p className="font-semibold">{delivery.order.products.title}</p>
+                                  <p className="text-xs text-blue-700 mt-1 line-clamp-2">{delivery.order.products.description}</p>
                                   <div className="flex items-center justify-between mt-2">
                                     <span className="text-xs text-blue-600">
                                       Quantity: {delivery.order.quantity}
                                     </span>
                                     <span className="text-xs font-medium text-blue-800">
-                                      ${delivery.order.product.price} each
+                                      ${delivery.order.products.price} each
                                     </span>
                                   </div>
                                 </div>

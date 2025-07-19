@@ -749,12 +749,20 @@ export default function OrdersPage() {
     
     // Apply search filter
     if (searchTerm) {
+      const searchTermLower = searchTerm.toLowerCase();
       filtered = filtered.filter(group => 
         group.orders.some(order => 
-          order.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.product?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.payment_reference?.toLowerCase().includes(searchTerm.toLowerCase())
+          order.user?.full_name?.toLowerCase().includes(searchTermLower) ||
+          order.user?.email?.toLowerCase().includes(searchTermLower) ||
+          order.product?.title?.toLowerCase().includes(searchTermLower) ||
+          order.payment_reference?.toLowerCase().includes(searchTermLower) ||
+          order.id.toLowerCase().includes(searchTermLower) ||
+          // Search for "Order #" format
+          (searchTermLower.startsWith('order #') && 
+            order.id.toLowerCase().includes(searchTermLower.replace('order #', ''))) ||
+          // Search for "#" format
+          (searchTermLower.startsWith('#') && 
+            order.id.toLowerCase().includes(searchTermLower.replace('#', '')))
         )
       );
     }

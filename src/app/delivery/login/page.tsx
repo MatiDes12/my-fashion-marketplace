@@ -37,8 +37,8 @@ export default function DeliveryLogin() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Store delivery account info in session storage
-        sessionStorage.setItem('deliveryAccount', JSON.stringify(data.deliveryAccount));
+        // Store delivery account info in cookies
+        document.cookie = `deliveryAccount=${JSON.stringify(data.deliveryAccount)}; path=/; max-age=86400; secure; samesite=strict`;
         toast.success(`Welcome, ${data.deliveryAccount.name}!`);
         router.push('/delivery');
       } else {
