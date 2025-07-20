@@ -661,6 +661,9 @@ Contact us: support@avrioxshop.com
       case '/stores':
         await this.sendStores(chatId, from.id);
         break;
+      case '/link':
+        await this.sendLinkInstructions(chatId, from.id);
+        break;
       case '/profile':
         await this.sendProfileInfo(chatId, from.id);
         break;
@@ -720,8 +723,15 @@ Hi ${from.first_name}! 👋
 
 I'm your personal AVRIO shopping assistant. Discover amazing Ethiopian products & more!
 
+🔗 <b>First Step:</b>
+Use /link to connect your AVRIO account to Telegram
+
 📋 <b>Available Commands:</b>
 /orders - View your recent orders
+/wishlist - Your saved products
+/flash - View flash sales
+/stores - Browse stores
+/tracking - Track deliveries
 /profile - Your account information
 /support - Contact customer support
 /help - Show this help message
@@ -751,6 +761,7 @@ Here are all the commands you can use:
 
 <b>Account & Orders:</b>
 /start - Welcome message
+/link - Link your AVRIO account
 /orders - View your recent orders
 /tracking - View delivery tracking for all orders
 /profile - Your account information
@@ -1672,6 +1683,81 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       await this.sendMessage({
         chat_id: chatId.toString(),
         text: 'Sorry, I couldn\'t fetch store details. Please try again later.'
+      });
+    }
+  }
+
+  private async sendLinkInstructions(chatId: number, userId: number): Promise<void> {
+    try {
+      // Check if user is already linked
+      const { data: existingUser } = await supabaseService
+        .from('telegram_users')
+        .select('user_id')
+        .eq('chat_id', chatId.toString())
+        .eq('is_active', true)
+        .single();
+
+      if (existingUser) {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: '✅ Your Telegram account is already linked to your AVRIO account! You can now use all bot commands.'
+        });
+        return;
+      }
+
+      const message = `
+🔗 <b>Link Your AVRIO Account</b>
+
+To use all bot features, you need to link your Telegram account to your AVRIO account.
+
+<b>How to link:</b>
+
+1️⃣ <b>Visit your profile page:</b>
+   Go to: ${process.env.NEXT_PUBLIC_SITE_URL}/profile
+
+2️⃣ <b>Find the Telegram section:</b>
+   Look for "Connect Telegram Account" or similar
+
+3️⃣ <b>Click the link button:</b>
+   This will connect your accounts
+
+4️⃣ <b>Come back here and try:</b>
+   /orders - View your orders
+   /wishlist - View your wishlist
+   /tracking - Track deliveries
+   /flash - View flash sales
+
+<b>Your Telegram ID:</b> <code>${chatId}</code>
+(You may need this for manual linking)
+
+<b>Need help?</b>
+Contact support: /support
+      `;
+
+      const keyboard = [
+        [{
+          text: '🌐 Go to Profile Page',
+          url: `${process.env.NEXT_PUBLIC_SITE_URL}/profile`
+        }],
+        [{
+          text: '📞 Contact Support',
+          callback_data: 'support'
+        }]
+      ];
+
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error sending link instructions:', error);
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: 'Sorry, I couldn\'t send the linking instructions. Please try again later.'
       });
     }
   }
