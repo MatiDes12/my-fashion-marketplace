@@ -776,20 +776,26 @@ Time: ${new Date(message.date * 1000).toLocaleString()}
 
 // Utility functions
 export async function getTelegramConfig(): Promise<TelegramConfig> {
-  // First try to get from database
-  const { data: settings } = await supabase
-    .from('admin_telegram_settings')
-    .select('*')
-    .eq('is_active', true)
-    .single();
+  try {
+    // First try to get from database
+    const { data: settings, error } = await supabase
+      .from('admin_telegram_settings')
+      .select('*')
+      .eq('is_active', true)
+      .single();
 
-  if (settings) {
-    return {
-      botToken: settings.bot_token,
-      webhookUrl: settings.webhook_url,
-      adminChatId: settings.admin_chat_id,
-      supportChatId: settings.support_chat_id
-    };
+    if (error) {
+      console.log('Database query failed, falling back to environment variables:', error.message);
+    } else if (settings) {
+      return {
+        botToken: settings.bot_token,
+        webhookUrl: settings.webhook_url,
+        adminChatId: settings.admin_chat_id,
+        supportChatId: settings.support_chat_id
+      };
+    }
+  } catch (dbError) {
+    console.log('Database error, falling back to environment variables:', dbError);
   }
 
   // Fallback to environment variables

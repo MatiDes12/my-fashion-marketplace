@@ -16,7 +16,8 @@ import {
   ChatBubbleLeftRightIcon,
   CurrencyDollarIcon,
   WrenchScrewdriverIcon,
-  EnvelopeIcon
+  EnvelopeIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 
 export default function Sidebar() {
@@ -89,6 +90,16 @@ export default function Sidebar() {
       name: 'Messages',
       href: '/admin/messages',
       icon: ChatBubbleLeftRightIcon
+    },
+    {
+      name: 'Telegram',
+      href: '/admin/telegram',
+      icon: PaperAirplaneIcon
+    },
+    {
+      name: 'Telegram Test',
+      href: '/admin/telegram-test',
+      icon: PaperAirplaneIcon
     }
   ];
 
