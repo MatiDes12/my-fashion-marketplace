@@ -97,10 +97,8 @@ function VerificationsPage() {
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [selectedVerificationId, setSelectedVerificationId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const itemsPerPage = 5;
   const supabase = createClientComponentClient();
   const [activeTab, setActiveTab] = useState<'overview' | 'submitted' | 'no_verification'>('overview');
 
@@ -165,7 +163,7 @@ function VerificationsPage() {
   const handleBulkAction = async (action: 'approve' | 'reject' | 'needs_reconsideration', userIds: string[]) => {
     try {
       for (const userId of userIds) {
-        await handleStatusUpdate(userId, action);
+        await handleStatusUpdate(userId, action as 'pending' | 'approved' | 'rejected' | 'needs_reconsideration');
       }
       toast.success(`Bulk ${action} completed successfully`);
     } catch (error) {
@@ -292,7 +290,7 @@ function VerificationsPage() {
   const ownersNoVerification = owners.filter(o => !o.verification);
   const ownersWithVerification = owners.filter(o => o.verification);
 
-  // Filtering and pagination logic (update to use owners)
+  // Filtering logic (update to use owners)
   const filteredOwnersNoVerification = ownersNoVerification.filter(o => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
@@ -315,10 +313,6 @@ function VerificationsPage() {
       (o.email?.toLowerCase().includes(searchLower) || '')
     );
   });
-  const paginatedOwnersNoVerification = filteredOwnersNoVerification.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPagesNoVerification = Math.ceil(filteredOwnersNoVerification.length / itemsPerPage);
-  const paginatedOwnersWithVerification = filteredOwnersWithVerification.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPagesWithVerification = Math.ceil(filteredOwnersWithVerification.length / itemsPerPage);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this verification? This action cannot be undone.')) {
@@ -356,7 +350,6 @@ function VerificationsPage() {
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
-              setCurrentPage(1);
             }}
             className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 pl-10 py-2 px-3 text-sm w-64"
           />
@@ -366,7 +359,6 @@ function VerificationsPage() {
               value={filterStatus}
               onChange={(e) => {
                 setFilterStatus(e.target.value);
-                setCurrentPage(1);
               }}
             >
               <option value="all">All Status</option>
@@ -671,10 +663,10 @@ function VerificationsPage() {
         </div>
       ) : activeTab === 'no_verification' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {paginatedOwnersNoVerification.length === 0 ? (
+          {filteredOwnersNoVerification.length === 0 ? (
             <div className="col-span-full text-center text-gray-500 py-12">No sellers found.</div>
           ) : (
-            paginatedOwnersNoVerification.map((owner) => (
+            filteredOwnersNoVerification.map((owner) => (
               <div key={owner.id} className="bg-white rounded-xl shadow p-6 flex flex-col items-center border border-gray-100">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-red-400 to-pink-400 flex items-center justify-center text-white text-2xl font-bold mb-3">
                   {owner.full_name?.[0]?.toUpperCase() || owner.email?.[0]?.toUpperCase() || '?'}
@@ -690,10 +682,10 @@ function VerificationsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-          {paginatedOwnersWithVerification.length === 0 ? (
+          {filteredOwnersWithVerification.length === 0 ? (
             <div className="col-span-full text-center text-gray-500 py-12">No sellers found.</div>
           ) : (
-            paginatedOwnersWithVerification.map((owner) => {
+            filteredOwnersWithVerification.map((owner) => {
               const verification = owner.verification!;
               return (
                 <div key={owner.id} className="bg-white rounded-xl shadow p-6 border border-gray-100 flex flex-col gap-4">
@@ -842,72 +834,7 @@ function VerificationsPage() {
         </div>
       )}
 
-      {totalPagesNoVerification > 1 && (
-        <div className="mt-6 flex justify-center">
-          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              Previous
-            </button>
-            {[...Array(totalPagesNoVerification)].map((_, i) => (
-              <button
-                key={i + 1}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                  currentPage === i + 1
-                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPagesNoVerification, p + 1))}
-              disabled={currentPage === totalPagesNoVerification}
-              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              Next
-            </button>
-          </nav>
-        </div>
-      )}
-      {totalPagesWithVerification > 1 && (
-        <div className="mt-6 flex justify-center">
-          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              Previous
-            </button>
-            {[...Array(totalPagesWithVerification)].map((_, i) => (
-              <button
-                key={i + 1}
-                onClick={() => setCurrentPage(i + 1)}
-                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium ${
-                  currentPage === i + 1
-                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:bg-gray-50'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPagesWithVerification, p + 1))}
-              disabled={currentPage === totalPagesWithVerification}
-              className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
-            >
-              Next
-            </button>
-          </nav>
-        </div>
-      )}
+
     </div>
   );
 }
