@@ -581,6 +581,32 @@ Contact us: support@avrioxshop.com
     `;
   }
 
+  private getStatusInfo(orderStatus: string, deliveryStatus?: string): { emoji: string; text: string } {
+    // Priority: delivery status over order status for more accurate tracking
+    const status = deliveryStatus || orderStatus;
+    
+    switch (status) {
+      case 'pending':
+        return { emoji: '⏳', text: 'Pending' };
+      case 'confirmed':
+        return { emoji: '✅', text: 'Confirmed' };
+      case 'shipped':
+        return { emoji: '📦', text: 'Shipped' };
+      case 'in_transit':
+        return { emoji: '🚚', text: 'In Transit' };
+      case 'out_for_delivery':
+        return { emoji: '🚚', text: 'Out for Delivery' };
+      case 'delivered':
+        return { emoji: '🎉', text: 'Delivered' };
+      case 'cancelled':
+        return { emoji: '❌', text: 'Cancelled' };
+      case 'failed':
+        return { emoji: '⚠️', text: 'Delivery Failed' };
+      default:
+        return { emoji: '📋', text: orderStatus || 'Unknown' };
+    }
+  }
+
   // Handle incoming messages
   async handleUpdate(update: TelegramUpdate): Promise<void> {
     try {
@@ -623,6 +649,9 @@ Contact us: support@avrioxshop.com
       case '/orders':
         await this.sendOrdersList(chatId, from.id);
         break;
+      case '/tracking':
+        await this.sendTrackingOverview(chatId, from.id);
+        break;
       case '/profile':
         await this.sendProfileInfo(chatId, from.id);
         break;
@@ -650,6 +679,18 @@ Contact us: support@avrioxshop.com
     } else if (data.startsWith('delivery_')) {
       const orderId = data.replace('delivery_', '');
       await this.sendDeliveryTracking(chatId, orderId);
+    } else if (data === 'orders_list') {
+      // Get user ID from telegram_users table
+      const { data: user } = await supabaseService
+        .from('telegram_users')
+        .select('user_id')
+        .eq('chat_id', chatId.toString())
+        .eq('is_active', true)
+        .single();
+      
+      if (user) {
+        await this.sendOrdersList(chatId, user.user_id);
+      }
     }
   }
 
@@ -693,6 +734,7 @@ Here are all the commands you can use:
 <b>Account & Orders:</b>
 /start - Welcome message
 /orders - View your recent orders
+/tracking - View delivery tracking for all orders
 /profile - Your account information
 
 <b>Support:</b>
@@ -795,6 +837,123 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       await this.sendMessage({
         chat_id: chatId.toString(),
         text: 'Sorry, I couldn\'t fetch your orders. Please try again later.'
+      });
+    }
+  }
+
+  private async sendTrackingOverview(chatId: number, userId: number): Promise<void> {
+    try {
+      const { data: user } = await supabaseService
+        .from('telegram_users')
+        .select('user_id')
+        .eq('chat_id', chatId.toString())
+        .eq('is_active', true)
+        .single();
+
+      if (!user) {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: 'Please link your account first by visiting our website. Go to https://www.avrioxshop.com/profile to connect your Telegram account.'
+        });
+        return;
+      }
+
+      // Get all orders with delivery tracking information
+      const { data: orders } = await supabaseService
+        .from('orders')
+        .select(`
+          id,
+          order_status,
+          total_price,
+          created_at,
+          delivery_method,
+          pickup_code,
+          product:products(title)
+        `)
+        .eq('user_id', user.user_id)
+        .order('created_at', { ascending: false });
+
+      if (!orders || orders.length === 0) {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: 'You haven\'t placed any orders yet. Start shopping at our website!'
+        });
+        return;
+      }
+
+      // Get delivery statuses for all orders
+      const { data: deliveryStatuses } = await supabaseService
+        .from('delivery_statuses')
+        .select('*')
+        .in('order_id', orders.map(o => o.id))
+        .order('created_at', { ascending: true });
+
+      // Group delivery statuses by order_id
+      const statusesByOrder = deliveryStatuses?.reduce((acc: any, status) => {
+        if (!acc[status.order_id]) {
+          acc[status.order_id] = [];
+        }
+        acc[status.order_id].push(status);
+        return acc;
+      }, {}) || {};
+
+      let message = '🚚 <b>Delivery Tracking Overview</b>\n\n';
+      const keyboard: Array<Array<{ text: string; callback_data: string }>> = [];
+
+      orders.forEach((order, index) => {
+        const orderStatuses = statusesByOrder[order.id] || [];
+        const latestStatus = orderStatuses.length > 0 ? orderStatuses[orderStatuses.length - 1] : null;
+        
+        // Format delivery method
+        const deliveryMethodText = order.delivery_method === 'home_delivery' ? '🏠 Home Delivery' : 
+                                   order.delivery_method === 'store_pickup' ? '🏪 Store Pickup' : 
+                                   order.delivery_method || 'N/A';
+
+        // Get status emoji and text
+        const statusInfo = this.getStatusInfo(order.order_status, latestStatus?.status);
+        
+        message += `${index + 1}. <b>${(order.product as any)?.title || 'Product'}</b>\n`;
+        message += `   Order ID: <code>${order.id}</code>\n`;
+        message += `   Status: ${statusInfo.emoji} ${statusInfo.text}\n`;
+        message += `   Delivery: ${deliveryMethodText}\n`;
+        message += `   Amount: ${order.total_price} ETB\n`;
+        message += `   Date: ${new Date(order.created_at).toLocaleDateString()}\n`;
+        
+        if (latestStatus) {
+          message += `   Last Update: ${new Date(latestStatus.created_at).toLocaleString()}\n`;
+        }
+        
+        message += '\n';
+
+        keyboard.push([
+          {
+            text: `Track Order ${index + 1}`,
+            callback_data: `track_${order.id}`
+          }
+        ]);
+      });
+
+      // Add a "View All Orders" button
+      keyboard.push([
+        {
+          text: '📋 View All Orders',
+          callback_data: 'orders_list'
+        }
+      ]);
+
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching tracking overview:', error);
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: 'Sorry, I couldn\'t fetch your delivery tracking information. Please try again later.'
       });
     }
   }
