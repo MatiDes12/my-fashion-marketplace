@@ -1208,14 +1208,24 @@ I'm your personal AVRIO shopping assistant. Discover amazing Ethiopian products 
 Use /link to connect your AVRIO account to Telegram
 
 📋 <b>Available Commands:</b>
-/orders - View your recent orders
+
+<b>🛍️ Shopping & Discovery:</b>
+/search - Product search instructions
+/categories - Browse products by category
+/deals - View all active deals & promotions
+/products - Latest products overview
+/flash - Quick flash sales overview
 /wishlist - Your saved products
-/flash - View flash sales
-/stores - Browse stores
+/stores - Browse popular stores
+
+<b>📦 Account & Orders:</b>
+/orders - View your recent orders
 /tracking - Track deliveries
 /profile - Your account information
+
+<b>🆘 Support:</b>
 /support - Contact customer support
-/help - Show this help message
+/help - Show detailed help message
 
 🔗 <b>Quick Links:</b>
 • <a href="https://www.avrioxshop.com">Visit AVRIO Shop</a>
@@ -1240,27 +1250,31 @@ Stay tuned for order updates, delivery notifications, and exclusive AVRIO offers
 
 Here are all the commands you can use:
 
-<b>Account & Orders:</b>
+<b>🛍️ Shopping & Discovery:</b>
+/search - Product search instructions and guidance
+/categories - Browse products by category with counts
+/deals - View all active deals & promotions (detailed)
+/products - Latest products overview with ratings
+/flash - Quick flash sales overview
+/wishlist - Your saved products
+/stores - Browse popular stores
+
+<b>📦 Account & Orders:</b>
 /start - Welcome message
 /link - Link your AVRIO account
 /orders - View your recent orders
 /tracking - View delivery tracking for all orders
 /profile - Your account information
 
-<b>Shopping & Discovery:</b>
-/search - Product search instructions
-/categories - Browse products by category
-/deals - View all active deals & promotions
-/products - Latest products overview
-/flash - View active flash sales
-/wishlist - Your saved products
-/stores - Browse popular stores
-
-<b>Support:</b>
+<b>🆘 Support:</b>
 /support - Contact customer support
 /help - Show this help message
 
-<b>Features:</b>
+<b>💡 Command Differences:</b>
+• <code>/flash</code> - Quick overview of active flash sales
+• <code>/deals</code> - Comprehensive deals with savings, product counts & details
+
+<b>✨ Features:</b>
 • Real-time order updates
 • Delivery tracking
 • Payment confirmations
