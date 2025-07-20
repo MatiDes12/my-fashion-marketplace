@@ -64,7 +64,7 @@ export default function OrdersPage() {
   const [selectedTrackingOrder, setSelectedTrackingOrder] = useState<any>(null);
   const [deliveryStatuses, setDeliveryStatuses] = useState<DeliveryStatus[]>([]);
   const [trackingLoading, setTrackingLoading] = useState(false);
-
+  
   const fetchOrders = async (userId: string) => {
     const { data, error } = await supabase
       .from('orders')
@@ -552,35 +552,35 @@ export default function OrdersPage() {
                       <div className="flex items-start space-x-4">
                         {/* Product Image */}
                         <div className="flex-shrink-0 w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
-                          {order.product?.images && order.product.images.length > 0 ? (
-                            <Image
-                              src={order.product.images[0].image_url}
-                              alt={order.product.title}
+                      {order.product?.images && order.product.images.length > 0 ? (
+                        <Image
+                          src={order.product.images[0].image_url}
+                          alt={order.product.title}
                               width={96}
                               height={96}
-                              className="w-full h-full object-center object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                            </div>
-                          )}
+                          className="w-full h-full object-center object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
                         </div>
+                      )}
+                    </div>
 
                         {/* Product Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                <button 
-                                  onClick={() => router.push(`/products/${order.product?.id}`)}
+                          <button 
+                            onClick={() => router.push(`/products/${order.product?.id}`)}
                                   className="hover:text-green-600 transition-colors"
-                                >
-                                  {order.product?.title || 'Product Unavailable'}
-                                </button>
-                              </h3>
+                          >
+                            {order.product?.title || 'Product Unavailable'}
+                          </button>
+                        </h3>
                               
                               {/* Product Specifications */}
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -588,7 +588,7 @@ export default function OrdersPage() {
                                   <div className="flex items-center text-sm text-gray-600">
                                     <span className="font-medium w-20">Quantity:</span>
                                     <span>{order.quantity}</span>
-                                  </div>
+                      </div>
                                   <div className="flex items-center text-sm text-gray-600">
                                     <span className="font-medium w-20">Price:</span>
                                     <span>ETB {order.product?.price}</span>
@@ -634,9 +634,9 @@ export default function OrdersPage() {
                                   <div>
                                     <p className="text-sm text-gray-600">
                                       <span className="font-medium">Name:</span> {order.product?.seller?.store_settings?.name || 
-                                               order.product?.seller?.full_name || 
-                                               'Unknown Seller'}
-                                    </p>
+                                   order.product?.seller?.full_name || 
+                                   'Unknown Seller'}
+                        </p>
                                     <p className="text-sm text-gray-600">
                                       <span className="font-medium">Email:</span> {order.product?.seller?.store_settings?.email || 'N/A'}
                                     </p>
@@ -735,7 +735,7 @@ export default function OrdersPage() {
                                                 {part}
                                               </p>
                                             ))}
-                                          </div>
+                          </div>
                                         );
                                       } else {
                                         return (

@@ -1,102 +1,186 @@
-# Fashion Marketplace
+# My Fashion Marketplace
 
-A modern e-commerce platform for fashion built with **Next.js**. This project demonstrates end-to-end features from user authentication to rich product visualization. Whether you want to bootstrap your own storefront or learn modern web techniques, this repository provides a well-rounded example.
+A modern, full-featured fashion marketplace built with Next.js, Supabase, and TypeScript.
 
-## Table of Contents
-1. [Overview](#overview)
-2. [Key Features](#key-features)
-3. [Technology Stack](#technology-stack)
-4. [Getting Started](#getting-started)
-5. [Environment Variables](#environment-variables)
-6. [Project Structure](#project-structure)
-7. [Available Scripts](#available-scripts)
-8. [Contribution Guide](#contribution-guide)
-9. [Deployment](#deployment)
-10. [License](#license)
+## Features
 
-## Overview
-This marketplace focuses on a seamless shopping experience. It combines real-time inventory with interactive product displays and analytics for store owners. The application is optimized for deployment on Vercel and supports a mobile-first design philosophy.
+- 🛍️ **E-commerce Platform**: Complete shopping experience with products, cart, and checkout
+- 💳 **Multiple Payment Methods**: Telebirr, Chapa, and MPesa integration
+- 🚚 **Delivery System**: Real-time delivery tracking and management
+- 📱 **Telegram Integration**: Instant notifications and customer support
+- 👥 **User Management**: Customer and seller accounts with verification
+- 📊 **Admin Dashboard**: Comprehensive analytics and management tools
+- 🔔 **Notification System**: Email and Telegram notifications
+- 🌍 **Multi-language Support**: Internationalization ready
+- 📱 **Responsive Design**: Mobile-first approach
 
-## Key Features
-- 🛍️ **Modern Interface** – built with Next.js 14 and React for smooth navigation.
-- 🎨 **Responsive Design** – Tailwind CSS provides utilities for responsive layouts.
-- 🗺️ **Interactive Maps** – integrate store locations via Leaflet.
-- 📊 **Real-time Analytics** – Nivo charts visualize user engagement and sales.
-- 🔐 **Authentication** – Supabase handles secure sign-in and session management.
-- 📱 **Mobile Ready** – optimized for small screens first.
-- 🚀 **Performance** – tuned for Vercel with incremental static regeneration.
+## Telegram Integration
 
-## Technology Stack
-- **Framework**: Next.js 14
-- **Styling**: Tailwind CSS
-- **Charts**: Nivo, Chart.js, Recharts
-- **Maps**: Leaflet
-- **Authentication**: Supabase
-- **Analytics**: Vercel Analytics
-- **UI Components**: Headless UI, Radix UI
-- **Icons**: Heroicons, React Icons
+The marketplace includes a comprehensive Telegram bot integration that provides:
+
+### 🤖 Bot Features
+
+- **Real-time Notifications**: Order updates, payment confirmations, delivery tracking
+- **Customer Support**: 24/7 automated support with human escalation
+- **Order Management**: Check order status, track deliveries, view history
+- **Marketing**: Flash sale alerts, new product announcements
+- **Admin Alerts**: System monitoring and critical notifications
+
+### 📋 Setup Instructions
+
+1. **Create a Telegram Bot**:
+   - Message [@BotFather](https://t.me/botfather) on Telegram
+   - Use `/newbot` command and follow instructions
+   - Save the bot token
+
+2. **Get Your Chat ID**:
+   - Start a chat with your bot
+   - Send `/start` command
+   - Visit: `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+   - Find your chat ID in the response
+
+3. **Configure Environment Variables**:
+   ```env
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   TELEGRAM_WEBHOOK_URL=https://yourdomain.com/api/telegram/webhook
+   TELEGRAM_ADMIN_CHAT_ID=your_admin_chat_id_here
+   TELEGRAM_SUPPORT_CHAT_ID=your_support_chat_id_here
+   ```
+
+4. **Run Database Migration**:
+   ```bash
+   npx supabase db push
+   ```
+
+5. **Set Webhook**:
+   - Deploy your application
+   - Visit: `/api/telegram/setup-webhook` with your webhook URL
+   - Or use the admin panel to set it up
+
+### 🔧 API Endpoints
+
+- `POST /api/telegram/webhook` - Handle incoming bot messages
+- `POST /api/telegram/send-notification` - Send notifications
+- `POST /api/telegram/link-account` - Link user accounts
+- `POST /api/telegram/setup-webhook` - Configure webhook
+
+### 📱 Bot Commands
+
+- `/start` - Welcome message and setup
+- `/help` - Show available commands
+- `/orders` - View recent orders
+- `/profile` - Account information
+- `/support` - Contact customer support
+
+### 🎯 Notification Types
+
+- **Order Created**: New order notifications to sellers
+- **Payment Success/Failed**: Payment status updates
+- **Delivery Updates**: Real-time delivery tracking
+- **Admin Alerts**: System monitoring notifications
+- **Marketing**: Promotional messages and flash sales
 
 ## Getting Started
+
 ### Prerequisites
-- Node.js v18 or later
-- npm
-- Git
+
+- Node.js 18+ 
+- Supabase account
+- Payment gateway accounts (Telebirr, Chapa, MPesa)
+- Telegram bot (optional)
 
 ### Installation
-```bash
-# clone the repo
-git clone <your-repository-url>
-cd my-fashion-marketplace
 
-# install dependencies
-npm install
-```
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/yourusername/my-fashion-marketplace.git
+   cd my-fashion-marketplace
+   ```
 
-### Running in Development
-```bash
-npm run dev
-```
-Navigate to <http://localhost:3000> to see the site.
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-### Building for Production
-```bash
-npm run build
-npm start
-```
+3. **Set up environment variables**:
+   ```bash
+   cp env.example .env.local
+   # Edit .env.local with your configuration
+   ```
 
-## Environment Variables
-Create a `.env.local` file and provide values for the following variables:
-```bash
-SUPABASE_URL=<your-supabase-url>
-SUPABASE_ANON_KEY=<your-anon-key>
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=<google-maps-key>
-```
-Contact the team for additional keys if required.
+4. **Set up Supabase**:
+   - Create a new Supabase project
+   - Run migrations: `npx supabase db push`
+   - Update environment variables with your Supabase credentials
+
+5. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+
+6. **Set up Telegram Bot** (optional):
+   - Follow the Telegram setup instructions above
+   - Configure bot settings in the admin panel
 
 ## Project Structure
+
 ```
-/next        - Next.js pages and API routes
-/public      - Static assets
-/src         - React components and utilities
-/server      - Custom server configuration
+src/
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes
+│   │   ├── telegram/      # Telegram integration
+│   │   ├── payments/      # Payment processing
+│   │   └── admin/         # Admin API endpoints
+│   ├── admin/             # Admin dashboard pages
+│   ├── dashboard/         # Seller dashboard
+│   └── ...                # Other pages
+├── components/            # React components
+├── lib/                   # Utility libraries
+│   ├── telegram.ts        # Telegram bot integration
+│   ├── supabase.ts        # Database client
+│   └── ...                # Other utilities
+├── types/                 # TypeScript type definitions
+└── utils/                 # Helper functions
 ```
-Each folder is organized to keep concerns separate. Components live under `src/components` and domain logic is grouped in feature directories.
 
-## Available Scripts
-- `npm run dev` – start the dev server
-- `npm run build` – generate a production build
-- `npm start` – run the production server
-- `npm run lint` – check code style with ESLint
+## Payment Integration
 
-## Contribution Guide
-1. Fork the repo and create a feature branch.
-2. Follow the existing coding style and run `npm run lint` before committing.
-3. Open a pull request with a clear description of changes.
+The marketplace supports multiple payment methods:
 
-We welcome issues and suggestions that can improve the project.
+- **Telebirr**: Ethiopian mobile money
+- **Chapa**: International payments
+- **MPesa**: Kenyan mobile money
 
-## Deployment
-The project is configured for Vercel. Push your code to a GitHub repository and import the project on Vercel. Environment variables defined in `.env.local` should be configured in the Vercel dashboard.
+## Delivery System
+
+- Real-time delivery tracking
+- Delivery person management
+- Proof of delivery uploads
+- Status updates via Telegram
+
+## Admin Features
+
+- Revenue analytics and reporting
+- User management and verification
+- Payment processing and payouts
+- Telegram bot configuration
+- System monitoring and alerts
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
-Released under the ISC license. See the `package.json` file for details.
+
+This project is licensed under the MIT License.
+
+## Support
+
+For support and questions:
+- Email: support@yourmarketplace.com
+- Telegram: @your_support_bot
+- Documentation: [docs.yourmarketplace.com](https://docs.yourmarketplace.com)

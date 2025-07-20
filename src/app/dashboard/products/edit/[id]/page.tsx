@@ -483,10 +483,10 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     setError(null);
     setImageError(null);
 
-    // Enforce minimum 4 images (existing + new - toDelete)
+    // Enforce minimum 2 images (existing + new - toDelete)
     const totalImages = existingImages.filter(img => !imagesToDelete.includes(img.image_url)).length + images.length;
-    if (totalImages < 4) {
-      setImageError('Please upload at least 4 images.');
+    if (totalImages < 2) {
+      setImageError('Please upload at least 2 images.');
       if (imageSectionRef.current) imageSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       setLoading(false);
       return;
@@ -1265,7 +1265,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                   </div>
                   <div>
                     <label htmlFor="newImages" className="block text-sm font-medium text-gray-700">
-                      Add New Images
+                      Upload 2-8
                     </label>
                     <div
                       className={`mt-3 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
@@ -1335,7 +1335,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     <div className="mt-4 bg-blue-50 p-4 rounded-lg">
                       <h5 className="text-sm font-medium text-blue-800 mb-2">Image Guidelines:</h5>
                       <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• Upload minimum 4 and maximum 8 images</li>
+                        <li>• Upload minimum 2 and maximum 8 images</li>
                         <li>• First image will be the main product image</li>
                         <li>• Include photos from different angles</li>
                         <li>• Show both full product and detail shots</li>

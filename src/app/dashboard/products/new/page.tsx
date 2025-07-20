@@ -219,7 +219,7 @@ function NewProductPage() {
     if (!category && !showCustomCategory) missing.category = true;
     if (showCustomCategory && !customCategory) missing.category = true;
     if (!quantity) missing.quantity = true;
-    if (images.length < 4) missing.images = true;
+    if (images.length < 2) missing.images = true;
     if (deliveryOptions.pickup && !pickupLocation) missing.pickupLocation = true;
 
     if (Object.keys(missing).length > 0) {
@@ -1554,10 +1554,13 @@ function NewProductPage() {
                   </div>
                   <div>
                     <label htmlFor="images" className="block text-sm font-medium text-gray-700">
-                      Upload Images
+                      Upload 2-8
                     </label>
                     <p className="mt-1 text-sm text-gray-500">
-                      Upload <span className="font-semibold">4-8 high-quality images</span> of your product. Include different angles and details.
+                      Upload <span className="font-semibold">2-8 high-quality images</span> of your product. Include different angles and details.
+                    </p>
+                    <p className="mt-1 text-sm text-blue-600 font-medium">
+                      💡 <strong>Tip:</strong> Use square images (1000x1000px) for best display in the 384px height container
                     </p>
                     <div
                       className={`mt-3 border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}
@@ -1584,7 +1587,7 @@ function NewProductPage() {
                     </div>
                     {(imageError || missingFields.images) && (
                       <div className="mt-2 text-sm text-red-600 animate-bounce">
-                        {imageError || 'Please upload at least 4 images.'}
+                        {imageError || 'Please upload at least 2 images.'}
                       </div>
                     )}
                     {images.length > 0 && (
@@ -1610,12 +1613,14 @@ function NewProductPage() {
                     <div className="mt-4 bg-blue-50 p-4 rounded-lg">
                       <h5 className="text-sm font-medium text-blue-800 mb-2">Image Guidelines:</h5>
                       <ul className="text-sm text-blue-700 space-y-1">
-                        <li>• Upload minimum 4 and maximum 8 images</li>
+                        <li>• Upload minimum 2 and maximum 8 images</li>
                         <li>• First image will be the main product image</li>
                         <li>• Include photos from different angles</li>
                         <li>• Show both full product and detail shots</li>
                         <li>• Use well-lit, clear photos</li>
-                        <li>• Recommended size: 1000x1000px or larger</li>
+                        <li>• <strong>Recommended size: 800x600px (4:3 ratio) or 1000x1000px (square)</strong></li>
+                        <li>• <strong>Container size: 384px height × full width</strong></li>
+                        <li>• <strong>Best fit: Use square images (1:1 ratio) to avoid cropping</strong></li>
                       </ul>
                     </div>
                   </div>

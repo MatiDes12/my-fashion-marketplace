@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import Image from 'next/image';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import TelegramIntegration from '@/components/TelegramIntegration';
 
 interface Address {
   city: string;
@@ -693,7 +694,7 @@ export default function ProfilePage() {
         </div>
       </div>
       </div>
-    );
+  );
       
   const renderStoreProfile = () => (
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -1002,6 +1003,11 @@ export default function ProfilePage() {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {profile?.role === 'customer' ? renderCustomerProfile() : renderStoreProfile()}
+      </div>
+
+      {/* Add this section to your profile page */}
+      <div className="mt-8">
+        <TelegramIntegration userId={profile?.id || ''} />
       </div>
 
       {/* Updated dialog component usage */}

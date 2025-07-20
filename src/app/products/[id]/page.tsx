@@ -478,7 +478,7 @@ const SafeImage = ({ image, alt, className = '' }: {
         src={formattedUrl}
         alt={alt}
         fill
-        className="object-cover"
+        className="object-contain"
         onError={() => setImageError(true)}
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       />

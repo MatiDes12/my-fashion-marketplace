@@ -196,6 +196,40 @@ export async function POST(request: Request) {
           }
         })
       ]);
+
+      // Send Telegram notifications
+      try {
+        const { TelegramBot, getTelegramConfig } = await import('@/lib/telegram');
+        const config = await getTelegramConfig();
+        const bot = new TelegramBot(config);
+
+        // Send admin notification
+        await bot.sendAdminAlert(
+          `New order received!\nOrder ID: ${order.id}\nProduct: ${order.product.title}\nAmount: ${order.total_price} ETB\nCustomer: ${order.buyer.full_name}`,
+          'info'
+        );
+
+        // Send seller notification if they have Telegram linked
+        await bot.sendSellerNotification(order.product.owner_id, {
+          type: 'new_order',
+          message: `You have received a new order for ${order.product.title}`,
+          order_id: order.id,
+          amount: order.total_price
+        });
+
+        // Send buyer notification if they have Telegram linked
+        await bot.sendOrderNotification(order.user_id, {
+          id: order.id,
+          product: order.product,
+          total_price: order.total_price,
+          order_status: 'confirmed',
+          buyer: order.buyer,
+          created_at: order.created_at
+        });
+      } catch (telegramError) {
+        console.error('Telegram notification error:', telegramError);
+        // Don't fail the payment if Telegram fails
+      }
     }
 
     return NextResponse.json(
