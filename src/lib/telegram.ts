@@ -836,7 +836,7 @@ ${delivery.delivery_notes ? `Notes: ${delivery.delivery_notes}` : ''}
 
       const { data: profile } = await supabaseService
         .from('users')
-        .select('full_name, email, phone, subscription_plan, created_at')
+        .select('full_name, email, phone, subscription_plan, created_at, store_settings')
         .eq('id', user.user_id)
         .single();
 
@@ -848,13 +848,53 @@ ${delivery.delivery_notes ? `Notes: ${delivery.delivery_notes}` : ''}
         return;
       }
 
+      // Parse store settings
+      let storeSettings = null;
+      let phoneFromSettings = null;
+      let addressInfo = null;
+      
+      if (profile.store_settings) {
+        try {
+          storeSettings = typeof profile.store_settings === 'string' 
+            ? JSON.parse(profile.store_settings) 
+            : profile.store_settings;
+          
+          phoneFromSettings = storeSettings.phone;
+          addressInfo = storeSettings.address;
+        } catch (error) {
+          console.error('Error parsing store settings:', error);
+        }
+      }
+
+      // Format address if available
+      let addressText = 'N/A';
+      if (addressInfo) {
+        const addressParts = [];
+        if (addressInfo.houseNo) addressParts.push(`House: ${addressInfo.houseNo}`);
+        if (addressInfo.kebele) addressParts.push(`Kebele: ${addressInfo.kebele}`);
+        if (addressInfo.wereda) addressParts.push(`Wereda: ${addressInfo.wereda}`);
+        if (addressInfo.subCity) addressParts.push(`Sub City: ${addressInfo.subCity}`);
+        if (addressInfo.city) addressParts.push(`City: ${addressInfo.city}`);
+        if (addressInfo.landmark) addressParts.push(`Landmark: ${addressInfo.landmark}`);
+        
+        addressText = addressParts.join(', ');
+      }
+
+      // Use phone from store settings if available, otherwise use profile phone
+      const displayPhone = phoneFromSettings || profile.phone || 'N/A';
+
       const message = `
 👤 <b>Your Profile</b>
 
 Name: ${profile.full_name || 'N/A'}
 Email: ${profile.email || 'N/A'}
-Phone: ${profile.phone || 'N/A'}
+Phone: ${displayPhone}
 Plan: ${profile.subscription_plan || 'Free'}
+
+📍 <b>Address:</b>
+${addressText}
+
+${storeSettings?.preferred_language ? `🌍 Language: ${storeSettings.preferred_language}` : ''}
 
 Member since: ${new Date(profile.created_at).toLocaleDateString()}
 
