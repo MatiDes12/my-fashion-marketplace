@@ -114,6 +114,41 @@ export class TelegramBot {
     }
   }
 
+  async sendPhoto(photoData: {
+    chat_id: string;
+    photo: string;
+    caption?: string;
+    parse_mode?: 'HTML' | 'Markdown';
+    reply_markup?: {
+      inline_keyboard?: Array<Array<{
+        text: string;
+        callback_data?: string;
+        url?: string;
+      }>>;
+    };
+  }): Promise<any> {
+    try {
+      const response = await fetch(`${this.baseUrl}/sendPhoto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(photoData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Telegram API error:', errorData);
+        throw new Error(`Telegram API error: ${errorData.description || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error sending Telegram photo:', error);
+      throw error;
+    }
+  }
+
   // Helper method to log notifications to database
   private async logNotification(
     userId: string | null,
@@ -1955,6 +1990,13 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       message += `📂 <b>Category:</b> ${product.category}\n`;
       message += `🏷️ <b>Quality:</b> ${product.quality || 'New'}\n`;
 
+      // Get product image if available
+      let productImageUrl = null;
+      if (product.product_images && product.product_images.length > 0) {
+        const firstImage = product.product_images[0];
+        productImageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${firstImage.image_url}`;
+      }
+
       const keyboard = [
         [{
           text: '🛍️ View Product',
@@ -1966,14 +2008,27 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         }]
       ];
 
-      await this.sendMessage({
-        chat_id: chatId.toString(),
-        text: message,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: keyboard
-        }
-      });
+      // Send photo with product details if available, otherwise send text message
+      if (productImageUrl) {
+        await this.sendPhoto({
+          chat_id: chatId.toString(),
+          photo: productImageUrl,
+          caption: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      } else {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      }
     } catch (error) {
       console.error('Error fetching product details:', error);
       await this.sendMessage({
@@ -2201,7 +2256,7 @@ Contact support: /support
         .from('orders')
         .select(`
           *,
-          product:products(title, description, images),
+          product:products(title, description),
           buyer:users!user_id(full_name, email, phone)
         `)
         .eq('id', orderId)
@@ -2245,6 +2300,22 @@ Contact support: /support
         deliveryInfo = `🔑 Pickup Code: <code>${order.pickup_code}</code>`;
       }
 
+      // Get product images if available
+      let productImageUrl = null;
+      if (order.product_id) {
+        const { data: productImages } = await supabaseService
+          .from('product_images')
+          .select('image_url')
+          .eq('product_id', order.product_id)
+          .eq('is_model_picture', false)
+          .limit(1)
+          .single();
+        
+        if (productImages) {
+          productImageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${productImages.image_url}`;
+        }
+      }
+
       const message = `
 📦 <b>Order Details</b>
 
@@ -2270,25 +2341,49 @@ ${order.updated_at ? `Updated: ${new Date(order.updated_at).toLocaleString()}` :
 <a href="${process.env.NEXT_PUBLIC_SITE_URL}/orders">View on Website</a>
       `;
 
-      await this.sendMessage({
-        chat_id: chatId.toString(),
-        text: message,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: 'Track Delivery',
-                callback_data: `track_${order.id}`
-              },
-              {
-                text: 'Contact Support',
-                callback_data: 'support'
-              }
+      // Send photo with order details if available, otherwise send text message
+      if (productImageUrl) {
+        await this.sendPhoto({
+          chat_id: chatId.toString(),
+          photo: productImageUrl,
+          caption: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: 'Track Delivery',
+                  callback_data: `track_${order.id}`
+                },
+                {
+                  text: 'Contact Support',
+                  callback_data: 'support'
+                }
+              ]
             ]
-          ]
-        }
-      });
+          }
+        });
+      } else {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: 'Track Delivery',
+                  callback_data: `track_${order.id}`
+                },
+                {
+                  text: 'Contact Support',
+                  callback_data: 'support'
+                }
+              ]
+            ]
+          }
+        });
+      }
     } catch (error) {
       console.error('Error fetching order details:', error);
       await this.sendMessage({
