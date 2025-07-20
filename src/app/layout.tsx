@@ -15,6 +15,7 @@ import FloatingSupportButton from '@/components/FloatingSupportButton';
 import { FloatingPreview } from '@/components/FloatingPreview';
 import Header from '@/components/Header';
 import ReactQueryProvider from '@/components/ReactQueryProvider';
+import TelegramLinkAfterVerification from '@/components/TelegramLinkAfterVerification';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -67,6 +68,7 @@ export default function RootLayout({
                 {process.env.NODE_ENV !== 'production' && <DebugInfo />}
                 <FloatingSupportButton />
                 <FloatingPreview />
+                <TelegramLinkAfterVerification />
                 <Toaster position="top-right" />
                 <SpeedInsights />
                 <Analytics />

@@ -4,6 +4,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { headers } from 'next/headers';
 import { generateUniquePickupCode } from '@/utils/pickupCode';
+import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
 
 // Create a Supabase client with service role
 const supabase = createClient(
@@ -243,6 +244,66 @@ export async function GET(request: Request) {
 
         if (transactionError) {
           console.error('[CHAPA CALLBACK] Error creating transaction:', transactionError);
+        }
+
+        // Send Telegram notification for Chapa payment confirmation
+        try {
+          const config = await getTelegramConfig();
+          const bot = new TelegramBot(config);
+          
+          // Get user details for notification
+          const { data: user } = await supabase
+            .from('users')
+            .select('full_name, email')
+            .eq('id', tempOrder.user_id)
+            .single();
+
+          // Get product details
+          const { data: product } = await supabase
+            .from('products')
+            .select('name, price')
+            .eq('id', tempOrder.product_id)
+            .single();
+
+          const paymentData = {
+            orderId: order.id,
+            txRef: uniqueOrderTxRef,
+            amount: tempOrder.total_price,
+            paymentMethod: 'CHAPA',
+            status: 'paid',
+            customerName: user?.full_name || verifyData.data.first_name + ' ' + verifyData.data.last_name,
+            customerEmail: user?.email || verifyData.data.email,
+            productName: product?.name || 'Product',
+            receiptUrl: receiptUrl,
+            orderStatus: 'confirmed',
+            createdAt: order.created_at,
+            reference: reference
+          };
+
+          await bot.sendPaymentNotification(tempOrder.user_id, paymentData);
+          console.log('[CHAPA CALLBACK] Telegram payment notification sent for order:', order.id);
+          
+          // Also send order confirmation notification
+          const orderData = {
+            orderId: order.id,
+            productName: product?.name || 'Product',
+            quantity: tempOrder.quantity,
+            amount: tempOrder.total_price,
+            orderStatus: 'confirmed',
+            paymentStatus: 'paid',
+            customerName: user?.full_name || verifyData.data.first_name + ' ' + verifyData.data.last_name,
+            customerEmail: user?.email || verifyData.data.email,
+            deliveryMethod: tempOrder.delivery_method,
+            deliveryAddress: tempOrder.delivery_address,
+            pickupCode: pickupCode,
+            createdAt: order.created_at
+          };
+          
+          await bot.sendOrderConfirmation(tempOrder.user_id, orderData);
+          console.log('[CHAPA CALLBACK] Telegram order confirmation sent for order:', order.id);
+        } catch (telegramError) {
+          console.error('[CHAPA CALLBACK] Error sending Telegram notification:', telegramError);
+          // Don't fail the order creation if Telegram notification fails
         }
 
           console.log('[CHAPA CALLBACK] Successfully processed order for product:', tempOrder.product_id);

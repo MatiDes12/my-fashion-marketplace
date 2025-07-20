@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,6 +49,65 @@ export async function GET(request: NextRequest) {
         status: 'error',
         message: error instanceof Error ? error.message : 'Order validation failed'
       }, { status: 400 });
+    }
+
+    // Send Telegram notification for cash payment confirmation
+    try {
+      const config = await getTelegramConfig();
+      const bot = new TelegramBot(config);
+      
+      // Get user details for notification
+      const { data: user } = await supabase
+        .from('users')
+        .select('full_name, email')
+        .eq('id', order.user_id)
+        .single();
+
+      // Get product details
+      const { data: product } = await supabase
+        .from('products')
+        .select('name, price')
+        .eq('id', order.product_id)
+        .single();
+
+      const paymentData = {
+        orderId: order.id,
+        txRef: order.tx_ref,
+        amount: order.total_price,
+        paymentMethod: 'Cash Payment',
+        status: order.payment_status,
+        customerName: user?.full_name || 'Customer',
+        customerEmail: user?.email || '',
+        productName: product?.name || 'Product',
+        receiptUrl: order.receipt_url,
+        orderStatus: order.order_status,
+        createdAt: order.created_at
+      };
+
+      await bot.sendPaymentNotification(order.user_id, paymentData);
+      console.log('[CASH VERIFY] Telegram payment notification sent for order:', order.id);
+      
+      // Also send order confirmation notification
+      const orderData = {
+        orderId: order.id,
+        productName: product?.name || 'Product',
+        quantity: order.quantity,
+        amount: order.total_price,
+        orderStatus: order.order_status,
+        paymentStatus: order.payment_status,
+        customerName: user?.full_name || 'Customer',
+        customerEmail: user?.email || '',
+        deliveryMethod: order.delivery_method,
+        deliveryAddress: order.delivery_address,
+        pickupCode: order.pickup_code,
+        createdAt: order.created_at
+      };
+      
+      await bot.sendOrderConfirmation(order.user_id, orderData);
+      console.log('[CASH VERIFY] Telegram order confirmation sent for order:', order.id);
+    } catch (telegramError) {
+      console.error('[CASH VERIFY] Error sending Telegram notification:', telegramError);
+      // Don't fail the verification if Telegram notification fails
     }
 
     return NextResponse.json({

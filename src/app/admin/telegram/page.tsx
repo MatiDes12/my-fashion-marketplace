@@ -190,6 +190,27 @@ export default function TelegramAdminPage() {
     }
   };
 
+  const handleTestWelcomeMessage = async (chatId: string) => {
+    try {
+      const response = await fetch('/api/telegram/test-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId,
+          userId: 'test-user'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error);
+      toast.success('Welcome message sent successfully');
+    } catch (error) {
+      console.error('Error sending welcome message:', error);
+      toast.error('Failed to send welcome message');
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
 
   return (

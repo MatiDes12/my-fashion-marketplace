@@ -694,299 +694,299 @@ export default function ProfilePage() {
         </div>
       </div>
       </div>
-  );
+    );
       
   const renderStoreProfile = () => (
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="px-4 py-5 sm:p-6">
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-2xl font-bold text-gray-900">Store Information</h1>
-              <button
+    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+      <div className="px-4 py-5 sm:p-6">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Store Information</h1>
+          <button
             onClick={handleEditClick}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-              >
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                Edit Store Settings
-              </button>
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+          >
+            <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            Edit Store Settings
+          </button>
+        </div>
+
+        {error && <ErrorMessage message={error} />}
+
+        <div className="space-y-8">
+          {/* Store Logo */}
+          {profile?.store_settings?.logo_url && (
+            <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">Store Logo</label>
+              <div className="sm:col-span-2">
+                <div className="relative h-32 w-32 rounded-lg overflow-hidden">
+                  <Image
+                    src={profile.store_settings.logo_url}
+                    alt="Store Logo"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              </div>
             </div>
+          )}
 
-            {error && <ErrorMessage message={error} />}
-
-            <div className="space-y-8">
-              {/* Store Logo */}
-              {profile?.store_settings?.logo_url && (
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <label className="text-sm font-medium text-gray-700">Store Logo</label>
-                  <div className="sm:col-span-2">
-                    <div className="relative h-32 w-32 rounded-lg overflow-hidden">
-                      <Image
-                        src={profile.store_settings.logo_url}
-                        alt="Store Logo"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Store Banner */}
-              {profile?.store_settings?.banner_url && (
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <label className="text-sm font-medium text-gray-700">Store Banner</label>
-                  <div className="sm:col-span-2">
-                    <div className="relative h-48 w-full rounded-lg overflow-hidden">
-                      <Image
-                        src={profile.store_settings.banner_url}
-                        alt="Store Banner"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Store Details */}
-              <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                <label className="text-sm font-medium text-gray-700">Store Name</label>
-                <div className="sm:col-span-2">
-                  <p className="text-sm text-gray-900">{profile?.store_settings?.name}</p>
+          {/* Store Banner */}
+          {profile?.store_settings?.banner_url && (
+            <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">Store Banner</label>
+              <div className="sm:col-span-2">
+                <div className="relative h-48 w-full rounded-lg overflow-hidden">
+                  <Image
+                    src={profile.store_settings.banner_url}
+                    alt="Store Banner"
+                    fill
+                    className="object-cover"
+                  />
                 </div>
               </div>
+            </div>
+          )}
 
-              <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                <label className="text-sm font-medium text-gray-700">Description</label>
-                <div className="sm:col-span-2">
-                  <p className="text-sm text-gray-900">{profile?.store_settings?.description}</p>
-                </div>
-              </div>
+          {/* Store Details */}
+          <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+            <label className="text-sm font-medium text-gray-700">Store Name</label>
+            <div className="sm:col-span-2">
+              <p className="text-sm text-gray-900">{profile?.store_settings?.name}</p>
+            </div>
+          </div>
 
-              {/* Contact Information */}
-              <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                <label className="text-sm font-medium text-gray-700">Contact Information</label>
-                <div className="sm:col-span-2 space-y-2">
-                  <p className="text-sm text-gray-900">Email: {profile?.store_settings?.email}</p>
-                  <p className="text-sm text-gray-900">Phone: {profile?.store_settings?.phone}</p>
-                </div>
-              </div>
+          <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+            <label className="text-sm font-medium text-gray-700">Description</label>
+            <div className="sm:col-span-2">
+              <p className="text-sm text-gray-900">{profile?.store_settings?.description}</p>
+            </div>
+          </div>
 
-              {/* Address */}
-              <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                <label className="text-sm font-medium text-gray-700">Address</label>
-                <div className="sm:col-span-2 space-y-2">
-                  {/* Extract and display complete address */}
-                  {(() => {
-                    const address = profile?.store_settings?.address;
-                    if (!address) return <p className="text-sm text-gray-900">No address set</p>;
-                    
-                    const streetAddressParts = [];
-                    let i = 0;
-                    while (address[i] !== undefined) {
-                      streetAddressParts.push(address[i]);
-                      i++;
-                    }
-                    const streetAddress = streetAddressParts.join('');
-                    
-                    const addressParts = [
-                      address.houseNo && `House No. ${address.houseNo}`,
-                      streetAddress,
-                      address.landmark && `Landmark: ${address.landmark}`,
-                      address.kebele && `Kebele ${address.kebele}`,
-                      address.wereda && `Wereda ${address.wereda}`,
-                      address.subCity,
-                      address.city
-                    ].filter(Boolean);
-                    
-                    return (
-                      <>
-                        {addressParts.map((part, index) => (
-                          <p key={index} className="text-sm text-gray-900">
-                            {part}
-                          </p>
-                        ))}
-                      </>
-                    );
-                  })()}
-                  
-                  {profile?.store_settings?.address?.mapLink && (
-                    <a 
-                      href={profile.store_settings.address.mapLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View on Map
-                    </a>
-                  )}
-                </div>
-              </div>
+          {/* Contact Information */}
+          <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+            <label className="text-sm font-medium text-gray-700">Contact Information</label>
+            <div className="sm:col-span-2 space-y-2">
+              <p className="text-sm text-gray-900">Email: {profile?.store_settings?.email}</p>
+              <p className="text-sm text-gray-900">Phone: {profile?.store_settings?.phone}</p>
+            </div>
+          </div>
 
-              {/* Working Hours */}
-              {profile?.store_settings?.workingHours && (
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <label className="text-sm font-medium text-gray-700">Working Hours</label>
-                  <div className="sm:col-span-2">
-                    <div className="space-y-2">
-                      {Object.entries(profile.store_settings.workingHours).map(([day, hours]) => (
-                        <div key={day} className="flex justify-between text-sm">
-                          <span className="capitalize">{day}</span>
-                          <span>
-                            {hours.isOpen ? (
-                              `${hours.open} - ${hours.close}`
-                            ) : (
-                              <span className="text-red-600">Closed</span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Delivery Options */}
-              {profile?.store_settings?.delivery_options && (
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <label className="text-sm font-medium text-gray-700">Delivery Information</label>
-                  <div className="sm:col-span-2 space-y-2">
-                    <p className="text-sm text-gray-900">
-                      Delivery Fee: ETB {profile.store_settings.delivery_options.deliveryFee}
-                    </p>
-                    <p className="text-sm text-gray-900">
-                      Delivery Radius: {profile.store_settings.delivery_options.deliveryRadius} km
-                    </p>
-                    <p className="text-sm text-gray-900">
-                      Estimated Delivery Time: {profile.store_settings.delivery_options.estimatedDeliveryTime} minutes
-                    </p>
-                    <p className="text-sm text-gray-900">
-                      Free Delivery Over: ETB {profile.store_settings.delivery_options.minimumOrderForFreeDelivery}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Social Media Links */}
-              {profile?.store_settings?.socialMedia && (
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <label className="text-sm font-medium text-gray-700">Social Media</label>
-                  <div className="sm:col-span-2 flex space-x-4">
-                    {Object.entries(profile.store_settings.socialMedia).map(([platform, url]) => (
-                      url && (
-                        <a
-                          key={platform}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-gray-600 hover:text-gray-900"
-                        >
-                          <span className="capitalize">{platform}</span>
-                        </a>
-                      )
+          {/* Address */}
+          <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+            <label className="text-sm font-medium text-gray-700">Address</label>
+            <div className="sm:col-span-2 space-y-2">
+              {/* Extract and display complete address */}
+              {(() => {
+                const address = profile?.store_settings?.address;
+                if (!address) return <p className="text-sm text-gray-900">No address set</p>;
+                
+                const streetAddressParts = [];
+                let i = 0;
+                while (address[i] !== undefined) {
+                  streetAddressParts.push(address[i]);
+                  i++;
+                }
+                const streetAddress = streetAddressParts.join('');
+                
+                const addressParts = [
+                  address.houseNo && `House No. ${address.houseNo}`,
+                  streetAddress,
+                  address.landmark && `Landmark: ${address.landmark}`,
+                  address.kebele && `Kebele ${address.kebele}`,
+                  address.wereda && `Wereda ${address.wereda}`,
+                  address.subCity,
+                  address.city
+                ].filter(Boolean);
+                
+                return (
+                  <>
+                    {addressParts.map((part, index) => (
+                      <p key={index} className="text-sm text-gray-900">
+                        {part}
+                      </p>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Methods */}
-              {profile?.role === 'owner' && profile?.store_settings?.payment_methods && (
-                <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-                  <label className="text-sm font-medium text-gray-700">Payment Methods</label>
-                  <div className="sm:col-span-2">
-                    <div className="flex flex-wrap gap-3">
-                      {/* Always show Cash */}
-                      <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                        <span className="text-lg mr-2">💵</span>
-                        <span>Cash</span>
-                      </div>
-
-                      {/* Show Telebirr if active */}
-                      {profile.store_settings.payment_methods.TELEBIRR && (
-                        <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                          <Image 
-                            src="/images/payment-methods/Telebirr-logo.png" 
-                            alt="Telebirr" 
-                            width={24} 
-                            height={24} 
-                            className="mr-2"
-                          />
-                          <span>Telebirr</span>
-                        </div>
-                      )}
-
-                      {/* Show CBE if active */}
-                      {profile.store_settings.payment_methods.CBE && (
-                        <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                          <Image 
-                            src="/images/payment-methods/cbe-logo.png" 
-                            alt="CBE" 
-                            width={24} 
-                            height={24} 
-                            className="mr-2"
-                          />
-                          <span>CBE</span>
-                        </div>
-                      )}
-
-                      {/* Show Amole if active */}
-                      {profile.store_settings.payment_methods.AMOLE && (
-                        <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                          <Image 
-                            src="/images/payment-methods/amole-logo.png" 
-                            alt="Amole" 
-                            width={24} 
-                            height={24} 
-                            className="mr-2"
-                          />
-                          <span>Amole</span>
-                        </div>
-                      )}
-
-                      {/* Show Chapa if active */}
-                      {profile.store_settings.payment_methods.CHAPA && (
-                        <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                          <Image 
-                            src="/images/payment-methods/chapa-logo.png" 
-                            alt="Chapa" 
-                            width={48} 
-                            height={32} 
-                            className="mr-2"
-                            style={{ objectFit: 'contain' }}
-                          />
-                          <span>Chapa</span>
-                        </div>
-                      )}
-
-                      {/* Show Bank Transfer if active */}
-                      {profile.store_settings.payment_methods.BANK && (
-                        <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                          <span className="text-lg mr-2">🏦</span>
-                          <span>Bank Transfer</span>
-                        </div>
-                      )}
-
-                      {/* Show M-PESA if active */}
-                      {profile.store_settings.payment_methods.MPESA && (
-                        <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                          <Image 
-                            src="/images/payment-methods/mpesa-logo.png" 
-                            alt="M-PESA" 
-                            width={24} 
-                            height={24} 
-                            className="mr-2"
-                          />
-                          <span>M-PESA</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  </>
+                );
+              })()}
+              
+              {profile?.store_settings?.address?.mapLink && (
+                <a 
+                  href={profile.store_settings.address.mapLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View on Map
+                </a>
               )}
             </div>
           </div>
+
+          {/* Working Hours */}
+          {profile?.store_settings?.workingHours && (
+            <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">Working Hours</label>
+              <div className="sm:col-span-2">
+                <div className="space-y-2">
+                  {Object.entries(profile.store_settings.workingHours).map(([day, hours]) => (
+                    <div key={day} className="flex justify-between text-sm">
+                      <span className="capitalize">{day}</span>
+                      <span>
+                        {hours.isOpen ? (
+                          `${hours.open} - ${hours.close}`
+                        ) : (
+                          <span className="text-red-600">Closed</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delivery Options */}
+          {profile?.store_settings?.delivery_options && (
+            <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">Delivery Information</label>
+              <div className="sm:col-span-2 space-y-2">
+                <p className="text-sm text-gray-900">
+                  Delivery Fee: ETB {profile.store_settings.delivery_options.deliveryFee}
+                </p>
+                <p className="text-sm text-gray-900">
+                  Delivery Radius: {profile.store_settings.delivery_options.deliveryRadius} km
+                </p>
+                <p className="text-sm text-gray-900">
+                  Estimated Delivery Time: {profile.store_settings.delivery_options.estimatedDeliveryTime} minutes
+                </p>
+                <p className="text-sm text-gray-900">
+                  Free Delivery Over: ETB {profile.store_settings.delivery_options.minimumOrderForFreeDelivery}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Social Media Links */}
+          {profile?.store_settings?.socialMedia && (
+            <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">Social Media</label>
+              <div className="sm:col-span-2 flex space-x-4">
+                {Object.entries(profile.store_settings.socialMedia).map(([platform, url]) => (
+                  url && (
+                    <a
+                      key={platform}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-600 hover:text-gray-900"
+                    >
+                      <span className="capitalize">{platform}</span>
+                    </a>
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Payment Methods */}
+          {profile?.role === 'owner' && profile?.store_settings?.payment_methods && (
+            <div className="sm:grid sm:grid-cols-3 sm:gap-4">
+              <label className="text-sm font-medium text-gray-700">Payment Methods</label>
+              <div className="sm:col-span-2">
+                <div className="flex flex-wrap gap-3">
+                  {/* Always show Cash */}
+                  <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                    <span className="text-lg mr-2">💵</span>
+                    <span>Cash</span>
+                  </div>
+
+                  {/* Show Telebirr if active */}
+                  {profile.store_settings.payment_methods.TELEBIRR && (
+                    <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                      <Image 
+                        src="/images/payment-methods/Telebirr-logo.png" 
+                        alt="Telebirr" 
+                        width={24} 
+                        height={24} 
+                        className="mr-2"
+                      />
+                      <span>Telebirr</span>
+                    </div>
+                  )}
+
+                  {/* Show CBE if active */}
+                  {profile.store_settings.payment_methods.CBE && (
+                    <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                      <Image 
+                        src="/images/payment-methods/cbe-logo.png" 
+                        alt="CBE" 
+                        width={24} 
+                        height={24} 
+                        className="mr-2"
+                      />
+                      <span>CBE</span>
+                    </div>
+                  )}
+
+                  {/* Show Amole if active */}
+                  {profile.store_settings.payment_methods.AMOLE && (
+                    <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                      <Image 
+                        src="/images/payment-methods/amole-logo.png" 
+                        alt="Amole" 
+                        width={24} 
+                        height={24} 
+                        className="mr-2"
+                      />
+                      <span>Amole</span>
+                    </div>
+                  )}
+
+                  {/* Show Chapa if active */}
+                  {profile.store_settings.payment_methods.CHAPA && (
+                    <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                      <Image 
+                        src="/images/payment-methods/chapa-logo.png" 
+                        alt="Chapa" 
+                        width={48} 
+                        height={32} 
+                        className="mr-2"
+                        style={{ objectFit: 'contain' }}
+                      />
+                      <span>Chapa</span>
+                    </div>
+                  )}
+
+                  {/* Show Bank Transfer if active */}
+                  {profile.store_settings.payment_methods.BANK && (
+                    <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                      <span className="text-lg mr-2">🏦</span>
+                      <span>Bank Transfer</span>
+                    </div>
+                  )}
+
+                  {/* Show M-PESA if active */}
+                  {profile.store_settings.payment_methods.MPESA && (
+                    <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
+                      <Image 
+                        src="/images/payment-methods/mpesa-logo.png" 
+                        alt="M-PESA" 
+                        width={24} 
+                        height={24} 
+                        className="mr-2"
+                      />
+                      <span>M-PESA</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
+    </div>
   );
 
   if (loading) {
@@ -1003,11 +1003,11 @@ export default function ProfilePage() {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {profile?.role === 'customer' ? renderCustomerProfile() : renderStoreProfile()}
-      </div>
-
-      {/* Add this section to your profile page */}
-      <div className="mt-8">
-        <TelegramIntegration userId={profile?.id || ''} />
+        
+        {/* Telegram Integration - Show for both customers and store owners */}
+        <div className="mt-8">
+          <TelegramIntegration userId={profile?.id || ''} />
+        </div>
       </div>
 
       {/* Updated dialog component usage */}

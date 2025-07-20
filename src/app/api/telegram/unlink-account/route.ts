@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { linkTelegramUser, getTelegramConfig, TelegramBot } from '@/lib/telegram';
+import { getTelegramConfig, TelegramBot } from '@/lib/telegram';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,11 +9,11 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { userId, chatId } = await request.json();
+    const { userId } = await request.json();
 
-    if (!userId || !chatId) {
+    if (!userId) {
       return NextResponse.json(
-        { error: 'userId and chatId are required' },
+        { error: 'userId is required' },
         { status: 400 }
       );
     }
@@ -56,49 +56,47 @@ export async function POST(request: Request) {
     // Verify the userId matches the authenticated user
     if (authUser.id !== userId) {
       return NextResponse.json(
-        { error: 'Unauthorized to link this account' },
+        { error: 'Unauthorized to unlink this account' },
         { status: 403 }
       );
     }
 
-    // Verify user exists in users table
-    const { data: user, error: userError } = await supabaseWithAuth
-      .from('users')
-      .select('id')
-      .eq('id', userId)
+    // Get the current Telegram link before unlinking
+    const { data: currentLink, error: linkError } = await supabaseWithAuth
+      .from('telegram_users')
+      .select('chat_id, is_active')
+      .eq('user_id', userId)
+      .eq('is_active', true)
       .single();
 
-    if (userError || !user) {
+    if (linkError || !currentLink) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: 'No active Telegram link found' },
         { status: 404 }
       );
     }
 
-    // Link Telegram account using the authenticated client
-    console.log('API - Attempting to link Telegram account:', { userId, chatId });
-    
-    const { data: linkData, error: linkError } = await supabaseWithAuth
+    // Unlink Telegram account by setting is_active to false
+    const { error: unlinkError } = await supabaseWithAuth
       .from('telegram_users')
-      .upsert({
-        user_id: userId,
-        chat_id: chatId,
-        is_active: true,
-        created_at: new Date().toISOString()
+      .update({ 
+        is_active: false,
+        updated_at: new Date().toISOString()
       })
-      .select();
+      .eq('user_id', userId)
+      .eq('is_active', true);
 
-    if (linkError) {
-      console.error('Error linking Telegram account:', linkError);
+    if (unlinkError) {
+      console.error('Error unlinking Telegram account:', unlinkError);
       return NextResponse.json(
-        { success: false, error: 'Failed to link account', details: linkError },
+        { success: false, error: 'Failed to unlink account', details: unlinkError },
         { status: 500 }
       );
     }
 
-    console.log('API - Telegram account linked successfully:', linkData);
+    console.log('API - Telegram account unlinked successfully for user:', userId);
 
-    // Send welcome notification to the user
+    // Send goodbye notification to the user
     try {
       const config = await getTelegramConfig();
       const bot = new TelegramBot(config);
@@ -106,61 +104,59 @@ export async function POST(request: Request) {
       // Get user details for personalized message
       const { data: userDetails } = await supabaseWithAuth
         .from('users')
-        .select('full_name, email')
+        .select('full_name')
         .eq('id', userId)
         .single();
 
-      const welcomeMessage = `
-🎉 <b>Welcome to AVRIO!</b>
+      const goodbyeMessage = `
+👋 <b>Goodbye from AVRIO!</b>
 
-Hi ${userDetails?.full_name || 'there'}! 👋
+Hi ${userDetails?.full_name || 'there'},
 
-Your Telegram account has been successfully linked to your AVRIO account.
+Your Telegram account has been successfully unlinked from your AVRIO account.
 
-<b>What you'll receive:</b>
-📦 Order updates and tracking
+<b>What you'll miss:</b>
+📦 Real-time order updates
 💳 Payment confirmations
-🚚 Delivery notifications
+🚚 Delivery tracking
 🎯 Flash sale alerts
-🆘 Customer support
+🆘 Quick customer support
 
-<b>Quick Commands:</b>
-/start - Welcome message
-/orders - View your orders
-/profile - Your account info
-/help - Show all commands
-/support - Contact support
+<b>To re-enable notifications:</b>
+1. Visit your profile page
+2. Click "Link Telegram Account"
+3. Follow the instructions
 
 🔗 <b>Visit our shop:</b>
 <a href="https://www.avrioxshop.com">AVRIO Marketplace</a>
 
-🏆 Best Marketplace 2023 | ⭐ 4.9/5 Rating | 🔒 Secure Payments | 🚚 Fast Delivery
+We hope to see you back soon! 🛍️
 
-Thank you for choosing AVRIO! 🛍️
+🏆 Best Marketplace 2023 | ⭐ 4.9/5 Rating | 🔒 Secure Payments | 🚚 Fast Delivery
       `;
 
       await bot.sendMessage({
-        chat_id: chatId,
-        text: welcomeMessage,
+        chat_id: currentLink.chat_id,
+        text: goodbyeMessage,
         parse_mode: 'HTML'
       });
 
-      console.log('Welcome notification sent successfully to chat ID:', chatId);
+      console.log('Goodbye notification sent successfully to chat ID:', currentLink.chat_id);
 
     } catch (notificationError) {
-      console.error('Failed to send welcome notification:', notificationError);
+      console.error('Failed to send goodbye notification:', notificationError);
       // Don't fail the entire request if notification fails
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Telegram account linked successfully' 
+      message: 'Telegram account unlinked successfully' 
     });
 
   } catch (error) {
-    console.error('Error linking Telegram account:', error);
+    console.error('Error unlinking Telegram account:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to link account' },
+      { success: false, error: 'Failed to unlink account' },
       { status: 500 }
     );
   }

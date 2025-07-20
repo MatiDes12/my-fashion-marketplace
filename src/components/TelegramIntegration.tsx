@@ -44,10 +44,18 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
 
     setLoading(true);
     try {
+      // Get the current session to get the access token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
+
       const response = await fetch('/api/telegram/link-account', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           userId,
@@ -76,12 +84,29 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
   const handleUnlinkAccount = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('telegram_users')
-        .update({ is_active: false })
-        .eq('user_id', userId);
+      // Get the current session to get the access token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required');
+      }
 
-      if (error) throw error;
+      const response = await fetch('/api/telegram/unlink-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          userId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to unlink account');
+      }
 
       toast.success('Telegram account unlinked successfully');
       setIsLinked(false);
@@ -94,8 +119,8 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
   };
 
   const openTelegramBot = () => {
-    // Replace with your actual bot username
-    window.open('https://t.me/your_bot_username', '_blank');
+    // Open the AVRIO bot
+    window.open('https://t.me/Avrioxshop_bot', '_blank');
   };
 
   return (

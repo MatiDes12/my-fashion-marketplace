@@ -175,6 +175,50 @@ export class TelegramBot {
     }
   }
 
+  async sendOrderConfirmation(userId: string, orderData: any): Promise<void> {
+    try {
+      const { data: user } = await supabase
+        .from('telegram_users')
+        .select('chat_id')
+        .eq('user_id', userId)
+        .single();
+
+      if (!user?.chat_id) return;
+
+      const message = this.formatOrderConfirmation(orderData);
+      
+      const inlineKeyboard = [
+        [
+          {
+            text: '📦 Track Order',
+            callback_data: `track_${orderData.orderId}`
+          },
+          {
+            text: '🛒 View Orders',
+            callback_data: 'orders'
+          }
+        ],
+        [
+          {
+            text: '💬 Contact Support',
+            callback_data: 'support'
+          }
+        ]
+      ];
+
+      await this.sendMessage({
+        chat_id: user.chat_id,
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: inlineKeyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error sending order confirmation:', error);
+    }
+  }
+
   async sendPaymentNotification(userId: string, paymentData: any): Promise<void> {
     try {
       const { data: user } = await supabase
@@ -186,10 +230,47 @@ export class TelegramBot {
       if (!user?.chat_id) return;
 
       const message = this.formatPaymentNotification(paymentData);
+      
+      // Create inline keyboard with useful actions
+      const inlineKeyboard = [];
+      
+      // Add receipt button if available
+      if (paymentData.receiptUrl) {
+        inlineKeyboard.push([
+          {
+            text: '📄 View Receipt',
+            url: paymentData.receiptUrl
+          }
+        ]);
+      }
+      
+      // Add order tracking buttons
+      inlineKeyboard.push([
+        {
+          text: '📦 Track Order',
+          callback_data: `track_${paymentData.orderId || paymentData.order_id}`
+        },
+        {
+          text: '🛒 View Orders',
+          callback_data: 'orders'
+        }
+      ]);
+      
+      // Add support button
+      inlineKeyboard.push([
+        {
+          text: '💬 Contact Support',
+          callback_data: 'support'
+        }
+      ]);
+
       await this.sendMessage({
         chat_id: user.chat_id,
         text: message,
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: inlineKeyboard
+        }
       });
     } catch (error) {
       console.error('Error sending payment notification:', error);
@@ -278,18 +359,86 @@ Order Date: ${new Date(orderData.created_at).toLocaleString()}
     `;
   }
 
-  private formatPaymentNotification(paymentData: any): string {
-    const status = paymentData.status === 'SUCCESS' ? '✅ Successful' : '❌ Failed';
+  private formatOrderConfirmation(orderData: any): string {
+    const amount = typeof orderData.amount === 'number' ? orderData.amount.toLocaleString() : orderData.amount;
+    
     return `
-💳 <b>Payment ${paymentData.status === 'SUCCESS' ? 'Successful' : 'Failed'}</b>
+🎉 <b>Order Confirmed - AVRIO</b>
 
-Order ID: <code>${paymentData.order_id}</code>
-Amount: ${paymentData.amount} ETB
-Method: ${paymentData.method}
-Status: ${status}
+📦 <b>Order Details:</b>
+Order ID: <code>${orderData.orderId}</code>
+Product: ${orderData.productName || 'Product'}
+Quantity: ${orderData.quantity || 1}
+Total Amount: <b>${amount} ETB</b>
 
-${paymentData.status === 'SUCCESS' ? 'Your order has been confirmed and is being processed!' : 'Please try again or contact support.'}
+📋 <b>Order Status:</b>
+Status: ${orderData.orderStatus || 'Confirmed'}
+Payment: ${orderData.paymentStatus || 'Paid'}
+
+👤 <b>Customer:</b>
+Name: ${orderData.customerName || 'Customer'}
+Email: ${orderData.customerEmail || 'N/A'}
+
+📅 Date: ${new Date(orderData.createdAt || Date.now()).toLocaleString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})}
+
+🚚 <b>Delivery:</b>
+Method: ${orderData.deliveryMethod || 'Standard Delivery'}
+${orderData.deliveryAddress ? `Address: ${orderData.deliveryAddress}` : ''}
+${orderData.pickupCode ? `Pickup Code: <code>${orderData.pickupCode}</code>` : ''}
+
+🎯 <b>Next Steps:</b>
+• We'll notify you when your order is shipped
+• Track your delivery in real-time
+• Contact support if you have any questions
+
+🔗 <a href="https://www.avrioxshop.com/orders">View All Orders</a>
     `;
+  }
+
+  private formatPaymentNotification(paymentData: any): string {
+    const status = paymentData.status === 'paid' || paymentData.status === 'SUCCESS' ? '✅ Successful' : '❌ Failed';
+    const amount = typeof paymentData.amount === 'number' ? paymentData.amount.toLocaleString() : paymentData.amount;
+    
+    let message = `
+💳 <b>Payment Confirmation - AVRIO</b>
+
+🎯 <b>Order Details:</b>
+Order ID: <code>${paymentData.orderId || paymentData.order_id}</code>
+Product: ${paymentData.productName || 'Product'}
+Amount: <b>${amount} ETB</b>
+
+💳 <b>Payment Info:</b>
+Method: ${paymentData.paymentMethod || paymentData.method}
+Status: ${status}
+Transaction Ref: <code>${paymentData.txRef || paymentData.tx_ref || 'N/A'}</code>
+${paymentData.reference ? `Reference: <code>${paymentData.reference}</code>` : ''}
+
+👤 <b>Customer:</b>
+Name: ${paymentData.customerName || 'Customer'}
+Email: ${paymentData.customerEmail || 'N/A'}
+
+📅 Date: ${new Date(paymentData.createdAt || Date.now()).toLocaleString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})}
+
+${paymentData.receiptUrl ? `📄 <a href="${paymentData.receiptUrl}">View Receipt</a>` : ''}
+
+🎉 <b>Your order has been confirmed and is being processed!</b>
+
+🔗 <a href="https://www.avrioxshop.com/orders">Track Your Order</a>
+    `;
+
+    return message;
   }
 
   private formatDeliveryUpdate(deliveryData: any): string {
