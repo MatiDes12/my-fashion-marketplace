@@ -2291,7 +2291,6 @@ Payment: ${order.payment_status}
 💰 <b>Pricing:</b>
 Amount: ${order.total_price} ETB
 Platform Fee: ${order.platform_fee || 0} ETB
-Service Fee: ${order.service_fee || 0} ETB
 Delivery Fee: ${order.delivery_fee || 0} ETB
 
 🚚 <b>Delivery:</b>
@@ -2363,7 +2362,7 @@ ${order.updated_at ? `Updated: ${new Date(order.updated_at).toLocaleString()}` :
       const message = `
 🚚 <b>Delivery Tracking</b>
 
-Order ID: <code>${orderId}</code>
+Order ID: <code>${orderId.slice(-12)}</code>
 Status: ${statusEmoji[delivery.status] || '📦'} ${delivery.status.toUpperCase()}
 
 ${delivery.delivery_account ? `
