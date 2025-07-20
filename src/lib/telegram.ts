@@ -114,6 +114,35 @@ export class TelegramBot {
     }
   }
 
+  // Helper method to log notifications to database
+  private async logNotification(
+    userId: string | null,
+    chatId: string,
+    notificationType: string,
+    messageText: string,
+    metadata: any = null,
+    status: 'sent' | 'failed' | 'pending' = 'sent',
+    errorMessage: string | null = null
+  ): Promise<void> {
+    try {
+      await supabaseService
+        .from('telegram_notifications')
+        .insert({
+          user_id: userId,
+          chat_id: chatId,
+          notification_type: notificationType,
+          message_text: messageText,
+          metadata: metadata,
+          status: status,
+          error_message: errorMessage,
+          sent_at: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Error logging notification to database:', error);
+      // Don't throw error to avoid breaking the main notification flow
+    }
+  }
+
   async setWebhook(url: string): Promise<any> {
     try {
       const response = await fetch(`${this.baseUrl}/setWebhook`, {
@@ -157,25 +186,49 @@ export class TelegramBot {
       if (!user?.chat_id) return;
 
       const message = this.formatOrderNotification(orderData);
-      await this.sendMessage({
-        chat_id: user.chat_id,
-        text: message,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: 'View Order Details',
-                callback_data: `order_${orderData.id}`
-              },
-              {
-                text: 'Track Delivery',
-                callback_data: `track_${orderData.id}`
-              }
+      
+      try {
+        await this.sendMessage({
+          chat_id: user.chat_id,
+          text: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: 'View Order Details',
+                  callback_data: `order_${orderData.id}`
+                },
+                {
+                  text: 'Track Delivery',
+                  callback_data: `track_${orderData.id}`
+                }
+              ]
             ]
-          ]
-        }
-      });
+          }
+        });
+        
+        // Log successful notification
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'order_notification',
+          message,
+          { orderData, orderId: orderData.id }
+        );
+      } catch (sendError) {
+        // Log failed notification
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'order_notification',
+          message,
+          { orderData, orderId: orderData.id },
+          'failed',
+          sendError instanceof Error ? sendError.message : 'Unknown error'
+        );
+        throw sendError;
+      }
     } catch (error) {
       console.error('Error sending order notification:', error);
     }
@@ -183,7 +236,7 @@ export class TelegramBot {
 
   async sendOrderConfirmation(userId: string, orderData: any): Promise<void> {
     try {
-      const { data: user } = await supabase
+      const { data: user } = await supabaseService
         .from('telegram_users')
         .select('chat_id')
         .eq('user_id', userId)
@@ -212,14 +265,37 @@ export class TelegramBot {
         ]
       ];
 
-      await this.sendMessage({
-        chat_id: user.chat_id,
-        text: message,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: inlineKeyboard
-        }
-      });
+      try {
+        await this.sendMessage({
+          chat_id: user.chat_id,
+          text: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: inlineKeyboard
+          }
+        });
+        
+        // Log successful order confirmation
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'order_confirmation',
+          message,
+          { orderData, orderId: orderData.orderId }
+        );
+      } catch (sendError) {
+        // Log failed order confirmation
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'order_confirmation',
+          message,
+          { orderData, orderId: orderData.orderId },
+          'failed',
+          sendError instanceof Error ? sendError.message : 'Unknown error'
+        );
+        throw sendError;
+      }
     } catch (error) {
       console.error('Error sending order confirmation:', error);
     }
@@ -270,14 +346,37 @@ export class TelegramBot {
         }
       ]);
 
-      await this.sendMessage({
-        chat_id: user.chat_id,
-        text: message,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: inlineKeyboard
-        }
-      });
+      try {
+        await this.sendMessage({
+          chat_id: user.chat_id,
+          text: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: inlineKeyboard
+          }
+        });
+        
+        // Log successful notification
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'payment_notification',
+          message,
+          { paymentData, orderId: paymentData.orderId || paymentData.order_id }
+        );
+      } catch (sendError) {
+        // Log failed notification
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'payment_notification',
+          message,
+          { paymentData, orderId: paymentData.orderId || paymentData.order_id },
+          'failed',
+          sendError instanceof Error ? sendError.message : 'Unknown error'
+        );
+        throw sendError;
+      }
     } catch (error) {
       console.error('Error sending payment notification:', error);
     }
@@ -294,21 +393,45 @@ export class TelegramBot {
       if (!user?.chat_id) return;
 
       const message = this.formatDeliveryUpdate(deliveryData);
-      await this.sendMessage({
-        chat_id: user.chat_id,
-        text: message,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: 'View Delivery Details',
-                callback_data: `delivery_${deliveryData.order_id}`
-              }
+      
+      try {
+        await this.sendMessage({
+          chat_id: user.chat_id,
+          text: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: 'View Delivery Details',
+                  callback_data: `delivery_${deliveryData.order_id}`
+                }
+              ]
             ]
-          ]
-        }
-      });
+          }
+        });
+        
+        // Log successful delivery update
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'delivery_update',
+          message,
+          { deliveryData, orderId: deliveryData.order_id }
+        );
+      } catch (sendError) {
+        // Log failed delivery update
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'delivery_update',
+          message,
+          { deliveryData, orderId: deliveryData.order_id },
+          'failed',
+          sendError instanceof Error ? sendError.message : 'Unknown error'
+        );
+        throw sendError;
+      }
     } catch (error) {
       console.error('Error sending delivery update:', error);
     }
@@ -317,11 +440,36 @@ export class TelegramBot {
   async sendAdminAlert(message: string, type: 'info' | 'warning' | 'error' = 'info'): Promise<void> {
     try {
       const emoji = type === 'error' ? '🚨' : type === 'warning' ? '⚠️' : 'ℹ️';
-      await this.sendMessage({
-        chat_id: this.config.adminChatId,
-        text: `${emoji} <b>Admin Alert</b>\n\n${message}`,
-        parse_mode: 'HTML'
-      });
+      const formattedMessage = `${emoji} <b>Admin Alert</b>\n\n${message}`;
+      
+      try {
+        await this.sendMessage({
+          chat_id: this.config.adminChatId,
+          text: formattedMessage,
+          parse_mode: 'HTML'
+        });
+        
+        // Log successful admin alert
+        await this.logNotification(
+          null, // No specific user for admin alerts
+          this.config.adminChatId,
+          'admin_alert',
+          formattedMessage,
+          { originalMessage: message, type }
+        );
+      } catch (sendError) {
+        // Log failed admin alert
+        await this.logNotification(
+          null,
+          this.config.adminChatId,
+          'admin_alert',
+          formattedMessage,
+          { originalMessage: message, type },
+          'failed',
+          sendError instanceof Error ? sendError.message : 'Unknown error'
+        );
+        throw sendError;
+      }
     } catch (error) {
       console.error('Error sending admin alert:', error);
     }
@@ -338,11 +486,35 @@ export class TelegramBot {
       if (!user?.chat_id) return;
 
       const message = this.formatSellerNotification(notificationData);
-      await this.sendMessage({
-        chat_id: user.chat_id,
-        text: message,
-        parse_mode: 'HTML'
-      });
+      
+      try {
+        await this.sendMessage({
+          chat_id: user.chat_id,
+          text: message,
+          parse_mode: 'HTML'
+        });
+        
+        // Log successful notification
+        await this.logNotification(
+          sellerId,
+          user.chat_id,
+          'seller_notification',
+          message,
+          { notificationData }
+        );
+      } catch (sendError) {
+        // Log failed notification
+        await this.logNotification(
+          sellerId,
+          user.chat_id,
+          'seller_notification',
+          message,
+          { notificationData },
+          'failed',
+          sendError instanceof Error ? sendError.message : 'Unknown error'
+        );
+        throw sendError;
+      }
     } catch (error) {
       console.error('Error sending seller notification:', error);
     }
@@ -360,31 +532,55 @@ export class TelegramBot {
       if (!user?.chat_id) return;
 
       const message = this.formatReceipt(receiptData);
-      await this.sendMessage({
-        chat_id: user.chat_id,
-        text: message,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: '📄 Download Receipt',
-                url: receiptData.receiptUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/${receiptData.paymentMethod.toLowerCase()}/${receiptData.txRef}`
-              },
-              {
-                text: '📦 Track Order',
-                callback_data: `track_${receiptData.orderId}`
-              }
-            ],
-            [
-              {
-                text: '🛒 Continue Shopping',
-                url: `${process.env.NEXT_PUBLIC_SITE_URL}/products`
-              }
+      
+      try {
+        await this.sendMessage({
+          chat_id: user.chat_id,
+          text: message,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: '📄 Download Receipt',
+                  url: receiptData.receiptUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/${receiptData.paymentMethod.toLowerCase()}/${receiptData.txRef}`
+                },
+                {
+                  text: '📦 Track Order',
+                  callback_data: `track_${receiptData.orderId}`
+                }
+              ],
+              [
+                {
+                  text: '🛒 Continue Shopping',
+                  url: `${process.env.NEXT_PUBLIC_SITE_URL}/products`
+                }
+              ]
             ]
-          ]
-        }
-      });
+          }
+        });
+        
+        // Log successful receipt
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'receipt',
+          message,
+          { receiptData, orderId: receiptData.orderId }
+        );
+      } catch (sendError) {
+        // Log failed receipt
+        await this.logNotification(
+          userId,
+          user.chat_id,
+          'receipt',
+          message,
+          { receiptData, orderId: receiptData.orderId },
+          'failed',
+          sendError instanceof Error ? sendError.message : 'Unknown error'
+        );
+        throw sendError;
+      }
     } catch (error) {
       console.error('Error sending receipt:', error);
     }
