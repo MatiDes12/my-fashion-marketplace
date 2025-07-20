@@ -877,7 +877,7 @@ Contact us: support@avrioxshop.com
           );
           break;
         case '/tracking':
-          await this.sendTrackingOverview(chatId, from.id);
+          await this.sendTrackingOverview(chatId);
           await this.logNotification(
             user?.user_id || null,
             chatId.toString(),
@@ -887,7 +887,7 @@ Contact us: support@avrioxshop.com
           );
           break;
         case '/flash':
-          await this.sendFlashSales(chatId, from.id);
+          await this.sendFlashSales(chatId);
           await this.logNotification(
             user?.user_id || null,
             chatId.toString(),
@@ -897,7 +897,7 @@ Contact us: support@avrioxshop.com
           );
           break;
         case '/wishlist':
-          await this.sendWishlist(chatId, from.id);
+          await this.sendWishlist(chatId);
           await this.logNotification(
             user?.user_id || null,
             chatId.toString(),
@@ -907,7 +907,7 @@ Contact us: support@avrioxshop.com
           );
           break;
         case '/stores':
-          await this.sendStores(chatId, from.id);
+          await this.sendStores(chatId);
           await this.logNotification(
             user?.user_id || null,
             chatId.toString(),
@@ -917,7 +917,7 @@ Contact us: support@avrioxshop.com
           );
           break;
         case '/link':
-          await this.sendLinkInstructions(chatId, from.id);
+          await this.sendLinkInstructions(chatId);
           await this.logNotification(
             user?.user_id || null,
             chatId.toString(),
@@ -927,7 +927,7 @@ Contact us: support@avrioxshop.com
           );
           break;
         case '/profile':
-          await this.sendProfileInfo(chatId, from.id);
+          await this.sendProfileInfo(chatId);
           await this.logNotification(
             user?.user_id || null,
             chatId.toString(),
@@ -990,6 +990,7 @@ Contact us: support@avrioxshop.com
     try {
       if (data.startsWith('order_')) {
         const orderId = data.replace('order_', '');
+        console.log(`Processing order callback: ${data}, orderId: ${orderId}`);
         await this.sendOrderDetails(chatId, orderId);
         await this.logNotification(
           user?.user_id || null,
@@ -1018,17 +1019,17 @@ Contact us: support@avrioxshop.com
           `User clicked: ${data}`,
           { callbackData: data, orderId, responseType: 'delivery_tracking' }
         );
-      } else if (data === 'orders_list') {
-        if (user) {
-          await this.sendOrdersList(chatId, user.user_id);
-          await this.logNotification(
-            user.user_id,
-            chatId.toString(),
-            'bot_callback',
-            `User clicked: ${data}`,
-            { callbackData: data, responseType: 'orders_list' }
-          );
-        }
+              } else if (data === 'orders_list') {
+          if (user) {
+            await this.sendOrdersList(chatId);
+            await this.logNotification(
+              user.user_id,
+              chatId.toString(),
+              'bot_callback',
+              `User clicked: ${data}`,
+              { callbackData: data, responseType: 'orders_list' }
+            );
+          }
       } else if (data.startsWith('flash_')) {
         const flashSaleId = data.replace('flash_', '');
         await this.sendFlashSaleDetails(chatId, flashSaleId);
@@ -1172,7 +1173,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
     });
   }
 
-  private async sendOrdersList(chatId: number, userId: number): Promise<void> {
+  private async sendOrdersList(chatId: number, userId?: number): Promise<void> {
     try {
       const { data: user } = await supabaseService
         .from('telegram_users')
@@ -1189,7 +1190,8 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         return;
       }
 
-      const { data: orders } = await supabaseService
+      console.log(`Fetching orders for user: ${user.user_id}`);
+      const { data: orders, error: ordersError } = await supabaseService
         .from('orders')
         .select(`
           id,
@@ -1204,6 +1206,11 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         .order('created_at', { ascending: false })
         .limit(5);
 
+      if (ordersError) {
+        console.error('Orders query error:', ordersError);
+      }
+
+      console.log(`Found ${orders?.length || 0} orders for user ${user.user_id}`);
       if (!orders || orders.length === 0) {
         await this.sendMessage({
           chat_id: chatId.toString(),
@@ -1231,6 +1238,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         message += `   Delivery: ${deliveryMethodText}\n`;
         message += `   Date: ${new Date(order.created_at).toLocaleDateString()}\n\n`;
 
+        console.log(`Creating button for order ${index + 1}: ${order.id}`);
         keyboard.push([
           {
             text: `Order ${index + 1}`,
@@ -1256,7 +1264,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
     }
   }
 
-  private async sendTrackingOverview(chatId: number, userId: number): Promise<void> {
+  private async sendTrackingOverview(chatId: number, userId?: number): Promise<void> {
     try {
       const { data: user } = await supabaseService
         .from('telegram_users')
@@ -1376,7 +1384,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
     }
   }
 
-  private async sendFlashSales(chatId: number, userId: number): Promise<void> {
+  private async sendFlashSales(chatId: number, userId?: number): Promise<void> {
     try {
       const { data: user } = await supabaseService
         .from('telegram_users')
@@ -1493,7 +1501,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
     }
   }
 
-  private async sendWishlist(chatId: number, userId: number): Promise<void> {
+  private async sendWishlist(chatId: number, userId?: number): Promise<void> {
     try {
       const { data: user } = await supabaseService
         .from('telegram_users')
@@ -1629,7 +1637,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
     }
   }
 
-  private async sendStores(chatId: number, userId: number): Promise<void> {
+  private async sendStores(chatId: number, userId?: number): Promise<void> {
     try {
       // Fetch verified sellers with metrics
       const { data: sellersData } = await supabaseService
@@ -2071,7 +2079,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
     }
   }
 
-  private async sendLinkInstructions(chatId: number, userId: number): Promise<void> {
+  private async sendLinkInstructions(chatId: number, userId?: number): Promise<void> {
     try {
       // Check if user is already linked
       const { data: existingUser } = await supabaseService
@@ -2148,7 +2156,25 @@ Contact support: /support
 
   private async sendOrderDetails(chatId: number, orderId: string): Promise<void> {
     try {
-      const { data: order } = await supabaseService
+      // First get the user ID from telegram_users table
+      const { data: user } = await supabaseService
+        .from('telegram_users')
+        .select('user_id')
+        .eq('chat_id', chatId.toString())
+        .eq('is_active', true)
+        .single();
+
+      if (!user) {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: 'Please link your account first by visiting our website. Go to https://www.avrioxshop.com/profile to connect your Telegram account.'
+        });
+        return;
+      }
+
+      // Get order details and ensure it belongs to the user
+      console.log(`Looking for order: ${orderId} for user: ${user.user_id}`);
+      const { data: order, error: orderError } = await supabaseService
         .from('orders')
         .select(`
           *,
@@ -2156,15 +2182,23 @@ Contact support: /support
           buyer:users!user_id(full_name, email, phone)
         `)
         .eq('id', orderId)
+        .eq('user_id', user.user_id)
         .single();
 
+      if (orderError) {
+        console.error('Order query error:', orderError);
+      }
+
       if (!order) {
+        console.log(`Order not found: ${orderId} for user: ${user.user_id}`);
         await this.sendMessage({
           chat_id: chatId.toString(),
-          text: 'Order not found.'
+          text: 'Order not found or you don\'t have permission to view this order.'
         });
         return;
       }
+
+      console.log(`Order found: ${order.id}`);
 
       // Format delivery method for display
       const deliveryMethodText = order.delivery_method === 'home_delivery' ? '🏠 Home Delivery' : 
@@ -2291,7 +2325,7 @@ ${delivery.delivery_notes ? `Notes: ${delivery.delivery_notes}` : ''}
     }
   }
 
-  private async sendProfileInfo(chatId: number, userId: number): Promise<void> {
+  private async sendProfileInfo(chatId: number, userId?: number): Promise<void> {
     try {
       const { data: user } = await supabaseService
         .from('telegram_users')
