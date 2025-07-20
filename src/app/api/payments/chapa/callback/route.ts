@@ -301,6 +301,30 @@ export async function GET(request: Request) {
           
           await bot.sendOrderConfirmation(tempOrder.user_id, orderData);
           console.log('[CHAPA CALLBACK] Telegram order confirmation sent for order:', order.id);
+
+          // Send receipt notification
+          const receiptData = {
+            orderId: order.id,
+            txRef: uniqueOrderTxRef,
+            amount: tempOrder.total_price,
+            subtotal: tempOrder.total_price - tempOrder.delivery_fee,
+            serviceFee: tempOrder.service_fee,
+            deliveryFee: tempOrder.delivery_fee,
+            paymentMethod: 'CHAPA',
+            customerName: user?.full_name || verifyData.data.first_name + ' ' + verifyData.data.last_name,
+            customerEmail: user?.email || verifyData.data.email,
+            customerPhone: tempOrder.customer_phone || 'N/A',
+            productName: product?.name || 'Product',
+            quantity: tempOrder.quantity,
+            deliveryMethod: tempOrder.delivery_method,
+            deliveryAddress: tempOrder.delivery_address,
+            pickupCode: pickupCode,
+            receiptUrl: receiptUrl,
+            createdAt: order.created_at
+          };
+          
+          await bot.sendReceipt(tempOrder.user_id, receiptData);
+          console.log('[CHAPA CALLBACK] Telegram receipt sent for order:', order.id);
         } catch (telegramError) {
           console.error('[CHAPA CALLBACK] Error sending Telegram notification:', telegramError);
           // Don't fail the order creation if Telegram notification fails

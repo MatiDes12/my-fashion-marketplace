@@ -348,6 +348,48 @@ export class TelegramBot {
     }
   }
 
+  async sendReceipt(userId: string, receiptData: any): Promise<void> {
+    try {
+      const { data: user } = await supabaseService
+        .from('telegram_users')
+        .select('chat_id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (!user?.chat_id) return;
+
+      const message = this.formatReceipt(receiptData);
+      await this.sendMessage({
+        chat_id: user.chat_id,
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '📄 Download Receipt',
+                url: receiptData.receiptUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/${receiptData.paymentMethod.toLowerCase()}/${receiptData.txRef}`
+              },
+              {
+                text: '📦 Track Order',
+                callback_data: `track_${receiptData.orderId}`
+              }
+            ],
+            [
+              {
+                text: '🛒 Continue Shopping',
+                url: `${process.env.NEXT_PUBLIC_SITE_URL}/products`
+              }
+            ]
+          ]
+        }
+      });
+    } catch (error) {
+      console.error('Error sending receipt:', error);
+    }
+  }
+
   // Message formatting methods
   private formatOrderNotification(orderData: any): string {
     return `
@@ -478,6 +520,60 @@ ${notificationData.amount ? `Amount: ${notificationData.amount} ETB` : ''}
 ${notificationData.order_id ? `Order ID: ${notificationData.order_id}` : ''}
 
 Date: ${new Date().toLocaleString()}
+    `;
+  }
+
+  private formatReceipt(receiptData: any): string {
+    const amount = typeof receiptData.amount === 'number' ? receiptData.amount.toLocaleString() : receiptData.amount;
+    const subtotal = typeof receiptData.subtotal === 'number' ? receiptData.subtotal.toLocaleString() : receiptData.subtotal;
+    const serviceFee = typeof receiptData.serviceFee === 'number' ? receiptData.serviceFee.toLocaleString() : receiptData.serviceFee;
+    const deliveryFee = typeof receiptData.deliveryFee === 'number' ? receiptData.deliveryFee.toLocaleString() : receiptData.deliveryFee;
+    
+    return `
+🧾 <b>Payment Receipt - AVRIO</b>
+
+📋 <b>Receipt Details:</b>
+Receipt No: <code>${receiptData.txRef || 'N/A'}</code>
+Order ID: <code>${receiptData.orderId || 'N/A'}</code>
+Date: ${new Date(receiptData.createdAt || Date.now()).toLocaleString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit'
+})}
+
+👤 <b>Customer Information:</b>
+Name: ${receiptData.customerName || 'Customer'}
+Email: ${receiptData.customerEmail || 'N/A'}
+Phone: ${receiptData.customerPhone || 'N/A'}
+
+🛍️ <b>Order Summary:</b>
+Product: ${receiptData.productName || 'Product'}
+Quantity: ${receiptData.quantity || 1}
+Subtotal: ${subtotal} ETB
+
+💰 <b>Payment Breakdown:</b>
+Subtotal: ${subtotal} ETB
+Service Fee: ${serviceFee} ETB
+Delivery Fee: ${deliveryFee} ETB
+<b>Total Amount: ${amount} ETB</b>
+
+💳 <b>Payment Information:</b>
+Method: ${receiptData.paymentMethod || 'N/A'}
+Status: ✅ Paid
+Transaction Ref: <code>${receiptData.txRef || 'N/A'}</code>
+
+🚚 <b>Delivery Information:</b>
+Method: ${receiptData.deliveryMethod || 'Standard Delivery'}
+${receiptData.deliveryAddress ? `Address: ${receiptData.deliveryAddress}` : ''}
+${receiptData.pickupCode ? `Pickup Code: <code>${receiptData.pickupCode}</code>` : ''}
+
+🎉 <b>Thank you for your purchase!</b>
+Your order has been confirmed and is being processed.
+
+📞 <b>Need Help?</b>
+Contact us: support@avrioxshop.com
     `;
   }
 

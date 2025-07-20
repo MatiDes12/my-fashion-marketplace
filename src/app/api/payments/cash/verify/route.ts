@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       // Get user details for notification
       const { data: user } = await supabase
         .from('users')
-        .select('full_name, email')
+        .select('full_name, email, store_settings')
         .eq('id', order.user_id)
         .single();
 
@@ -105,6 +105,30 @@ export async function GET(request: NextRequest) {
       
       await bot.sendOrderConfirmation(order.user_id, orderData);
       console.log('[CASH VERIFY] Telegram order confirmation sent for order:', order.id);
+
+      // Send receipt notification
+      const receiptData = {
+        orderId: order.id,
+        txRef: order.tx_ref,
+        amount: order.total_price,
+        subtotal: order.total_price - (order.delivery_fee || 0),
+        serviceFee: order.service_fee || 0,
+        deliveryFee: order.delivery_fee || 0,
+        paymentMethod: 'CASH',
+        customerName: user?.full_name || 'Customer',
+        customerEmail: user?.email || '',
+        customerPhone: user?.store_settings?.phone || 'N/A',
+        productName: product?.name || 'Product',
+        quantity: order.quantity,
+        deliveryMethod: order.delivery_method,
+        deliveryAddress: order.delivery_address,
+        pickupCode: order.pickup_code,
+        receiptUrl: order.receipt_url,
+        createdAt: order.created_at
+      };
+      
+      await bot.sendReceipt(order.user_id, receiptData);
+      console.log('[CASH VERIFY] Telegram receipt sent for order:', order.id);
     } catch (telegramError) {
       console.error('[CASH VERIFY] Error sending Telegram notification:', telegramError);
       // Don't fail the verification if Telegram notification fails

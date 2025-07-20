@@ -88,6 +88,57 @@ export async function POST(request: Request) {
         payment_reference: verifyData.data.reference
       });
 
+    // Send Telegram notifications
+    try {
+      const { TelegramBot, getTelegramConfig } = await import('@/lib/telegram');
+      const config = await getTelegramConfig();
+      const bot = new TelegramBot(config);
+
+      // Send subscription confirmation
+      const subscriptionData = {
+        orderId: subscription.id,
+        txRef: subscription.tx_ref,
+        amount: Number(verifyData.data.amount),
+        paymentMethod: 'CHAPA',
+        status: 'paid',
+        customerName: subscription.user.full_name,
+        customerEmail: subscription.user.email,
+        productName: `${subscription.plan_id} Subscription`,
+        receiptUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/chapa/${subscription.tx_ref}`,
+        orderStatus: 'completed',
+        createdAt: subscription.created_at,
+        reference: verifyData.data.reference
+      };
+
+      await bot.sendPaymentNotification(subscription.user_id, subscriptionData);
+
+      // Send receipt
+      const receiptData = {
+        orderId: subscription.id,
+        txRef: subscription.tx_ref,
+        amount: Number(verifyData.data.amount),
+        subtotal: Number(verifyData.data.amount),
+        serviceFee: 0,
+        deliveryFee: 0,
+        paymentMethod: 'CHAPA',
+        customerName: subscription.user.full_name,
+        customerEmail: subscription.user.email,
+        customerPhone: 'N/A',
+        productName: `${subscription.plan_id} Subscription`,
+        quantity: 1,
+        deliveryMethod: 'digital',
+        deliveryAddress: 'Digital Service',
+        pickupCode: null,
+        receiptUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/chapa/${subscription.tx_ref}`,
+        createdAt: subscription.created_at
+      };
+
+      await bot.sendReceipt(subscription.user_id, receiptData);
+    } catch (telegramError) {
+      console.error('Error sending Telegram notifications:', telegramError);
+      // Don't fail the subscription if Telegram notification fails
+    }
+
     // Send notifications
     await Promise.all([
       // Notify user
