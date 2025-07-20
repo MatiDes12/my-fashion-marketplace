@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Create both anon and service role clients
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+const supabaseService = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export interface TelegramConfig {
@@ -142,7 +148,7 @@ export class TelegramBot {
   // Notification methods
   async sendOrderNotification(userId: string, orderData: any): Promise<void> {
     try {
-      const { data: user } = await supabase
+      const { data: user } = await supabaseService
         .from('telegram_users')
         .select('chat_id')
         .eq('user_id', userId)
@@ -221,7 +227,7 @@ export class TelegramBot {
 
   async sendPaymentNotification(userId: string, paymentData: any): Promise<void> {
     try {
-      const { data: user } = await supabase
+      const { data: user } = await supabaseService
         .from('telegram_users')
         .select('chat_id')
         .eq('user_id', userId)
@@ -279,7 +285,7 @@ export class TelegramBot {
 
   async sendDeliveryUpdate(userId: string, deliveryData: any): Promise<void> {
     try {
-      const { data: user } = await supabase
+      const { data: user } = await supabaseService
         .from('telegram_users')
         .select('chat_id')
         .eq('user_id', userId)
@@ -323,7 +329,7 @@ export class TelegramBot {
 
   async sendSellerNotification(sellerId: string, notificationData: any): Promise<void> {
     try {
-      const { data: user } = await supabase
+      const { data: user } = await supabaseService
         .from('telegram_users')
         .select('chat_id')
         .eq('user_id', sellerId)
@@ -614,7 +620,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
 
   private async sendOrdersList(chatId: number, userId: number): Promise<void> {
     try {
-      const { data: user } = await supabase
+      const { data: user } = await supabaseService
         .from('telegram_users')
         .select('user_id')
         .eq('chat_id', chatId.toString())
@@ -629,7 +635,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         return;
       }
 
-      const { data: orders } = await supabase
+      const { data: orders } = await supabaseService
         .from('orders')
         .select(`
           id,
@@ -687,7 +693,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
 
   private async sendOrderDetails(chatId: number, orderId: string): Promise<void> {
     try {
-      const { data: order } = await supabase
+      const { data: order } = await supabaseService
         .from('orders')
         .select(`
           *,
@@ -754,7 +760,7 @@ ${order.updated_at ? `Updated: ${new Date(order.updated_at).toLocaleString()}` :
 
   private async sendDeliveryTracking(chatId: number, orderId: string): Promise<void> {
     try {
-      const { data: delivery } = await supabase
+      const { data: delivery } = await supabaseService
         .from('delivery_tracking')
         .select(`
           *,
@@ -813,7 +819,7 @@ ${delivery.delivery_notes ? `Notes: ${delivery.delivery_notes}` : ''}
 
   private async sendProfileInfo(chatId: number, userId: number): Promise<void> {
     try {
-      const { data: user } = await supabase
+      const { data: user } = await supabaseService
         .from('telegram_users')
         .select('user_id')
         .eq('chat_id', chatId.toString())
@@ -828,7 +834,7 @@ ${delivery.delivery_notes ? `Notes: ${delivery.delivery_notes}` : ''}
         return;
       }
 
-      const { data: profile } = await supabase
+      const { data: profile } = await supabaseService
         .from('users')
         .select('full_name, email, phone, subscription_plan, created_at')
         .eq('id', user.user_id)
@@ -929,7 +935,7 @@ Time: ${new Date(message.date * 1000).toLocaleString()}
 export async function getTelegramConfig(): Promise<TelegramConfig> {
   try {
     // First try to get from database
-    const { data: settings, error } = await supabase
+    const { data: settings, error } = await supabaseService
       .from('admin_telegram_settings')
       .select('*')
       .eq('is_active', true)
@@ -968,7 +974,7 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
 }
 
 export async function linkTelegramUser(userId: string, chatId: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await supabaseService
     .from('telegram_users')
     .upsert({
       user_id: userId,
@@ -981,7 +987,7 @@ export async function linkTelegramUser(userId: string, chatId: string): Promise<
 }
 
 export async function unlinkTelegramUser(userId: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await supabaseService
     .from('telegram_users')
     .update({ is_active: false })
     .eq('user_id', userId);

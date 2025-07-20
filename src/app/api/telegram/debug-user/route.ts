@@ -18,14 +18,15 @@ export async function GET(request: Request) {
       );
     }
 
-    // Check telegram_users table
+    // Check telegram_users table - first try to get active user
     const { data: telegramUser, error: telegramError } = await supabase
       .from('telegram_users')
       .select('*')
       .eq('chat_id', chatId)
+      .eq('is_active', true)
       .single();
 
-    // Check all telegram_users for this chat_id
+    // Check all telegram_users for this chat_id (including inactive)
     const { data: allTelegramUsers, error: allUsersError } = await supabase
       .from('telegram_users')
       .select('*')
