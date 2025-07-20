@@ -618,12 +618,13 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         .from('telegram_users')
         .select('user_id')
         .eq('chat_id', chatId.toString())
+        .eq('is_active', true)
         .single();
 
       if (!user) {
         await this.sendMessage({
           chat_id: chatId.toString(),
-          text: 'Please link your account first by visiting our website.'
+          text: 'Please link your account first by visiting our website. Go to https://www.avrioxshop.com/profile to connect your Telegram account.'
         });
         return;
       }
@@ -816,12 +817,13 @@ ${delivery.delivery_notes ? `Notes: ${delivery.delivery_notes}` : ''}
         .from('telegram_users')
         .select('user_id')
         .eq('chat_id', chatId.toString())
+        .eq('is_active', true)
         .single();
 
       if (!user) {
         await this.sendMessage({
           chat_id: chatId.toString(),
-          text: 'Please link your account first by visiting our website.'
+          text: 'Please link your account first by visiting our website. Go to https://www.avrioxshop.com/profile to connect your Telegram account.'
         });
         return;
       }
