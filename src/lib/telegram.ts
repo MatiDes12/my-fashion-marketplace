@@ -436,9 +436,11 @@ Email: ${orderData.customerEmail || 'N/A'}
 })}
 
 🚚 <b>Delivery:</b>
-Method: ${orderData.deliveryMethod || 'Standard Delivery'}
-${orderData.deliveryAddress ? `Address: ${orderData.deliveryAddress}` : ''}
-${orderData.pickupCode ? `Pickup Code: <code>${orderData.pickupCode}</code>` : ''}
+Method: ${orderData.deliveryMethod === 'home_delivery' ? '🏠 Home Delivery' : 
+         orderData.deliveryMethod === 'store_pickup' ? '🏪 Store Pickup' : 
+         orderData.deliveryMethod || 'Standard Delivery'}
+${orderData.deliveryAddress ? `📍 Address: ${orderData.deliveryAddress}` : ''}
+${orderData.pickupCode ? `🔑 Pickup Code: <code>${orderData.pickupCode}</code>` : ''}
 
 🎯 <b>Next Steps:</b>
 • We'll notify you when your order is shipped
@@ -565,9 +567,11 @@ Status: ✅ Paid
 Transaction Ref: <code>${receiptData.txRef || 'N/A'}</code>
 
 🚚 <b>Delivery Information:</b>
-Method: ${receiptData.deliveryMethod || 'Standard Delivery'}
-${receiptData.deliveryAddress ? `Address: ${receiptData.deliveryAddress}` : ''}
-${receiptData.pickupCode ? `Pickup Code: <code>${receiptData.pickupCode}</code>` : ''}
+Method: ${receiptData.deliveryMethod === 'home_delivery' ? '🏠 Home Delivery' : 
+         receiptData.deliveryMethod === 'store_pickup' ? '🏪 Store Pickup' : 
+         receiptData.deliveryMethod || 'Standard Delivery'}
+${receiptData.deliveryAddress ? `📍 Address: ${receiptData.deliveryAddress}` : ''}
+${receiptData.pickupCode ? `🔑 Pickup Code: <code>${receiptData.pickupCode}</code>` : ''}
 
 🎉 <b>Thank you for your purchase!</b>
 Your order has been confirmed and is being processed.
@@ -738,6 +742,8 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
           order_status,
           total_price,
           created_at,
+          delivery_method,
+          pickup_code,
           product:products(title)
         `)
         .eq('user_id', user.user_id)
@@ -756,10 +762,16 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       const keyboard: Array<Array<{ text: string; callback_data: string }>> = [];
 
       orders.forEach((order, index) => {
+        // Format delivery method
+        const deliveryMethodText = order.delivery_method === 'home_delivery' ? '🏠 Home Delivery' : 
+                                   order.delivery_method === 'store_pickup' ? '🏪 Store Pickup' : 
+                                   order.delivery_method || 'N/A';
+
         message += `${index + 1}. <b>${(order.product as any)?.title || 'Product'}</b>\n`;
         message += `   Order ID: <code>${order.id}</code>\n`;
         message += `   Status: ${order.order_status}\n`;
         message += `   Amount: ${order.total_price} ETB\n`;
+        message += `   Delivery: ${deliveryMethodText}\n`;
         message += `   Date: ${new Date(order.created_at).toLocaleDateString()}\n\n`;
 
         keyboard.push([
@@ -807,6 +819,19 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         return;
       }
 
+      // Format delivery method for display
+      const deliveryMethodText = order.delivery_method === 'home_delivery' ? '🏠 Home Delivery' : 
+                                 order.delivery_method === 'store_pickup' ? '🏪 Store Pickup' : 
+                                 order.delivery_method || 'N/A';
+
+      // Format delivery address
+      let deliveryInfo = '';
+      if (order.delivery_method === 'home_delivery' && order.delivery_address) {
+        deliveryInfo = `📍 Address: ${order.delivery_address}`;
+      } else if (order.delivery_method === 'store_pickup' && order.pickup_code) {
+        deliveryInfo = `🔑 Pickup Code: <code>${order.pickup_code}</code>`;
+      }
+
       const message = `
 📦 <b>Order Details</b>
 
@@ -815,11 +840,17 @@ Product: ${order.product?.title || 'N/A'}
 Status: ${order.order_status}
 Payment: ${order.payment_status}
 
+💰 <b>Pricing:</b>
 Amount: ${order.total_price} ETB
-Platform Fee: ${order.platform_fee} ETB
-Service Fee: ${order.service_fee} ETB
-Delivery Fee: ${order.delivery_fee} ETB
+Platform Fee: ${order.platform_fee || 0} ETB
+Service Fee: ${order.service_fee || 0} ETB
+Delivery Fee: ${order.delivery_fee || 0} ETB
 
+🚚 <b>Delivery:</b>
+Method: ${deliveryMethodText}
+${deliveryInfo}
+
+📅 <b>Timeline:</b>
 Order Date: ${new Date(order.created_at).toLocaleString()}
 ${order.updated_at ? `Updated: ${new Date(order.updated_at).toLocaleString()}` : ''}
 
