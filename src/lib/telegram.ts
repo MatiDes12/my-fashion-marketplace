@@ -1990,13 +1990,6 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       message += `📂 <b>Category:</b> ${product.category}\n`;
       message += `🏷️ <b>Quality:</b> ${product.quality || 'New'}\n`;
 
-      // Get product image if available
-      let productImageUrl = null;
-      if (product.product_images && product.product_images.length > 0) {
-        const firstImage = product.product_images[0];
-        productImageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${firstImage.image_url}`;
-      }
-
       const keyboard = [
         [{
           text: '🛍️ View Product',
@@ -2008,27 +2001,14 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         }]
       ];
 
-      // Send photo with product details if available, otherwise send text message
-      if (productImageUrl) {
-        await this.sendPhoto({
-          chat_id: chatId.toString(),
-          photo: productImageUrl,
-          caption: message,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: keyboard
-          }
-        });
-      } else {
-        await this.sendMessage({
-          chat_id: chatId.toString(),
-          text: message,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: keyboard
-          }
-        });
-      }
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
     } catch (error) {
       console.error('Error fetching product details:', error);
       await this.sendMessage({
@@ -2300,22 +2280,6 @@ Contact support: /support
         deliveryInfo = `🔑 Pickup Code: <code>${order.pickup_code}</code>`;
       }
 
-      // Get product images if available
-      let productImageUrl = null;
-      if (order.product_id) {
-        const { data: productImages } = await supabaseService
-          .from('product_images')
-          .select('image_url')
-          .eq('product_id', order.product_id)
-          .eq('is_model_picture', false)
-          .limit(1)
-          .single();
-        
-        if (productImages) {
-          productImageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${productImages.image_url}`;
-        }
-      }
-
       const message = `
 📦 <b>Order Details</b>
 
@@ -2341,49 +2305,25 @@ ${order.updated_at ? `Updated: ${new Date(order.updated_at).toLocaleString()}` :
 <a href="${process.env.NEXT_PUBLIC_SITE_URL}/orders">View on Website</a>
       `;
 
-      // Send photo with order details if available, otherwise send text message
-      if (productImageUrl) {
-        await this.sendPhoto({
-          chat_id: chatId.toString(),
-          photo: productImageUrl,
-          caption: message,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: 'Track Delivery',
-                  callback_data: `track_${order.id}`
-                },
-                {
-                  text: 'Contact Support',
-                  callback_data: 'support'
-                }
-              ]
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: 'Track Delivery',
+                callback_data: `track_${order.id}`
+              },
+              {
+                text: 'Contact Support',
+                callback_data: 'support'
+              }
             ]
-          }
-        });
-      } else {
-        await this.sendMessage({
-          chat_id: chatId.toString(),
-          text: message,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: 'Track Delivery',
-                  callback_data: `track_${order.id}`
-                },
-                {
-                  text: 'Contact Support',
-                  callback_data: 'support'
-                }
-              ]
-            ]
-          }
-        });
-      }
+          ]
+        }
+      });
     } catch (error) {
       console.error('Error fetching order details:', error);
       await this.sendMessage({
