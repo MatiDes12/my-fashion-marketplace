@@ -44,6 +44,9 @@ export default function TelegramAdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'notifications' | 'users'>('settings');
+  const [selectedNotification, setSelectedNotification] = useState<TelegramNotification | null>(null);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const supabase = createClientComponent();
 
   useEffect(() => {
@@ -78,24 +81,46 @@ export default function TelegramAdminPage() {
   };
 
   const fetchNotifications = async () => {
-    const { data, error } = await supabase
-      .from('telegram_notifications')
-      .select('*')
-      .order('sent_at', { ascending: false })
-      .limit(50);
+    try {
+      console.log('Fetching telegram notifications...');
+      const { data, error } = await supabase
+        .from('telegram_notifications')
+        .select('*')
+        .order('sent_at', { ascending: false })
+        .limit(50);
 
-    if (error) throw error;
-    setNotifications(data || []);
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        throw error;
+      }
+      
+      console.log('Fetched notifications:', data);
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error in fetchNotifications:', error);
+      setNotifications([]);
+    }
   };
 
   const fetchUsers = async () => {
-    const { data, error } = await supabase
-      .from('telegram_users')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      console.log('Fetching telegram users...');
+      const { data, error } = await supabase
+        .from('telegram_users')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    setUsers(data || []);
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+      
+      console.log('Fetched users:', data);
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error in fetchUsers:', error);
+      setUsers([]);
+    }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -346,14 +371,111 @@ export default function TelegramAdminPage() {
       {/* Notifications Tab */}
       {activeTab === 'notifications' && (
         <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Notification Logs</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Recent Telegram notifications sent to users
-            </p>
-          </div>
-          
-          <div className="overflow-x-auto">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Notification Logs</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Recent Telegram notifications sent to users
+              </p>
+            </div>
+            <div className="flex space-x-3">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="sent">Sent</option>
+                <option value="failed">Failed</option>
+                <option value="pending">Pending</option>
+              </select>
+              <button
+                onClick={() => {
+                  const filteredNotifications = statusFilter === 'all' 
+                    ? notifications 
+                    : notifications.filter(n => n.status === statusFilter);
+                  
+                  if (filteredNotifications.length === 0) {
+                    toast.error('No notifications to export');
+                    return;
+                  }
+                  
+                  // Create CSV content
+                  const headers = ['Type', 'Chat ID', 'Status', 'Sent At', 'Message'];
+                  const csvContent = [
+                    headers.join(','),
+                    ...filteredNotifications.map(n => [
+                      n.notification_type,
+                      n.chat_id,
+                      n.status,
+                      new Date(n.sent_at).toLocaleString(),
+                      `"${n.message_text.replace(/"/g, '""')}"`
+                    ].join(','))
+                  ].join('\n');
+                  
+                  // Download CSV file
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `telegram-notifications-${new Date().toISOString().split('T')[0]}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  window.URL.revokeObjectURL(url);
+                  
+                  toast.success('Notifications exported successfully');
+                }}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+              <button
+                onClick={() => fetchNotifications()}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+            </div>
+                      </div>
+            
+            {/* Notification Statistics */}
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-900">
+                    {notifications.length}
+                  </div>
+                  <div className="text-sm text-gray-500">Total</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {notifications.filter(n => n.status === 'sent').length}
+                  </div>
+                  <div className="text-sm text-gray-500">Sent</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {notifications.filter(n => n.status === 'failed').length}
+                  </div>
+                  <div className="text-sm text-gray-500">Failed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {notifications.filter(n => n.status === 'pending').length}
+                  </div>
+                  <div className="text-sm text-gray-500">Pending</div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -375,34 +497,73 @@ export default function TelegramAdminPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {notifications.map((notification) => (
-                  <tr key={notification.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {notification.notification_type}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {notification.chat_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        notification.status === 'sent' 
-                          ? 'bg-green-100 text-green-800'
-                          : notification.status === 'failed'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {notification.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(notification.sent_at).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                {(() => {
+                  const filteredNotifications = statusFilter === 'all' 
+                    ? notifications 
+                    : notifications.filter(n => n.status === statusFilter);
+                  
+                                    return filteredNotifications.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center">
+                        <div className="text-gray-500">
+                          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                          </svg>
+                          <h3 className="mt-2 text-sm font-medium text-gray-900">
+                            {statusFilter === 'all' ? 'No notifications' : `No ${statusFilter} notifications`}
+                          </h3>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {statusFilter === 'all' 
+                              ? 'No Telegram notifications have been sent yet.'
+                              : `No ${statusFilter} notifications found.`
+                            }
+                          </p>
+                          <div className="mt-6">
+                            <button
+                              onClick={handleTestNotification}
+                              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                              Send Test Notification
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredNotifications.map((notification) => (
+                    <tr key={notification.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {notification.notification_type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {notification.chat_id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          notification.status === 'sent' 
+                            ? 'bg-green-100 text-green-800'
+                            : notification.status === 'failed'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {notification.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(notification.sent_at).toLocaleString()}
+                      </td>
+                                                              <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate cursor-pointer hover:text-blue-600" 
+                        onClick={() => {
+                          setSelectedNotification(notification);
+                          setShowNotificationModal(true);
+                        }}>
                       {notification.message_text}
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                ))
+              );
+            })()}
+            </tbody>
             </table>
           </div>
         </div>
@@ -411,11 +572,22 @@ export default function TelegramAdminPage() {
       {/* Users Tab */}
       {activeTab === 'users' && (
         <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Connected Users</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Users who have linked their Telegram accounts
-            </p>
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Connected Users</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Users who have linked their Telegram accounts
+              </p>
+            </div>
+            <button
+              onClick={() => fetchUsers()}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
           </div>
           
           <div className="overflow-x-auto">
@@ -443,36 +615,183 @@ export default function TelegramAdminPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {user.user_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.chat_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.first_name} {user.last_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      @{user.username}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.is_active 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(user.created_at).toLocaleDateString()}
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="text-gray-500">
+                        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                        </svg>
+                        <h3 className="mt-2 text-sm font-medium text-gray-900">No connected users</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          No users have linked their Telegram accounts yet.
+                        </p>
+                        <div className="mt-6">
+                          <p className="text-xs text-gray-400">
+                            Users can link their accounts by visiting their profile page and clicking "Connect Telegram"
+                          </p>
+                        </div>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  users.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {user.user_id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.chat_id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.first_name} {user.last_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        @{user.username}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          user.is_active 
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Detail Modal */}
+      {showNotificationModal && selectedNotification && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Notification Details
+                </h3>
+                <button
+                  onClick={() => setShowNotificationModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Type</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedNotification.notification_type}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Chat ID</label>
+                  <p className="mt-1 text-sm text-gray-900">{selectedNotification.chat_id}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
+                    selectedNotification.status === 'sent' 
+                      ? 'bg-green-100 text-green-800'
+                      : selectedNotification.status === 'failed'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {selectedNotification.status}
+                  </span>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Sent At</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {new Date(selectedNotification.sent_at).toLocaleString()}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Message</label>
+                  <div className="mt-1 p-3 bg-gray-50 rounded-md">
+                    <pre className="text-sm text-gray-900 whitespace-pre-wrap">
+                      {selectedNotification.message_text}
+                    </pre>
+                  </div>
+                </div>
+                
+                {selectedNotification.error_message && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Error Message</label>
+                    <div className="mt-1 p-3 bg-red-50 rounded-md">
+                      <pre className="text-sm text-red-900 whitespace-pre-wrap">
+                        {selectedNotification.error_message}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedNotification.metadata && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Metadata</label>
+                    <div className="mt-1 p-3 bg-gray-50 rounded-md">
+                      <pre className="text-sm text-gray-900 whitespace-pre-wrap">
+                        {JSON.stringify(selectedNotification.metadata, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-6 flex justify-end space-x-3">
+                {selectedNotification.status === 'failed' && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/telegram/send-notification', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            type: selectedNotification.notification_type,
+                            userId: selectedNotification.user_id || 'admin',
+                            data: selectedNotification.metadata || {}
+                          })
+                        });
+                        
+                        if (response.ok) {
+                          toast.success('Notification resent successfully');
+                          setShowNotificationModal(false);
+                          fetchNotifications(); // Refresh the list
+                        } else {
+                          toast.error('Failed to resend notification');
+                        }
+                      } catch (error) {
+                        console.error('Error resending notification:', error);
+                        toast.error('Failed to resend notification');
+                      }
+                    }}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
+                  >
+                    Resend
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotificationModal(false)}
+                  className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
