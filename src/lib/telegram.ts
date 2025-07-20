@@ -2157,14 +2157,20 @@ Contact support: /support
   private async sendOrderDetails(chatId: number, orderId: string): Promise<void> {
     try {
       // First get the user ID from telegram_users table
-      const { data: user } = await supabaseService
+      console.log(`Looking up telegram user for chat_id: ${chatId}`);
+      const { data: user, error: userError } = await supabaseService
         .from('telegram_users')
         .select('user_id')
         .eq('chat_id', chatId.toString())
         .eq('is_active', true)
         .single();
 
+      if (userError) {
+        console.error('Telegram user lookup error:', userError);
+      }
+
       if (!user) {
+        console.log(`No telegram user found for chat_id: ${chatId}`);
         await this.sendMessage({
           chat_id: chatId.toString(),
           text: 'Please link your account first by visiting our website. Go to https://www.avrioxshop.com/profile to connect your Telegram account.'
@@ -2172,8 +2178,25 @@ Contact support: /support
         return;
       }
 
+      console.log(`Found telegram user: ${user.user_id} for chat_id: ${chatId}`);
+
       // Get order details and ensure it belongs to the user
       console.log(`Looking for order: ${orderId} for user: ${user.user_id}`);
+      
+      // First, let's check if the order exists at all
+      const { data: orderCheck, error: orderCheckError } = await supabaseService
+        .from('orders')
+        .select('id, user_id')
+        .eq('id', orderId)
+        .single();
+        
+      if (orderCheckError) {
+        console.error('Order check error:', orderCheckError);
+      } else if (orderCheck) {
+        console.log(`Order exists with user_id: ${orderCheck.user_id}, expected: ${user.user_id}`);
+      }
+      
+      // Try to find the order without user filter first
       const { data: order, error: orderError } = await supabaseService
         .from('orders')
         .select(`
@@ -2182,7 +2205,6 @@ Contact support: /support
           buyer:users!user_id(full_name, email, phone)
         `)
         .eq('id', orderId)
-        .eq('user_id', user.user_id)
         .single();
 
       if (orderError) {
@@ -2190,15 +2212,25 @@ Contact support: /support
       }
 
       if (!order) {
-        console.log(`Order not found: ${orderId} for user: ${user.user_id}`);
+        console.log(`Order not found: ${orderId}`);
         await this.sendMessage({
           chat_id: chatId.toString(),
-          text: 'Order not found or you don\'t have permission to view this order.'
+          text: 'Order not found.'
         });
         return;
       }
 
-      console.log(`Order found: ${order.id}`);
+      console.log(`Order found: ${order.id} with user_id: ${order.user_id}`);
+      
+      // Check if the order belongs to the user
+      if (order.user_id !== user.user_id) {
+        console.log(`Order belongs to different user: ${order.user_id}, expected: ${user.user_id}`);
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: 'You don\'t have permission to view this order.'
+        });
+        return;
+      }
 
       // Format delivery method for display
       const deliveryMethodText = order.delivery_method === 'home_delivery' ? '🏠 Home Delivery' : 
