@@ -981,6 +981,46 @@ Contact us: support@avrioxshop.com
             { command, from, responseType: 'support_message' }
           );
           break;
+        case '/search':
+          await this.sendSearchInstructions(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'search_instructions' }
+          );
+          break;
+        case '/categories':
+          await this.sendCategories(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'categories_list' }
+          );
+          break;
+        case '/deals':
+          await this.sendAllDeals(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'all_deals' }
+          );
+          break;
+        case '/products':
+          await this.sendProductsOverview(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'products_overview' }
+          );
+          break;
         default:
           const unknownMessage = 'Unknown command. Use /help to see available commands.';
           await this.sendMessage({
@@ -1104,6 +1144,33 @@ Contact us: support@avrioxshop.com
           `User clicked: ${data}`,
           { callbackData: data, responseType: 'support_message' }
         );
+      } else if (data === 'flash_sales') {
+        await this.sendFlashSales(chatId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, responseType: 'flash_sales' }
+        );
+      } else if (data === 'stores_list') {
+        await this.sendStores(chatId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, responseType: 'stores_list' }
+        );
+      } else if (data === 'categories') {
+        await this.sendCategories(chatId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, responseType: 'categories_list' }
+        );
       } else {
         // Unknown callback data
         await this.logNotification(
@@ -1181,6 +1248,10 @@ Here are all the commands you can use:
 /profile - Your account information
 
 <b>Shopping & Discovery:</b>
+/search - Product search instructions
+/categories - Browse products by category
+/deals - View all active deals & promotions
+/products - Latest products overview
 /flash - View active flash sales
 /wishlist - Your saved products
 /stores - Browse popular stores
@@ -1194,6 +1265,8 @@ Here are all the commands you can use:
 • Delivery tracking
 • Payment confirmations
 • Flash sale alerts
+• Product discovery
+• Category browsing
 • Customer support
 
 Need immediate help? Contact our support team at https://www.avrioxshop.com/support
@@ -2542,6 +2615,333 @@ Time: ${new Date(message.date * 1000).toLocaleString()}
       text: supportMessage,
       parse_mode: 'HTML'
     });
+  }
+
+  private async sendSearchInstructions(chatId: number): Promise<void> {
+    const message = `
+🔍 <b>Product Search</b>
+
+To search for products, please visit our website:
+
+🔗 <a href="https://www.avrioxshop.com/products">Browse All Products</a>
+
+<b>Search Features:</b>
+• Search by product name, category, or store
+• Filter by price range
+• Sort by popularity, price, or newest
+• View product details and reviews
+
+<b>Popular Search Terms:</b>
+• Traditional Wear
+• Modern Fashion
+• Home & Living
+• Beauty & Personal Care
+• Jewelry & Accessories
+
+💡 <b>Tip:</b> Use the search bar on our website for the best results with filters and sorting options.
+
+🏆 Best Marketplace 2023 | ⭐ 4.9/5 Rating | 🔒 Secure Payments | 🚚 Fast Delivery
+    `;
+
+    await this.sendMessage({
+      chat_id: chatId.toString(),
+      text: message,
+      parse_mode: 'HTML'
+    });
+  }
+
+  private async sendCategories(chatId: number): Promise<void> {
+    try {
+      // Fetch categories with product counts
+      const { data: categories } = await supabaseService
+        .from('products')
+        .select('category')
+        .eq('is_active', true);
+
+      // Count products per category
+      const categoryCounts: { [key: string]: number } = {};
+      categories?.forEach(product => {
+        if (product.category) {
+          categoryCounts[product.category] = (categoryCounts[product.category] || 0) + 1;
+        }
+      });
+
+      // Sort categories by product count
+      const sortedCategories = Object.entries(categoryCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 15); // Show top 15 categories
+
+      let message = '📂 <b>Product Categories</b>\n\n';
+      message += 'Browse products by category:\n\n';
+
+      sortedCategories.forEach(([category, count], index) => {
+        const emoji = this.getCategoryEmoji(category);
+        message += `${index + 1}. ${emoji} <b>${category}</b> (${count} products)\n`;
+      });
+
+      message += '\n🔗 <a href="https://www.avrioxshop.com/products">View All Categories</a>';
+
+      const keyboard = [
+        [
+          {
+            text: '🛍️ Browse All Products',
+            url: `${process.env.NEXT_PUBLIC_SITE_URL}/products`
+          }
+        ],
+        [
+          {
+            text: '🔥 Flash Sales',
+            callback_data: 'flash_sales'
+          },
+          {
+            text: '🏪 Popular Stores',
+            callback_data: 'stores_list'
+          }
+        ]
+      ];
+
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: 'Sorry, I couldn\'t fetch categories. Please try again later.'
+      });
+    }
+  }
+
+  private async sendAllDeals(chatId: number): Promise<void> {
+    try {
+      const now = new Date().toISOString();
+      
+      // Fetch all active flash sales and promotions
+      const { data: flashSales } = await supabaseService
+        .from('flash_sales')
+        .select(`
+          *,
+          products:flash_sale_products (
+            id,
+            product_id,
+            special_price,
+            product:products (
+              id,
+              title,
+              price,
+              product_images (
+                id,
+                image_url
+              ),
+              owner:users (
+                id,
+                store_settings
+              )
+            )
+          )
+        `)
+        .eq('is_active', true)
+        .lte('start_time', now)
+        .gte('end_time', now)
+        .order('end_time', { ascending: true });
+
+      if (!flashSales || flashSales.length === 0) {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: '🔥 No active deals at the moment! Check back soon for amazing offers.'
+        });
+        return;
+      }
+
+      let message = '🔥 <b>All Active Deals & Promotions</b>\n\n';
+      const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
+
+      flashSales.forEach((sale, index) => {
+        const products = sale.products || [];
+        const totalSavings = products.reduce((sum: number, fp: any) => {
+          const originalPrice = fp.product?.price || 0;
+          const salePrice = fp.special_price || 0;
+          return sum + (originalPrice - salePrice);
+        }, 0);
+
+        message += `${index + 1}. <b>${sale.title}</b>\n`;
+        message += `   ${sale.description || 'Amazing deals on selected products!'}\n`;
+        message += `   🔥 ${sale.discount_percentage}% OFF\n`;
+        message += `   📦 ${products.length} products\n`;
+        message += `   💰 Save up to ETB ${totalSavings.toLocaleString()}\n`;
+        message += `   ⏰ Ends: ${new Date(sale.end_time).toLocaleString()}\n`;
+        
+        if (sale.free_shipping) {
+          message += `   🚚 Free Shipping\n`;
+        }
+        if (sale.min_order_amount) {
+          message += `   💳 Min Order: ETB ${sale.min_order_amount.toLocaleString()}\n`;
+        }
+        message += '\n';
+
+        keyboard.push([
+          {
+            text: `View Deal ${index + 1}`,
+            callback_data: `flash_${sale.id}`
+          }
+        ]);
+      });
+
+      // Add navigation buttons
+      keyboard.push([
+        {
+          text: '🔥 View All Flash Sales',
+          url: `${process.env.NEXT_PUBLIC_SITE_URL}/flash-sales`
+        }
+      ]);
+      keyboard.push([
+        {
+          text: '🛍️ Browse All Products',
+          url: `${process.env.NEXT_PUBLIC_SITE_URL}/products`
+        }
+      ]);
+
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching deals:', error);
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: 'Sorry, I couldn\'t fetch deals. Please try again later.'
+      });
+    }
+  }
+
+  private async sendProductsOverview(chatId: number): Promise<void> {
+    try {
+      // Fetch product statistics
+      const { data: products } = await supabaseService
+        .from('products')
+        .select(`
+          id,
+          title,
+          price,
+          category,
+          product_images (
+            id,
+            image_url
+          ),
+          owner:users (
+            id,
+            store_settings
+          ),
+          likes (
+            count
+          ),
+          ratings (
+            rating
+          )
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (!products || products.length === 0) {
+        await this.sendMessage({
+          chat_id: chatId.toString(),
+          text: 'No products available at the moment. Please check back later!'
+        });
+        return;
+      }
+
+      let message = '🛍️ <b>Latest Products</b>\n\n';
+      const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
+
+      products.forEach((product, index) => {
+        const storeName = (product.owner as any)?.store_settings?.name || 'Unknown Store';
+        const likeCount = product.likes?.[0]?.count || 0;
+        const avgRating = product.ratings?.length > 0 
+          ? (product.ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / product.ratings.length).toFixed(1)
+          : '0.0';
+
+        message += `${index + 1}. <b>${product.title}</b>\n`;
+        message += `   💰 ETB ${product.price?.toLocaleString()}\n`;
+        message += `   🏪 ${storeName}\n`;
+        message += `   📂 ${product.category || 'Uncategorized'}\n`;
+        message += `   ⭐ ${avgRating}/5 (${product.ratings?.length || 0} reviews)\n`;
+        message += `   ❤️ ${likeCount} likes\n\n`;
+
+        keyboard.push([
+          {
+            text: `View ${product.title.substring(0, 20)}${product.title.length > 20 ? '...' : ''}`,
+            callback_data: `product_${product.id}`
+          }
+        ]);
+      });
+
+      // Add navigation buttons
+      keyboard.push([
+        {
+          text: '🛍️ Browse All Products',
+          url: `${process.env.NEXT_PUBLIC_SITE_URL}/products`
+        }
+      ]);
+      keyboard.push([
+        {
+          text: '🔥 Flash Sales',
+          callback_data: 'flash_sales'
+        },
+        {
+          text: '📂 Categories',
+          callback_data: 'categories'
+        }
+      ]);
+
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: 'Sorry, I couldn\'t fetch products. Please try again later.'
+      });
+    }
+  }
+
+  private getCategoryEmoji(category: string): string {
+    const emojiMap: { [key: string]: string } = {
+      'Traditional Wear': '👘',
+      'Modern Fashion': '👗',
+      'Home & Living': '🏠',
+      'Beauty & Personal Care': '💄',
+      'Jewelry & Accessories': '💍',
+      'Art & Collectibles': '🎨',
+      'Food & Beverages': '🍽️',
+      'Electronics': '📱',
+      'Books & Media': '📚',
+      'Kids & Baby': '👶',
+      'Sports & Fitness': '🏃',
+      'Health & Wellness': '💊',
+      'Musical Instruments': '🎸',
+      'Party & Events': '🎉',
+      'Pet Supplies': '🐕',
+      'Office & Stationery': '📝',
+      'Garden & Outdoor': '🌱'
+    };
+
+    return emojiMap[category] || '📦';
   }
 }
 
