@@ -47,6 +47,7 @@ export default function TelegramAdminPage() {
   const [selectedNotification, setSelectedNotification] = useState<TelegramNotification | null>(null);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const supabase = createClientComponent();
 
   useEffect(() => {
@@ -389,11 +390,35 @@ export default function TelegramAdminPage() {
                 <option value="failed">Failed</option>
                 <option value="pending">Pending</option>
               </select>
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Types</option>
+                <option value="order_notification">Order Notifications</option>
+                <option value="payment_notification">Payment Notifications</option>
+                <option value="admin_alert">Admin Alerts</option>
+                <option value="seller_notification">Seller Notifications</option>
+                <option value="receipt">Receipts</option>
+                <option value="delivery_update">Delivery Updates</option>
+                <option value="order_confirmation">Order Confirmations</option>
+                <option value="bot_command">Bot Commands</option>
+                <option value="bot_callback">Bot Callbacks</option>
+              </select>
               <button
                 onClick={() => {
-                  const filteredNotifications = statusFilter === 'all' 
-                    ? notifications 
-                    : notifications.filter(n => n.status === statusFilter);
+                  let filteredNotifications = notifications;
+                  
+                  // Filter by status
+                  if (statusFilter !== 'all') {
+                    filteredNotifications = filteredNotifications.filter(n => n.status === statusFilter);
+                  }
+                  
+                  // Filter by type
+                  if (typeFilter !== 'all') {
+                    filteredNotifications = filteredNotifications.filter(n => n.notification_type === typeFilter);
+                  }
                   
                   if (filteredNotifications.length === 0) {
                     toast.error('No notifications to export');
@@ -497,12 +522,20 @@ export default function TelegramAdminPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(() => {
-                  const filteredNotifications = statusFilter === 'all' 
-                    ? notifications 
-                    : notifications.filter(n => n.status === statusFilter);
+                                {(() => {
+                  let filteredNotifications = notifications;
                   
-                                    return filteredNotifications.length === 0 ? (
+                  // Filter by status
+                  if (statusFilter !== 'all') {
+                    filteredNotifications = filteredNotifications.filter(n => n.status === statusFilter);
+                  }
+                  
+                  // Filter by type
+                  if (typeFilter !== 'all') {
+                    filteredNotifications = filteredNotifications.filter(n => n.notification_type === typeFilter);
+                  }
+                  
+                  return filteredNotifications.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-6 py-12 text-center">
                         <div className="text-gray-500">

@@ -835,42 +835,143 @@ Contact us: support@avrioxshop.com
   }
 
   private async handleCommand(chatId: number, command: string, from: any): Promise<void> {
-    switch (command) {
-      case '/start':
-        await this.sendWelcomeMessage(chatId, from);
-        break;
-      case '/help':
-        await this.sendHelpMessage(chatId);
-        break;
-      case '/orders':
-        await this.sendOrdersList(chatId, from.id);
-        break;
-      case '/tracking':
-        await this.sendTrackingOverview(chatId, from.id);
-        break;
-      case '/flash':
-        await this.sendFlashSales(chatId, from.id);
-        break;
-      case '/wishlist':
-        await this.sendWishlist(chatId, from.id);
-        break;
-      case '/stores':
-        await this.sendStores(chatId, from.id);
-        break;
-      case '/link':
-        await this.sendLinkInstructions(chatId, from.id);
-        break;
-      case '/profile':
-        await this.sendProfileInfo(chatId, from.id);
-        break;
-      case '/support':
-        await this.sendSupportMessage(chatId);
-        break;
-      default:
-        await this.sendMessage({
-          chat_id: chatId.toString(),
-          text: 'Unknown command. Use /help to see available commands.'
-        });
+    // Get user ID from telegram_users table for logging
+    const { data: user } = await supabaseService
+      .from('telegram_users')
+      .select('user_id')
+      .eq('chat_id', chatId.toString())
+      .eq('is_active', true)
+      .single();
+
+    try {
+      switch (command) {
+        case '/start':
+          await this.sendWelcomeMessage(chatId, from);
+          // Log command interaction
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'welcome_message' }
+          );
+          break;
+        case '/help':
+          await this.sendHelpMessage(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'help_message' }
+          );
+          break;
+        case '/orders':
+          await this.sendOrdersList(chatId, from.id);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'orders_list' }
+          );
+          break;
+        case '/tracking':
+          await this.sendTrackingOverview(chatId, from.id);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'tracking_overview' }
+          );
+          break;
+        case '/flash':
+          await this.sendFlashSales(chatId, from.id);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'flash_sales' }
+          );
+          break;
+        case '/wishlist':
+          await this.sendWishlist(chatId, from.id);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'wishlist' }
+          );
+          break;
+        case '/stores':
+          await this.sendStores(chatId, from.id);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'stores_list' }
+          );
+          break;
+        case '/link':
+          await this.sendLinkInstructions(chatId, from.id);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'link_instructions' }
+          );
+          break;
+        case '/profile':
+          await this.sendProfileInfo(chatId, from.id);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'profile_info' }
+          );
+          break;
+        case '/support':
+          await this.sendSupportMessage(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'support_message' }
+          );
+          break;
+        default:
+          const unknownMessage = 'Unknown command. Use /help to see available commands.';
+          await this.sendMessage({
+            chat_id: chatId.toString(),
+            text: unknownMessage
+          });
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'unknown_command', response: unknownMessage }
+          );
+      }
+    } catch (error) {
+      console.error(`Error handling command ${command}:`, error);
+      // Log failed command
+      await this.logNotification(
+        user?.user_id || null,
+        chatId.toString(),
+        'bot_command',
+        `User executed: ${command}`,
+        { command, from, error: error instanceof Error ? error.message : 'Unknown error' },
+        'failed',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
   }
 
@@ -878,36 +979,117 @@ Contact us: support@avrioxshop.com
     const data = callbackQuery.data;
     const chatId = callbackQuery.message.chat.id;
 
-    if (data.startsWith('order_')) {
-      const orderId = data.replace('order_', '');
-      await this.sendOrderDetails(chatId, orderId);
-    } else if (data.startsWith('track_')) {
-      const orderId = data.replace('track_', '');
-      await this.sendDeliveryTracking(chatId, orderId);
-    } else if (data.startsWith('delivery_')) {
-      const orderId = data.replace('delivery_', '');
-      await this.sendDeliveryTracking(chatId, orderId);
-    } else if (data === 'orders_list') {
-      // Get user ID from telegram_users table
-      const { data: user } = await supabaseService
-        .from('telegram_users')
-        .select('user_id')
-        .eq('chat_id', chatId.toString())
-        .eq('is_active', true)
-        .single();
-      
-      if (user) {
-        await this.sendOrdersList(chatId, user.user_id);
+    // Get user ID from telegram_users table for logging
+    const { data: user } = await supabaseService
+      .from('telegram_users')
+      .select('user_id')
+      .eq('chat_id', chatId.toString())
+      .eq('is_active', true)
+      .single();
+
+    try {
+      if (data.startsWith('order_')) {
+        const orderId = data.replace('order_', '');
+        await this.sendOrderDetails(chatId, orderId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, orderId, responseType: 'order_details' }
+        );
+      } else if (data.startsWith('track_')) {
+        const orderId = data.replace('track_', '');
+        await this.sendDeliveryTracking(chatId, orderId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, orderId, responseType: 'delivery_tracking' }
+        );
+      } else if (data.startsWith('delivery_')) {
+        const orderId = data.replace('delivery_', '');
+        await this.sendDeliveryTracking(chatId, orderId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, orderId, responseType: 'delivery_tracking' }
+        );
+      } else if (data === 'orders_list') {
+        if (user) {
+          await this.sendOrdersList(chatId, user.user_id);
+          await this.logNotification(
+            user.user_id,
+            chatId.toString(),
+            'bot_callback',
+            `User clicked: ${data}`,
+            { callbackData: data, responseType: 'orders_list' }
+          );
+        }
+      } else if (data.startsWith('flash_')) {
+        const flashSaleId = data.replace('flash_', '');
+        await this.sendFlashSaleDetails(chatId, flashSaleId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, flashSaleId, responseType: 'flash_sale_details' }
+        );
+      } else if (data.startsWith('product_')) {
+        const productId = data.replace('product_', '');
+        await this.sendProductDetails(chatId, productId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, productId, responseType: 'product_details' }
+        );
+      } else if (data.startsWith('store_')) {
+        const storeId = data.replace('store_', '');
+        await this.sendStoreDetails(chatId, storeId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, storeId, responseType: 'store_details' }
+        );
+      } else if (data === 'support') {
+        await this.sendSupportMessage(chatId);
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, responseType: 'support_message' }
+        );
+      } else {
+        // Unknown callback data
+        await this.logNotification(
+          user?.user_id || null,
+          chatId.toString(),
+          'bot_callback',
+          `User clicked: ${data}`,
+          { callbackData: data, responseType: 'unknown_callback' }
+        );
       }
-    } else if (data.startsWith('flash_')) {
-      const flashSaleId = data.replace('flash_', '');
-      await this.sendFlashSaleDetails(chatId, flashSaleId);
-    } else if (data.startsWith('product_')) {
-      const productId = data.replace('product_', '');
-      await this.sendProductDetails(chatId, productId);
-    } else if (data.startsWith('store_')) {
-      const storeId = data.replace('store_', '');
-      await this.sendStoreDetails(chatId, storeId);
+    } catch (error) {
+      console.error(`Error handling callback query ${data}:`, error);
+      // Log failed callback
+      await this.logNotification(
+        user?.user_id || null,
+        chatId.toString(),
+        'bot_callback',
+        `User clicked: ${data}`,
+        { callbackData: data, error: error instanceof Error ? error.message : 'Unknown error' },
+        'failed',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
     }
   }
 
@@ -1039,8 +1221,11 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
                                    order.delivery_method === 'store_pickup' ? '🏪 Store Pickup' : 
                                    order.delivery_method || 'N/A';
 
+        // Shorten the order ID for display (last 12 characters)
+        const shortOrderId = order.id.slice(-12);
+
         message += `${index + 1}. <b>${(order.product as any)?.title || 'Product'}</b>\n`;
-        message += `   Order ID: <code>${order.id}</code>\n`;
+        message += `   Order ID: <code>${shortOrderId}</code>\n`;
         message += `   Status: ${order.order_status}\n`;
         message += `   Amount: ${order.total_price} ETB\n`;
         message += `   Delivery: ${deliveryMethodText}\n`;
@@ -1049,7 +1234,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         keyboard.push([
           {
             text: `Order ${index + 1}`,
-            callback_data: `order_${order.id}`
+            callback_data: `order_${order.id}` // Keep full ID in callback data
           }
         ]);
       });
@@ -1142,8 +1327,11 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         // Get status emoji and text
         const statusInfo = this.getStatusInfo(order.order_status, latestStatus?.status);
         
+        // Shorten the order ID for display (last 12 characters)
+        const shortOrderId = order.id.slice(-12);
+        
         message += `${index + 1}. <b>${(order.product as any)?.title || 'Product'}</b>\n`;
-        message += `   Order ID: <code>${order.id}</code>\n`;
+        message += `   Order ID: <code>${shortOrderId}</code>\n`;
         message += `   Status: ${statusInfo.emoji} ${statusInfo.text}\n`;
         message += `   Delivery: ${deliveryMethodText}\n`;
         message += `   Amount: ${order.total_price} ETB\n`;
@@ -1994,7 +2182,7 @@ Contact support: /support
       const message = `
 📦 <b>Order Details</b>
 
-Order ID: <code>${order.id}</code>
+Order ID: <code>${order.id.slice(-12)}</code>
 Product: ${order.product?.title || 'N/A'}
 Status: ${order.order_status}
 Payment: ${order.payment_status}
