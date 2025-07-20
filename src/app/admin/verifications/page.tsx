@@ -102,7 +102,7 @@ function VerificationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 5;
   const supabase = createClientComponentClient();
-  const [activeTab, setActiveTab] = useState<'no_verification' | 'submitted'>('submitted');
+  const [activeTab, setActiveTab] = useState<'overview' | 'submitted' | 'no_verification'>('overview');
 
   useEffect(() => {
     fetchOwnersWithVerification();
@@ -134,6 +134,43 @@ function VerificationsPage() {
       toast.error('Failed to load owners/verifications');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Calculate statistics for the overview tab
+  const getVerificationStats = () => {
+    const totalOwners = owners.length;
+    const ownersWithVerification = owners.filter(o => o.verification);
+    const ownersNoVerification = owners.filter(o => !o.verification);
+    
+    const pending = ownersWithVerification.filter(o => o.verification?.status === 'pending');
+    const approved = ownersWithVerification.filter(o => o.verification?.status === 'approved');
+    const rejected = ownersWithVerification.filter(o => o.verification?.status === 'rejected');
+    const needsReconsideration = ownersWithVerification.filter(o => o.verification?.status === 'needs_reconsideration');
+
+    return {
+      total: totalOwners,
+      pending: pending.length,
+      approved: approved.length,
+      rejected: rejected.length,
+      needsReconsideration: needsReconsideration.length,
+      noVerification: ownersNoVerification.length,
+      withVerification: ownersWithVerification.length
+    };
+  };
+
+  const stats = getVerificationStats();
+
+  // Bulk actions
+  const handleBulkAction = async (action: 'approve' | 'reject' | 'needs_reconsideration', userIds: string[]) => {
+    try {
+      for (const userId of userIds) {
+        await handleStatusUpdate(userId, action);
+      }
+      toast.success(`Bulk ${action} completed successfully`);
+    } catch (error) {
+      console.error('Bulk action error:', error);
+      toast.error(`Failed to complete bulk ${action}`);
     }
   };
 
@@ -341,9 +378,55 @@ function VerificationsPage() {
           )}
         </div>
       </div>
+
+      {/* Stats Cards for Overview */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+          <StatCard
+            title="Total Sellers"
+            value={stats.total}
+            icon="users"
+            color="blue"
+            description="All registered sellers"
+          />
+          <StatCard
+            title="Pending Review"
+            value={stats.pending}
+            icon="clock"
+            color="yellow"
+            description="Awaiting approval"
+          />
+          <StatCard
+            title="Approved"
+            value={stats.approved}
+            icon="check"
+            color="green"
+            description="Successfully verified"
+          />
+          <StatCard
+            title="Rejected"
+            value={stats.rejected}
+            icon="x"
+            color="red"
+            description="Verification denied"
+          />
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="mb-6">
         <nav className="flex space-x-4" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={classNames(
+              activeTab === 'overview'
+                ? 'bg-white border-b-2 border-red-500 text-red-600'
+                : 'text-gray-500 hover:text-red-600',
+              'px-4 py-2 text-sm font-medium focus:outline-none'
+            )}
+          >
+            Overview
+          </button>
           <button
             onClick={() => setActiveTab('submitted')}
             className={classNames(
@@ -374,8 +457,219 @@ function VerificationsPage() {
           </button>
         </nav>
       </div>
+
       {/* Tab Content */}
-      {activeTab === 'no_verification' ? (
+      {activeTab === 'overview' ? (
+        <div className="space-y-8">
+          {/* Quick Actions */}
+          <div className="bg-white shadow-lg rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg p-4 border border-yellow-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  <span className="text-xs text-gray-600">Pending Review</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900 mb-2">{stats.pending}</p>
+                <p className="text-xs text-gray-500 mb-3">Sellers awaiting approval</p>
+                <button
+                  onClick={() => {
+                    setActiveTab('submitted');
+                    setFilterStatus('pending');
+                  }}
+                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-medium py-2 px-3 rounded-md transition-colors"
+                >
+                  Review Pending
+                </button>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-xs text-gray-600">Approved</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900 mb-2">{stats.approved}</p>
+                <p className="text-xs text-gray-500 mb-3">Successfully verified</p>
+                <button
+                  onClick={() => {
+                    setActiveTab('submitted');
+                    setFilterStatus('approved');
+                  }}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-2 px-3 rounded-md transition-colors"
+                >
+                  View Approved
+                </button>
+              </div>
+
+              <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-lg p-4 border border-red-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-xs text-gray-600">Rejected</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900 mb-2">{stats.rejected}</p>
+                <p className="text-xs text-gray-500 mb-3">Verification denied</p>
+                <button
+                  onClick={() => {
+                    setActiveTab('submitted');
+                    setFilterStatus('rejected');
+                  }}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-2 px-3 rounded-md transition-colors"
+                >
+                  View Rejected
+                </button>
+              </div>
+
+              <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-2 h-2 bg-gray-500 rounded-full"></div>
+                  <span className="text-xs text-gray-600">Needs Reconsideration</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900 mb-2">{stats.needsReconsideration}</p>
+                <p className="text-xs text-gray-500 mb-3">Requires additional review</p>
+                <button
+                  onClick={() => {
+                    setActiveTab('submitted');
+                    setFilterStatus('needs_reconsideration');
+                  }}
+                  className="w-full bg-gray-600 hover:bg-gray-700 text-white text-xs font-medium py-2 px-3 rounded-md transition-colors"
+                >
+                  Review Again
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="bg-white shadow-lg rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+            <div className="space-y-4">
+              {ownersWithVerification
+                .sort((a, b) => new Date(b.verification!.updated_at).getTime() - new Date(a.verification!.updated_at).getTime())
+                .slice(0, 5)
+                .map((owner) => {
+                  const verification = owner.verification!;
+                  return (
+                    <div key={owner.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-400 to-pink-400 flex items-center justify-center text-white text-sm font-bold">
+                          {owner.full_name?.[0]?.toUpperCase() || owner.email?.[0]?.toUpperCase() || '?'}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{owner.full_name}</p>
+                          <p className="text-xs text-gray-500">{verification.business_name}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={classNames(
+                          'px-2 py-1 rounded-full text-xs font-semibold',
+                          verification.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          verification.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          verification.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        )}>
+                          {verification.status.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(verification.updated_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+
+          {/* Summary Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white shadow-lg rounded-xl border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification Status Distribution</h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">No Verification</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-gray-400 h-2 rounded-full" 
+                        style={{ width: `${(stats.noVerification / stats.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{stats.noVerification}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Pending</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-yellow-400 h-2 rounded-full" 
+                        style={{ width: `${(stats.pending / stats.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{stats.pending}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Approved</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-400 h-2 rounded-full" 
+                        style={{ width: `${(stats.approved / stats.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{stats.approved}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Rejected</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-16 bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-red-400 h-2 rounded-full" 
+                        style={{ width: `${(stats.rejected / stats.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">{stats.rejected}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white shadow-lg rounded-xl border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-gray-700">Verification Rate</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-600">
+                    {stats.total > 0 ? Math.round((stats.withVerification / stats.total) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-gray-700">Approval Rate</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-600">
+                    {stats.withVerification > 0 ? Math.round((stats.approved / stats.withVerification) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-gray-700">Pending Rate</span>
+                  </div>
+                  <span className="text-lg font-bold text-yellow-600">
+                    {stats.withVerification > 0 ? Math.round((stats.pending / stats.withVerification) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'no_verification' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {paginatedOwnersNoVerification.length === 0 ? (
             <div className="col-span-full text-center text-gray-500 py-12">No sellers found.</div>
@@ -614,6 +908,69 @@ function VerificationsPage() {
           </nav>
         </div>
       )}
+    </div>
+  );
+}
+
+// StatCard component for the overview tab
+interface StatCardProps {
+  title: string;
+  value: number;
+  icon: string;
+  color: string;
+  description: string;
+}
+
+function StatCard({ title, value, icon, color, description }: StatCardProps) {
+  const getIcon = (iconType: string) => {
+    switch (iconType) {
+      case 'users':
+        return (
+          <svg className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+          </svg>
+        );
+      case 'clock':
+        return (
+          <svg className="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'check':
+        return (
+          <svg className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'x':
+        return (
+          <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        );
+    }
+  };
+
+  return (
+    <div className="bg-white overflow-hidden shadow-lg rounded-xl border border-gray-100">
+      <div className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
+            <p className="text-2xl font-bold text-gray-900 mb-2">{value.toLocaleString()}</p>
+            <p className="text-xs text-gray-500">{description}</p>
+          </div>
+          <div className="flex-shrink-0 ml-4">
+            {getIcon(icon)}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

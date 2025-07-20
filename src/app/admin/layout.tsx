@@ -17,7 +17,9 @@ import {
   CreditCardIcon,
   CogIcon,
   BoltIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  Bars3Icon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import Sidebar from '@/components/Sidebar';
 
@@ -31,10 +33,17 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponent();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     checkPermissions();
+  }, [pathname]);
+
+  // Close sidebar on mobile when route changes
+  useEffect(() => {
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
   }, [pathname]);
 
   const checkPermissions = async () => {
@@ -146,11 +155,51 @@ export default function AdminLayout({
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <div className="w-64 flex-shrink-0">
+      {/* Mobile sidebar overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={classNames(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
         <Sidebar />
       </div>
-      <div className="flex-1 overflow-auto">
-        {children}
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile header */}
+        <div className="lg:hidden bg-white shadow-sm border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500"
+            >
+              <Bars3Icon className="h-6 w-6" />
+            </button>
+            <div className="flex items-center space-x-2">
+              <Image
+                src="/images/brand/logo.png"
+                alt="Logo"
+                width={32}
+                height={32}
+                className="object-contain"
+              />
+              <span className="text-lg font-semibold text-gray-900">Admin</span>
+            </div>
+            <div className="w-10"></div> {/* Spacer for centering */}
+          </div>
+        </div>
+
+        {/* Page content */}
+        <div className="flex-1 overflow-auto">
+          {children}
+        </div>
       </div>
     </div>
   );

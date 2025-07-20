@@ -18,22 +18,29 @@ export function LineChart({ data, height = 400 }: LineChartProps) {
     <div style={{ height }}>
       <ResponsiveLine
         data={data}
-        margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
+        margin={{ top: 50, right: 110, bottom: 80, left: 80 }}
         xScale={{ type: 'point' }}
         yScale={{ type: 'linear', min: 'auto', max: 'auto', stacked: false }}
         axisTop={null}
         axisRight={null}
         axisBottom={{
           tickSize: 5,
-          tickPadding: 5,
-          tickRotation: 0,
+          tickPadding: 8,
+          tickRotation: -45,
+          legend: 'Date',
+          legendOffset: 60,
+          legendPosition: 'middle'
         }}
         axisLeft={{
           tickSize: 5,
-          tickPadding: 5,
+          tickPadding: 8,
           tickRotation: 0,
+          legend: 'Revenue (ETB)',
+          legendOffset: -60,
+          legendPosition: 'middle',
+          format: (value) => `${value.toLocaleString()}`
         }}
-        pointSize={10}
+        pointSize={8}
         pointColor={{ theme: 'background' }}
         pointBorderWidth={2}
         pointBorderColor={{ from: 'serieColor' }}
@@ -58,7 +65,15 @@ export function LineChart({ data, height = 400 }: LineChartProps) {
           axis: {
             ticks: {
               text: {
-                fill: '#6B7280'
+                fill: '#6B7280',
+                fontSize: 11
+              }
+            },
+            legend: {
+              text: {
+                fill: '#374151',
+                fontSize: 12,
+                fontWeight: 600
               }
             }
           },
@@ -70,7 +85,8 @@ export function LineChart({ data, height = 400 }: LineChartProps) {
           },
           legends: {
             text: {
-              fill: '#4B5563'
+              fill: '#4B5563',
+              fontSize: 11
             }
           }
         }}

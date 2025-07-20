@@ -64,6 +64,20 @@ export default function AdminDashboardPage() {
     start: null,
     end: null
   });
+  const [revenueDateRange, setRevenueDateRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({
+    start: null,
+    end: null
+  });
+  const [transactionDateRange, setTransactionDateRange] = useState<{
+    start: Date | null;
+    end: Date | null;
+  }>({
+    start: null,
+    end: null
+  });
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalProducts: 0,
@@ -76,6 +90,8 @@ export default function AdminDashboardPage() {
     dailyRevenue: [],
     paymentMethods: []
   });
+  const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [transactionData, setTransactionData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClientComponent();
 
@@ -96,6 +112,22 @@ export default function AdminDashboardPage() {
     loadDashboardStats();
   }, [dateRange]);
 
+  useEffect(() => {
+    loadRevenueData();
+  }, [revenueDateRange]);
+
+  useEffect(() => {
+    loadTransactionData();
+  }, [transactionDateRange]);
+
+  // Initialize chart data with main stats when they load
+  useEffect(() => {
+    if (stats.dailyRevenue.length > 0) {
+      setRevenueData(stats.dailyRevenue);
+      setTransactionData(stats.dailyRevenue);
+    }
+  }, [stats.dailyRevenue]);
+
   const loadDashboardStats = async () => {
     try {
       setLoading(true);
@@ -106,6 +138,26 @@ export default function AdminDashboardPage() {
       toast.error('Failed to load dashboard statistics');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRevenueData = async () => {
+    try {
+      const revenueStats = await fetchDashboardStats(revenueDateRange);
+      setRevenueData(revenueStats.dailyRevenue);
+    } catch (error) {
+      console.error('Error fetching revenue data:', error);
+      toast.error('Failed to load revenue data');
+    }
+  };
+
+  const loadTransactionData = async () => {
+    try {
+      const transactionStats = await fetchDashboardStats(transactionDateRange);
+      setTransactionData(transactionStats.dailyRevenue);
+    } catch (error) {
+      console.error('Error fetching transaction data:', error);
+      toast.error('Failed to load transaction data');
     }
   };
 
@@ -226,9 +278,9 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="sm:flex sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="sm:flex sm:items-center sm:justify-between mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <DateRangePicker
           startDate={dateRange.start}
           endDate={dateRange.end}
@@ -239,7 +291,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           title="Total Revenue"
           value={formatCurrency(stats.totalRevenue)}
@@ -268,26 +320,26 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Revenue Trend */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">Platform Revenue Trend</h2>
-            <div className="text-sm text-gray-500">
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Platform Revenue Trend</h2>
+            <div className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
               Service Fee + Platform Fee
             </div>
           </div>
-          <div style={{ height: 300 }}>
+          <div style={{ height: 350 }}>
             <ResponsiveLine
               data={[{
                 id: "Platform Revenue",
-                data: stats.dailyRevenue.map(d => ({
+                data: revenueData.map(d => ({
                   x: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                   y: d.revenue
                 }))
               }]}
               colors={['#10b981']}
-              margin={{ top: 20, right: 20, bottom: 40, left: 60 }}
+              margin={{ top: 20, right: 20, bottom: 80, left: 80 }}
               enableArea={true}
               areaBaselineValue={0}
               areaOpacity={0.1}
@@ -298,132 +350,209 @@ export default function AdminDashboardPage() {
               yFormat={value => `ETB ${value.toLocaleString()}`}
               curve="monotoneX"
               useMesh={true}
+              axisBottom={{
+                tickSize: 5,
+                tickPadding: 8,
+                tickRotation: -45,
+                legend: 'Date',
+                legendOffset: 60,
+                legendPosition: 'middle'
+              }}
+              axisLeft={{
+                tickSize: 5,
+                tickPadding: 8,
+                tickRotation: 0,
+                legend: 'Revenue (ETB)',
+                legendOffset: -60,
+                legendPosition: 'middle',
+                format: (value) => `${value.toLocaleString()}`
+              }}
+              theme={{
+                axis: {
+                  ticks: {
+                    text: {
+                      fill: '#6B7280',
+                      fontSize: 11
+                    }
+                  },
+                  legend: {
+                    text: {
+                      fill: '#374151',
+                      fontSize: 12,
+                      fontWeight: 600
+                    }
+                  }
+                },
+                grid: {
+                  line: {
+                    stroke: '#E5E7EB',
+                    strokeWidth: 1
+                  }
+                }
+              }}
               tooltip={({ point }) => (
-                <div className="bg-gray-800 text-white p-2 text-sm rounded-lg shadow-lg">
-                  <div className="font-bold">{point.data.xFormatted}</div>
-                  <div>Revenue: ETB {point.data.yFormatted}</div>
+                <div className="bg-gray-800 text-white p-3 text-sm rounded-lg shadow-lg border border-gray-700">
+                  <div className="font-bold text-white mb-1">{point.data.xFormatted}</div>
+                  <div className="text-green-300">Revenue: {point.data.yFormatted}</div>
                 </div>
               )}
             />
           </div>
+          {/* Revenue Chart Date Range Picker */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Filter by date range:</span>
+              <DateRangePicker
+                startDate={revenueDateRange.start}
+                endDate={revenueDateRange.end}
+                onChange={({ startDate, endDate }) => {
+                  setRevenueDateRange({ start: startDate, end: endDate });
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Payment Methods */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Payment Methods Distribution</h2>
-          <PieChart
-            data={stats.paymentMethods.map(p => ({
-              id: p.method,
-              label: p.method,
-              value: p.amount
-            }))}
-            height={300}
-          />
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment Methods Distribution</h2>
+          <div style={{ height: 350 }}>
+            <PieChart
+              data={stats.paymentMethods.map(p => ({
+                id: p.method,
+                label: p.method,
+                value: p.amount
+              }))}
+              height={300}
+            />
+          </div>
         </div>
 
         {/* Transaction Volume */}
-        <div className="bg-white p-6 rounded-lg shadow lg:col-span-2">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Daily Transaction Volume</h2>
-          <BarChart
-            data={stats.dailyRevenue}
-            keys={['transactions']}
-            indexBy="date"
-            height={300}
-          />
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 lg:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Daily Transaction Volume</h2>
+            <div className="text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full">
+              Number of transactions per day
+            </div>
+          </div>
+          <div style={{ height: 350 }}>
+            <BarChart
+              data={transactionData}
+              keys={['transactions']}
+              indexBy="date"
+              height={300}
+            />
+          </div>
+          {/* Transaction Chart Date Range Picker */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Filter by date range:</span>
+              <DateRangePicker
+                startDate={transactionDateRange.start}
+                endDate={transactionDateRange.end}
+                onChange={({ startDate, endDate }) => {
+                  setTransactionDateRange({ start: startDate, end: endDate });
+                }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Recent Transactions Table */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-medium text-gray-900">Recent Transactions</h2>
-          <Link href="/admin/transactions" className="text-red-600 hover:text-red-700">
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
+          <Link href="/admin/transactions" className="text-red-600 hover:text-red-700 font-medium">
             View all
           </Link>
         </div>
-        <div className="bg-white shadow rounded-lg overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Transaction ID
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Order Info
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment Details
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payout Status
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Seller Info
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fees & VAT
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {stats.recentTransactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <div className="font-medium text-gray-900">#{transaction.id.slice(0, 8)}</div>
-                    <div className="text-gray-500">{new Date(transaction.created_at).toLocaleDateString()}</div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <div className="text-gray-900 relative group">
-                      <span 
-                        className="truncate block max-w-[200px] cursor-help"
-                        data-tip={transaction.order?.product?.title || 'N/A'}
-                      >
-                        {transaction.order?.product?.title || 'N/A'}
-                      </span>
-                      <div className="opacity-0 bg-black text-white text-xs rounded py-1 px-2 absolute z-10 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap">
-                        {transaction.order?.product?.title || 'N/A'}
-                        <svg className="absolute text-black h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
-                      </div>
-                    </div>
-                    <div className="text-gray-500">Ref: {transaction.order?.payment_reference?.slice(0, 8) || 'N/A'}</div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <div className="text-gray-900">{transaction.customer_name || 'N/A'}</div>
-                    <div className="text-gray-500">{transaction.customer_email || 'N/A'}</div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <div className="font-medium text-gray-900">Total: {formatCurrency(transaction.total_amount)}</div>
-                    <div className="text-gray-500">Method: {transaction.payment_method}</div>
-                    <div className="text-gray-500">Status: {transaction.payment_status}</div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${transaction.seller_payout_status === 'completed' ? 
-                        'bg-green-100 text-green-800' : 
-                        'bg-yellow-100 text-yellow-800'}`}>
-                      {transaction.seller_payout_status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <div className="text-gray-900">
-                      {(() => {
-                        const storeSettings = transaction.seller?.store_settings as any;
-                        return storeSettings?.name || 'Unknown Store';
-                      })()}
-                    </div>
-                    <div className="text-gray-500">{transaction.seller?.email || 'No email'}</div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm">
-                    <div className="text-gray-900">Service: {formatCurrency(transaction.service_fee)}</div>
-                    <div className="text-gray-500">VAT: {formatCurrency(transaction.vat_amount)}</div>
-                  </td>
+        <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Transaction ID
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Order Info
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Customer
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Payment Details
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Payout Status
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Seller Info
+                  </th>
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Fees & VAT
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {stats.recentTransactions.map((transaction) => (
+                  <tr key={transaction.id} className="hover:bg-gray-50 transition-colors duration-150">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="font-medium text-gray-900">#{transaction.id.slice(0, 8)}</div>
+                      <div className="text-gray-500">{new Date(transaction.created_at).toLocaleDateString()}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="text-gray-900 relative group">
+                        <span 
+                          className="truncate block max-w-[200px] cursor-help"
+                          data-tip={transaction.order?.product?.title || 'N/A'}
+                        >
+                          {transaction.order?.product?.title || 'N/A'}
+                        </span>
+                        <div className="opacity-0 bg-black text-white text-xs rounded py-1 px-2 absolute z-10 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap">
+                          {transaction.order?.product?.title || 'N/A'}
+                          <svg className="absolute text-black h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                        </div>
+                      </div>
+                      <div className="text-gray-500">Ref: {transaction.order?.payment_reference?.slice(0, 8) || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="text-gray-900">{transaction.customer_name || 'N/A'}</div>
+                      <div className="text-gray-500">{transaction.customer_email || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="font-medium text-gray-900">Total: {formatCurrency(transaction.total_amount)}</div>
+                      <div className="text-gray-500">Method: {transaction.payment_method}</div>
+                      <div className="text-gray-500">Status: {transaction.payment_status}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${transaction.seller_payout_status === 'completed' ? 
+                          'bg-green-100 text-green-800' : 
+                          'bg-yellow-100 text-yellow-800'}`}>
+                        {transaction.seller_payout_status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="text-gray-900">
+                        {(() => {
+                          const storeSettings = transaction.seller?.store_settings as any;
+                          return storeSettings?.name || 'Unknown Store';
+                        })()}
+                      </div>
+                      <div className="text-gray-500">{transaction.seller?.email || 'No email'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="text-gray-900">Service: {formatCurrency(transaction.service_fee)}</div>
+                      <div className="text-gray-500">VAT: {formatCurrency(transaction.vat_amount)}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

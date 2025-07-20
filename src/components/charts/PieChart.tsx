@@ -24,7 +24,7 @@ export function PieChart({ data, height = 400 }: PieChartProps) {
         borderWidth={1}
         borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
         arcLinkLabelsSkipAngle={10}
-        arcLinkLabelsTextColor="#333333"
+        arcLinkLabelsTextColor="#374151"
         arcLinkLabelsThickness={2}
         arcLinkLabelsColor={{ from: 'color' }}
         arcLabelsSkipAngle={10}
@@ -39,13 +39,21 @@ export function PieChart({ data, height = 400 }: PieChartProps) {
             itemsSpacing: 0,
             itemWidth: 100,
             itemHeight: 18,
-            itemTextColor: '#999',
+            itemTextColor: '#6B7280',
             itemDirection: 'left-to-right',
             itemOpacity: 1,
             symbolSize: 18,
             symbolShape: 'circle',
           }
         ]}
+        theme={{
+          legends: {
+            text: {
+              fill: '#6B7280',
+              fontSize: 11
+            }
+          }
+        }}
       />
     </div>
   );

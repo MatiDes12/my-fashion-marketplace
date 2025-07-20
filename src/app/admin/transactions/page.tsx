@@ -67,7 +67,9 @@ interface Stats {
 
 export default function AdminTransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState<{
     start: Date | null;
     end: Date | null;
@@ -97,6 +99,35 @@ export default function AdminTransactionsPage() {
   useEffect(() => {
     fetchTransactions();
   }, [dateRange, filters]);
+
+  // Filter transactions based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredTransactions(transactions);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const filtered = transactions.filter(transaction => {
+      return (
+        transaction.id.toLowerCase().includes(query) ||
+        transaction.order_id.toLowerCase().includes(query) ||
+        transaction.payment_method.toLowerCase().includes(query) ||
+        transaction.payment_status.toLowerCase().includes(query) ||
+        transaction.seller_payout_status.toLowerCase().includes(query) ||
+        transaction.seller?.full_name?.toLowerCase().includes(query) ||
+        transaction.seller?.email?.toLowerCase().includes(query) ||
+        transaction.order?.product?.title?.toLowerCase().includes(query) ||
+        transaction.order?.order_status?.toLowerCase().includes(query) ||
+        transaction.order?.tx_ref?.toLowerCase().includes(query) ||
+        transaction.order?.payment_reference?.toLowerCase().includes(query) ||
+        formatCurrency(transaction.total_amount).toLowerCase().includes(query) ||
+        formatCurrency(transaction.seller_payout_amount).toLowerCase().includes(query)
+      );
+    });
+
+    setFilteredTransactions(filtered);
+  }, [searchQuery, transactions]);
 
   const fetchTransactions = async () => {
     try {
@@ -169,6 +200,7 @@ export default function AdminTransactionsPage() {
           ) || [];
           
           setTransactions(filteredData);
+          setFilteredTransactions(filteredData);
           updateStats(filteredData);
           return; // Exit early since we've already set the data
         } else {
@@ -182,6 +214,7 @@ export default function AdminTransactionsPage() {
 
       if (error) throw error;
       setTransactions(data || []);
+      setFilteredTransactions(data || []);
       updateStats(data || []);
 
     } catch (error) {
@@ -329,44 +362,89 @@ export default function AdminTransactionsPage() {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <div className="mt-6">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search transactions by ID, seller name, product, amount, status..."
+            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-red-500 sm:text-sm"
+          />
+          {searchQuery && (
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+        {searchQuery && (
+          <div className="mt-2 text-sm text-gray-600">
+            Found {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''} matching "{searchQuery}"
+          </div>
+        )}
+      </div>
+
       {/* Transaction Stats */}
       <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-6">
         <StatCard
           title="Total Transactions"
-          value={stats.totalTransactions}
+          value={filteredTransactions.length}
           trend={+5}
           icon="transactions"
         />
         <StatCard
           title="Total Volume"
-          value={formatCurrency(stats.totalRevenue)}
+          value={formatCurrency(filteredTransactions.reduce((sum, t) => sum + (t.total_amount || 0), 0))}
           trend={+12}
           icon="volume"
         />
         <StatCard
           title="Service Fee Revenue"
-          value={formatCurrency(stats.platformRevenue)}
+          value={formatCurrency(filteredTransactions.reduce((sum, t) => sum + ((t.service_fee || 0) + (t.platform_fee || 0)), 0))}
           trend={+8}
           icon="revenue"
         />
         <StatCard
           title="Average Transaction"
-          value={formatCurrency(
-            stats.totalRevenue / stats.totalTransactions
-          )}
+          value={filteredTransactions.length > 0 ? formatCurrency(filteredTransactions.reduce((sum, t) => sum + (t.total_amount || 0), 0) / filteredTransactions.length) : formatCurrency(0)}
           trend={-2}
           icon="average"
         />
         <StatCard
           title="Seller Payout"
-          value={formatCurrency(stats.pendingPayouts)}
+          value={formatCurrency(filteredTransactions.reduce((sum, t) => {
+            if (t.seller_payout_status === 'pending' && 
+                t.payment_status === 'paid' && 
+                (t.order?.order_status === 'delivered' || t.order?.order_status === 'picked up')) {
+              return sum + (t.seller_payout_amount || 0);
+            }
+            return sum;
+          }, 0))}
           trend={0}
           highlight={true}
           icon="payouts"
         />
         <StatCard
           title="All Pending Payouts"
-          value={formatCurrency(stats.allPendingPayouts)}
+          value={formatCurrency(filteredTransactions.reduce((sum, t) => {
+            if (t.seller_payout_status === 'pending' && t.payment_status === 'paid') {
+              return sum + (t.seller_payout_amount || 0);
+            }
+            return sum;
+          }, 0))}
           trend={+3}
           icon="allPayouts"
         />
@@ -377,7 +455,7 @@ export default function AdminTransactionsPage() {
         <h3 className="text-lg font-medium text-gray-900 mb-4">Order Status Overview</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map((status) => {
-            const count = getOrderStatusCounts(transactions)[status] || 0;
+            const count = getOrderStatusCounts(filteredTransactions)[status] || 0;
             return (
               <div 
                 key={status}
@@ -438,7 +516,7 @@ export default function AdminTransactionsPage() {
                 </div>
                 <div className="mt-3">
                   <div className="text-sm text-gray-500">
-                    {((count / stats.totalTransactions) * 100).toFixed(1)}% of total
+                    {filteredTransactions.length > 0 ? ((count / filteredTransactions.length) * 100).toFixed(1) : '0'}% of total
                   </div>
                 </div>
               </div>
@@ -450,7 +528,7 @@ export default function AdminTransactionsPage() {
       {/* Updated Transactions Table */}
       <div className="mt-8">
         <DataTable
-          data={transactions}
+          data={filteredTransactions}
           columns={[
             {
               header: 'Transaction ID',
@@ -982,6 +1060,19 @@ interface StatCardProps {
   icon?: string; // Added icon prop
 }
 
+// Custom Tooltip component for stat cards
+const Tooltip = ({ children, content }: { children: React.ReactNode; content: string }) => {
+  return (
+    <div className="group relative inline-block">
+      {children}
+      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+        {content}
+        <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+      </div>
+    </div>
+  );
+};
+
 function StatCard({ title, value, trend, highlight, icon }: StatCardProps) {
   const getIcon = (iconType: string) => {
     switch (iconType) {
@@ -1030,13 +1121,33 @@ function StatCard({ title, value, trend, highlight, icon }: StatCardProps) {
     }
   };
 
+  // Format the display value to show full number
+  const formatDisplayValue = (val: string | number) => {
+    if (typeof val === 'number') {
+      return val.toLocaleString();
+    }
+    return val;
+  };
+
+  // Get the full value for tooltip
+  const getFullValue = (val: string | number) => {
+    if (typeof val === 'number') {
+      return val.toLocaleString();
+    }
+    return val;
+  };
+
   return (
     <div className={`bg-white overflow-hidden shadow-lg rounded-xl border ${highlight ? 'border-red-300 ring-2 ring-red-200' : 'border-gray-100'}`}>
       <div className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mb-2">{value}</p>
+            <Tooltip content={getFullValue(value)}>
+              <p className="text-2xl font-bold text-gray-900 mb-2 cursor-help">
+                {formatDisplayValue(value)}
+              </p>
+            </Tooltip>
             <div className={`flex items-center text-sm font-medium ${
               trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-gray-500'
             }`}>
