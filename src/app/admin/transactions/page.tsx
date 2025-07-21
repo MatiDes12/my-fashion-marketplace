@@ -614,71 +614,7 @@ export default function AdminTransactionsPage() {
                 </div>
               )
             },
-            {
-              header: 'Seller Info',
-              accessor: 'seller',
-              cell: (row) => (
-                <div>
-                  <div className="text-sm text-gray-900">
-                    {row.seller?.full_name || 'Unknown'}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {row.seller?.email || 'No email'}
-                  </div>
-                </div>
-              )
-            },
-            {
-              header: 'Payment Details',
-              accessor: 'payment_details',
-              cell: (row) => (
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    Total: {formatCurrency(row.total_amount)}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Method: {row.payment_method}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Status: {row.payment_status}
-                  </div>
-                </div>
-              )
-            },
-            {
-              header: 'Fees & VAT',
-              accessor: 'fees',
-              cell: (row) => (
-                <div>
-                  <div className="text-sm text-gray-500">
-                    Service: {formatCurrency(row.service_fee || 0)}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Delivery: {formatCurrency(row.delivery_fee || 0)}
-                  </div>
-                  <div className="text-sm font-medium text-gray-900">
-                    Seller Payout: {formatCurrency(row.seller_payout_amount || 0)}
-                  </div>
-                </div>
-              )
-            },
-            {
-              header: 'Payout Status',
-              accessor: 'seller_payout_status',
-              cell: (row) => (
-                <div>
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                    ${row.seller_payout_status === 'completed' ? 
-                      'bg-green-100 text-green-800' : 
-                      'bg-yellow-100 text-yellow-800'}`}>
-                    {row.seller_payout_status}
-                  </span>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Payout Amount: {formatCurrency(row.seller_payout_amount || 0)}
-                  </div>
-                </div>
-              )
-            },
+
             {
               header: 'Actions',
               accessor: 'actions',
@@ -723,162 +659,348 @@ export default function AdminTransactionsPage() {
 
       {/* Order Details Modal */}
       {showDetailsModal && selectedTransaction && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm transition-opacity z-50">
           <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-              <div className="relative transform overflow-hidden rounded-lg bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
-                <div className="absolute right-0 top-0 pr-4 pt-4">
-                  <button
-                    onClick={() => {
-                      setShowDetailsModal(false);
-                      setSelectedTransaction(null);
-                    }}
-                    className="rounded-md bg-white text-gray-400 hover:text-gray-500"
-                  >
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+            <div className="flex min-h-full items-center justify-center p-4">
+              <div className="relative transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-6 text-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white bg-opacity-20">
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold">Transaction Details</h3>
+                        <p className="text-blue-100">#{selectedTransaction.id.substring(0, 8)} • {new Date(selectedTransaction.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        setSelectedTransaction(null);
+                      }}
+                      className="rounded-full p-2 hover:bg-white hover:bg-opacity-20 transition-colors"
+                    >
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                    <h3 className="text-lg font-semibold leading-6 text-gray-900 mb-6">
-                      Transaction Details
-                    </h3>
-                    
-                    {/* Main Transaction Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                      {/* Transaction ID */}
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Transaction ID</h4>
-                        <p className="text-lg font-semibold text-gray-900">#{selectedTransaction.id.substring(0, 8)}</p>
+                {/* Content */}
+                <div className="p-8">
+                  {/* Key Stats Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    {/* Total Amount */}
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-blue-700">Total Amount</h4>
+                        <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                       </div>
-
-                      {/* Order ID */}
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Order ID</h4>
-                        <p className="text-lg font-semibold text-gray-900">#{selectedTransaction.order_id.substring(0, 8)}</p>
-                      </div>
-
-                      {/* Payment Status */}
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Payment Status</h4>
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                          ${selectedTransaction.payment_status === 'paid' ? 
+                      <p className="text-3xl font-bold text-blue-900">{formatCurrency(selectedTransaction.total_amount)}</p>
+                      <div className="mt-2">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          selectedTransaction.payment_status === 'paid' ? 
                             'bg-green-100 text-green-800' : 
                             selectedTransaction.payment_status === 'failed' ?
                             'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'}`}>
+                            'bg-yellow-100 text-yellow-800'
+                        }`}>
                           {selectedTransaction.payment_status}
                         </span>
                       </div>
-
-                      {/* Payment Method */}
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Payment Method</h4>
-                        <p className="text-lg font-semibold text-gray-900">{selectedTransaction.payment_method}</p>
-                      </div>
                     </div>
 
-                    {/* Amount Section */}
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 mb-6">
-                      <div className="text-center">
-                        <h4 className="text-sm font-medium text-blue-600 mb-2">Total Transaction Amount</h4>
-                        <p className="text-4xl font-bold text-blue-900">{formatCurrency(selectedTransaction.total_amount)}</p>
+                    {/* Seller Payout */}
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-green-700">Seller Payout</h4>
+                        <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                       </div>
-                    </div>
-
-                    {/* Seller Payout Section */}
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6 mb-6">
-                      <div className="text-center">
-                        <h4 className="text-sm font-medium text-green-600 mb-2">Seller Payout</h4>
-                        <p className="text-3xl font-bold text-green-700">{formatCurrency(selectedTransaction.seller_payout_amount)}</p>
-                        <span className={`mt-2 px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full
-                          ${selectedTransaction.seller_payout_status === 'completed' ? 
+                      <p className="text-3xl font-bold text-green-900">{formatCurrency(selectedTransaction.seller_payout_amount)}</p>
+                      <div className="mt-2">
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          selectedTransaction.seller_payout_status === 'completed' ? 
                             'bg-green-100 text-green-800' : 
-                            'bg-yellow-100 text-yellow-800'}`}>
+                            'bg-yellow-100 text-yellow-800'
+                        }`}>
                           {selectedTransaction.seller_payout_status}
                         </span>
                       </div>
                     </div>
 
-                    {/* Product & Order Info */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Product & Order Information</h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-500">Product:</span>
-                          <span className="font-semibold text-gray-900">{selectedTransaction.order?.product?.title || 'N/A'}</span>
+                    {/* Platform Revenue */}
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-sm font-medium text-purple-700">Platform Revenue</h4>
+                        <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-3xl font-bold text-purple-900">
+                        {formatCurrency((selectedTransaction.service_fee || 0) + (selectedTransaction.platform_fee || 0))}
+                      </p>
+                      <p className="text-sm text-purple-600 mt-1">Service + Platform Fees</p>
+                    </div>
+                  </div>
+
+                  {/* Main Content Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Left Column */}
+                    <div className="space-y-6">
+                      {/* Transaction & Order Info */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                          <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                            <svg className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Transaction & Order Info
+                          </h4>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-500">Order Status:</span>
-                          <span className="font-semibold text-green-600">
-                            {selectedTransaction.order?.order_status?.toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-500">Created:</span>
-                          <span className="font-medium text-gray-900">{new Date(selectedTransaction.created_at).toLocaleString()}</span>
+                        <div className="p-6 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Transaction ID</p>
+                              <p className="font-semibold text-gray-900">#{selectedTransaction.id.substring(0, 8)}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Order ID</p>
+                              <p className="font-semibold text-gray-900">#{selectedTransaction.order_id.substring(0, 8)}</p>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">Product</p>
+                            <p className="font-semibold text-gray-900">{selectedTransaction.order?.product?.title || 'N/A'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Order Status</p>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {selectedTransaction.order?.order_status?.toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Payment Method</p>
+                              <p className="font-semibold text-gray-900">{selectedTransaction.payment_method}</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
+
+                                              {/* Customer Information */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                            <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                              <svg className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              Customer Information
+                            </h4>
+                          </div>
+                          <div className="p-6 space-y-4">
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Name</p>
+                              <p className="font-semibold text-gray-900">{selectedTransaction.customer_name || 'Unknown'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Email</p>
+                              <p className="font-medium text-gray-900">{selectedTransaction.customer_email || 'No email'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Phone</p>
+                              <p className="font-medium text-gray-900">{selectedTransaction.customer_phone || 'No phone'}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Seller Information */}
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                            <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                              <svg className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              Seller Information
+                            </h4>
+                          </div>
+                          <div className="p-6 space-y-4">
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Name</p>
+                              <p className="font-semibold text-gray-900">{selectedTransaction.seller?.full_name || 'Unknown'}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Email</p>
+                              <p className="font-medium text-gray-900">{selectedTransaction.seller?.email || 'No email'}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                      
                     </div>
 
-                    {/* Transaction Breakdown */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Transaction Breakdown</h4>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="text-gray-600">Total Amount:</span>
-                          <span className="font-semibold text-gray-900">{formatCurrency(selectedTransaction.total_amount || 0)}</span>
+                    {/* Right Column */}
+                    <div className="space-y-6">
+                      {/* Payment Details */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                          <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                            <svg className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            Payment Details
+                          </h4>
                         </div>
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="text-gray-600">Service Fee:</span>
-                          <span className="font-semibold text-red-600">-{formatCurrency((selectedTransaction.platform_fee || 0) + (selectedTransaction.service_fee || 0))}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="text-gray-600">VAT:</span>
-                          <span className="font-semibold text-gray-900">{formatCurrency(selectedTransaction.vat_amount || 0)}</span>
-                        </div>
-                        <div className="flex justify-between items-center py-3 bg-green-50 rounded-lg px-3">
-                          <span className="font-semibold text-green-700">Seller Payout:</span>
-                          <span className="font-bold text-green-700 text-lg">{formatCurrency(selectedTransaction.seller_payout_amount || 0)}</span>
+                        <div className="p-6 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Method</p>
+                              <p className="font-semibold text-gray-900">{selectedTransaction.payment_method}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Status</p>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                selectedTransaction.payment_status === 'paid' ? 
+                                  'bg-green-100 text-green-800' : 
+                                  selectedTransaction.payment_status === 'failed' ?
+                                  'bg-red-100 text-red-800' :
+                                  'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {selectedTransaction.payment_status}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">Total Amount</p>
+                            <p className="text-xl font-bold text-gray-900">{formatCurrency(selectedTransaction.total_amount)}</p>
+                          </div>
                         </div>
                       </div>
+
+                      {/* Fees & VAT Breakdown */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                          <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                            <svg className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            Fees & VAT Breakdown
+                          </h4>
+                        </div>
+                        <div className="p-6 space-y-4">
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-gray-600">Service Fee</span>
+                              <span className="font-medium text-gray-900">{formatCurrency(selectedTransaction.service_fee || 0)}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-gray-600">Platform Fee</span>
+                              <span className="font-medium text-gray-900">{formatCurrency(selectedTransaction.platform_fee || 0)}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-gray-600">Delivery Fee</span>
+                              <span className="font-medium text-gray-900">{formatCurrency(selectedTransaction.delivery_fee || 0)}</span>
+                            </div>
+                            <div className="flex justify-between items-center py-2">
+                              <span className="text-gray-600">VAT Amount</span>
+                              <span className="font-medium text-gray-900">{formatCurrency(selectedTransaction.vat_amount || 0)}</span>
+                            </div>
+                            <div className="border-t border-gray-200 pt-3 mt-3">
+                              <div className="flex justify-between items-center">
+                                <span className="font-semibold text-gray-900">Total Fees</span>
+                                <span className="font-bold text-red-600">
+                                  {formatCurrency((selectedTransaction.service_fee || 0) + (selectedTransaction.platform_fee || 0) + (selectedTransaction.delivery_fee || 0) + (selectedTransaction.vat_amount || 0))}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Payout Status */}
+                      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                          <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                            <svg className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            Payout Status
+                          </h4>
+                        </div>
+                        <div className="p-6 space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Status</p>
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                                selectedTransaction.seller_payout_status === 'completed' ? 
+                                  'bg-green-100 text-green-800' : 
+                                  'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {selectedTransaction.seller_payout_status}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-500 mb-1">Amount</p>
+                              <p className="text-xl font-bold text-green-600">{formatCurrency(selectedTransaction.seller_payout_amount || 0)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Delivery Proof */}
+                      {selectedTransaction.order?.delivery_proof_image && (
+                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                          <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                            <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                              <svg className="h-5 w-5 text-gray-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              Delivery Proof
+                            </h4>
+                          </div>
+                          <div className="p-6">
+                            <div className="relative w-full h-48 rounded-lg overflow-hidden shadow-md">
+                              <img 
+                                src={selectedTransaction.order.delivery_proof_image}
+                                alt="Delivery Proof"
+                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                  </div>
 
-                    {/* Delivery Proof */}
-                    {selectedTransaction.order?.delivery_proof_image && (
-                      <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Delivery Proof</h4>
-                        <div className="relative w-full h-48 rounded-lg overflow-hidden">
-                          <img 
-                            src={selectedTransaction.order.delivery_proof_image}
-                            alt="Delivery Proof"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="mt-6 flex justify-end">
+                  {/* Action Buttons */}
+                  <div className="mt-8 flex justify-end space-x-4">
+                    <button
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        setSelectedTransaction(null);
+                      }}
+                      className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                    {(selectedTransaction.order?.order_status === 'delivered' || selectedTransaction.order?.order_status === 'picked up') && 
+                     selectedTransaction.payment_status === 'paid' && 
+                     selectedTransaction.seller_payout_status !== 'completed' && (
                       <button
-                        onClick={() => {
-                          setShowDetailsModal(false);
-                          setSelectedTransaction(null);
-                        }}
-                        className="inline-flex justify-center rounded-md border border-gray-300 px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                        onClick={() => handleTransferClick(selectedTransaction)}
+                        className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors font-medium"
                       >
-                        Close
+                        Transfer to Seller
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
