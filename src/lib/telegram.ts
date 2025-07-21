@@ -2584,7 +2584,7 @@ Need help? Here are your options:
 
 📞 <b>Contact Methods:</b>
 • Email: support@avrioxshop.com
-• Phone: +251 XXX XXX XXX
+• Phone: +251 91 284 1237
 • Live Chat: Available on our website
 
 ⏰ <b>Support Hours:</b>

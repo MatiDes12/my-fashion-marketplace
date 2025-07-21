@@ -677,17 +677,17 @@ export default function AdminTransactionsPage() {
                         <p className="text-blue-100">#{selectedTransaction.id.substring(0, 8)} • {new Date(selectedTransaction.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        setShowDetailsModal(false);
-                        setSelectedTransaction(null);
-                      }}
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      setSelectedTransaction(null);
+                    }}
                       className="rounded-full p-2 hover:bg-white hover:bg-opacity-20 transition-colors"
-                    >
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                  >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                   </div>
                 </div>
 
@@ -701,8 +701,8 @@ export default function AdminTransactionsPage() {
                         <h4 className="text-sm font-medium text-blue-700">Total Amount</h4>
                         <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
+                    </svg>
+                  </div>
                       <p className="text-3xl font-bold text-blue-900">{formatCurrency(selectedTransaction.total_amount)}</p>
                       <div className="mt-2">
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -735,7 +735,7 @@ export default function AdminTransactionsPage() {
                           {selectedTransaction.seller_payout_status}
                         </span>
                       </div>
-                    </div>
+                      </div>
 
                     {/* Platform Revenue */}
                     <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
@@ -750,7 +750,7 @@ export default function AdminTransactionsPage() {
                       </p>
                       <p className="text-sm text-purple-600 mt-1">Service + Platform Fees</p>
                     </div>
-                  </div>
+                      </div>
 
                   {/* Main Content Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -786,7 +786,7 @@ export default function AdminTransactionsPage() {
                               <p className="text-sm text-gray-500 mb-1">Order Status</p>
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 {selectedTransaction.order?.order_status?.toUpperCase()}
-                              </span>
+                        </span>
                             </div>
                             <div>
                               <p className="text-sm text-gray-500 mb-1">Payment Method</p>
@@ -819,8 +819,8 @@ export default function AdminTransactionsPage() {
                               <p className="text-sm text-gray-500 mb-1">Phone</p>
                               <p className="font-medium text-gray-900">{selectedTransaction.customer_phone || 'No phone'}</p>
                             </div>
-                          </div>
-                        </div>
+                      </div>
+                    </div>
 
                         {/* Seller Information */}
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -841,8 +841,8 @@ export default function AdminTransactionsPage() {
                               <p className="text-sm text-gray-500 mb-1">Email</p>
                               <p className="font-medium text-gray-900">{selectedTransaction.seller?.email || 'No email'}</p>
                             </div>
-                          </div>
-                        </div>
+                      </div>
+                    </div>
 
                       
                     </div>
@@ -869,21 +869,21 @@ export default function AdminTransactionsPage() {
                               <p className="text-sm text-gray-500 mb-1">Status</p>
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 selectedTransaction.payment_status === 'paid' ? 
-                                  'bg-green-100 text-green-800' : 
+                            'bg-green-100 text-green-800' : 
                                   selectedTransaction.payment_status === 'failed' ?
                                   'bg-red-100 text-red-800' :
                                   'bg-yellow-100 text-yellow-800'
                               }`}>
                                 {selectedTransaction.payment_status}
-                              </span>
+                        </span>
                             </div>
                           </div>
                           <div>
                             <p className="text-sm text-gray-500 mb-1">Total Amount</p>
                             <p className="text-xl font-bold text-gray-900">{formatCurrency(selectedTransaction.total_amount)}</p>
                           </div>
-                        </div>
                       </div>
+                    </div>
 
                       {/* Fees & VAT Breakdown */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -896,11 +896,11 @@ export default function AdminTransactionsPage() {
                           </h4>
                         </div>
                         <div className="p-6 space-y-4">
-                          <div className="space-y-3">
+                      <div className="space-y-3">
                             <div className="flex justify-between items-center py-2">
                               <span className="text-gray-600">Service Fee</span>
                               <span className="font-medium text-gray-900">{formatCurrency(selectedTransaction.service_fee || 0)}</span>
-                            </div>
+                        </div>
                             <div className="flex justify-between items-center py-2">
                               <span className="text-gray-600">Platform Fee</span>
                               <span className="font-medium text-gray-900">{formatCurrency(selectedTransaction.platform_fee || 0)}</span>
@@ -914,16 +914,16 @@ export default function AdminTransactionsPage() {
                               <span className="font-medium text-gray-900">{formatCurrency(selectedTransaction.vat_amount || 0)}</span>
                             </div>
                             <div className="border-t border-gray-200 pt-3 mt-3">
-                              <div className="flex justify-between items-center">
+                        <div className="flex justify-between items-center">
                                 <span className="font-semibold text-gray-900">Total Fees</span>
                                 <span className="font-bold text-red-600">
                                   {formatCurrency((selectedTransaction.service_fee || 0) + (selectedTransaction.platform_fee || 0) + (selectedTransaction.delivery_fee || 0) + (selectedTransaction.vat_amount || 0))}
-                                </span>
-                              </div>
+                          </span>
+                        </div>
                             </div>
-                          </div>
                         </div>
                       </div>
+                    </div>
 
                       {/* Payout Status */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -946,17 +946,17 @@ export default function AdminTransactionsPage() {
                               }`}>
                                 {selectedTransaction.seller_payout_status}
                               </span>
-                            </div>
+                        </div>
                             <div>
                               <p className="text-sm text-gray-500 mb-1">Amount</p>
                               <p className="text-xl font-bold text-green-600">{formatCurrency(selectedTransaction.seller_payout_amount || 0)}</p>
-                            </div>
-                          </div>
+                        </div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Delivery Proof */}
-                      {selectedTransaction.order?.delivery_proof_image && (
+                    {/* Delivery Proof */}
+                    {selectedTransaction.order?.delivery_proof_image && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                             <h4 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -968,29 +968,29 @@ export default function AdminTransactionsPage() {
                           </div>
                           <div className="p-6">
                             <div className="relative w-full h-48 rounded-lg overflow-hidden shadow-md">
-                              <img 
-                                src={selectedTransaction.order.delivery_proof_image}
-                                alt="Delivery Proof"
+                          <img 
+                            src={selectedTransaction.order.delivery_proof_image}
+                            alt="Delivery Proof"
                                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                              />
+                          />
                             </div>
-                          </div>
                         </div>
-                      )}
+                      </div>
+                    )}
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
+                    {/* Action Buttons */}
                   <div className="mt-8 flex justify-end space-x-4">
-                    <button
-                      onClick={() => {
-                        setShowDetailsModal(false);
-                        setSelectedTransaction(null);
-                      }}
+                      <button
+                        onClick={() => {
+                          setShowDetailsModal(false);
+                          setSelectedTransaction(null);
+                        }}
                       className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors font-medium"
-                    >
-                      Close
-                    </button>
+                      >
+                        Close
+                      </button>
                     {(selectedTransaction.order?.order_status === 'delivered' || selectedTransaction.order?.order_status === 'picked up') && 
                      selectedTransaction.payment_status === 'paid' && 
                      selectedTransaction.seller_payout_status !== 'completed' && (
