@@ -531,7 +531,7 @@ export default function CustomerChatPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0" >
                     <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600">
                       {user.full_name}
                     </p>
