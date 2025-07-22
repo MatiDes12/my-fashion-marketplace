@@ -117,9 +117,9 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' blob: data: https: https://*.supabase.co https://*.jawg.io https://unpkg.com",
               "media-src 'self' blob: data:",
-              "connect-src 'self' https://*.supabase.co https://va.vercel-scripts.com https://*.vercel-scripts.com https://*.jsdelivr.net wss://*.supabase.co https://*.jawg.io",
+              "connect-src 'self' https://*.supabase.co https://va.vercel-scripts.com https://*.vercel-scripts.com https://*.jsdelivr.net wss://*.supabase.co https://*.jawg.io https://*.pusher.com wss://*.pusher.com https://sockjs-*.pusher.com",
               "frame-src 'self'",
-              "font-src 'self'",
+              "font-src 'self' https: data:",
               "worker-src 'self' blob:",
               "child-src 'self' blob:"
             ].join('; ')

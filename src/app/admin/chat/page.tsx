@@ -10,6 +10,7 @@ import {
   PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 import { pusherClient } from '@/lib/pusher-client';
+import { useChatStatus } from '@/hooks/useChatStatus';
 
 interface User {
   id: string;
@@ -60,6 +61,18 @@ export default function AdminChatPage() {
   const [channel, setChannel] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponent();
+
+  // Handle real-time status updates
+  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
+    setUsers(prev => prev.map(user => 
+      user.id === userId 
+        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
+        : user
+    ));
+  };
+
+  // Initialize chat status
+  useChatStatus(currentUser, handleStatusUpdate);
 
   useEffect(() => {
     // Get current user
