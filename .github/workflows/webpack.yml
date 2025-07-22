@@ -34,6 +34,12 @@ jobs:
       run: npx tsc --noEmit
 
     - name: Build application
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+        NODE_ENV: production
       run: npm run build
 
     - name: Upload build artifacts
