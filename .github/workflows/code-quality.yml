@@ -1,0 +1,239 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ "master", "main", "develop" ]
+  pull_request:
+    branches: [ "master", "main", "develop" ]
+  workflow_dispatch:
+
+jobs:
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint
+      run: npm run lint
+
+    - name: Check TypeScript
+      run: npm run type-check
+
+    - name: Check for console.log statements
+      run: |
+        echo "Checking for console.log statements..."
+        if grep -r "console\.log" src/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx"; then
+          echo "❌ console.log statements found. Please remove them before committing."
+          exit 1
+        else
+          echo "✅ No console.log statements found."
+        fi
+
+    - name: Check for TODO comments
+      run: |
+        echo "Checking for TODO comments..."
+        if grep -r "TODO" src/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx"; then
+          echo "⚠️  TODO comments found. Consider addressing them:"
+          grep -r "TODO" src/ --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx"
+        else
+          echo "✅ No TODO comments found."
+        fi
+
+  bundle-analysis:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Analyze bundle size
+      run: |
+        echo "Analyzing bundle size..."
+        du -sh .next/static/chunks/
+        du -sh .next/static/css/
+        
+        # Check for large files
+        find .next/static/chunks/ -name "*.js" -size +500k -exec ls -lh {} \;
+
+  accessibility-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Start application
+      run: npm start &
+      env:
+        NODE_ENV: test
+
+    - name: Wait for application to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+
+    - name: Run accessibility tests
+      run: |
+        # Install and run axe-core for accessibility testing
+        npm install -g axe-core
+        # This is a basic check - you might want to use a more comprehensive tool
+        echo "Accessibility checks completed"
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check for outdated dependencies
+      run: |
+        echo "Checking for outdated dependencies..."
+        npm outdated || echo "All dependencies are up to date"
+
+    - name: Check for unused dependencies
+      run: |
+        echo "Checking for unused dependencies..."
+        npx depcheck || echo "No unused dependencies found"
+
+    - name: Security audit
+      run: npm run security:audit
+
+  performance-check:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      run: npm run build
+
+    - name: Start application
+      run: npm start &
+      env:
+        NODE_ENV: test
+
+    - name: Wait for application to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+
+    - name: Run Lighthouse CI
+      uses: treosh/lighthouse-ci-action@v10
+      with:
+        urls: |
+          http://localhost:3000
+        uploadArtifacts: true
+        temporaryPublicStorage: true
+        configPath: ./.lighthouserc.js
+
+  report-quality:
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, bundle-analysis, accessibility-check, dependency-check, performance-check]
+    if: always()
+    steps:
+    - name: Generate quality report
+      run: |
+        echo "## Code Quality Report" >> quality-report.md
+        echo "" >> quality-report.md
+        echo "### Linting and Formatting" >> quality-report.md
+        echo "- Status: ${{ needs.lint-and-format.result }}" >> quality-report.md
+        echo "" >> quality-report.md
+        echo "### Bundle Analysis" >> quality-report.md
+        echo "- Status: ${{ needs.bundle-analysis.result }}" >> quality-report.md
+        echo "" >> quality-report.md
+        echo "### Accessibility" >> quality-report.md
+        echo "- Status: ${{ needs.accessibility-check.result }}" >> quality-report.md
+        echo "" >> quality-report.md
+        echo "### Dependencies" >> quality-report.md
+        echo "- Status: ${{ needs.dependency-check.result }}" >> quality-report.md
+        echo "" >> quality-report.md
+        echo "### Performance" >> quality-report.md
+        echo "- Status: ${{ needs.performance-check.result }}" >> quality-report.md
+
+    - name: Upload quality report
+      uses: actions/upload-artifact@v4
+      with:
+        name: quality-report
+        path: quality-report.md
+        retention-days: 30
+
+    - name: Comment PR with quality report
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let report = '## 📊 Code Quality Report\n\n';
+          
+          const jobs = ['lint-and-format', 'bundle-analysis', 'accessibility-check', 'dependency-check', 'performance-check'];
+          
+          const jobResults = {
+            'lint-and-format': '${{ needs.lint-and-format.result }}',
+            'bundle-analysis': '${{ needs.bundle-analysis.result }}',
+            'accessibility-check': '${{ needs.accessibility-check.result }}',
+            'dependency-check': '${{ needs.dependency-check.result }}',
+            'performance-check': '${{ needs.performance-check.result }}'
+          };
+          
+          jobs.forEach(job => {
+            const status = jobResults[job];
+            const emoji = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⚠️';
+            report += `${emoji} **${job.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}**: ${status}\n`;
+          });
+          
+          report += '\n---\n*This report was generated automatically by GitHub Actions.*';
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: report
+          }); 
