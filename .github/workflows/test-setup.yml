@@ -1,0 +1,92 @@
+name: Test Setup (Simple)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-vercel:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Test Vercel connection
+      run: |
+        echo "Testing Vercel configuration..."
+        echo "VERCEL_TOKEN: ${VERCEL_TOKEN:0:10}..." # Show first 10 chars
+        echo "VERCEL_ORG_ID: $VERCEL_ORG_ID"
+        echo "VERCEL_PROJECT_ID: $VERCEL_PROJECT_ID"
+        
+        # Test if tokens are set
+        if [ -z "$VERCEL_TOKEN" ]; then
+          echo "❌ VERCEL_TOKEN is not set"
+          exit 1
+        fi
+        
+        if [ -z "$VERCEL_ORG_ID" ]; then
+          echo "❌ VERCEL_ORG_ID is not set"
+          exit 1
+        fi
+        
+        if [ -z "$VERCEL_PROJECT_ID" ]; then
+          echo "❌ VERCEL_PROJECT_ID is not set"
+          exit 1
+        fi
+        
+        echo "✅ All Vercel tokens are configured!"
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  test-datadog:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check Datadog configuration
+      id: check-datadog
+      run: |
+        if [ -n "${{ secrets.DD_API_KEY }}" ] && [ -n "${{ secrets.DD_APP_KEY }}" ]; then
+          echo "datadog_configured=true" >> $GITHUB_OUTPUT
+        else
+          echo "datadog_configured=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Test Datadog connection
+      if: steps.check-datadog.outputs.datadog_configured == 'true'
+      run: |
+        echo "Testing Datadog configuration..."
+        echo "DD_API_KEY: ${DD_API_KEY:0:10}..." # Show first 10 chars
+        echo "DD_APP_KEY: ${DD_APP_KEY:0:10}..." # Show first 10 chars
+        
+        echo "✅ Datadog tokens are configured!"
+      env:
+        DD_API_KEY: ${{ secrets.DD_API_KEY }}
+        DD_APP_KEY: ${{ secrets.DD_APP_KEY }}
+
+    - name: Datadog not configured
+      if: steps.check-datadog.outputs.datadog_configured == 'false'
+      run: |
+        echo "⚠️ Datadog not configured"
+        echo "To configure Datadog:"
+        echo "1. Add DD_API_KEY and DD_APP_KEY secrets"
+        echo "2. Set ENABLE_DATADOG=true (optional)"
+
+  setup-summary:
+    runs-on: ubuntu-latest
+    needs: [test-vercel, test-datadog]
+    if: always()
+    steps:
+    - name: Setup Summary
+      run: |
+        echo "## 🎉 Setup Summary"
+        echo ""
+        echo "### ✅ Vercel Configuration"
+        echo "- Status: ${{ needs.test-vercel.result }}"
+        echo ""
+        echo "### 📊 Datadog Configuration" 
+        echo "- Status: ${{ needs.test-datadog.result }}"
+        echo ""
+        echo "### 🚀 Next Steps"
+        echo "1. Push code to trigger CI/CD workflows"
+        echo "2. Check Actions tab for workflow results"
+        echo "3. Monitor deployments in Vercel dashboard" 

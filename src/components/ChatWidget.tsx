@@ -31,7 +31,7 @@ export default function ChatWidget({ userType, targetUserId }: ChatWidgetProps) 
   useEffect(() => {
     if (socket) {
       // Listen for new messages
-      socket.on('new_message', (message) => {
+      socket.on('new_message', (message: any) => {
         setMessages(prev => [...prev, message]);
       });
 
