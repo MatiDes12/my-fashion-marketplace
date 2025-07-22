@@ -63,7 +63,6 @@ jobs:
 
   test-datadog:
     runs-on: ubuntu-latest
-    if: secrets.DD_API_KEY != '' && secrets.DD_APP_KEY != ''
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -71,11 +70,16 @@ jobs:
     - name: Test Datadog Connection
       run: |
         echo "Testing Datadog connection..."
-        curl -H "Content-Type: application/json" \
-             -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
-             -H "DD-APPLICATION-KEY: ${{ secrets.DD_APP_KEY }}" \
-             "https://api.datadoghq.com/api/v1/validate" | jq '.valid'
-        echo "✅ Datadog connection successful"
+        if [ -n "${{ secrets.DD_API_KEY }}" ] && [ -n "${{ secrets.DD_APP_KEY }}" ]; then
+          curl -H "Content-Type: application/json" \
+               -H "DD-API-KEY: ${{ secrets.DD_API_KEY }}" \
+               -H "DD-APPLICATION-KEY: ${{ secrets.DD_APP_KEY }}" \
+               "https://api.datadoghq.com/api/v1/validate" | jq '.valid'
+          echo "✅ Datadog connection successful"
+        else
+          echo "⚠️ Datadog tokens not configured - skipping test"
+          echo "To enable Datadog tests, add DD_API_KEY and DD_APP_KEY secrets"
+        fi
 
   test-build:
     runs-on: ubuntu-latest
