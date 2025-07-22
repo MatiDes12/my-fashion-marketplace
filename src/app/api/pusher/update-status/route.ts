@@ -7,10 +7,30 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
-    // Get current user
+    // Try to refresh the session first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Session error in update-status:', sessionError);
+      return NextResponse.json({ error: 'Session error' }, { status: 401 });
+    }
+    
+    if (!session) {
+      console.error('No session found in update-status');
+      return NextResponse.json({ error: 'No active session' }, { status: 401 });
+    }
+    
+    // Get current user with better error handling
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    if (authError) {
+      console.error('Auth error in update-status:', authError);
+      return NextResponse.json({ error: 'Authentication error' }, { status: 401 });
+    }
+    
+    if (!user) {
+      console.error('No user found in update-status');
+      return NextResponse.json({ error: 'No authenticated user' }, { status: 401 });
     }
 
     const body = await request.json();

@@ -7,10 +7,12 @@ import {
   UserCircleIcon,
   CheckCircleIcon,
   XCircleIcon,
-  PaperAirplaneIcon
+  PaperAirplaneIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { pusherClient } from '@/lib/pusher-client';
 import { useChatStatus } from '@/hooks/useChatStatus';
+import Link from 'next/link';
 
 interface User {
   id: string;
@@ -23,21 +25,18 @@ interface User {
     is_online: boolean;
     last_seen: string;
   };
-  latest_message?: string;
-  latest_message_time?: string;
-  room_id?: string;
 }
 
 interface ChatRoom {
   id: string;
   room_type: string;
   seller_id?: string;
-  admin_id: string;
-  customer_id?: string;
+  admin_id?: string;
+  customer_id: string;
   last_message_at: string;
   seller?: User;
-  admin: User;
-  customer?: User;
+  admin?: User;
+  customer: User;
   messages: ChatMessage[];
 }
 
@@ -53,9 +52,9 @@ interface ChatMessage {
   sender: User;
 }
 
-export default function AdminChatPage() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [customers, setCustomers] = useState<User[]>([]);
+export default function CustomerChatPage() {
+  const [sellers, setSellers] = useState<User[]>([]);
+  const [admins, setAdmins] = useState<User[]>([]);
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -63,22 +62,10 @@ export default function AdminChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'sellers' | 'customers' | 'recent'>('sellers');
+  const [activeTab, setActiveTab] = useState<'sellers' | 'admins' | 'recent'>('sellers');
   const [channel, setChannel] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponent();
-
-  // Handle real-time status updates
-  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
-        : user
-    ));
-  };
-
-  // Initialize chat status
-  useChatStatus(currentUser, handleStatusUpdate);
 
   useEffect(() => {
     // Get current user
@@ -91,8 +78,8 @@ export default function AdminChatPage() {
 
   useEffect(() => {
     if (currentUser) {
-      loadUsers();
-      loadCustomers();
+      loadSellers();
+      loadAdmins();
       loadRooms();
     }
   }, [currentUser]);
@@ -142,105 +129,98 @@ export default function AdminChatPage() {
     };
   }, [selectedRoom]);
 
-  const loadUsers = async () => {
+  // Handle real-time status updates
+  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
+    setSellers(prev => prev.map(user => 
+      user.id === userId 
+        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
+        : user
+    ));
+    setAdmins(prev => prev.map(user => 
+      user.id === userId 
+        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
+        : user
+    ));
+  };
+
+  // Initialize chat status
+  useChatStatus(currentUser, handleStatusUpdate);
+
+  const loadSellers = async () => {
     try {
-      const response = await fetch('/api/chat/users?userType=admin');
+      const response = await fetch('/api/chat/customer-sellers?customerId=' + currentUser.id);
       const data = await response.json();
-      if (data.users) {
-        setUsers(data.users);
+      console.log('Loaded sellers for customer:', data);
+      if (data.sellers) {
+        setSellers(data.sellers);
       }
     } catch (error) {
-      console.error('Error loading users:', error);
-      toast.error('Failed to load users');
+      console.error('Error loading sellers:', error);
+      toast.error('Failed to load sellers');
     }
   };
 
-  const loadCustomers = async () => {
+  const loadAdmins = async () => {
     try {
-      const response = await fetch('/api/chat/customers');
+      const response = await fetch('/api/chat/users?userType=customer');
       const data = await response.json();
-      if (data.customers) {
-        setCustomers(data.customers);
+      if (data.users) {
+        setAdmins(data.users);
       }
     } catch (error) {
-      console.error('Error loading customers:', error);
-      toast.error('Failed to load customers');
+      console.error('Error loading admins:', error);
+      toast.error('Failed to load admins');
     }
   };
 
   const loadRooms = async () => {
     try {
-      // Load both admin_seller and customer_admin rooms
-      const [sellerResponse, customerResponse] = await Promise.all([
-        fetch('/api/chat/rooms?userType=admin&roomType=admin_seller'),
-        fetch('/api/chat/rooms?userType=admin&roomType=customer_admin')
+      // Load both customer_seller and customer_admin rooms
+      const [sellerResponse, adminResponse] = await Promise.all([
+        fetch('/api/chat/rooms?userType=customer&roomType=customer_seller'),
+        fetch('/api/chat/rooms?userType=customer&roomType=customer_admin')
       ]);
-      
+
       const sellerData = await sellerResponse.json();
-      const customerData = await customerResponse.json();
-      
-      const allRooms = [];
-      
-      if (sellerData.rooms) {
-        const enhancedSellerRooms = sellerData.rooms.map((room: any) => ({
+      const adminData = await adminResponse.json();
+
+      const allRooms = [
+        ...(sellerData.rooms || []),
+        ...(adminData.rooms || [])
+      ];
+
+      if (allRooms.length > 0) {
+        // Enhance rooms with user data for better display
+        const enhancedRooms = allRooms.map((room: any) => ({
           ...room,
-          seller: users.find(u => u.id === room.seller_id) || room.seller,
-          admin: users.find(u => u.id === room.admin_id) || room.admin,
+          seller: sellers.find(u => u.id === room.seller_id) || room.seller,
+          admin: admins.find(u => u.id === room.admin_id) || room.admin,
+          customer: currentUser,
           messages: room.messages || []
         }));
-        allRooms.push(...enhancedSellerRooms);
+        setRooms(enhancedRooms);
       }
-      
-      if (customerData.rooms) {
-        const enhancedCustomerRooms = customerData.rooms.map((room: any) => ({
-          ...room,
-          customer: customers.find(u => u.id === room.customer_id) || room.customer,
-          admin: users.find(u => u.id === room.admin_id) || room.admin,
-          messages: room.messages || []
-        }));
-        allRooms.push(...enhancedCustomerRooms);
-      }
-      
-      setRooms(allRooms);
     } catch (error) {
       console.error('Error loading rooms:', error);
       toast.error('Failed to load chat rooms');
     }
   };
 
-  const createOrJoinRoom = async (userId: string, userType: 'seller' | 'customer' = 'seller') => {
+  const createOrJoinRoom = async (userId: string, userType: 'seller' | 'admin' = 'seller') => {
     try {
-      // First, check if a room already exists
-      const existingRoom = rooms.find(r => {
-        if (userType === 'seller') {
-          return r.seller_id === userId && r.admin_id === currentUser.id;
-        } else {
-          return r.customer_id === userId && r.admin_id === currentUser.id;
-        }
-      });
-
-      if (existingRoom) {
-        // Room exists, just select it and load messages
-        setSelectedRoom(existingRoom);
-        await loadMessages(existingRoom.id);
-        return;
-      }
-
-      // If no room exists, create a temporary room for the chat interface
-      // but don't save it to the database until a message is sent
+      // Always create a new temporary room (don't check for existing rooms)
       const user = userType === 'seller' 
-        ? users.find(u => u.id === userId)
-        : customers.find(u => u.id === userId);
+        ? sellers.find(u => u.id === userId)
+        : admins.find(u => u.id === userId);
         
       if (user) {
         const tempRoom: ChatRoom = {
           id: `temp-${Date.now()}`,
-          room_type: userType === 'seller' ? 'admin_seller' : 'customer_admin',
-          ...(userType === 'seller' ? { seller_id: userId } : { customer_id: userId }),
-          admin_id: currentUser.id,
+          room_type: userType === 'seller' ? 'customer_seller' : 'customer_admin',
+          customer_id: currentUser.id,
+          ...(userType === 'seller' ? { seller_id: userId, seller: user } : { admin_id: userId, admin: user }),
           last_message_at: new Date().toISOString(),
-          ...(userType === 'seller' ? { seller: user } : { customer: user }),
-          admin: currentUser,
+          customer: currentUser,
           messages: []
         };
         
@@ -254,6 +234,12 @@ export default function AdminChatPage() {
   };
 
   const loadMessages = async (roomId: string) => {
+    // Don't load messages for temporary rooms
+    if (roomId.startsWith('temp-')) {
+      setMessages([]);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/chat/messages?roomId=${roomId}`);
       const data = await response.json();
@@ -281,24 +267,17 @@ export default function AdminChatPage() {
       let roomId = selectedRoom.id;
       if (selectedRoom.id.startsWith('temp-')) {
         try {
-          const roomData = selectedRoom.room_type === 'admin_seller' 
-            ? {
-                roomType: 'admin_seller',
-                sellerId: selectedRoom.seller_id,
-                adminId: currentUser.id
-              }
-            : {
-                roomType: 'customer_admin',
-                customerId: selectedRoom.customer_id,
-                adminId: currentUser.id
-              };
-
           const response = await fetch('/api/chat/rooms', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(roomData),
+            body: JSON.stringify({
+              roomType: selectedRoom.room_type,
+              customerId: currentUser.id,
+              ...(selectedRoom.seller_id ? { sellerId: selectedRoom.seller_id } : {}),
+              ...(selectedRoom.admin_id ? { adminId: selectedRoom.admin_id } : {})
+            }),
           });
 
           const data = await response.json();
@@ -308,11 +287,13 @@ export default function AdminChatPage() {
             // Replace temp room with real room
             const realRoom: ChatRoom = {
               ...data.room,
-              ...(selectedRoom.seller ? { seller: selectedRoom.seller } : { customer: selectedRoom.customer }),
-              admin: currentUser,
+              seller: selectedRoom.seller,
+              admin: selectedRoom.admin,
+              customer: currentUser,
               messages: []
             };
             
+            // Add real room to rooms list (like seller chat does)
             setRooms(prev => [realRoom, ...prev]);
             setSelectedRoom(realRoom);
           }
@@ -329,7 +310,7 @@ export default function AdminChatPage() {
         id: `temp-${Date.now()}`,
         room_id: roomId,
         sender_id: currentUser.id,
-        sender_type: 'admin',
+        sender_type: 'customer',
         message: messageText,
         message_type: 'text',
         is_read: false,
@@ -349,7 +330,7 @@ export default function AdminChatPage() {
         body: JSON.stringify({
           roomId: roomId,
           senderId: currentUser.id,
-          senderType: 'admin',
+          senderType: 'customer',
           message: messageText,
           messageType: 'text'
         }),
@@ -412,106 +393,132 @@ export default function AdminChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gradient-to-br from-green-50 to-emerald-100">
       {/* Sidebar - Users and Rooms */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-80 bg-white shadow-xl border-r border-gray-200 flex flex-col">
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-gray-900">Admin Chat</h1>
-          <p className="text-sm text-gray-500">Chat with sellers</p>
+        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-600 to-emerald-600">
+          <div className="flex items-center space-x-3">
+            <Link href="/" className="text-white hover:text-green-100">
+              <ArrowLeftIcon className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-white">Customer Support</h1>
+              <p className="text-green-100 text-sm mt-1">Chat with sellers and admins</p>
+            </div>
+          </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 bg-gray-50">
           <button 
             onClick={() => setActiveTab('sellers')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
+            className={`flex-1 py-4 px-4 text-sm font-medium transition-all duration-200 ${
               activeTab === 'sellers' 
-                ? 'text-gray-900 border-b-2 border-red-500' 
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-green-600 border-b-2 border-green-600 bg-white' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-gray-100'
             }`}
           >
-            Sellers ({users.length})
+            <div className="flex flex-col items-center">
+              <span className="font-semibold">Sellers</span>
+              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full mt-1">
+                {sellers.length}
+              </span>
+            </div>
           </button>
           <button 
-            onClick={() => setActiveTab('customers')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'customers' 
-                ? 'text-gray-900 border-b-2 border-red-500' 
-                : 'text-gray-500 hover:text-gray-700'
+            onClick={() => setActiveTab('admins')}
+            className={`flex-1 py-4 px-4 text-sm font-medium transition-all duration-200 ${
+              activeTab === 'admins' 
+                ? 'text-green-600 border-b-2 border-green-600 bg-white' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-gray-100'
             }`}
           >
-            Customers ({customers.length})
+            <div className="flex flex-col items-center">
+              <span className="font-semibold">Support</span>
+              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full mt-1">
+                {admins.length}
+              </span>
+            </div>
           </button>
           <button 
             onClick={() => setActiveTab('recent')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
+            className={`flex-1 py-4 px-4 text-sm font-medium transition-all duration-200 ${
               activeTab === 'recent' 
-                ? 'text-gray-900 border-b-2 border-red-500' 
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-green-600 border-b-2 border-green-600 bg-white' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-gray-100'
             }`}
           >
-            Recent Chats ({rooms.filter(r => r.messages && r.messages.length > 0).length})
+            <div className="flex flex-col items-center">
+              <span className="font-semibold">Recent</span>
+              <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full mt-1">
+                {rooms.filter(r => r.messages && r.messages.length > 0).length}
+              </span>
+            </div>
           </button>
         </div>
 
         {/* Content based on active tab */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-white">
           {activeTab === 'sellers' ? (
             /* Sellers List */
-            users.map((user) => (
+            sellers.map((user) => (
               <div
                 key={user.id}
                 onClick={() => createOrJoinRoom(user.id, 'seller')}
-                className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                className="p-4 border-b border-gray-100 hover:bg-green-50 cursor-pointer transition-all duration-200 group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                      {user.full_name?.charAt(0)?.toUpperCase() || 'S'}
+                    </div>
                     <div className="absolute -bottom-1 -right-1">
                       {user.user_chat_status?.is_online ? (
-                        <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
-                        <XCircleIcon className="w-4 h-4 text-gray-400" />
+                        <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
                       )}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-green-600">
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
                     </p>
                   </div>
                 </div>
               </div>
             ))
-          ) : activeTab === 'customers' ? (
-            /* Customers List */
-            customers.map((customer) => (
+          ) : activeTab === 'admins' ? (
+            /* Admins List */
+            admins.map((user) => (
               <div
-                key={customer.id}
-                onClick={() => createOrJoinRoom(customer.id, 'customer')}
-                className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                key={user.id}
+                onClick={() => createOrJoinRoom(user.id, 'admin')}
+                className="p-4 border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                      {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
+                    </div>
                     <div className="absolute -bottom-1 -right-1">
-                      {customer.user_chat_status?.is_online ? (
-                        <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                      {user.user_chat_status?.is_online ? (
+                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
-                        <XCircleIcon className="w-4 h-4 text-gray-400" />
+                        <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
                       )}
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {customer.full_name}
+                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600">
+                      {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {customer.latest_message ? customer.latest_message.substring(0, 30) + '...' : 'No messages yet'}
+                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
                     </p>
                   </div>
                 </div>
@@ -526,15 +533,17 @@ export default function AdminChatPage() {
                   setSelectedRoom(room);
                   await loadMessages(room.id);
                 }}
-                className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                  selectedRoom?.id === room.id ? 'bg-gray-100' : ''
+                className={`p-4 border-b border-gray-100 hover:bg-purple-50 cursor-pointer transition-all duration-200 group ${
+                  selectedRoom?.id === room.id ? 'bg-purple-100 border-l-4 border-purple-500' : ''
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                    {(room.seller?.full_name || room.admin?.full_name || 'U')?.charAt(0)?.toUpperCase()}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {room.seller?.full_name || room.customer?.full_name || 'Unknown User'}
+                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-purple-600">
+                      {room.seller?.full_name || room.admin?.full_name || 'Unknown User'}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
                       {getLastMessage(room)}
@@ -548,30 +557,28 @@ export default function AdminChatPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col bg-white shadow-lg min-h-0">
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
-              <div className="flex items-center space-x-3">
-                {selectedRoom.seller ? (
-                  <UserCircleIcon className="w-8 h-8 text-gray-400" />
-                ) : selectedRoom.customer ? (
-                  <UserCircleIcon className="w-8 h-8 text-gray-400" />
-                ) : null}
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-6 flex-shrink-0">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                  {(selectedRoom.seller?.full_name || selectedRoom.admin?.full_name || 'U')?.charAt(0)?.toUpperCase()}
+                </div>
                 <div>
-                  <h2 className="text-lg font-medium text-gray-900">
-                    {selectedRoom.seller?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
+                  <h2 className="text-lg font-bold text-gray-900">
+                    {selectedRoom.seller?.full_name || selectedRoom.admin?.full_name || 'Unknown User'}
                   </h2>
-                  <p className="text-sm text-gray-500">
-                    {selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                  <p className="text-sm text-gray-600">
+                    {(selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.admin?.user_chat_status?.is_online) ? '🟢 Online' : '⚪ Offline'}
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 min-h-0">
               {messages.map((message, index) => {
                 const isOwnMessage = message.sender_id === currentUser?.id;
                 return (
@@ -580,15 +587,15 @@ export default function AdminChatPage() {
                     className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
                         isOwnMessage
-                          ? 'bg-red-500 text-white'
-                          : 'bg-gray-200 text-gray-900'
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
+                          : 'bg-white text-gray-900 border border-gray-200'
                       }`}
                     >
-                      <p className="text-sm">{message.message}</p>
-                      <p className={`text-xs mt-1 ${
-                        isOwnMessage ? 'text-red-100' : 'text-gray-500'
+                      <p className="text-sm leading-relaxed">{message.message}</p>
+                      <p className={`text-xs mt-2 ${
+                        isOwnMessage ? 'text-green-100' : 'text-gray-500'
                       }`}>
                         {formatTime(message.created_at)}
                       </p>
@@ -600,8 +607,15 @@ export default function AdminChatPage() {
               {/* Typing indicator */}
               {typingUsers.length > 0 && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg">
-                    <p className="text-sm italic">Typing...</p>
+                  <div className="bg-white text-gray-900 px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
+                    <div className="flex items-center space-x-1">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      </div>
+                      <span className="text-sm text-gray-500 ml-2">Typing...</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -610,20 +624,20 @@ export default function AdminChatPage() {
             </div>
 
             {/* Message Input - Always visible at bottom */}
-            <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
-              <div className="flex space-x-2">
+            <div className="bg-white border-t border-gray-200 p-6 flex-shrink-0">
+              <div className="flex space-x-3">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={handleTyping}
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Type a message..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Type your message..."
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors duration-200"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={!newMessage.trim()}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
                   <PaperAirplaneIcon className="w-5 h-5" />
                 </button>
@@ -632,15 +646,15 @@ export default function AdminChatPage() {
           </>
         ) : (
           /* Empty State */
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
             <div className="text-center">
-              <UserCircleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Select a seller to start chatting
-              </h3>
-              <p className="text-gray-500">
-                Choose a seller from the list to begin a conversation
-              </p>
+              <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Start a Conversation</h3>
+              <p className="text-gray-600">Select a seller or support agent to begin chatting</p>
             </div>
           </div>
         )}

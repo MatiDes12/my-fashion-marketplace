@@ -10,7 +10,10 @@ export const useChatStatus = (
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const updateStatus = useCallback((isOnline: boolean, statusMessage?: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !currentUser.id) {
+      console.log('No current user, skipping status update');
+      return;
+    }
     // Only send if status actually changed
     if (
       lastStatusRef.current.isOnline === isOnline &&
@@ -26,7 +29,7 @@ export const useChatStatus = (
     }
     debounceTimer.current = setTimeout(async () => {
       try {
-        await fetch('/api/pusher/update-status', {
+        const response = await fetch('/api/pusher/update-status', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -36,6 +39,11 @@ export const useChatStatus = (
             statusMessage
           }),
         });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Status update failed:', response.status, errorData);
+        }
       } catch (error) {
         console.error('Error updating status:', error);
       }
@@ -43,7 +51,12 @@ export const useChatStatus = (
   }, [currentUser]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || !currentUser.id) {
+      console.log('No current user in useChatStatus, skipping setup');
+      return;
+    }
+
+    console.log('Setting up chat status for user:', currentUser.id);
 
     // Subscribe to user status updates
     const statusChannel = pusherClient.subscribe('user-status');

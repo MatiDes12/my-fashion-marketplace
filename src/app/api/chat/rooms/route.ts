@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate room type
-    if (!['admin_seller', 'customer_seller'].includes(roomType)) {
+    if (!['admin_seller', 'customer_seller', 'customer_admin'].includes(roomType)) {
       return NextResponse.json({ error: 'Invalid room type' }, { status: 400 });
     }
 
@@ -101,6 +101,13 @@ export async function POST(request: NextRequest) {
             // User is authorized to create this room
           } else {
             return NextResponse.json({ error: 'Unauthorized to create customer-seller room' }, { status: 403 });
+          }
+        } else if (roomType === 'customer_admin') {
+          // For customer-admin rooms, the current user must be either the customer or the admin
+          if ((customerId && customerId === user.id) || (adminId && adminId === user.id)) {
+            // User is authorized to create this room
+          } else {
+            return NextResponse.json({ error: 'Unauthorized to create customer-admin room' }, { status: 403 });
           }
         }
 

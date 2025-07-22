@@ -1,77 +1,197 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const sellerId = searchParams.get('sellerId');
-
-    if (!sellerId) {
-      return NextResponse.json({ error: 'Seller ID is required' }, { status: 400 });
-    }
-
     const supabase = createRouteHandlerClient({ cookies });
-
+    
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify the current user is the seller
-    if (user.id !== sellerId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const sellerId = searchParams.get('sellerId');
+
+    // Check if user is admin or the specified seller
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('role, is_admin')
+      .eq('id', user.id)
+      .single();
+
+    if (!userProfile) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get customers who have bought products from this seller
-    const { data: customers, error } = await supabase
-      .from('orders')
-      .select(`
-        user_id,
-        products!orders_product_id_fkey(
-          owner_id
-        )
-      `)
-      .eq('products.owner_id', sellerId)
-      .not('user_id', 'eq', sellerId);
+    // Determine if this is an admin request or seller request
+    const isAdminRequest = userProfile.role === 'admin' || userProfile.is_admin;
+    const isSellerRequest = sellerId && user.id === sellerId && userProfile.role === 'owner';
 
-    if (error) {
-      console.error('Error fetching customers:', error);
-      return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
+    if (!isAdminRequest && !isSellerRequest) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get unique customer IDs
-    const uniqueCustomerIds = [...new Set(customers.map(order => order.user_id))];
+    // Get customers based on user type
+    let customerIds: string[] = [];
+    
+    if (isAdminRequest) {
+      // Admin: Get customers who have chatted with admin
+      const { data: rooms, error: roomsError } = await supabase
+        .from('chat_rooms')
+        .select('customer_id')
+        .eq('room_type', 'customer_admin')
+        .eq('admin_id', user.id);
 
-    // Get customer details with chat status
-    const { data: customerDetails, error: customerError } = await supabase
+      if (roomsError) {
+        console.error('Error fetching admin rooms:', roomsError);
+        return NextResponse.json({ error: 'Failed to fetch rooms' }, { status: 500 });
+      }
+
+      customerIds = [...new Set(rooms?.map(room => room.customer_id) || [])];
+    } else {
+      // Seller: Get customers who have purchased from this seller
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          user_id,
+          products!orders_product_id_fkey(owner_id)
+        `)
+        .eq('products.owner_id', user.id)
+        .in('order_status', ['confirmed', 'shipped', 'delivered', 'picked up']);
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError);
+        return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
+      }
+
+      customerIds = [...new Set(orders?.map(order => order.user_id) || [])];
+    }
+
+    if (customerIds.length === 0) {
+      return NextResponse.json({ customers: [] });
+    }
+
+    // Get customer details
+    const { data: customers, error: customersError } = await supabase
       .from('users')
       .select(`
         id,
         email,
         full_name,
-        created_at,
-        user_chat_status(
+        role,
+        user_chat_status (
           is_online,
           last_seen
         )
       `)
-      .in('id', uniqueCustomerIds)
+      .in('id', customerIds)
       .eq('role', 'customer');
 
-    if (customerError) {
-      console.error('Error fetching customer details:', customerError);
-      return NextResponse.json({ error: 'Failed to fetch customer details' }, { status: 500 });
+    if (customersError) {
+      console.error('Error fetching customers:', customersError);
+      return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
     }
 
-    // Format customer data
-    const uniqueCustomers = customerDetails?.map(customer => ({
-      ...customer,
-      user_chat_status: customer.user_chat_status?.[0] || { is_online: false, last_seen: new Date().toISOString() }
-    })) || [];
+    // For sellers, also get chat rooms and messages for customers who have chatted
+    let enhancedCustomers = customers || [];
+    
+    if (!isAdminRequest) {
+      // Get chat rooms for these customers
+      const { data: chatRooms, error: roomsError } = await supabase
+        .from('chat_rooms')
+        .select(`
+          id,
+          customer_id,
+          last_message_at
+        `)
+        .eq('room_type', 'customer_seller')
+        .eq('seller_id', user.id)
+        .in('customer_id', customerIds)
+        .order('last_message_at', { ascending: false });
 
-    return NextResponse.json({ customers: uniqueCustomers });
+      if (!roomsError && chatRooms) {
+        // Get latest messages for rooms that have messages
+        const roomIds = chatRooms.map(room => room.id);
+        if (roomIds.length > 0) {
+          const { data: messages, error: messagesError } = await supabase
+            .from('chat_messages')
+            .select(`
+              id,
+              room_id,
+              message,
+              created_at
+            `)
+            .in('room_id', roomIds)
+            .order('created_at', { ascending: false });
+
+          if (!messagesError && messages) {
+            // Enhance customers with chat info
+            enhancedCustomers = customers?.map(customer => {
+              const customerRoom = chatRooms.find(room => room.customer_id === customer.id);
+              const roomMessages = messages?.filter(msg => msg.room_id === customerRoom?.id) || [];
+              const latestMessage = roomMessages[0]; // Already sorted by created_at desc
+
+              return {
+                ...customer,
+                latest_message: latestMessage?.message || '',
+                latest_message_time: latestMessage?.created_at || '',
+                room_id: customerRoom?.id || ''
+              };
+            }) || [];
+          }
+        }
+      }
+    } else {
+      // For admins, get chat rooms and messages
+      const { data: chatRooms, error: roomsError } = await supabase
+        .from('chat_rooms')
+        .select(`
+          id,
+          customer_id,
+          last_message_at
+        `)
+        .eq('room_type', 'customer_admin')
+        .eq('admin_id', user.id)
+        .in('customer_id', customerIds)
+        .order('last_message_at', { ascending: false });
+
+      if (!roomsError && chatRooms) {
+        const roomIds = chatRooms.map(room => room.id);
+        if (roomIds.length > 0) {
+          const { data: messages, error: messagesError } = await supabase
+            .from('chat_messages')
+            .select(`
+              id,
+              room_id,
+              message,
+              created_at
+            `)
+            .in('room_id', roomIds)
+            .order('created_at', { ascending: false });
+
+          if (!messagesError && messages) {
+            enhancedCustomers = customers?.map(customer => {
+              const customerRoom = chatRooms.find(room => room.customer_id === customer.id);
+              const roomMessages = messages?.filter(msg => msg.room_id === customerRoom?.id) || [];
+              const latestMessage = roomMessages[0];
+
+              return {
+                ...customer,
+                latest_message: latestMessage?.message || '',
+                latest_message_time: latestMessage?.created_at || '',
+                room_id: customerRoom?.id || ''
+              };
+            }) || [];
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ customers: enhancedCustomers });
 
   } catch (error) {
     console.error('Error in customers API:', error);

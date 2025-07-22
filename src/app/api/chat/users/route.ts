@@ -14,26 +14,10 @@ export async function GET(request: NextRequest) {
 
     // Get user type from query params
     const { searchParams } = new URL(request.url);
-    const userType = searchParams.get('userType') as 'admin' | 'seller';
+    const userType = searchParams.get('userType') as 'admin' | 'seller' | 'customer';
 
     if (!userType) {
       return NextResponse.json({ error: 'Missing userType' }, { status: 400 });
-    }
-
-    if (userType === 'seller') {
-      // For sellers, return admins (role = 'admin' OR (role = 'owner' AND is_admin = true))
-      const { data: users, error } = await supabase
-        .from('users')
-        .select(`
-          id, email, full_name, role, is_admin, created_at,
-          user_chat_status(is_online, last_seen)
-        `)
-        .or('role.eq.admin,and(role.eq.owner,is_admin.eq.true)');
-      if (error) {
-        console.error('Error fetching admins:', error);
-        return NextResponse.json({ error: 'Failed to fetch admins' }, { status: 500 });
-      }
-      return NextResponse.json({ users });
     }
 
     let query;
@@ -63,7 +47,22 @@ export async function GET(request: NextRequest) {
           created_at,
           user_chat_status(is_online, last_seen)
         `)
-        .or('role.eq.admin,role.eq.owner,is_admin.eq.true')
+        .or('role.eq.admin,is_admin.eq.true')
+        .order('full_name');
+    } else if (userType === 'customer') {
+      // For customers, return admins (role = 'admin' OR is_admin = true)
+      query = supabase
+        .from('users')
+        .select(`
+          id,
+          email,
+          full_name,
+          role,
+          is_admin,
+          created_at,
+          user_chat_status(is_online, last_seen)
+        `)
+        .or('role.eq.admin,is_admin.eq.true')
         .order('full_name');
     } else {
       return NextResponse.json({ error: 'Invalid userType' }, { status: 400 });

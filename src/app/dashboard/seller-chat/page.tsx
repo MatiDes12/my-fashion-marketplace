@@ -93,6 +93,7 @@ export default function SellerChatPage() {
 
   useEffect(() => {
     if (currentUser) {
+      console.log('Current user in seller chat:', currentUser);
       loadUsers();
       loadCustomers();
       loadRooms();
@@ -148,6 +149,7 @@ export default function SellerChatPage() {
     try {
       const response = await fetch('/api/chat/users?userType=seller');
       const data = await response.json();
+      console.log('Loaded users for seller:', data);
       if (data.users) {
         setUsers(data.users);
       }
@@ -161,6 +163,7 @@ export default function SellerChatPage() {
     try {
       const response = await fetch('/api/chat/customers?sellerId=' + currentUser.id);
       const data = await response.json();
+      console.log('Loaded customers for seller:', data);
       if (data.customers) {
         setCustomers(data.customers);
       }
@@ -186,6 +189,8 @@ export default function SellerChatPage() {
         ...(customerData.rooms || [])
       ];
 
+      console.log('Loaded rooms for seller:', { adminData, customerData, allRooms });
+
       if (allRooms.length > 0) {
         // Enhance rooms with user data for better display
         const enhancedRooms = allRooms.map((room: any) => ({
@@ -196,6 +201,8 @@ export default function SellerChatPage() {
           messages: room.messages || []
         }));
         setRooms(enhancedRooms);
+      } else {
+        setRooms([]);
       }
     } catch (error) {
       console.error('Error loading rooms:', error);
@@ -399,10 +406,8 @@ export default function SellerChatPage() {
     return 'No messages yet';
   };
 
-  // Filter admins for the tab
-  const adminUsers = users.filter(
-    u => u.role === 'admin' || (u.role === 'owner' && u.is_admin)
-  );
+  // Users from API are already filtered to be admins
+  const adminUsers = users;
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -562,11 +567,11 @@ export default function SellerChatPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white shadow-lg">
+      <div className="flex-1 flex flex-col bg-white shadow-lg min-h-0">
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-6">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-6 flex-shrink-0">
               <div className="flex items-center space-x-4">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
                   {(selectedRoom.admin?.full_name || selectedRoom.customer?.full_name || 'U')?.charAt(0)?.toUpperCase()}
@@ -583,7 +588,7 @@ export default function SellerChatPage() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 min-h-0">
               {messages.map((message, index) => {
                 const isOwnMessage = message.sender_id === currentUser?.id;
                 return (
@@ -628,8 +633,8 @@ export default function SellerChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
-            <div className="bg-white border-t border-gray-200 p-6">
+            {/* Message Input - Always visible at bottom */}
+            <div className="bg-white border-t border-gray-200 p-6 flex-shrink-0">
               <div className="flex space-x-3">
                 <input
                   type="text"
