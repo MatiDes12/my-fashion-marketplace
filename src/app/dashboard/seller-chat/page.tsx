@@ -1,16 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import { 
-  ChatBubbleLeftRightIcon, 
-  PaperAirplaneIcon,
   UserCircleIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
+import { pusherClient } from '@/lib/pusher-client';
 
 interface User {
   id: string;
@@ -51,7 +50,6 @@ interface ChatMessage {
 }
 
 export default function SellerChatPage() {
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [customers, setCustomers] = useState<User[]>([]);
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -62,6 +60,7 @@ export default function SellerChatPage() {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'admins' | 'customers' | 'recent'>('admins');
+  const [channel, setChannel] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponent();
 
@@ -72,38 +71,28 @@ export default function SellerChatPage() {
       setCurrentUser(user);
     };
     getCurrentUser();
-
-    // Initialize socket connection
-    const newSocket = io(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
   }, []);
 
   useEffect(() => {
-    if (socket && currentUser) {
-      // Authenticate with socket
-      socket.emit('authenticate', {
-        userId: currentUser.id,
-        userType: 'seller'
-      });
+    if (currentUser) {
+      loadUsers();
+      loadCustomers();
+      loadRooms();
+    }
+  }, [currentUser]);
 
-      // Listen for authentication response
-      socket.on('authenticated', (data) => {
-        if (data.success) {
-          console.log('Authenticated with socket');
-          loadUsers();
-          loadCustomers();
-          loadRooms();
-        } else {
-          toast.error('Failed to authenticate with chat server');
-        }
-      });
+  // Subscribe to room channel when selectedRoom changes
+  useEffect(() => {
+    if (selectedRoom && !selectedRoom.id.startsWith('temp-')) {
+      // Unsubscribe from previous channel
+      if (channel) {
+        channel.unsubscribe();
+      }
 
-      // Listen for new messages
-      socket.on('new_message', (message: ChatMessage) => {
+      // Subscribe to new room channel
+      const newChannel = pusherClient.subscribe(`room-${selectedRoom.id}`);
+      
+      newChannel.bind('new_message', (message: ChatMessage) => {
         console.log('Received new message:', message);
         setMessages(prev => {
           // Remove any temp message with the same text and sender (within last 5 seconds)
@@ -127,27 +116,15 @@ export default function SellerChatPage() {
         }
       });
 
-      // Listen for typing indicators
-      socket.on('user_typing', (data) => {
-        if (selectedRoom && data.userId !== currentUser.id) {
-          setTypingUsers(prev => [...prev, data.userId]);
-        }
-      });
-
-      socket.on('user_stopped_typing', (data) => {
-        setTypingUsers(prev => prev.filter(id => id !== data.userId));
-      });
-
-      // Listen for user status changes
-      socket.on('user_status_change', (data) => {
-        setUsers(prev => prev.map(user => 
-          user.id === data.userId 
-            ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: data.isOnline } }
-            : user
-        ));
-      });
+      setChannel(newChannel);
     }
-  }, [socket, currentUser]);
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  }, [selectedRoom]);
 
   const loadUsers = async () => {
     try {
@@ -222,7 +199,6 @@ export default function SellerChatPage() {
       if (existingRoom) {
         // Room exists, just select it and load messages
         setSelectedRoom(existingRoom);
-        socket?.emit('join_room', { roomId: existingRoom.id });
         await loadMessages(existingRoom.id);
         return;
       }
@@ -268,7 +244,7 @@ export default function SellerChatPage() {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedRoom || !socket) return;
+    if (!newMessage.trim() || !selectedRoom || !currentUser) return;
 
     const messageText = newMessage.trim();
     
@@ -309,9 +285,6 @@ export default function SellerChatPage() {
             
             setRooms(prev => [realRoom, ...prev]);
             setSelectedRoom(realRoom);
-            
-            // Join the real room
-            socket.emit('join_room', { roomId: realRoom.id });
           }
         } catch (error) {
           console.error('Error creating room:', error);
@@ -319,26 +292,7 @@ export default function SellerChatPage() {
           setNewMessage(messageText);
           return;
         }
-      } else {
-        socket.emit('typing_stop', { roomId: selectedRoom.id });
       }
-
-      // Send message via socket
-      console.log('Sending message via socket:', {
-        roomId: roomId,
-        senderId: currentUser.id,
-        senderType: 'seller',
-        message: messageText,
-        messageType: 'text'
-      });
-      
-      socket.emit('send_message', {
-        roomId: roomId,
-        senderId: currentUser.id,
-        senderType: 'seller',
-        message: messageText,
-        messageType: 'text'
-      });
 
       // Add message to local state immediately (optimistic update)
       const tempMessage: ChatMessage = {
@@ -355,6 +309,25 @@ export default function SellerChatPage() {
 
       setMessages(prev => [...prev, tempMessage]);
       scrollToBottom();
+
+      // Send message via API
+      const response = await fetch('/api/pusher/send-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: roomId,
+          senderId: currentUser.id,
+          senderType: 'seller',
+          message: messageText,
+          messageType: 'text'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
 
       // Auto-remove temp message after 10 seconds if not replaced
       setTimeout(() => {
@@ -376,11 +349,6 @@ export default function SellerChatPage() {
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
-    
-    if (!isTyping && socket && selectedRoom) {
-      setIsTyping(true);
-      socket.emit('typing_start', { roomId: selectedRoom.id });
-    }
   };
 
   const scrollToBottom = () => {
@@ -551,7 +519,6 @@ export default function SellerChatPage() {
                 onClick={async () => {
                   setSelectedRoom(room);
                   await loadMessages(room.id);
-                  socket?.emit('join_room', { roomId: room.id });
                 }}
                 className={`p-4 border-b border-gray-100 hover:bg-purple-50 cursor-pointer transition-all duration-200 group ${
                   selectedRoom?.id === room.id ? 'bg-purple-100 border-l-4 border-purple-500' : ''

@@ -1,22 +1,23 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import { 
-  ChatBubbleLeftRightIcon, 
-  PaperAirplaneIcon,
   UserCircleIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
+import { pusherClient } from '@/lib/pusher-client';
 
 interface User {
   id: string;
   email: string;
   full_name: string;
   avatar_url?: string;
+  role?: string;
+  is_admin?: boolean;
   user_chat_status: {
     is_online: boolean;
     last_seen: string;
@@ -47,7 +48,6 @@ interface ChatMessage {
 }
 
 export default function AdminChatPage() {
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
@@ -57,6 +57,7 @@ export default function AdminChatPage() {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'sellers' | 'recent'>('sellers');
+  const [channel, setChannel] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponent();
 
@@ -67,37 +68,27 @@ export default function AdminChatPage() {
       setCurrentUser(user);
     };
     getCurrentUser();
-
-    // Initialize socket connection
-    const newSocket = io(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.close();
-    };
   }, []);
 
   useEffect(() => {
-    if (socket && currentUser) {
-      // Authenticate with socket
-      socket.emit('authenticate', {
-        userId: currentUser.id,
-        userType: 'admin'
-      });
+    if (currentUser) {
+      loadUsers();
+      loadRooms();
+    }
+  }, [currentUser]);
 
-      // Listen for authentication response
-      socket.on('authenticated', (data) => {
-        if (data.success) {
-          console.log('Authenticated with socket');
-          loadUsers();
-          loadRooms();
-        } else {
-          toast.error('Failed to authenticate with chat server');
-        }
-      });
+  // Subscribe to room channel when selectedRoom changes
+  useEffect(() => {
+    if (selectedRoom && !selectedRoom.id.startsWith('temp-')) {
+      // Unsubscribe from previous channel
+      if (channel) {
+        channel.unsubscribe();
+      }
 
-      // Listen for new messages
-      socket.on('new_message', (message: ChatMessage) => {
+      // Subscribe to new room channel
+      const newChannel = pusherClient.subscribe(`room-${selectedRoom.id}`);
+      
+      newChannel.bind('new_message', (message: ChatMessage) => {
         console.log('Received new message:', message);
         setMessages(prev => {
           // Remove any temp message with the same text and sender (within last 5 seconds)
@@ -121,27 +112,15 @@ export default function AdminChatPage() {
         }
       });
 
-      // Listen for typing indicators
-      socket.on('user_typing', (data) => {
-        if (selectedRoom && data.userId !== currentUser.id) {
-          setTypingUsers(prev => [...prev, data.userId]);
-        }
-      });
-
-      socket.on('user_stopped_typing', (data) => {
-        setTypingUsers(prev => prev.filter(id => id !== data.userId));
-      });
-
-      // Listen for user status changes
-      socket.on('user_status_change', (data) => {
-        setUsers(prev => prev.map(user => 
-          user.id === data.userId 
-            ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: data.isOnline } }
-            : user
-        ));
-      });
+      setChannel(newChannel);
     }
-  }, [socket, currentUser]);
+
+    return () => {
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  }, [selectedRoom]);
 
   const loadUsers = async () => {
     try {
@@ -186,7 +165,6 @@ export default function AdminChatPage() {
       if (existingRoom) {
         // Room exists, just select it and load messages
         setSelectedRoom(existingRoom);
-        socket?.emit('join_room', { roomId: existingRoom.id });
         await loadMessages(existingRoom.id);
         return;
       }
@@ -230,7 +208,7 @@ export default function AdminChatPage() {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedRoom || !socket) return;
+    if (!newMessage.trim() || !selectedRoom || !currentUser) return;
 
     const messageText = newMessage.trim();
     
@@ -269,9 +247,6 @@ export default function AdminChatPage() {
             
             setRooms(prev => [realRoom, ...prev]);
             setSelectedRoom(realRoom);
-            
-            // Join the real room
-            socket.emit('join_room', { roomId: realRoom.id });
           }
         } catch (error) {
           console.error('Error creating room:', error);
@@ -279,26 +254,7 @@ export default function AdminChatPage() {
           setNewMessage(messageText);
           return;
         }
-      } else {
-        socket.emit('typing_stop', { roomId: selectedRoom.id });
       }
-
-      // Send message via socket
-      console.log('Sending message via socket:', {
-        roomId: roomId,
-        senderId: currentUser.id,
-        senderType: 'admin',
-        message: messageText,
-        messageType: 'text'
-      });
-      
-      socket.emit('send_message', {
-        roomId: roomId,
-        senderId: currentUser.id,
-        senderType: 'admin',
-        message: messageText,
-        messageType: 'text'
-      });
 
       // Add message to local state immediately (optimistic update)
       const tempMessage: ChatMessage = {
@@ -315,6 +271,25 @@ export default function AdminChatPage() {
 
       setMessages(prev => [...prev, tempMessage]);
       scrollToBottom();
+
+      // Send message via API
+      const response = await fetch('/api/pusher/send-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roomId: roomId,
+          senderId: currentUser.id,
+          senderType: 'admin',
+          message: messageText,
+          messageType: 'text'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
 
       // Auto-remove temp message after 10 seconds if not replaced
       setTimeout(() => {
@@ -336,11 +311,6 @@ export default function AdminChatPage() {
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
-    
-    if (!isTyping && socket && selectedRoom) {
-      setIsTyping(true);
-      socket.emit('typing_start', { roomId: selectedRoom.id });
-    }
   };
 
   const scrollToBottom = () => {
@@ -419,7 +389,6 @@ export default function AdminChatPage() {
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    {/* Always use placeholder since avatar_url is not in DB */}
                     <UserCircleIcon className="w-10 h-10 text-gray-400" />
                     <div className="absolute -bottom-1 -right-1">
                       {user.user_chat_status?.is_online ? (
@@ -448,7 +417,6 @@ export default function AdminChatPage() {
                 onClick={async () => {
                   setSelectedRoom(room);
                   await loadMessages(room.id);
-                  socket?.emit('join_room', { roomId: room.id });
                 }}
                 className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                   selectedRoom?.id === room.id ? 'bg-gray-100' : ''
@@ -556,7 +524,7 @@ export default function AdminChatPage() {
           /* Empty State */
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <UserCircleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Select a seller to start chatting
               </h3>
