@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const [message, setMessage] = useState('Please check your email for the verification link.');
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const checkSession = async () => {
@@ -55,5 +57,13 @@ export default function VerifyEmailPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 } 

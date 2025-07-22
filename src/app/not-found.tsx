@@ -1,7 +1,14 @@
+'use client';
+
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
-export default function NotFound() {
+function NotFoundContent() {
+  const searchParams = useSearchParams();
+  
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
       <div className="max-w-md w-full text-center space-y-6">
@@ -63,4 +70,12 @@ export default function NotFound() {
       </div>
     </div>
   );
-} 
+}
+
+export default function NotFound() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <NotFoundContent />
+    </Suspense>
+  );
+}

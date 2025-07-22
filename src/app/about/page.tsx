@@ -1,6 +1,12 @@
 'use client';
 
-export default function AboutPage() {
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+function AboutContent() {
+  const searchParams = useSearchParams();
+  
   return (
     <div className="min-h-screen bg-gray-900 pt-20">
       <div className="relative max-w-5xl mx-auto px-4 py-12">
@@ -65,5 +71,13 @@ export default function AboutPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AboutPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <AboutContent />
+    </Suspense>
   );
 } 
