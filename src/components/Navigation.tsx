@@ -16,6 +16,8 @@ import { UserDetails } from '@/hooks/useUserDetails';
 import { cleanImageUrl } from '@/utils/url';
 import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import { toast } from 'react-hot-toast';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import NotificationBadge from './NotificationBadge';
 
 interface StoreSettings {
   name: string;
@@ -148,6 +150,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const lastScrollTimeRef = useRef<number>(Date.now());
   const [activeCategory, setActiveCategory] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { unreadCount } = useUnreadMessages();
   const [publicCustomCategories, setPublicCustomCategories] = useState<string[]>([]);
 
   // Debug: Log publicCustomCategories changes
@@ -1084,9 +1087,16 @@ export default function Navigation({ userDetails }: NavigationProps) {
                                 href="/chat" 
                                 className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-green-600"
                               >
-                                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
+                                <div className="relative">
+                                  <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                  </svg>
+                                  <NotificationBadge 
+                                    count={unreadCount} 
+                                    className="absolute -top-1 -right-1" 
+                                    size="sm" 
+                                  />
+                                </div>
                                 Customer Support
                               </Link>
                             )}
@@ -1646,9 +1656,16 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   onClick={closeMenu}
                   className="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-300"
                 >
-                  <svg className="w-6 h-6 mr-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
+                  <div className="relative">
+                    <svg className="w-6 h-6 mr-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <NotificationBadge 
+                      count={unreadCount} 
+                      className="absolute -top-1 -right-1" 
+                      size="sm" 
+                    />
+                  </div>
                   <span className="font-medium">Customer Support</span>
                 </Link>
               )}

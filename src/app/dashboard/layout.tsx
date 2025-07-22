@@ -13,6 +13,8 @@ import { motion } from 'framer-motion';
 import { QuestionMarkCircleIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import FloatingSupportButton from '@/components/FloatingSupportButton';
 import { toast } from 'react-hot-toast';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import NotificationBadge from '@/components/NotificationBadge';
 
 interface UserData {
   role: string;
@@ -65,6 +67,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClientComponent();
+  const { unreadCount } = useUnreadMessages();
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -212,7 +215,7 @@ export default function DashboardLayout({
     { name: 'Payment Settings', href: '/dashboard/payment-settings', icon: PaymentSettingsIcon, show: true },
     { name: 'Subscription', href: '/dashboard/subscription', icon: SubscriptionIcon, show: true },
     { name: 'Delivery', href: '/dashboard/delivery', icon: DeliveryIcon, show: true },
-    { name: 'Chat', href: '/dashboard/seller-chat', icon: ChatBubbleLeftRightIcon, show: true },
+    { name: 'Chat', href: '/dashboard/seller-chat', icon: ChatBubbleLeftRightIcon, show: true, showBadge: true },
     { name: 'Store Setup', href: '/dashboard/settings', icon: StoreIcon, show: true },
     { 
       name: 'Get Support',
@@ -339,13 +342,22 @@ export default function DashboardLayout({
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <item.icon
-                      className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
-                        isActive
-                          ? 'text-red-500'
-                          : 'text-gray-400 group-hover:text-gray-500'
-                      }`}
-                    />
+                    <div className="relative">
+                      <item.icon
+                        className={`mr-3 flex-shrink-0 h-5 w-5 transition-colors ${
+                          isActive
+                            ? 'text-red-500'
+                            : 'text-gray-400 group-hover:text-gray-500'
+                        }`}
+                      />
+                      {item.showBadge && (
+                        <NotificationBadge 
+                          count={unreadCount} 
+                          className="absolute -top-1 -right-1" 
+                          size="sm" 
+                        />
+                      )}
+                    </div>
                     {item.name}
                   </Link>
                 );

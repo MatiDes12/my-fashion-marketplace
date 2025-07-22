@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { pusherClient } from '@/lib/pusher-client';
 import { useChatStatus } from '@/hooks/useChatStatus';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 interface User {
   id: string;
@@ -67,6 +68,7 @@ export default function AdminChatPage() {
   const [channel, setChannel] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponent();
+  const { refresh: refreshUnreadCount } = useUnreadMessages();
 
   // Handle real-time status updates
   const handleStatusUpdate = (userId: string, isOnline: boolean) => {
@@ -254,12 +256,34 @@ export default function AdminChatPage() {
   };
 
   const loadMessages = async (roomId: string) => {
+    // Don't load messages for temporary rooms
+    if (roomId.startsWith('temp-')) {
+      setMessages([]);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/chat/messages?roomId=${roomId}`);
       const data = await response.json();
       if (data.messages) {
         setMessages(data.messages);
         scrollToBottom();
+        
+        // Mark messages as read when entering the room
+        try {
+          await fetch('/api/chat/mark-read', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ roomId }),
+          });
+          
+          // Refresh unread count to update notification badges
+          refreshUnreadCount();
+        } catch (error) {
+          console.error('Error marking messages as read:', error);
+        }
       }
     } catch (error) {
       console.error('Error loading messages:', error);

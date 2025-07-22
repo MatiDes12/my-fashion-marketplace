@@ -19,11 +19,14 @@ import {
   EnvelopeIcon,
   PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import NotificationBadge from './NotificationBadge';
 
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClientComponent();
+  const { unreadCount } = useUnreadMessages();
 
   const navigation = [
     { 
@@ -49,7 +52,8 @@ export default function Sidebar() {
     { 
       name: 'Live Chat',
       href: '/admin/chat',
-      icon: ChatBubbleLeftRightIcon
+      icon: ChatBubbleLeftRightIcon,
+      showBadge: true
     },
     { 
       name: 'Support Tickets',
@@ -151,7 +155,16 @@ export default function Sidebar() {
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              <item.icon className="h-5 w-5 mr-3" />
+              <div className="relative">
+                <item.icon className="h-5 w-5 mr-3" />
+                {item.showBadge && (
+                  <NotificationBadge 
+                    count={unreadCount} 
+                    className="absolute -top-1 -right-1" 
+                    size="sm" 
+                  />
+                )}
+              </div>
               {item.name}
             </Link>
           );
