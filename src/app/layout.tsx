@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { ChatProvider } from "@/contexts/ChatContext";
 import DebugInfo from '@/components/DebugInfo';
 import PageWrapper from '@/components/PageWrapper';
 import { Toaster } from 'react-hot-toast';
@@ -54,7 +55,8 @@ export default function RootLayout({
         <ScrollProgress />
         <AuthProvider>
           <LanguageProvider>
-            <ReactQueryProvider>
+            <ChatProvider>
+              <ReactQueryProvider>
               <div className="min-h-screen flex flex-col">
                 <Header />
                 <main className="flex-1 w-full bg-gray-50">
@@ -74,6 +76,7 @@ export default function RootLayout({
                 <Analytics />
               </div>
             </ReactQueryProvider>
+            </ChatProvider>
           </LanguageProvider>
         </AuthProvider>
       </body>

@@ -47,6 +47,11 @@ export default function Sidebar() {
       icon: CheckCircleIcon
     },
     { 
+      name: 'Live Chat',
+      href: '/admin/chat',
+      icon: ChatBubbleLeftRightIcon
+    },
+    { 
       name: 'Support Tickets',
       href: '/admin/support',
       icon: ChatBubbleLeftRightIcon

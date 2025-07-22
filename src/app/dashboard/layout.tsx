@@ -10,7 +10,7 @@ import { AuthChangeEvent } from '@supabase/supabase-js';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import { cleanImageUrl } from '@/utils/url';
 import { motion } from 'framer-motion';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
+import { QuestionMarkCircleIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import FloatingSupportButton from '@/components/FloatingSupportButton';
 import { toast } from 'react-hot-toast';
 
@@ -212,6 +212,7 @@ export default function DashboardLayout({
     { name: 'Payment Settings', href: '/dashboard/payment-settings', icon: PaymentSettingsIcon, show: true },
     { name: 'Subscription', href: '/dashboard/subscription', icon: SubscriptionIcon, show: true },
     { name: 'Delivery', href: '/dashboard/delivery', icon: DeliveryIcon, show: true },
+    { name: 'Chat', href: '/dashboard/seller-chat', icon: ChatBubbleLeftRightIcon, show: true },
     { name: 'Store Setup', href: '/dashboard/settings', icon: StoreIcon, show: true },
     { 
       name: 'Get Support',
