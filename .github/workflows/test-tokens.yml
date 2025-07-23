@@ -188,9 +188,15 @@ jobs:
           
           summary += '\n---\n*All tokens and connections have been verified.*';
           
-          await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-            body: summary
-          }); 
+          // Only comment if we have a valid issue number
+          if (context.issue && context.issue.number) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: summary
+            });
+          } else {
+            console.log('No valid issue number found, skipping comment');
+            console.log('Summary:', summary);
+          } 

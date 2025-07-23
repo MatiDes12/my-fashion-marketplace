@@ -60,15 +60,16 @@ jobs:
       run: npm start &
       env:
         NODE_ENV: test
+        PORT: 300${{ matrix.shardIndex }}
 
     - name: Wait for application to be ready
       run: |
-        timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+        timeout 60 bash -c 'until curl -f http://localhost:300${{ matrix.shardIndex }}; do sleep 2; done'
 
     - name: Run Playwright tests
       run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
       env:
-        PLAYWRIGHT_BASE_URL: http://localhost:3000
+        PLAYWRIGHT_BASE_URL: http://localhost:300${{ matrix.shardIndex }}
 
     - name: Upload test results
       if: always()
@@ -128,17 +129,18 @@ jobs:
       run: npm start &
       env:
         NODE_ENV: test
+        PORT: 3005
 
     - name: Wait for application to be ready
       run: |
-        timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+        timeout 60 bash -c 'until curl -f http://localhost:3005; do sleep 2; done'
 
     - name: Run Lighthouse CI
       uses: treosh/lighthouse-ci-action@v10
       with:
         urls: |
-          http://localhost:3000
-          http://localhost:3000/products
-          http://localhost:3000/cart
+          http://localhost:3005
+          http://localhost:3005/products
+          http://localhost:3005/cart
         uploadArtifacts: true
         temporaryPublicStorage: true 
