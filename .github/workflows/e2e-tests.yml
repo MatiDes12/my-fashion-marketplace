@@ -57,7 +57,7 @@ jobs:
       run: npm run build
 
     - name: Start application
-      run: npm start &
+      run: node .next/standalone/server.js &
       env:
         NODE_ENV: test
         PORT: 300${{ matrix.shardIndex }}
@@ -126,7 +126,7 @@ jobs:
       run: npm run build
 
     - name: Start application
-      run: npm start &
+      run: node .next/standalone/server.js &
       env:
         NODE_ENV: test
         PORT: 3005

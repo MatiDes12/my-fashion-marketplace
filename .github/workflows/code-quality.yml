@@ -113,7 +113,7 @@ jobs:
       run: npm run build
 
     - name: Start application
-      run: npm start &
+      run: node .next/standalone/server.js &
       env:
         NODE_ENV: test
 
@@ -175,7 +175,7 @@ jobs:
       run: npm run build
 
     - name: Start application
-      run: npm start &
+      run: node .next/standalone/server.js &
       env:
         NODE_ENV: test
 
