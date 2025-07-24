@@ -374,24 +374,24 @@ function DeliveryPage() {
   if (error) return <ErrorMessage message={error} />;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 space-y-4 sm:space-y-0">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Delivery Management</h1>
-            <p className="text-sm text-gray-600 mt-1">Manage delivery accounts and track deliveries</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Delivery Management</h1>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">Manage delivery accounts and track deliveries</p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
             <Link
               href="/dashboard/delivery/instructions"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
             >
               View Instructions
             </Link>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
             >
               Add Delivery Person
             </button>
@@ -399,18 +399,18 @@ function DeliveryPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            <nav className="-mb-px flex flex-wrap sm:flex-nowrap overflow-x-auto" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('accounts')}
                 className={`${
                   activeTab === 'accounts'
                     ? 'border-green-500 text-green-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex-shrink-0`}
               >
-                Delivery Accounts ({deliveryAccounts.length})
+                Accounts ({deliveryAccounts.length})
               </button>
               <button
                 onClick={() => setActiveTab('orders')}
@@ -418,11 +418,11 @@ function DeliveryPage() {
                   activeTab === 'orders'
                     ? 'border-green-500 text-green-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm relative`}
+                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0`}
               >
-                Pending Orders ({pendingOrders.length})
+                Pending ({pendingOrders.length})
                 {pendingOrders.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
                     {pendingOrders.length}
                   </span>
                 )}
@@ -433,11 +433,11 @@ function DeliveryPage() {
                   activeTab === 'shipped'
                     ? 'border-green-500 text-green-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm relative`}
+                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0`}
               >
-                Shipped Orders ({getShippedOrders().length})
+                Shipped ({getShippedOrders().length})
                 {getShippedOrders().filter(order => !deliveryTracking.some(t => t.order_id === order.id)).length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
                     {getShippedOrders().filter(order => !deliveryTracking.some(t => t.order_id === order.id)).length}
                   </span>
                 )}
@@ -448,11 +448,11 @@ function DeliveryPage() {
                   activeTab === 'tracking'
                     ? 'border-green-500 text-green-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm relative`}
+                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0`}
               >
-                Delivery Tracking ({deliveryTracking.length})
+                Tracking ({deliveryTracking.length})
                 {deliveryTracking.filter(d => d.status === 'assigned').length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
                     {deliveryTracking.filter(d => d.status === 'assigned').length}
                   </span>
                 )}
@@ -464,7 +464,7 @@ function DeliveryPage() {
         {/* Create Account Modal */}
         {showCreateForm && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="relative top-10 sm:top-20 mx-auto p-4 sm:p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
               <div className="mt-3">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Create Delivery Account</h3>
                 <form onSubmit={handleCreateAccount}>
@@ -503,7 +503,7 @@ function DeliveryPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                     />
                   </div>
-                  <div className="flex justify-end space-x-3">
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                     <button
                       type="button"
                       onClick={() => setShowCreateForm(false)}
@@ -527,38 +527,38 @@ function DeliveryPage() {
         {/* Content based on active tab */}
         {activeTab === 'accounts' ? (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+            <div className="px-4 py-4 sm:py-6">
+              <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900 mb-4">
                 Delivery Accounts ({deliveryAccounts.length})
               </h3>
               {deliveryAccounts.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No delivery accounts created yet.</p>
-                  <p className="text-sm text-gray-400 mt-2">Create your first delivery account to get started.</p>
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-gray-500 text-sm sm:text-base">No delivery accounts created yet.</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mt-2">Create your first delivery account to get started.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {deliveryAccounts.map((account) => (
-                    <div key={account.id} className="border rounded-lg p-4 flex justify-between items-center">
-                      <div>
-                        <h4 className="text-lg font-medium text-gray-900">{account.delivery_person_name}</h4>
-                        <p className="text-sm text-gray-500">{account.phone_number}</p>
-                        {account.email && <p className="text-sm text-gray-500">{account.email}</p>}
+                    <div key={account.id} className="border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+                      <div className="flex-1">
+                        <h4 className="text-base sm:text-lg font-medium text-gray-900">{account.delivery_person_name}</h4>
+                        <p className="text-xs sm:text-sm text-gray-500">{account.phone_number}</p>
+                        {account.email && <p className="text-xs sm:text-sm text-gray-500">{account.email}</p>}
                         <p className="text-xs text-gray-400 mt-1">
                           Created: {new Date(account.created_at).toLocaleDateString()}
                         </p>
-                        <div className="mt-2 p-3 bg-gray-50 rounded border">
+                        <div className="mt-2 p-2 sm:p-3 bg-gray-50 rounded border">
                           <p className="text-xs text-gray-600 mb-2 font-medium">Access Information:</p>
                           <div className="space-y-2">
                             <div>
                               <p className="text-xs text-gray-600 mb-1">Phone Number:</p>
-                              <p className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border">{account.phone_number}</p>
+                              <p className="text-xs sm:text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border break-all">{account.phone_number}</p>
                             </div>
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => generateAccessToken(account.id)}
                                 disabled={generatingToken === account.id}
-                                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors disabled:opacity-50"
+                                className="inline-flex items-center px-2 sm:px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded transition-colors disabled:opacity-50"
                               >
                                 {generatingToken === account.id ? (
                                   <>
@@ -581,17 +581,17 @@ function DeliveryPage() {
                             
                             {/* Show generated token if available */}
                             {generatedToken && generatedToken.accountId === account.id && (
-                              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
+                              <div className="mt-3 p-2 sm:p-3 bg-green-50 border border-green-200 rounded">
                                 <p className="text-xs text-green-800 mb-2 font-medium">Generated Access Information:</p>
                                 <div className="space-y-2">
                                   <div>
                                     <p className="text-xs text-gray-600 mb-1">Access Token:</p>
-                                    <p className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border">{generatedToken.token}</p>
+                                    <p className="text-xs sm:text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border break-all">{generatedToken.token}</p>
                                   </div>
                                   <div>
                                     <p className="text-xs text-gray-600 mb-1">Access Link:</p>
-                                    <div className="flex items-center space-x-2">
-                                      <p className="text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border flex-1 text-xs">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                                      <p className="text-xs sm:text-sm font-mono text-gray-800 bg-white px-2 py-1 rounded border flex-1 break-all">
                                         {generatedToken.link}
                                       </p>
                                       <button
@@ -599,7 +599,7 @@ function DeliveryPage() {
                                           navigator.clipboard.writeText(`Access Token: ${generatedToken.token}\nAccess Link: ${generatedToken.link}\nExpires: ${new Date(generatedToken.expiresAt).toLocaleString()}`);
                                           toast.success('Access information copied to clipboard!');
                                         }}
-                                        className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                                        className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors w-full sm:w-auto justify-center"
                                       >
                                         <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -622,7 +622,7 @@ function DeliveryPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                           account.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
@@ -630,7 +630,7 @@ function DeliveryPage() {
                         </span>
                         <button
                           onClick={() => toggleAccountStatus(account.id, account.is_active)}
-                          className={`px-3 py-1 text-sm font-medium rounded-md ${
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-md ${
                             account.is_active
                               ? 'text-red-600 hover:text-red-700'
                               : 'text-green-600 hover:text-green-700'
@@ -647,26 +647,26 @@ function DeliveryPage() {
           </div>
         ) : activeTab === 'orders' ? (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+            <div className="px-4 py-4 sm:py-6">
+              <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900 mb-4">
                 Pending Orders ({pendingOrders.length})
               </h3>
               {pendingOrders.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No pending orders that need delivery assignment.</p>
-                  <p className="text-sm text-gray-400 mt-2">Orders will appear here when they are confirmed and ready for delivery.</p>
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-gray-500 text-sm sm:text-base">No pending orders that need delivery assignment.</p>
+                  <p className="text-xs sm:text-sm text-gray-400 mt-2">Orders will appear here when they are confirmed and ready for delivery.</p>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {pendingOrders.map((order) => (
                     <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                        <div className="flex justify-between items-start">
+                      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-2 sm:space-y-0">
                           <div>
-                            <h4 className="text-lg font-medium text-gray-900">
+                            <h4 className="text-base sm:text-lg font-medium text-gray-900">
                               Order #{order.id.slice(0, 8)}
                             </h4>
-                            <p className="text-sm text-gray-500 mt-1">
+                            <p className="text-xs sm:text-sm text-gray-500 mt-1">
                               {new Date(order.created_at).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'long',
@@ -676,8 +676,8 @@ function DeliveryPage() {
                               })}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-xl font-semibold text-green-600">
+                          <div className="text-left sm:text-right">
+                            <p className="text-lg sm:text-xl font-semibold text-green-600">
                               {formatCurrency(order.total_price)}
                             </p>
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -690,30 +690,30 @@ function DeliveryPage() {
                         </div>
                       </div>
 
-                      <div className="px-6 py-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="px-4 sm:px-6 py-4">
+                        <div className="grid grid-cols-1 gap-4 sm:gap-6">
                           {/* Customer Information */}
                           <div>
-                            <h5 className="text-sm font-medium text-gray-900 mb-3">Customer Information</h5>
+                            <h5 className="text-sm font-medium text-gray-900 mb-2 sm:mb-3">Customer Information</h5>
                             <div className="space-y-2">
                               <div className="flex items-center">
-                                <svg className="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
-                                <span className="text-sm text-gray-900">{order.users.full_name}</span>
+                                <span className="text-xs sm:text-sm text-gray-900 break-all">{order.users.full_name}</span>
                               </div>
                               <div className="flex items-center">
-                                <svg className="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
-                                <span className="text-sm text-gray-600">{order.users.email}</span>
+                                <span className="text-xs sm:text-sm text-gray-600 break-all">{order.users.email}</span>
                               </div>
                               {order.users.phone && (
                                 <div className="flex items-center">
-                                  <svg className="h-4 w-4 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <svg className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                   </svg>
-                                  <span className="text-sm text-gray-600">{order.users.phone}</span>
+                                  <span className="text-xs sm:text-sm text-gray-600">{order.users.phone}</span>
                                 </div>
                               )}
                             </div>
@@ -721,16 +721,16 @@ function DeliveryPage() {
 
                           {/* Product Information */}
                           <div>
-                            <h5 className="text-sm font-medium text-gray-900 mb-3">Product Information</h5>
+                            <h5 className="text-sm font-medium text-gray-900 mb-2 sm:mb-3">Product Information</h5>
                             <div className="space-y-2">
                               <div className="flex items-start">
                                 <svg className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                 </svg>
-                                <div className="text-sm text-gray-900">
-                                  <p className="font-medium">{order.products.title}</p>
+                                <div className="text-xs sm:text-sm text-gray-900 flex-1">
+                                  <p className="font-medium break-words">{order.products.title}</p>
                                   <p className="text-gray-600 text-xs line-clamp-2">{order.products.description}</p>
-                                  <div className="flex items-center justify-between mt-1">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-1 space-y-1 sm:space-y-0">
                                     <span className="text-xs text-gray-500">
                                       Qty: {order.quantity} × {formatCurrency(order.products.price)}
                                     </span>
@@ -745,7 +745,7 @@ function DeliveryPage() {
 
                           {/* Delivery Address */}
                           <div>
-                            <h5 className="text-sm font-medium text-gray-900 mb-3">Delivery Address</h5>
+                            <h5 className="text-sm font-medium text-gray-900 mb-2 sm:mb-3">Delivery Address</h5>
                             <div className="space-y-2">
                               {(() => {
                                 try {
@@ -757,10 +757,10 @@ function DeliveryPage() {
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
-                                        <div className="text-sm text-gray-600">
-                                          <p className="font-medium">{address.houseNo} {address.landmark || ''}</p>
-                                          <p>{address.city}, {address.subCity}</p>
-                                          <p>Wereda: {address.wereda}, Kebele: {address.kebele}</p>
+                                        <div className="text-xs sm:text-sm text-gray-600 flex-1">
+                                          <p className="font-medium break-words">{address.houseNo} {address.landmark || ''}</p>
+                                          <p className="break-words">{address.city}, {address.subCity}</p>
+                                          <p className="break-words">Wereda: {address.wereda}, Kebele: {address.kebele}</p>
                                           {address.mapLink && (
                                             <a
                                               href={address.mapLink}
@@ -785,7 +785,7 @@ function DeliveryPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                       </svg>
-                                      <span className="text-sm text-gray-600">{order.delivery_address}</span>
+                                      <span className="text-xs sm:text-sm text-gray-600 break-words">{order.delivery_address}</span>
                                     </div>
                                   );
                                 }
@@ -795,9 +795,9 @@ function DeliveryPage() {
                         </div>
 
                         {/* Assignment Actions */}
-                        <div className="mt-6 pt-4 border-t border-gray-200">
-                          <div className="flex justify-between items-center">
-                            <div className="text-sm text-gray-500">
+                        <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+                            <div className="text-xs sm:text-sm text-gray-500">
                               {order.order_status === 'shipped' ? (
                                 <>
                                   <span className="font-medium text-green-600">Ready for assignment</span>
@@ -810,11 +810,11 @@ function DeliveryPage() {
                                 </>
                               )}
                             </div>
-                            <div className="flex items-center space-x-3">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                               {order.order_status === 'shipped' ? (
                                 deliveryAccounts.filter(acc => acc.is_active).length > 0 ? (
-                                  <div className="flex items-center space-x-2">
-                                    <label htmlFor={`assign-${order.id}`} className="text-sm font-medium text-gray-700">
+                                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                                    <label htmlFor={`assign-${order.id}`} className="text-xs sm:text-sm font-medium text-gray-700">
                                       Assign to:
                                     </label>
                                     <select
@@ -824,7 +824,7 @@ function DeliveryPage() {
                                           assignDelivery(order.id, e.target.value);
                                         }
                                       }}
-                                      className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                      className="border border-gray-300 rounded-md px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 w-full sm:w-auto"
                                       defaultValue=""
                                     >
                                       <option value="" disabled>
@@ -838,14 +838,14 @@ function DeliveryPage() {
                                     </select>
                                   </div>
                                 ) : (
-                                  <div className="text-sm text-gray-500 bg-yellow-50 px-3 py-2 rounded-md">
+                                  <div className="text-xs sm:text-sm text-gray-500 bg-yellow-50 px-3 py-2 rounded-md">
                                     No active delivery accounts available
                                   </div>
                                 )
                               ) : (
                                 <button
                                   disabled
-                                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed"
+                                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-xs sm:text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed w-full sm:w-auto justify-center"
                                 >
                                   <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />

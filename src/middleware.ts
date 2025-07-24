@@ -91,7 +91,9 @@ export async function middleware(req: NextRequest) {
 
   // Security Checks
   // 1. Rate limiting
-  const ip = req.ip || 'unknown';
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+             req.headers.get('x-real-ip') || 
+             'unknown';
   if (rateLimit.has(ip)) {
     const { count, timestamp } = rateLimit.get(ip);
     const timeDiff = Date.now() - timestamp;
