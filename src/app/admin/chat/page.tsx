@@ -267,7 +267,6 @@ export default function AdminChatPage() {
       const data = await response.json();
       if (data.messages) {
         setMessages(data.messages);
-        scrollToBottom();
         
         // Mark messages as read when entering the room
         try {
@@ -406,8 +405,21 @@ export default function AdminChatPage() {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      });
+    }
   };
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages]);
 
   const formatTime = (dateString: string) => {
     try {
@@ -436,9 +448,9 @@ export default function AdminChatPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-[calc(100vh-64px)] bg-gray-50">
       {/* Sidebar - Users and Rooms */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <div className={`${selectedRoom ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white border-r border-gray-200 flex-col`}>
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-semibold text-gray-900">Admin Chat</h1>
@@ -475,7 +487,7 @@ export default function AdminChatPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Recent Chats ({rooms.filter(r => r.messages && r.messages.length > 0).length})
+            Recent Chats ({rooms.length})
           </button>
         </div>
 
@@ -487,7 +499,7 @@ export default function AdminChatPage() {
               <div
                 key={user.id}
                 onClick={() => createOrJoinRoom(user.id, 'seller')}
-                className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                className="p-3 md:p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
@@ -517,7 +529,7 @@ export default function AdminChatPage() {
               <div
                 key={customer.id}
                 onClick={() => createOrJoinRoom(customer.id, 'customer')}
-                className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                className="p-3 md:p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
@@ -543,14 +555,14 @@ export default function AdminChatPage() {
             ))
           ) : (
             /* Recent Chats List */
-            rooms.filter(room => room.messages && room.messages.length > 0).map((room) => (
+            rooms.map((room) => (
               <div
                 key={room.id}
                 onClick={async () => {
                   setSelectedRoom(room);
                   await loadMessages(room.id);
                 }}
-                className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
+                className={`p-3 md:p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
                   selectedRoom?.id === room.id ? 'bg-gray-100' : ''
                 }`}
               >
@@ -572,30 +584,38 @@ export default function AdminChatPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className={`${selectedRoom ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0`}>
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
-              <div className="flex items-center space-x-3">
+            <div className="bg-white border-b border-gray-200 p-3 md:p-4 flex-shrink-0">
+              <div className="flex items-center space-x-2 md:space-x-3">
+                <button 
+                  onClick={() => setSelectedRoom(null)}
+                  className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
                 {selectedRoom.seller ? (
                   <UserCircleIcon className="w-8 h-8 text-gray-400" />
                 ) : selectedRoom.customer ? (
                   <UserCircleIcon className="w-8 h-8 text-gray-400" />
                 ) : null}
-                <div>
-                  <h2 className="text-lg font-medium text-gray-900">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base md:text-lg font-medium text-gray-900 truncate">
                     {selectedRoom.seller?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
                   </h2>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs md:text-sm text-gray-500">
                     {selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+            {/* Messages - Scrollable area */}
+            <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 min-h-0">
               {messages.map((message, index) => {
                 const isOwnMessage = message.sender_id === currentUser?.id;
                 return (
@@ -604,7 +624,7 @@ export default function AdminChatPage() {
                     className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      className={`max-w-[85%] md:max-w-xs lg:max-w-md px-3 md:px-4 py-2 rounded-lg ${
                         isOwnMessage
                           ? 'bg-red-500 text-white'
                           : 'bg-gray-200 text-gray-900'
@@ -633,8 +653,8 @@ export default function AdminChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input - Always visible at bottom */}
-            <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
+            {/* Message Input - Fixed at bottom */}
+            <div className="bg-white border-t border-gray-200 p-3 md:p-4 flex-shrink-0">
               <div className="flex space-x-2">
                 <input
                   type="text"
@@ -642,14 +662,14 @@ export default function AdminChatPage() {
                   onChange={handleTyping}
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                   placeholder="Type a message..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm md:text-base"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={!newMessage.trim()}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 md:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <PaperAirplaneIcon className="w-5 h-5" />
+                  <PaperAirplaneIcon className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
               </div>
             </div>

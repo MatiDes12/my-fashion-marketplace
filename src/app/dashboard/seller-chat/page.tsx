@@ -268,7 +268,6 @@ export default function SellerChatPage() {
       const data = await response.json();
       if (data.messages) {
         setMessages(data.messages);
-        scrollToBottom();
         
         // Mark messages as read when entering the room
         try {
@@ -401,8 +400,21 @@ export default function SellerChatPage() {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      });
+    }
   };
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages]);
 
   const formatTime = (dateString: string) => {
     try {
@@ -434,20 +446,20 @@ export default function SellerChatPage() {
   const adminUsers = users;
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="flex h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-indigo-100 -mt-4">
       {/* Sidebar - Users and Rooms */}
-      <div className="w-80 bg-white shadow-xl border-r border-gray-200 flex flex-col">
+      <div className={`${selectedRoom ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white shadow-xl border-r border-gray-200 flex-col`}>
         {/* Header */}
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600">
-          <h1 className="text-xl font-bold text-white">Seller Chat</h1>
-          <p className="text-blue-100 text-sm mt-1">Connect with admins and customers</p>
+        <div className="p-4 md:p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600">
+          <h1 className="text-lg md:text-xl font-bold text-white">Seller Chat</h1>
+          <p className="text-blue-100 text-xs md:text-sm mt-1">Connect with admins and customers</p>
         </div>
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 bg-gray-50">
           <button 
             onClick={() => setActiveTab('admins')}
-            className={`flex-1 py-4 px-4 text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 py-3 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
               activeTab === 'admins' 
                 ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
                 : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
@@ -455,14 +467,14 @@ export default function SellerChatPage() {
           >
             <div className="flex flex-col items-center">
               <span className="font-semibold">Admins</span>
-              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full mt-1">
+              <span className="text-xs bg-blue-100 text-blue-600 px-1 md:px-2 py-0.5 md:py-1 rounded-full mt-1">
                 {adminUsers.length}
               </span>
             </div>
           </button>
           <button 
             onClick={() => setActiveTab('customers')}
-            className={`flex-1 py-4 px-4 text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 py-3 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
               activeTab === 'customers' 
                 ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
                 : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
@@ -470,14 +482,14 @@ export default function SellerChatPage() {
           >
             <div className="flex flex-col items-center">
               <span className="font-semibold">Customers</span>
-              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full mt-1">
+              <span className="text-xs bg-green-100 text-green-600 px-1 md:px-2 py-0.5 md:py-1 rounded-full mt-1">
                 {customers.length}
               </span>
             </div>
           </button>
           <button 
             onClick={() => setActiveTab('recent')}
-            className={`flex-1 py-4 px-4 text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 py-3 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
               activeTab === 'recent' 
                 ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
                 : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
@@ -485,8 +497,8 @@ export default function SellerChatPage() {
           >
             <div className="flex flex-col items-center">
               <span className="font-semibold">Recent</span>
-              <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full mt-1">
-                {rooms.filter(r => r.messages && r.messages.length > 0).length}
+              <span className="text-xs bg-purple-100 text-purple-600 px-1 md:px-2 py-0.5 md:py-1 rounded-full mt-1">
+                {rooms.length}
               </span>
             </div>
           </button>
@@ -500,11 +512,11 @@ export default function SellerChatPage() {
               <div
                 key={user.id}
                 onClick={() => createOrJoinRoom(user.id, 'admin')}
-                className="p-4 border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
+                className="p-3 md:p-4 border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                       {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
@@ -516,7 +528,7 @@ export default function SellerChatPage() {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600">
+                    <p className="text-xs md:text-sm font-semibold text-gray-900 truncate group-hover:text-blue-600">
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
@@ -532,11 +544,11 @@ export default function SellerChatPage() {
               <div
                 key={user.id}
                 onClick={() => createOrJoinRoom(user.id, 'customer')}
-                className="p-4 border-b border-gray-100 hover:bg-green-50 cursor-pointer transition-all duration-200 group"
+                className="p-3 md:p-4 border-b border-gray-100 hover:bg-green-50 cursor-pointer transition-all duration-200 group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                       {user.full_name?.charAt(0)?.toUpperCase() || 'C'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
@@ -548,7 +560,7 @@ export default function SellerChatPage() {
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-green-600">
+                    <p className="text-xs md:text-sm font-semibold text-gray-900 truncate group-hover:text-green-600">
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
@@ -560,23 +572,23 @@ export default function SellerChatPage() {
             ))
           ) : (
             /* Recent Chats List */
-            rooms.filter(room => room.messages && room.messages.length > 0).map((room) => (
+            rooms.map((room) => (
               <div
                 key={room.id}
                 onClick={async () => {
                   setSelectedRoom(room);
                   await loadMessages(room.id);
                 }}
-                className={`p-4 border-b border-gray-100 hover:bg-purple-50 cursor-pointer transition-all duration-200 group ${
+                className={`p-3 md:p-4 border-b border-gray-100 hover:bg-purple-50 cursor-pointer transition-all duration-200 group ${
                   selectedRoom?.id === room.id ? 'bg-purple-100 border-l-4 border-purple-500' : ''
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                     {(room.admin?.full_name || room.customer?.full_name || 'U')?.charAt(0)?.toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-purple-600">
+                    <p className="text-xs md:text-sm font-semibold text-gray-900 truncate group-hover:text-purple-600">
                       {room.admin?.full_name || room.customer?.full_name || 'Unknown User'}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
@@ -591,28 +603,36 @@ export default function SellerChatPage() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white shadow-lg min-h-0">
+      <div className={`${selectedRoom ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white shadow-lg`}>
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-6 flex-shrink-0">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-4 md:p-6 flex-shrink-0">
+              <div className="flex items-center space-x-3 md:space-x-4">
+                <button 
+                  onClick={() => setSelectedRoom(null)}
+                  className="md:hidden p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                   {(selectedRoom.admin?.full_name || selectedRoom.customer?.full_name || 'U')?.charAt(0)?.toUpperCase()}
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base md:text-lg font-bold text-gray-900 truncate">
                     {selectedRoom.admin?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
                   </h2>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs md:text-sm text-gray-600">
                     {(selectedRoom.admin?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) ? '🟢 Online' : '⚪ Offline'}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 min-h-0">
+            {/* Messages - Scrollable area */}
+            <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 md:space-y-4 bg-gray-50">
               {messages.map((message, index) => {
                 const isOwnMessage = message.sender_id === currentUser?.id;
                 return (
@@ -621,7 +641,7 @@ export default function SellerChatPage() {
                     className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-sm ${
+                      className={`max-w-[85%] md:max-w-xs lg:max-w-md px-3 md:px-4 py-2 md:py-3 rounded-2xl shadow-sm ${
                         isOwnMessage
                           ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
                           : 'bg-white text-gray-900 border border-gray-200'
@@ -657,23 +677,23 @@ export default function SellerChatPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input - Always visible at bottom */}
-            <div className="bg-white border-t border-gray-200 p-6 flex-shrink-0">
-              <div className="flex space-x-3">
+            {/* Message Input - Fixed at bottom */}
+            <div className="bg-white border-t border-gray-200 p-3 md:p-6 flex-shrink-0">
+              <div className="flex space-x-2 md:space-x-3">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={handleTyping}
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                   placeholder="Type your message..."
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors duration-200"
+                  className="flex-1 px-3 md:px-4 py-2 md:py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 hover:bg-white transition-colors duration-200 text-sm md:text-base"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={!newMessage.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  <PaperAirplaneIcon className="w-5 h-5" />
+                  <PaperAirplaneIcon className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
               </div>
             </div>

@@ -17,7 +17,7 @@ export function useUnreadMessages() {
       const response = await fetch('/api/chat/unread-count');
       if (response.ok) {
         const data = await response.json();
-        setUnreadCount(data.unreadCount || 0);
+        setUnreadCount(data.count || 0);
       } else {
         console.error('Failed to fetch unread count');
         setUnreadCount(0);

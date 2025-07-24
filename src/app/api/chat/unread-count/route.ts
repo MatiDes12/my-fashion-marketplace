@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
+import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
@@ -14,88 +14,43 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user role
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // First, get all room IDs where the user is involved
+    const { data: userRooms, error: roomsError } = await supabase
+      .from('chat_rooms')
+      .select('id')
+      .or(`seller_id.eq.${user.id},admin_id.eq.${user.id},customer_id.eq.${user.id}`);
 
-    if (!userProfile) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (roomsError) {
+      console.error('Error fetching user rooms:', roomsError);
+      return NextResponse.json({ error: 'Failed to fetch user rooms' }, { status: 500 });
     }
 
-    let unreadCount = 0;
-
-    if (userProfile.role === 'customer') {
-      // For customers: count unread messages in customer_seller and customer_admin rooms
-      const { data: customerRooms, error: customerRoomsError } = await supabase
-        .from('chat_rooms')
-        .select('id')
-        .or(`customer_id.eq.${user.id}`)
-        .in('room_type', ['customer_seller', 'customer_admin']);
-
-      if (!customerRoomsError && customerRooms && customerRooms.length > 0) {
-        const roomIds = customerRooms.map(room => room.id);
-        const { data: unreadMessages, error: messagesError } = await supabase
-          .from('chat_messages')
-          .select('id')
-          .in('room_id', roomIds)
-          .eq('is_read', false)
-          .neq('sender_id', user.id);
-
-        if (!messagesError && unreadMessages) {
-          unreadCount = unreadMessages.length;
-        }
-      }
-    } else if (userProfile.role === 'owner') {
-      // For sellers: count unread messages in customer_seller rooms
-      const { data: sellerRooms, error: sellerRoomsError } = await supabase
-        .from('chat_rooms')
-        .select('id')
-        .eq('seller_id', user.id)
-        .eq('room_type', 'customer_seller');
-
-      if (!sellerRoomsError && sellerRooms && sellerRooms.length > 0) {
-        const roomIds = sellerRooms.map(room => room.id);
-        const { data: unreadMessages, error: messagesError } = await supabase
-          .from('chat_messages')
-          .select('id')
-          .in('room_id', roomIds)
-          .eq('is_read', false)
-          .neq('sender_id', user.id);
-
-        if (!messagesError && unreadMessages) {
-          unreadCount = unreadMessages.length;
-        }
-      }
-    } else if (userProfile.role === 'admin') {
-      // For admins: count unread messages in admin_seller and customer_admin rooms
-      const { data: adminRooms, error: adminRoomsError } = await supabase
-        .from('chat_rooms')
-        .select('id')
-        .or(`admin_id.eq.${user.id}`)
-        .in('room_type', ['admin_seller', 'customer_admin']);
-
-      if (!adminRoomsError && adminRooms && adminRooms.length > 0) {
-        const roomIds = adminRooms.map(room => room.id);
-        const { data: unreadMessages, error: messagesError } = await supabase
-          .from('chat_messages')
-          .select('id')
-          .in('room_id', roomIds)
-          .eq('is_read', false)
-          .neq('sender_id', user.id);
-
-        if (!messagesError && unreadMessages) {
-          unreadCount = unreadMessages.length;
-        }
-      }
+    if (!userRooms || userRooms.length === 0) {
+      return NextResponse.json({ count: 0 });
     }
 
-    return NextResponse.json({ unreadCount });
+    // Get room IDs
+    const roomIds = userRooms.map(room => room.id);
+
+    // Count unread messages in these rooms (excluding user's own messages)
+    const { count, error } = await supabase
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true })
+      .in('room_id', roomIds)
+      .eq('is_read', false)
+      .neq('sender_id', user.id);
+
+    if (error) {
+      console.error('Error fetching unread count:', error);
+      return NextResponse.json({ error: 'Failed to fetch unread count' }, { status: 500 });
+    }
+
+    return NextResponse.json({ 
+      count: count || 0 
+    });
 
   } catch (error) {
-    console.error('Error in unread-count API:', error);
+    console.error('Error in GET /api/chat/unread-count:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

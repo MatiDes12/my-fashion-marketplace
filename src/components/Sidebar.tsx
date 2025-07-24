@@ -156,7 +156,7 @@ export default function Sidebar() {
               }`}
             >
               <div className="relative">
-                <item.icon className="h-5 w-5 mr-3" />
+              <item.icon className="h-5 w-5 mr-3" />
                 {item.showBadge && (
                   <NotificationBadge 
                     count={unreadCount} 
