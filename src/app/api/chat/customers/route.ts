@@ -70,14 +70,18 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
       }
 
-      customerIds = [...new Set(orders?.map(order => order.user_id) || [])];
+      // Get unique user IDs from orders
+      const uniqueUserIds = [...new Set(orders?.map(order => order.user_id))];
+      console.log('Orders before unique:', orders?.length);
+      console.log('Orders after unique:', uniqueUserIds.length);
+      customerIds = uniqueUserIds;
     }
 
     if (customerIds.length === 0) {
       return NextResponse.json({ customers: [] });
     }
 
-    // Get customer details
+    // Get customer details with uniqueness check
     const { data: customers, error: customersError } = await supabase
       .from('users')
       .select(`
@@ -93,13 +97,37 @@ export async function GET(request: Request) {
       .in('id', customerIds)
       .eq('role', 'customer');
 
+    // Ensure uniqueness by ID
+    const uniqueCustomers = customers?.reduce((acc: any[], curr: any) => {
+      if (!acc.some((c: any) => c.id === curr.id)) {
+        acc.push(curr);
+      }
+      return acc;
+    }, []);
+
+    console.log('Customers after query:', uniqueCustomers?.length);
+    
     if (customersError) {
       console.error('Error fetching customers:', customersError);
       return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
     }
 
+    // Log any potential duplicates
+    const nameCount: { [key: string]: number } = {};
+    uniqueCustomers?.forEach((customer: { full_name: string }) => {
+      nameCount[customer.full_name] = (nameCount[customer.full_name] || 0) + 1;
+    });
+    const duplicates = Object.entries(nameCount).filter(([_, count]) => count > 1);
+    if (duplicates.length > 0) {
+      console.log('Found duplicate names:', duplicates);
+      // Log the full customer objects for duplicates
+      duplicates.forEach(([name, _]) => {
+        console.log('Customers with name:', name, uniqueCustomers?.filter(c => c.full_name === name));
+      });
+    }
+
     // For sellers, also get chat rooms and messages for customers who have chatted
-    let enhancedCustomers = customers || [];
+    let enhancedCustomers = uniqueCustomers || [];
     
     if (!isAdminRequest) {
       // Get chat rooms for these customers
@@ -132,7 +160,7 @@ export async function GET(request: Request) {
 
           if (!messagesError && messages) {
             // Enhance customers with chat info
-            enhancedCustomers = customers?.map(customer => {
+            enhancedCustomers = uniqueCustomers?.map(customer => {
               const customerRoom = chatRooms.find(room => room.customer_id === customer.id);
               const roomMessages = messages?.filter(msg => msg.room_id === customerRoom?.id) || [];
               const latestMessage = roomMessages[0]; // Already sorted by created_at desc
@@ -176,7 +204,7 @@ export async function GET(request: Request) {
             .order('created_at', { ascending: false });
 
           if (!messagesError && messages) {
-            enhancedCustomers = customers?.map(customer => {
+            enhancedCustomers = uniqueCustomers?.map(customer => {
               const customerRoom = chatRooms.find(room => room.customer_id === customer.id);
               const roomMessages = messages?.filter(msg => msg.room_id === customerRoom?.id) || [];
               const latestMessage = roomMessages[0];

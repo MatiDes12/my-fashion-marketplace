@@ -78,8 +78,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { roomType, sellerId, adminId, customerId } = body;
 
-    if (!roomType || !sellerId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    // Validate required fields based on room type
+    if (roomType === 'admin_seller' && (!sellerId || !adminId)) {
+      return NextResponse.json({ error: 'Missing sellerId or adminId for admin_seller room' }, { status: 400 });
+    } else if (roomType === 'customer_seller' && (!sellerId || !customerId)) {
+      return NextResponse.json({ error: 'Missing sellerId or customerId for customer_seller room' }, { status: 400 });
+    } else if (roomType === 'customer_admin' && (!adminId || !customerId)) {
+      return NextResponse.json({ error: 'Missing adminId or customerId for customer_admin room' }, { status: 400 });
     }
 
     // Validate room type
@@ -116,7 +121,7 @@ export async function POST(request: NextRequest) {
       .from('chat_rooms')
       .select('id')
       .eq('room_type', roomType)
-      .eq('seller_id', sellerId)
+      .eq('seller_id', sellerId || null)
       .eq('admin_id', adminId || null)
       .eq('customer_id', customerId || null)
       .eq('is_active', true)
@@ -131,9 +136,9 @@ export async function POST(request: NextRequest) {
       .from('chat_rooms')
       .insert({
         room_type: roomType,
-        seller_id: sellerId,
-        admin_id: adminId,
-        customer_id: customerId
+        seller_id: sellerId || null,
+        admin_id: adminId || null,
+        customer_id: customerId || null
       })
       .select()
       .single();

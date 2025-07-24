@@ -129,6 +129,28 @@ export default function AdminChatPage() {
           
           return [...filtered, message];
         });
+        
+        // Update room order when new message is received
+        setRooms(prev => {
+          const updatedRooms = prev.map(room => {
+            if (room.id === message.room_id) {
+              return {
+              ...room,
+              last_message_at: message.created_at,
+              messages: [...(room.messages || []), message]
+            };
+            }
+            return room;
+          });
+          
+          // Re-sort rooms by last_message_at (most recent first)
+          return updatedRooms.sort((a, b) => {
+            const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+            const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+            return bTime - aTime;
+          });
+        });
+        
         if (selectedRoom && message.room_id === selectedRoom.id) {
           scrollToBottom();
         }
@@ -203,7 +225,14 @@ export default function AdminChatPage() {
         allRooms.push(...enhancedCustomerRooms);
       }
       
-      setRooms(allRooms);
+      // Sort all rooms by last_message_at (most recent first)
+      const sortedRooms = allRooms.sort((a, b) => {
+        const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+        const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+        return bTime - aTime;
+      });
+      
+      setRooms(sortedRooms);
     } catch (error) {
       console.error('Error loading rooms:', error);
       toast.error('Failed to load chat rooms');
@@ -336,7 +365,7 @@ export default function AdminChatPage() {
               messages: []
             };
             
-            setRooms(prev => [realRoom, ...prev]);
+            // Don't add to rooms list yet (will be added when first message is sent)
             setSelectedRoom(realRoom);
           }
         } catch (error) {
@@ -380,6 +409,18 @@ export default function AdminChatPage() {
 
       if (!response.ok) {
         throw new Error('Failed to send message');
+      }
+
+      // If this is the first message in a room, add it to the rooms list
+      if (!rooms.some(r => r.id === selectedRoom.id)) {
+        setRooms(prev => {
+          const updatedRooms = [selectedRoom, ...prev];
+          return updatedRooms.sort((a, b) => {
+            const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+            const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+            return bTime - aTime;
+          });
+        });
       }
 
       // Auto-remove temp message after 10 seconds if not replaced
@@ -487,7 +528,7 @@ export default function AdminChatPage() {
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            Recent Chats ({rooms.length})
+                          Recent Chats ({rooms.filter(room => room.messages?.length > 0).length})
           </button>
         </div>
 
@@ -554,8 +595,8 @@ export default function AdminChatPage() {
               </div>
             ))
           ) : (
-            /* Recent Chats List */
-            rooms.map((room) => (
+            /* Recent Chats List - Only show rooms with messages */
+            rooms.filter(room => room.messages?.length > 0).map((room) => (
               <div
                 key={room.id}
                 onClick={async () => {

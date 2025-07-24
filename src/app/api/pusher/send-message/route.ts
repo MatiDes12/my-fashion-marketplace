@@ -61,6 +61,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });
     }
 
+    // Update room's last_message_at timestamp
+    const { error: roomUpdateError } = await supabase
+      .from('chat_rooms')
+      .update({ last_message_at: savedMessage.created_at })
+      .eq('id', roomId);
+
+    if (roomUpdateError) {
+      console.error('Error updating room timestamp:', roomUpdateError);
+      // Don't fail the request for this, just log it
+    }
+
     // Trigger Pusher event
     await pusherServer.trigger(`room-${roomId}`, 'new_message', {
       id: savedMessage.id,

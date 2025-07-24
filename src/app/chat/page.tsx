@@ -116,6 +116,28 @@ export default function CustomerChatPage() {
           
           return [...filtered, message];
         });
+        
+        // Update room order when new message is received
+        setRooms(prev => {
+          const updatedRooms = prev.map(room => {
+            if (room.id === message.room_id) {
+              return {
+              ...room,
+              last_message_at: message.created_at,
+              messages: [...(room.messages || []), message]
+            };
+            }
+            return room;
+          });
+          
+          // Re-sort rooms by last_message_at (most recent first)
+          return updatedRooms.sort((a, b) => {
+            const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+            const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+            return bTime - aTime;
+          });
+        });
+        
         if (selectedRoom && message.room_id === selectedRoom.id) {
           scrollToBottom();
         }
@@ -200,7 +222,15 @@ export default function CustomerChatPage() {
           customer: currentUser,
           messages: room.messages || []
         }));
-        setRooms(enhancedRooms);
+        
+        // Sort rooms by last_message_at (most recent first)
+        const sortedRooms = enhancedRooms.sort((a, b) => {
+          const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+          const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+          return bTime - aTime;
+        });
+        
+        setRooms(sortedRooms);
       }
     } catch (error) {
       console.error('Error loading rooms:', error);
@@ -245,6 +275,12 @@ export default function CustomerChatPage() {
           });
 
           const data = await response.json();
+          if (!response.ok) {
+            console.error('Error creating room:', data.error);
+            toast.error('Failed to create chat room');
+            return;
+          }
+          
           if (data.room) {
             const newRoom: ChatRoom = {
               ...data.room,
@@ -254,11 +290,17 @@ export default function CustomerChatPage() {
               messages: []
             };
             
-            setRooms(prev => [newRoom, ...prev]);
+            // Don't add to rooms list yet (will be added when first message is sent)
+            setSelectedRoom(newRoom);
+            
             setSelectedRoom(newRoom);
             setMessages([]);
+            
             // Refresh rooms to ensure consistency
             setTimeout(() => loadRooms(), 100);
+          } else {
+            console.error('No room data in response');
+            toast.error('Failed to create chat room');
           }
         }
       }
@@ -340,6 +382,18 @@ export default function CustomerChatPage() {
           messageType: 'text'
         }),
       });
+
+      // If this is the first message in a room, add it to the rooms list
+      if (!rooms.some(r => r.id === selectedRoom.id)) {
+        setRooms(prev => {
+          const updatedRooms = [selectedRoom, ...prev];
+          return updatedRooms.sort((a, b) => {
+            const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+            const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+            return bTime - aTime;
+          });
+        });
+      }
 
       if (!response.ok) {
         throw new Error('Failed to send message');
@@ -470,7 +524,7 @@ export default function CustomerChatPage() {
             <div className="flex flex-col items-center">
               <span className="font-semibold">Recent</span>
               <span className="text-xs bg-purple-100 text-purple-600 px-1 md:px-2 py-0.5 md:py-1 rounded-full mt-1">
-                {rooms.length}
+                {rooms.filter(room => room.messages?.length > 0).length}
               </span>
             </div>
           </button>
@@ -543,8 +597,8 @@ export default function CustomerChatPage() {
               </div>
             ))
           ) : (
-            /* Recent Chats List */
-            rooms.map((room) => (
+            /* Recent Chats List - Only show rooms with messages */
+            rooms.filter(room => room.messages?.length > 0).map((room) => (
               <div
                 key={room.id}
                 onClick={async () => {
