@@ -1,33 +1,47 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { pusherClient } from '@/lib/pusher-client';
+import { toast } from 'react-hot-toast';
+
+// Retry configuration
+const RETRY_DELAYS = [2000, 4000, 8000]; // 2s, 4s, 8s delays between retries
+const DEBOUNCE_DELAY = 3000; // 3 seconds debounce
 
 export const useChatStatus = (
   currentUser: any,
   onStatusUpdate?: (userId: string, isOnline: boolean) => void
 ) => {
   // Track last status and debounce timer
-  const lastStatusRef = useRef<{isOnline: boolean | null, statusMessage?: string}>({ isOnline: null });
+  const lastStatusRef = useRef<{isOnline: boolean | null, statusMessage?: string, lastAttempt?: number}>({ isOnline: null });
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const retryCount = useRef<number>(0);
 
-  const updateStatus = useCallback((isOnline: boolean, statusMessage?: string) => {
+  const updateStatus = useCallback(async (isOnline: boolean, statusMessage?: string) => {
     if (!currentUser || !currentUser.id) {
       console.log('No current user, skipping status update');
       return;
     }
-    // Only send if status actually changed
+
+    // Only send if status actually changed and enough time has passed
+    const now = Date.now();
     if (
       lastStatusRef.current.isOnline === isOnline &&
-      lastStatusRef.current.statusMessage === statusMessage
+      lastStatusRef.current.statusMessage === statusMessage &&
+      lastStatusRef.current.lastAttempt &&
+      now - lastStatusRef.current.lastAttempt < DEBOUNCE_DELAY
     ) {
       return;
     }
-    lastStatusRef.current = { isOnline, statusMessage };
+
+    // Update last attempt time
+    lastStatusRef.current = { isOnline, statusMessage, lastAttempt: now };
 
     // Debounce: clear previous timer
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
-    debounceTimer.current = setTimeout(async () => {
+
+    // Create a function for the actual API call
+    const makeRequest = async (attempt: number = 0): Promise<void> => {
       try {
         const response = await fetch('/api/pusher/update-status', {
           method: 'POST',
@@ -41,13 +55,34 @@ export const useChatStatus = (
         });
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('Status update failed:', response.status, errorData);
+          if (response.status === 429) { // Too Many Requests
+            const retryDelay = RETRY_DELAYS[attempt];
+            if (retryDelay && attempt < RETRY_DELAYS.length) {
+              console.log(`Rate limited, retrying in ${retryDelay}ms`);
+              setTimeout(() => makeRequest(attempt + 1), retryDelay);
+              return;
+            }
+          }
+          throw new Error(`Status update failed: ${response.status}`);
         }
+
+        // Reset retry count on success
+        retryCount.current = 0;
       } catch (error) {
         console.error('Error updating status:', error);
+        const retryDelay = RETRY_DELAYS[attempt];
+        if (retryDelay && attempt < RETRY_DELAYS.length) {
+          setTimeout(() => makeRequest(attempt + 1), retryDelay);
+        } else {
+          toast.error('Failed to update online status');
+        }
       }
-    }, 1000); // 1 second debounce
+    };
+
+    // Start the debounced request
+    debounceTimer.current = setTimeout(() => {
+      makeRequest(retryCount.current);
+    }, DEBOUNCE_DELAY);
   }, [currentUser]);
 
   useEffect(() => {

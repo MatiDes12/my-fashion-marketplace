@@ -2,9 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { pusherServer } from '@/lib/pusher';
+import { rateLimit } from '@/utils/rate-limit';
+
+// Create a rate limiter that allows 5 requests per 10 seconds
+const limiter = rateLimit({
+  interval: 10 * 1000, // 10 seconds
+  uniqueTokenPerInterval: 500, // Max 500 users per interval
+});
 
 export async function POST(request: NextRequest) {
   try {
+    // Apply rate limiting
+    try {
+      await limiter.check(request, 5, 'UPDATE_STATUS'); // 5 requests per interval
+    } catch {
+      return new NextResponse('Too Many Requests', { status: 429 });
+    }
+
     const supabase = createRouteHandlerClient({ cookies });
     
     // Try to refresh the session first
