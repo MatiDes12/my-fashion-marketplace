@@ -88,21 +88,28 @@ export default function OrdersPage() {
     if (error) throw new Error('Failed to fetch orders');
     
     // Helper function to get the base payment reference
-    const getBasePaymentRef = (paymentRef: string) => {
-      if (!paymentRef) return null;
-      // For cash payments, extract the base reference (before the last hyphen)
-      if (paymentRef.startsWith('CASH-')) {
-        const parts = paymentRef.split('-');
-        // Remove the last part (variant) and join back
-        return parts.slice(0, -1).join('-');
+    const getBasePaymentRef = (order: any) => {
+      if (!order.payment_reference) return null;
+      
+      // For cash payments, use the tx_ref which contains the base reference
+      if (order.payment_reference.startsWith('CASH-')) {
+        // Extract the base CASH reference from tx_ref
+        const txRefParts = order.tx_ref?.split('-') || [];
+        if (txRefParts.length >= 3) {
+          // Get the base CASH reference: CASH-timestamp-random
+          return `${txRefParts[0]}-${txRefParts[1]}-${txRefParts[2]}`;
+        }
+        // Fallback to payment_reference if tx_ref parsing fails
+        return order.payment_reference;
       }
-      // For Chapa payments, use as is
-      return paymentRef;
+      
+      // For Chapa payments, use the payment_reference as is
+      return order.payment_reference;
     };
 
     // Group orders by payment reference
     const groupedOrders = data.reduce((acc: any, order: any) => {
-      const basePaymentRef = getBasePaymentRef(order.payment_reference);
+      const basePaymentRef = getBasePaymentRef(order);
       if (!basePaymentRef) return acc;
 
       if (!acc[basePaymentRef]) {
@@ -115,7 +122,9 @@ export default function OrdersPage() {
           payment_reference: basePaymentRef,
           is_cash_payment: basePaymentRef.startsWith('CASH-'),
           tx_ref: order.tx_ref,
-          receipt_url: order.receipt_url
+          receipt_url: basePaymentRef.startsWith('CASH-') 
+            ? `/api/receipts/cash/${basePaymentRef}` 
+            : order.receipt_url
         };
       }
       acc[basePaymentRef].orders.push(order);

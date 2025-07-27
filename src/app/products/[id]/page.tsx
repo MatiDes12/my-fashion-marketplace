@@ -531,6 +531,11 @@ export default function ProductDetailPage() {
     });
   }, []);
 
+  // Scroll to top when product ID changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [productId]);
+
   // Fetch product and like status
     const fetchProduct = async () => {
       try {

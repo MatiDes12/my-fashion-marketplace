@@ -139,3 +139,13 @@ This document outlines the strategy for protecting intellectual property while e
 4. **Maintenance**: Easier to maintain and update individual services
 5. **Security**: Reduced attack surface and better isolation
 6. **Compliance**: Better audit trails and access controls 
+
+
+CASH-1753562008019-bd9qoa-default-1-abc123def
+│    │                │       │    │   │
+│    │                │       │    │   └─ Random string
+│    │                │       │    └───── Product index
+│    │                │       └────────── Variant suffix
+│    │                └────────────────── Random string
+│    └─────────────────────────────────── Timestamp
+└───────────────────────────────────────── Payment type

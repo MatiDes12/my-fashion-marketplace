@@ -81,16 +81,23 @@ interface OrderGroup {
 }
 
 // Helper function to get base payment reference
-const getBasePaymentRef = (paymentRef: string) => {
-  if (!paymentRef) return null;
-  // For cash payments, extract the base reference (before the last hyphen)
-  if (paymentRef.startsWith('CASH-')) {
-    const parts = paymentRef.split('-');
-    // Remove the last part (variant) and join back
-    return parts.slice(0, -1).join('-');
+const getBasePaymentRef = (order: any) => {
+  if (!order.payment_reference) return null;
+  
+  // For cash payments, use the tx_ref which contains the base reference
+  if (order.payment_reference.startsWith('CASH-')) {
+    // Extract the base CASH reference from tx_ref
+    const txRefParts = order.tx_ref?.split('-') || [];
+    if (txRefParts.length >= 3) {
+      // Get the base CASH reference: CASH-timestamp-random
+      return `${txRefParts[0]}-${txRefParts[1]}-${txRefParts[2]}`;
+    }
+    // Fallback to payment_reference if tx_ref parsing fails
+    return order.payment_reference;
   }
-  // For Chapa payments, use as is
-  return paymentRef;
+  
+  // For Chapa payments, use the payment_reference as is
+  return order.payment_reference;
 };
 
 interface OrderWithUser {
@@ -686,7 +693,7 @@ export default function OrdersPage() {
 
     // Group orders by payment reference
     const grouped = orders.reduce((acc: { [key: string]: Order[] }, order) => {
-      const baseRef = getBasePaymentRef(order.payment_reference || order.tx_ref || '');
+      const baseRef = getBasePaymentRef(order);
       if (!baseRef) return acc;
       
       if (!acc[baseRef]) {
@@ -710,7 +717,9 @@ export default function OrdersPage() {
         order_status: firstOrder.order_status,
         is_cash_payment: ref.startsWith('CASH-'),
         tx_ref: firstOrder.tx_ref || '',
-        receipt_url: firstOrder.receipt_url || ''
+        receipt_url: ref.startsWith('CASH-') 
+          ? `/api/receipts/cash/${ref}` 
+          : firstOrder.receipt_url || ''
       };
     });
 
@@ -1794,7 +1803,7 @@ export default function OrdersPage() {
                     <p className="text-sm font-medium text-gray-500">Total Orders</p>
                     <p className="mt-1 text-sm text-gray-900">
                       {groupedOrders.find(g => 
-                        g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))?.orders.length || 1}
+                        g.payment_reference === getBasePaymentRef(selectedOrder))?.orders.length || 1}
                     </p>
                     </div>
                     </div>
@@ -1805,7 +1814,7 @@ export default function OrdersPage() {
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Orders in Group</h3>
                 <div className="space-y-6">
                   {groupedOrders
-                    .find(g => g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))
+                    .find(g => g.payment_reference === getBasePaymentRef(selectedOrder))
                     ?.orders.map((order) => (
                       <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
@@ -1948,7 +1957,7 @@ export default function OrdersPage() {
                     <p className="mt-1 text-sm text-gray-900">
                       {formatCurrency(
                         groupedOrders
-                          .find(g => g.payment_reference === getBasePaymentRef(selectedOrder.payment_reference || ''))
+                          .find(g => g.payment_reference === getBasePaymentRef(selectedOrder))
                           ?.orders.reduce((sum, order) => sum + order.total_price, 0) || 0
                       )}
                           </p>

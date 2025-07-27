@@ -181,19 +181,34 @@ export default function CheckoutPage() {
     let serviceFee = 0; // Will remain 0
     let vat = 0; // Add VAT (at 0%)
 
-    items.forEach(item => {
-      const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
-      subtotal += itemSubtotal;
-
-      if (item.delivery_method === 'delivery') {
-        deliveryFee += (item.delivery_fee || 0);
-      }
-
-      // Service fee is now 0% for customers
-      serviceFee = 0;
+    // Group items by seller for smart delivery fee calculation
+    const sellerGroups = items.reduce((acc, item) => {
+      if (!item.product?.owner?.id) return acc;
       
-      // VAT at 0%
-      vat = 0;
+      const sellerId = item.product.owner.id;
+      if (!acc[sellerId]) {
+        acc[sellerId] = [];
+      }
+      acc[sellerId].push(item);
+      return acc;
+    }, {} as Record<string, typeof items>);
+
+    // Calculate subtotal and smart delivery fee
+    Object.values(sellerGroups).forEach(sellerItems => {
+      sellerItems.forEach(item => {
+        const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
+        subtotal += itemSubtotal;
+      });
+
+      // Smart delivery fee calculation for each seller
+      const deliveryItems = sellerItems.filter(item => 
+        item.delivery_method === 'delivery'
+      );
+
+      if (deliveryItems.length > 0) {
+        const sellerDeliveryFee = calculateSmartDeliveryFee(deliveryItems);
+        deliveryFee += sellerDeliveryFee;
+      }
     });
 
     const total = subtotal + deliveryFee + serviceFee + vat;
@@ -205,6 +220,74 @@ export default function CheckoutPage() {
       vat,
       total
     };
+  };
+
+  // Smart delivery fee calculation algorithm
+  const calculateSmartDeliveryFee = (deliveryItems: CartItem[]) => {
+    if (deliveryItems.length === 0) return 0;
+    if (deliveryItems.length === 1) {
+      return deliveryItems[0].product.delivery_fee || 0;
+    }
+
+    // Get all delivery fees for this seller
+    const deliveryFees = deliveryItems.map(item => item.product.delivery_fee || 0);
+    const totalOrderValue = deliveryItems.reduce((sum, item) => 
+      sum + (item.quantity * (item.flash_sale_price || item.product.price)), 0
+    );
+
+    // Algorithm: Base fee + incremental discount
+    const baseFee = Math.max(...deliveryFees); // Use the highest individual fee as base
+    const numberOfItems = deliveryItems.length;
+    
+    // Calculate discount based on order value and number of items
+    let discount = 0;
+    
+    // Discount tiers based on order value
+    if (totalOrderValue >= 5000) {
+      discount = 0.40; // 40% discount for orders >= 5000 ETB
+    } else if (totalOrderValue >= 3000) {
+      discount = 0.30; // 30% discount for orders >= 3000 ETB
+    } else if (totalOrderValue >= 1500) {
+      discount = 0.20; // 20% discount for orders >= 1500 ETB
+    } else if (totalOrderValue >= 1000) {
+      discount = 0.15; // 15% discount for orders >= 1000 ETB
+    } else if (totalOrderValue >= 500) {
+      discount = 0.10; // 10% discount for orders >= 500 ETB
+    }
+
+    // Additional discount for multiple items
+    if (numberOfItems >= 5) {
+      discount += 0.10; // Extra 10% for 5+ items
+    } else if (numberOfItems >= 3) {
+      discount += 0.05; // Extra 5% for 3+ items
+    }
+
+    // Cap discount at 50% maximum
+    discount = Math.min(discount, 0.50);
+    
+    // Calculate final delivery fee
+    const finalDeliveryFee = baseFee * (1 - discount);
+    
+    // Ensure minimum delivery fee of 20 ETB
+    return Math.max(finalDeliveryFee, 20);
+  };
+
+  // Calculate original delivery fee (without smart calculation) for comparison
+  const calculateOriginalDeliveryFee = (items: CartItem[]) => {
+    let originalFee = 0;
+    items.forEach(item => {
+      if (item.delivery_method === 'delivery') {
+        originalFee += (item.product.delivery_fee || 0);
+      }
+    });
+    return originalFee;
+  };
+
+  // Get delivery fee savings
+  const getDeliveryFeeSavings = () => {
+    const originalFee = calculateOriginalDeliveryFee(cartItems);
+    const smartFee = fees.deliveryFee;
+    return Math.max(0, originalFee - smartFee);
   };
 
   const updateProductQuantities = async (items: CartItem[]) => {
@@ -460,15 +543,22 @@ export default function CheckoutPage() {
       const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
       acc[sellerId].subtotal += itemSubtotal;
       
-      if (item.delivery_method === 'delivery') {
-        acc[sellerId].deliveryFee += (item.delivery_fee || 0);
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Calculate smart delivery fees for each seller
+    Object.values(sellerGroups).forEach((seller: any) => {
+      const deliveryItems = seller.items.filter((item: CartItem) => 
+        item.delivery_method === 'delivery'
+      );
+      
+      if (deliveryItems.length > 0) {
+        seller.deliveryFee = calculateSmartDeliveryFee(deliveryItems);
       }
       
       // Calculate total
-      acc[sellerId].total = acc[sellerId].subtotal + acc[sellerId].deliveryFee;
-      
-      return acc;
-    }, {} as Record<string, any>);
+      seller.total = seller.subtotal + seller.deliveryFee;
+    });
 
     return Object.values(sellerGroups);
   };
@@ -632,7 +722,8 @@ export default function CheckoutPage() {
                       ? [{ 
                           label: 'Delivery Fee', 
                           value: fees.deliveryFee,
-                          className: 'text-gray-600'
+                          className: 'text-gray-600',
+                          showSavings: getDeliveryFeeSavings() > 0
                         }] 
                       : []
                     ),
@@ -648,7 +739,14 @@ export default function CheckoutPage() {
                     }
                   ].map((item, index) => (
                     <div key={index} className="flex justify-between text-gray-600">
-                      <span>{item.label}</span>
+                      <div className="flex flex-col">
+                        <span>{item.label}</span>
+                        {item.showSavings && (
+                          <span className="text-xs text-green-600 font-medium">
+                            You saved ETB {getDeliveryFeeSavings().toFixed(2)}! 🎉
+                          </span>
+                        )}
+                      </div>
                       <span className={item.className}>
                         ETB {item.value.toFixed(2)}
                       </span>

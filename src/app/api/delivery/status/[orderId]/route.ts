@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
@@ -19,7 +19,8 @@ export async function GET(
       );
     }
 
-    const { orderId } = params;
+    const resolvedParams = await params;
+    const { orderId } = resolvedParams;
 
     // Verify the order belongs to the current user
     const { data: order, error: orderError } = await supabase

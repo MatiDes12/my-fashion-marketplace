@@ -2,8 +2,9 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const supabase = createRouteHandlerClient({ cookies });
 
     // Fetch store owner data
@@ -17,7 +18,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         verification_status,
         role
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (storeError || !storeOwner) {

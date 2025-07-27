@@ -4,16 +4,21 @@ import { cookies } from 'next/headers';
 
 export async function GET(
   request: Request,
-  { params }: { params: { txRef: string } }
+  { params }: { params: Promise<{ txRef: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const redirectUrl = searchParams.get('redirect');
     
+    const resolvedParams = await params;
     const supabase = createRouteHandlerClient({ cookies });
     
     // Get all orders with this tx_ref or tx_refs that start with the base tx_ref
-    const baseTxRef = params.txRef.split('-').slice(0, -1).join('-'); // Remove the last part (variant suffix)
+    // Extract the base CASH reference: CASH-timestamp-random
+    const txRefParts = resolvedParams.txRef.split('-');
+    const baseTxRef = txRefParts.length >= 3 
+      ? `${txRefParts[0]}-${txRefParts[1]}-${txRefParts[2]}`
+      : resolvedParams.txRef;
     
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
@@ -34,7 +39,7 @@ export async function GET(
         user:users!orders_user_id_fkey(*),
         transaction:transactions(*)
       `)
-      .or(`tx_ref.eq.${params.txRef},tx_ref.like.${baseTxRef}-%`);
+      .or(`tx_ref.eq.${resolvedParams.txRef},tx_ref.like.${baseTxRef}-%`);
       
     if (ordersError) throw ordersError;
     if (!orders?.length) throw new Error('No orders found');
@@ -138,7 +143,7 @@ export async function GET(
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Receipt - ${params.txRef}</title>
+          <title>Receipt - ${resolvedParams.txRef}</title>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -343,7 +348,7 @@ export async function GET(
                 hour: '2-digit', 
                 minute: '2-digit'
               })}</div>
-              <div>Transaction: ${params.txRef}</div>
+              <div>Transaction: ${resolvedParams.txRef}</div>
               <div>Customer: ${orders[0].user?.full_name || 'N/A'}</div>
               <div>Payment Method: CASH</div>
                 </div>

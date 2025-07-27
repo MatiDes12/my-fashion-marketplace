@@ -404,9 +404,11 @@ export default function PaymentMethodModal({
           const customerPhone = customerData?.store_settings?.phone || null;
 
         // Process each seller's orders
+        let productIndex = 0;
         for (const seller of sellers) {
           for (const product of seller.products) {
-            // Generate unique tx_ref for each variant
+            productIndex++;
+            // Generate unique tx_ref for each product with index to ensure uniqueness
             const variantSuffix = product.selected_variant_sku 
               ? `-${product.selected_variant_sku.replace(/[^a-zA-Z0-9]/g, '')}` 
               : product.selected_size 
@@ -415,7 +417,7 @@ export default function PaymentMethodModal({
                   ? `-${product.selected_color.replace(/[^a-zA-Z0-9]/g, '')}` 
                   : '-default';
             
-            const uniqueTxRef = `${txRef}${variantSuffix}`;
+            const uniqueTxRef = `${txRef}${variantSuffix}-${productIndex}-${Math.random().toString(36).substr(2, 9)}`;
 
             // Check for active flash sale for this product
             const { data: flashSaleData, error: flashSaleError } = await supabase
@@ -546,8 +548,10 @@ export default function PaymentMethodModal({
           const config = await getTelegramConfig();
           const bot = new TelegramBot(config);
 
+          let telegramProductIndex = 0;
           for (const seller of sellers) {
             for (const product of seller.products) {
+              telegramProductIndex++;
               const variantSuffix = product.selected_variant_sku 
                 ? `-${product.selected_variant_sku.replace(/[^a-zA-Z0-9]/g, '')}` 
                 : product.selected_size 
@@ -556,7 +560,7 @@ export default function PaymentMethodModal({
                     ? `-${product.selected_color.replace(/[^a-zA-Z0-9]/g, '')}` 
                     : '-default';
               
-              const uniqueTxRef = `${txRef}${variantSuffix}`;
+              const uniqueTxRef = `${txRef}${variantSuffix}-${telegramProductIndex}-${Math.random().toString(36).substr(2, 9)}`;
 
               // Calculate amounts for this specific product
               const originalPrice = Number(product.price);
@@ -622,16 +626,8 @@ export default function PaymentMethodModal({
         onClose();
         toast.success('Order placed successfully! Please prepare cash for delivery/pickup.');
         
-        // Redirect to receipt page first - use the first order's tx_ref for the main redirect
-        const firstOrderTxRef = sellers[0]?.products[0]?.selected_variant_sku 
-          ? `${txRef}-${sellers[0].products[0].selected_variant_sku.replace(/[^a-zA-Z0-9]/g, '')}` 
-          : sellers[0]?.products[0]?.selected_size 
-            ? `${txRef}-${sellers[0].products[0].selected_size.replace(/[^a-zA-Z0-9]/g, '')}` 
-            : sellers[0]?.products[0]?.selected_color 
-              ? `${txRef}-${sellers[0].products[0].selected_color.replace(/[^a-zA-Z0-9]/g, '')}` 
-              : `${txRef}-default`;
-        
-        window.location.href = `/api/receipts/cash/${firstOrderTxRef}?redirect=/orders?payment_success=true%26tx_ref=${firstOrderTxRef}`;
+        // Redirect to receipt page - use the base tx_ref for the main redirect
+        window.location.href = `/api/receipts/cash/${txRef}?redirect=/orders?payment_success=true%26tx_ref=${txRef}`;
 
       } catch (error) {
         console.error('Order creation error:', error);

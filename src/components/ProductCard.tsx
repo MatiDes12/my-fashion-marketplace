@@ -175,6 +175,28 @@ export default function ProductCard({ product, showOwner = false, showActions = 
     }
   };
 
+  const handleBuyNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/products/${product.id}?action=buy`);
+  };
+
+  const handleCardClick = () => {
+    router.push(`/products/${product.id}`);
+  };
+
+  const handleStoreClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/stores/${product.owner_id}`);
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/dashboard/products/edit/${product.id}`);
+  };
+
   const calculateAverageRating = () => {
     // First check if we have a pre-calculated average
     if (product.avgRating !== undefined) {
@@ -248,149 +270,149 @@ export default function ProductCard({ product, showOwner = false, showActions = 
       />
       
       <div className="group relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-      <Link href={`/products/${product.id}`} className="block">
-        <div className="relative h-48 w-full overflow-hidden">
-          <ProductImage 
-            product={product} 
-            alt={product.title}
-            className="transform group-hover:scale-110 transition-transform duration-500" 
-          />
-          {product.category && (
-            <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-indigo-600 text-xs font-semibold px-3 py-1.5 rounded-full">
-              {product.category}
-            </span>
-          )}
-        </div>
-      
-        <div className="p-4">
-          <h3 className="text-base font-semibold text-gray-900 hover:text-indigo-600 transition-colors line-clamp-1">
-            {product.title}
-          </h3>
-          
-          <p className="mt-1 text-sm text-gray-600 line-clamp-1">
-            {product.description}
-          </p>
-          
-          <div className="mt-2 flex items-center justify-between">
-            <div className="flex flex-col">
-              {product.flash_sale_price ? (
-                <>
-                  <span className="text-lg font-bold text-red-600">
-                    {formatCurrency(product.flash_sale_price)}
-                  </span>
-                  <span className="text-xs text-gray-500 line-through">
-                    {formatCurrency(product.price)}
-                  </span>
-                  <span className="text-xs text-red-600 font-medium">
-                    {Math.round(((product.price - product.flash_sale_price) / product.price) * 100)}% OFF
-                  </span>
-                </>
-              ) : (
-                <span className="text-lg font-bold text-gray-900">
-                  {formatCurrency(product.price)}
-                </span>
-              )}
-            </div>
-            
-            <button 
-              onClick={handleLike}
-              disabled={likesLoading}
-              className={`text-gray-400 hover:text-red-500 transition-all duration-300 transform hover:scale-110 
-                ${likesLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div className="relative">
-                <svg 
-                  className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : ''}`} 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth="2" 
-                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
-                  />
-                </svg>
-                {likeCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-100 text-red-600 text-xs font-medium px-1.5 py-0.5 rounded-full">
-                    {likeCount}
-                  </span>
-                )}
-                {likesLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-3 h-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                )}
-              </div>
-            </button>
-          </div>
-          
-          <Link
-            href={`/products/${product.id}?action=buy`}
-            className="mt-3 w-full block text-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-full hover:bg-indigo-700 transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
-            Buy Now
-          </Link>
-          
-          {(showOwner || product.users) && (
-            <div className="mt-4 flex items-center text-sm text-gray-500">
-              <Link 
-                href={`/stores/${product.owner_id}`}
-                className="flex items-center hover:text-indigo-600 transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="h-8 w-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white">
-                  {product.users?.store_settings?.name?.[0] || product.users?.full_name?.[0] || '?'}
-                </div>
-                <span className="ml-2 font-medium">
-                  {product.users?.store_settings?.name || product.users?.full_name || 'Unknown seller'}
-                </span>
-              </Link>
-            </div>
-          )}
-          
-          {showActions && (
-            <div className="mt-4 flex justify-end space-x-2">
-              <Link
-                href={`/dashboard/products/edit/${product.id}`}
-                className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Edit
-              </Link>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleDelete();
-                }}
-                disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-full hover:bg-red-100 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          )}
-
-          <div className="mt-2 flex items-center">
-            <ProductRating
-              productId={product.id}
-              initialRating={calculateAverageRating()}
-              totalRatings={product.totalRatings ?? 0}
-              readonly={true}
+        <div 
+          className="block cursor-pointer"
+          onClick={handleCardClick}
+        >
+          <div className="relative h-48 w-full overflow-hidden">
+            <ProductImage 
+              product={product} 
+              alt={product.title}
+              className="transform group-hover:scale-110 transition-transform duration-500" 
             />
-            {(product.totalRatings ?? 0) > 0 && (
-              <span className="ml-2 text-sm text-gray-500">
-                ({product.totalRatings})
+            {product.category && (
+              <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-indigo-600 text-xs font-semibold px-3 py-1.5 rounded-full">
+                {product.category}
               </span>
             )}
           </div>
-        </div>
-      </Link>
+        
+          <div className="p-4">
+            <h3 className="text-base font-semibold text-gray-900 hover:text-indigo-600 transition-colors line-clamp-1">
+              {product.title}
+            </h3>
+            
+            <p className="mt-1 text-sm text-gray-600 line-clamp-1">
+              {product.description}
+            </p>
+            
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex flex-col">
+                {product.flash_sale_price ? (
+                  <>
+                    <span className="text-lg font-bold text-red-600">
+                      {formatCurrency(product.flash_sale_price)}
+                    </span>
+                    <span className="text-xs text-gray-500 line-through">
+                      {formatCurrency(product.price)}
+                    </span>
+                    <span className="text-xs text-red-600 font-medium">
+                      {Math.round(((product.price - product.flash_sale_price) / product.price) * 100)}% OFF
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-lg font-bold text-gray-900">
+                    {formatCurrency(product.price)}
+                  </span>
+                )}
+              </div>
+              
+              <button 
+                onClick={handleLike}
+                disabled={likesLoading}
+                className={`text-gray-400 hover:text-red-500 transition-all duration-300 transform hover:scale-110 
+                  ${likesLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <div className="relative">
+                  <svg 
+                    className={`w-5 h-5 ${isLiked ? 'text-red-500 fill-current' : ''}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth="2" 
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" 
+                    />
+                  </svg>
+                  {likeCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-100 text-red-600 text-xs font-medium px-1.5 py-0.5 rounded-full">
+                      {likeCount}
+                    </span>
+                  )}
+                  {likesLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-3 h-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+              </button>
+            </div>
+            
+            <button
+              onClick={handleBuyNow}
+              className="mt-3 w-full block text-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-full hover:bg-indigo-700 transition-colors"
+            >
+              Buy Now
+            </button>
+            
+            {(showOwner || product.users) && (
+              <div className="mt-4 flex items-center text-sm text-gray-500">
+                <button 
+                  onClick={handleStoreClick}
+                  className="flex items-center hover:text-indigo-600 transition-colors"
+                >
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white">
+                    {product.users?.store_settings?.name?.[0] || product.users?.full_name?.[0] || '?'}
+                  </div>
+                  <span className="ml-2 font-medium">
+                    {product.users?.store_settings?.name || product.users?.full_name || 'Unknown seller'}
+                  </span>
+                </button>
+              </div>
+            )}
+            
+            {showActions && (
+              <div className="mt-4 flex justify-end space-x-2">
+                <button
+                  onClick={handleEditClick}
+                  className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-full hover:bg-indigo-100 transition-colors"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDelete();
+                  }}
+                  disabled={loading}
+                  className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-full hover:bg-red-100 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            )}
 
-      {children}
-    </div>
+            <div className="mt-2 flex items-center">
+              <ProductRating
+                productId={product.id}
+                initialRating={calculateAverageRating()}
+                totalRatings={product.totalRatings ?? 0}
+                readonly={true}
+              />
+              {(product.totalRatings ?? 0) > 0 && (
+                <span className="ml-2 text-sm text-gray-500">
+                  ({product.totalRatings})
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {children}
+      </div>
     </>
   );
 }

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tx_ref = searchParams.get('trx_ref') || searchParams.get('tx_ref');
   const status = searchParams.get('status');
-  const headersList = headers();
+  const headersList = await headers();
   const isAjax = headersList.get('X-Requested-With') === 'XMLHttpRequest';
 
   console.log('[CHAPA CALLBACK] Starting callback processing:', { tx_ref, status });
@@ -388,7 +388,7 @@ function handleRedirect(tx_ref: string | null, success: boolean, isAjax: boolean
 
 // Update POST handler to use the same redirect handling
 export async function POST(request: Request) {
-  const headersList = headers();
+  const headersList = await headers();
   const isAjax = headersList.get('X-Requested-With') === 'XMLHttpRequest';
 
   try {

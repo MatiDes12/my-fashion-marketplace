@@ -95,6 +95,14 @@ export class TelegramBot {
 
   async sendMessage(message: TelegramMessage): Promise<any> {
     try {
+      // Log the message being sent for debugging
+      console.log('[TELEGRAM] Sending message:', {
+        chat_id: message.chat_id,
+        text_length: message.text?.length,
+        parse_mode: message.parse_mode,
+        has_reply_markup: !!message.reply_markup
+      });
+
       const response = await fetch(`${this.baseUrl}/sendMessage`, {
         method: 'POST',
         headers: {
@@ -104,7 +112,13 @@ export class TelegramBot {
       });
 
       if (!response.ok) {
-        throw new Error(`Telegram API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[TELEGRAM] API error details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        throw new Error(`Telegram API error: ${response.status} - ${errorData.description || response.statusText}`);
       }
 
       return await response.json();
@@ -564,25 +578,47 @@ export class TelegramBot {
         .eq('is_active', true)
         .single();
 
-      if (!user?.chat_id) return;
+      if (!user?.chat_id) {
+        console.log('[TELEGRAM] No active Telegram user found for userId:', userId);
+        return;
+      }
 
-      const message = this.formatReceipt(receiptData);
+      let message = this.formatReceipt(receiptData);
+      
+      // Check message length (Telegram limit is 4096 characters)
+      if (message.length > 4000) {
+        console.warn('[TELEGRAM] Message too long, truncating:', message.length);
+        // Truncate message if too long
+        message = message.substring(0, 4000) + '\n\n... (message truncated)';
+      }
       
       try {
+        // Create a simplified message without complex formatting for testing
+        const simpleMessage = `
+🧾 <b>Payment Receipt - AVRIO</b>
+
+📋 Receipt No: <code>${receiptData.txRef || 'N/A'}</code>
+Order ID: <code>${receiptData.orderId || 'N/A'}</code>
+Amount: <b>${receiptData.amount} ETB</b>
+Status: ✅ Paid
+
+👤 Customer: ${receiptData.customerName || 'Customer'}
+🛍️ Product: ${receiptData.productName || 'Product'}
+💳 Method: ${receiptData.paymentMethod || 'N/A'}
+
+🎉 Thank you for your purchase!
+        `.trim();
+
         await this.sendMessage({
           chat_id: user.chat_id,
-          text: message,
+          text: simpleMessage,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [
                 {
                   text: '📄 Download Receipt',
-                  url: receiptData.receiptUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/${receiptData.paymentMethod.toLowerCase()}/${receiptData.txRef}`
-                },
-                {
-                  text: '📦 Track Order',
-                  callback_data: `track_${receiptData.orderId}`
+                  url: receiptData.receiptUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/${receiptData.paymentMethod?.toLowerCase() || 'cash'}/${receiptData.txRef}`
                 }
               ],
               [
@@ -600,10 +636,14 @@ export class TelegramBot {
           userId,
           user.chat_id,
           'receipt',
-          message,
+          simpleMessage,
           { receiptData, orderId: receiptData.orderId }
         );
+        
+        console.log('[TELEGRAM] Receipt sent successfully to user:', userId);
       } catch (sendError) {
+        console.error('[TELEGRAM] Failed to send receipt:', sendError);
+        
         // Log failed receipt
         await this.logNotification(
           userId,
@@ -614,10 +654,13 @@ export class TelegramBot {
           'failed',
           sendError instanceof Error ? sendError.message : 'Unknown error'
         );
-        throw sendError;
+        
+        // Don't throw error to avoid breaking the payment flow
+        // Just log it and continue
       }
     } catch (error) {
-      console.error('Error sending receipt:', error);
+      console.error('Error in sendReceipt:', error);
+      // Don't throw error to avoid breaking the payment flow
     }
   }
 
