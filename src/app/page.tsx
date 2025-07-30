@@ -1971,7 +1971,8 @@ export default function HomePage() {
                             fill
                             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 20vw"
                             className="absolute inset-0 w-full h-full object-cover rounded-lg shadow-lg"
-                            priority={index < 2}
+                            priority={index === 0}
+                            quality={75}
                           />
                         </div>
                       </motion.div>
@@ -2528,7 +2529,8 @@ export default function HomePage() {
                                 alt={product.title}
                                 fill
                                 sizes="(max-width: 640px) 280px, 320px"
-                                priority={index < 4}
+                                priority={index < 2}
+                                quality={75}
                                 className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;

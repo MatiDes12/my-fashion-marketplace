@@ -1,7 +1,6 @@
 'use client';
 
-import Image from 'next/image';
-import { useState } from 'react';
+import OptimizedImage from './OptimizedImage';
 
 type ProductImageProps = {
   product: {
@@ -17,12 +16,9 @@ type ProductImageProps = {
 };
 
 export default function ProductImage({ product, alt, className = '' }: ProductImageProps) {
-  const [imageError, setImageError] = useState(false);
-
   // Get the first non-model picture, or the first picture, or default to placeholder
-  const imageUrl = !imageError ? 
-    (product?.product_images?.find(img => !img.is_model_picture)?.image_url 
-    || product?.product_images?.[0]?.image_url) : null;
+  const imageUrl = product?.product_images?.find(img => !img.is_model_picture)?.image_url 
+    || product?.product_images?.[0]?.image_url;
 
   // Format the image URL correctly
   const formattedImageUrl = imageUrl ? 
@@ -34,14 +30,14 @@ export default function ProductImage({ product, alt, className = '' }: ProductIm
 
   return (
     <div className={`relative w-full h-80 bg-white rounded-lg overflow-hidden ${className}`}>
-      <Image
+      <OptimizedImage
         src={formattedImageUrl}
         alt={imageAlt}
         fill
         className="object-cover"
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        onError={() => setImageError(true)}
+        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
         priority={false}
+        quality={80}
       />
     </div>
   );

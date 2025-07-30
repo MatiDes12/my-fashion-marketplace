@@ -25,9 +25,14 @@ const nextConfig = {
         pathname: '/leaflet@**',
       }
     ],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256],
-    minimumCacheTTL: 60,
+    // Reduced device sizes to minimize optimization variants
+    deviceSizes: [640, 768, 1024, 1280],
+    // Reduced image sizes to minimize optimization variants
+    imageSizes: [16, 32, 64, 96, 128],
+    // Increased cache TTL to reduce re-optimization
+    minimumCacheTTL: 31536000, // 1 year
+    // Enable format optimization
+    formats: ['image/webp', 'image/avif'],
     dangerouslyAllowSVG: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; frame-src 'none'; sandbox;",
   },

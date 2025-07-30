@@ -899,16 +899,14 @@ function ProductsContent() {
                               src={product.product_images[0].image_url}
                               alt={product.title}
                               fill
-                              sizes="(max-width: 640px) 100vw, 
-                                     (max-width: 1024px) 50vw, 
-                                     (max-width: 1280px) 33vw,
-                                     25vw"
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                               className="absolute inset-0 w-full h-full object-cover object-center group-hover:opacity-75 transition-opacity"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.src = '/placeholder.png';
                               }}
                               priority={false}
+                              quality={75}
                             />
                           ) : (
                             <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
