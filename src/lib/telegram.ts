@@ -665,6 +665,31 @@ Status: ✅ Paid
   }
 
   // Message formatting methods
+  private formatDeliveryAddress(address: any): string {
+    if (!address) return '';
+    
+    // If address is a string, return it as is
+    if (typeof address === 'string') {
+      return address;
+    }
+    
+    // If address is a JSON object, format it nicely
+    if (typeof address === 'object') {
+      const parts = [];
+      
+      if (address.houseNo) parts.push(`House ${address.houseNo}`);
+      if (address.kebele) parts.push(`Kebele ${address.kebele}`);
+      if (address.wereda) parts.push(`Wereda ${address.wereda}`);
+      if (address.subCity) parts.push(address.subCity);
+      if (address.city) parts.push(address.city);
+      if (address.landmark) parts.push(`Near ${address.landmark}`);
+      
+      return parts.join(', ');
+    }
+    
+    return '';
+  }
+
   private formatOrderNotification(orderData: any): string {
     return `
 🛍️ <b>New Order Received!</b>
@@ -683,6 +708,10 @@ Order Date: ${new Date(orderData.created_at).toLocaleString()}
 
   private formatOrderConfirmation(orderData: any): string {
     const amount = typeof orderData.amount === 'number' ? orderData.amount.toLocaleString() : orderData.amount;
+    
+    // Format delivery address
+    const formattedAddress = this.formatDeliveryAddress(orderData.deliveryAddress);
+    const addressLine = formattedAddress ? `📍 Address: ${formattedAddress}` : '';
     
     return `
 🎉 <b>Order Confirmed - AVRIO</b>
@@ -713,7 +742,7 @@ Email: ${orderData.customerEmail || 'N/A'}
 Method: ${orderData.deliveryMethod === 'home_delivery' ? '🏠 Home Delivery' : 
          orderData.deliveryMethod === 'store_pickup' ? '🏪 Store Pickup' : 
          orderData.deliveryMethod || 'Standard Delivery'}
-${orderData.deliveryAddress ? `📍 Address: ${orderData.deliveryAddress}` : ''}
+${addressLine}
 ${orderData.pickupCode ? `🔑 Pickup Code: <code>${orderData.pickupCode}</code>` : ''}
 
 🎯 <b>Next Steps:</b>
@@ -801,9 +830,10 @@ Date: ${new Date().toLocaleString()}
 
   private formatReceipt(receiptData: any): string {
     const amount = typeof receiptData.amount === 'number' ? receiptData.amount.toLocaleString() : receiptData.amount;
-    const subtotal = typeof receiptData.subtotal === 'number' ? receiptData.subtotal.toLocaleString() : receiptData.subtotal;
-    const serviceFee = typeof receiptData.serviceFee === 'number' ? receiptData.serviceFee.toLocaleString() : receiptData.serviceFee;
-    const deliveryFee = typeof receiptData.deliveryFee === 'number' ? receiptData.deliveryFee.toLocaleString() : receiptData.deliveryFee;
+    
+    // Format delivery address
+    const formattedAddress = this.formatDeliveryAddress(receiptData.deliveryAddress);
+    const addressLine = formattedAddress ? `📍 Address: ${formattedAddress}` : '';
     
     return `
 🧾 <b>Payment Receipt - AVRIO</b>
@@ -811,40 +841,28 @@ Date: ${new Date().toLocaleString()}
 📋 <b>Receipt Details:</b>
 Receipt No: <code>${receiptData.txRef || 'N/A'}</code>
 Order ID: <code>${receiptData.orderId || 'N/A'}</code>
-Date: ${new Date(receiptData.createdAt || Date.now()).toLocaleString('en-US', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit'
-})}
+Amount: <b>${amount} ETB</b>
+Status: ✅ Paid
 
 👤 <b>Customer Information:</b>
 Name: ${receiptData.customerName || 'Customer'}
 Email: ${receiptData.customerEmail || 'N/A'}
 Phone: ${receiptData.customerPhone || 'N/A'}
 
-🛍️ <b>Order Summary:</b>
+🛍️ <b>Product Information:</b>
 Product: ${receiptData.productName || 'Product'}
 Quantity: ${receiptData.quantity || 1}
-Subtotal: ${subtotal} ETB
-
-💰 <b>Payment Breakdown:</b>
-Subtotal: ${subtotal} ETB
-Service Fee: ${serviceFee} ETB
-Delivery Fee: ${deliveryFee} ETB
-<b>Total Amount: ${amount} ETB</b>
+Unit Price: ${receiptData.unitPrice || receiptData.amount} ETB
 
 💳 <b>Payment Information:</b>
 Method: ${receiptData.paymentMethod || 'N/A'}
-Status: ✅ Paid
 Transaction Ref: <code>${receiptData.txRef || 'N/A'}</code>
 
 🚚 <b>Delivery Information:</b>
 Method: ${receiptData.deliveryMethod === 'home_delivery' ? '🏠 Home Delivery' : 
          receiptData.deliveryMethod === 'store_pickup' ? '🏪 Store Pickup' : 
          receiptData.deliveryMethod || 'Standard Delivery'}
-${receiptData.deliveryAddress ? `📍 Address: ${receiptData.deliveryAddress}` : ''}
+${addressLine}
 ${receiptData.pickupCode ? `🔑 Pickup Code: <code>${receiptData.pickupCode}</code>` : ''}
 
 🎉 <b>Thank you for your purchase!</b>
@@ -2405,7 +2423,7 @@ Contact support: /support
       // Format delivery address
       let deliveryInfo = '';
       if (order.delivery_method === 'home_delivery' && order.delivery_address) {
-        deliveryInfo = `📍 Address: ${order.delivery_address}`;
+        deliveryInfo = `📍 Address: ${this.formatDeliveryAddress(order.delivery_address)}`;
       } else if (order.delivery_method === 'store_pickup' && order.pickup_code) {
         deliveryInfo = `🔑 Pickup Code: <code>${order.pickup_code}</code>`;
       }
