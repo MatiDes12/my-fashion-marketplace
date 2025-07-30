@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { createClientComponent } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -249,12 +248,11 @@ export default function StorePage() {
       {/* Store Banner */}
       <div className="relative h-64 md:h-80 w-full bg-gray-200">
         {store.banner_url && (
-          <Image
+          <img
             src={store.banner_url}
             alt={store.name}
-            fill
-            className="object-cover"
-            priority
+            className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
           />
         )}
       </div>
@@ -267,11 +265,11 @@ export default function StorePage() {
               {/* Store Logo */}
               <div className="relative h-32 w-32 rounded-2xl overflow-hidden bg-gray-100 ring-4 ring-white">
                 {store.logo_url ? (
-                  <Image
+                  <img
                     src={store.logo_url}
                     alt={store.name}
-                    fill
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-4xl font-bold">
@@ -529,7 +527,7 @@ export default function StorePage() {
                 {/* Show Telebirr if active */}
                 {store.payment_methods.TELEBIRR && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                    <Image 
+                    <img 
                       src="/images/payment-methods/Telebirr-logo.png" 
                       alt="Telebirr" 
                       width={24} 
@@ -543,7 +541,7 @@ export default function StorePage() {
                 {/* Show CBE if active */}
                 {store.payment_methods.CBE && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                    <Image 
+                    <img 
                       src="/images/cbe-logo.png" 
                       alt="CBE" 
                       width={24} 
@@ -557,7 +555,7 @@ export default function StorePage() {
                 {/* Show Amole if active */}
                 {store.payment_methods.AMOLE && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                    <Image 
+                    <img 
                       src="/images/amole-logo.png" 
                       alt="Amole" 
                       width={24} 
@@ -571,7 +569,7 @@ export default function StorePage() {
                 {/* Show Chapa if active */}
                 {store.payment_methods.CHAPA && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                    <Image 
+                    <img 
                       src="/images/payment-methods/chapa-logo.png" 
                       alt="Chapa" 
                       width={48} 
@@ -586,7 +584,7 @@ export default function StorePage() {
                 {/* Show M-PESA if active */}
                 {store.payment_methods.MPESA && (
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                    <Image 
+                    <img 
                       src="/images/payment-methods/mpesa-logo.png" 
                       alt="M-PESA" 
                       width={24} 
