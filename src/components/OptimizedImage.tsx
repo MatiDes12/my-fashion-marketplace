@@ -33,6 +33,7 @@ export default function OptimizedImage({
   const [imageError, setImageError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(false);
+  const [useDirectUrl, setUseDirectUrl] = useState(false);
   const imageRef = useRef<HTMLDivElement>(null);
 
   // Intersection Observer for lazy loading
@@ -84,8 +85,18 @@ export default function OptimizedImage({
     return quality;
   };
 
-  // Handle image error
-  const handleError = () => {
+  // Handle image error - try direct URL if Next.js optimization fails
+  const handleError = (e: any) => {
+    const target = e.target as HTMLImageElement;
+    
+    // Check if it's a 402 error (payment required)
+    if (target.src.includes('_next/image') && !useDirectUrl) {
+      // Fall back to direct URL
+      setUseDirectUrl(true);
+      setImageError(false);
+      return;
+    }
+    
     setImageError(true);
   };
 
@@ -125,6 +136,25 @@ export default function OptimizedImage({
             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
+      </div>
+    );
+  }
+
+  // If using direct URL, render as regular img tag
+  if (useDirectUrl) {
+    return (
+      <div ref={imageRef} className={`relative ${className}`}>
+        <img
+          src={src}
+          alt={alt}
+          className={`transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'} ${fill ? 'absolute inset-0 w-full h-full object-cover' : ''}`}
+          style={fill ? {} : { width, height }}
+          onError={handleError}
+          onLoad={handleLoad}
+        />
+        {!isLoaded && (
+          <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+        )}
       </div>
     );
   }

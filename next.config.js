@@ -3,6 +3,8 @@ const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
   images: {
+    // Option to disable image optimization when limit is reached
+    unoptimized: process.env.DISABLE_IMAGE_OPTIMIZATION === 'true',
     domains: [
       'qrigmytqvxuzvrbphpcl.supabase.co',
       'unpkg.com',
