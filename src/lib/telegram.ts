@@ -2436,6 +2436,7 @@ Product: ${order.product?.title || 'N/A'}
 Status: ${order.order_status}
 Payment: ${order.payment_status}
 
+
 💰 <b>Pricing:</b>
 Amount: ${order.total_price} ETB
 Platform Fee: ${order.platform_fee || 0} ETB
