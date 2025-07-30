@@ -285,13 +285,20 @@ export class TelegramBot {
 
   async sendOrderConfirmation(userId: string, orderData: any): Promise<void> {
     try {
+      console.log('[TELEGRAM] Attempting to send order confirmation for user:', userId);
+      
       const { data: user } = await supabaseService
         .from('telegram_users')
         .select('chat_id')
         .eq('user_id', userId)
         .single();
 
-      if (!user?.chat_id) return;
+      if (!user?.chat_id) {
+        console.log('[TELEGRAM] User not linked to Telegram, skipping order confirmation for user:', userId);
+        return;
+      }
+      
+      console.log('[TELEGRAM] User linked to Telegram, sending order confirmation to chat_id:', user.chat_id);
 
       const message = this.formatOrderConfirmation(orderData);
       
@@ -717,7 +724,7 @@ Order Date: ${new Date(orderData.created_at).toLocaleString()}
 🎉 <b>Order Confirmed - AVRIO</b>
 
 📦 <b>Order Details:</b>
-Order ID: <code>${orderData.orderId}</code>
+Order ID: <code>${orderData.orderId.slice(-12)}</code>
 Product: ${orderData.productName || 'Product'}
 Quantity: ${orderData.quantity || 1}
 Total Amount: <b>${amount} ETB</b>
@@ -762,7 +769,7 @@ ${orderData.pickupCode ? `🔑 Pickup Code: <code>${orderData.pickupCode}</code>
 💳 <b>Payment Confirmation - AVRIO</b>
 
 🎯 <b>Order Details:</b>
-Order ID: <code>${paymentData.orderId || paymentData.order_id}</code>
+Order ID: <code>${(paymentData.orderId || paymentData.order_id).slice(-12)}</code>
 Product: ${paymentData.productName || 'Product'}
 Amount: <b>${amount} ETB</b>
 
