@@ -562,12 +562,13 @@ export default function OrdersPage() {
                         {/* Product Image */}
                         <div className="flex-shrink-0 w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
                       {order.product?.images && order.product.images.length > 0 ? (
-                        <Image
+                        <img
                           src={order.product.images[0].image_url}
                           alt={order.product.title}
                               width={96}
                               height={96}
                           className="w-full h-full object-center object-cover"
+                          loading="lazy"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">

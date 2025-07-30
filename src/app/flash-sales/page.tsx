@@ -251,11 +251,11 @@ export default function FlashSalesPage() {
                           </div>
                           
                           <div className="aspect-w-1 aspect-h-1 relative bg-gray-100 overflow-hidden">
-                            <Image
+                            <img
                               src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
                               alt={flashProduct.product.title}
-                              fill
-                              className="object-cover transform group-hover/product:scale-110 transition-transform duration-500"
+                              className="absolute inset-0 w-full h-full object-cover transform group-hover/product:scale-110 transition-transform duration-500"
+                              loading="lazy"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover/product:opacity-100 transition-opacity"></div>
                           </div>
@@ -305,11 +305,11 @@ export default function FlashSalesPage() {
                           </div>
                           
                           <div className="aspect-w-1 aspect-h-1 relative bg-gray-100 overflow-hidden">
-                            <Image
+                            <img
                               src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
                               alt={flashProduct.product.title}
-                              fill
-                              className="object-cover transform group-hover/product:scale-110 transition-transform duration-500"
+                              className="absolute inset-0 w-full h-full object-cover transform group-hover/product:scale-110 transition-transform duration-500"
+                              loading="lazy"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover/product:opacity-100 transition-opacity"></div>
                           </div>

@@ -28,7 +28,7 @@ const UnverifiedHeader = () => {
       <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="p-1">
-            <Image
+            <img
               src="/images/brand/logo.png"
               alt="Logo"
               width={48}
@@ -253,7 +253,7 @@ export default function DashboardLayout({
             </button>
             <div className="flex items-center gap-3">
               <div className="p-1">
-                <Image
+                <img
                   src="/images/brand/logo.png"
                   alt="Avrio"
                   width={48}
@@ -307,7 +307,7 @@ export default function DashboardLayout({
           {/* Logo section */}
           <div className="flex-shrink-0 px-4 py-4 flex items-center">
             <Link href="/dashboard" className="flex-shrink-0">
-              <Image
+              <img
                 src="/images/brand/logo.png"
                 alt="Logo"
                 width={40}
@@ -416,7 +416,7 @@ export default function DashboardLayout({
               </svg>
             </button>
             <div className="flex items-center">
-              <Image
+              <img
                 src="/images/brand/logo.png"
                 alt="Logo"
                 width={32}

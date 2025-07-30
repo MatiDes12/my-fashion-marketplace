@@ -61,12 +61,11 @@ function DocumentPreviewModal({ url, title, onClose }: DocumentPreviewModalProps
               <iframe src={url} className="w-full h-[70vh]" />
             ) : (
               <div className="relative h-[70vh] w-full">
-                <Image
+                <img
                   src={url}
                   alt={title}
-                  fill
-                  className="object-contain"
-                  unoptimized
+                  className="absolute inset-0 w-full h-full object-contain"
+                  loading="lazy"
                 />
               </div>
             )}

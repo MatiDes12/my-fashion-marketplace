@@ -115,7 +115,7 @@ export default function UnsubscribePage() {
       <div className="max-w-md w-full space-y-8 text-center">
         {/* Logo */}
         <div className="mb-8">
-          <Image
+          <img
             src="/images/brand/logo.png"
             alt="Avrio Shop"
             width={80}

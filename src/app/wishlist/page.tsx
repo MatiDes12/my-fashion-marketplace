@@ -261,15 +261,11 @@ export default function WishlistPage() {
                 <Link href={`/products/${product.id}`}>
                   <div className="relative w-full pt-[100%] bg-gray-100 overflow-hidden">
                     {product.product_images && product.product_images.length > 0 ? (
-                      <Image
+                      <img
                         src={product.product_images[0].image_url}
                         alt={product.title}
-                        fill
-                        sizes="(max-width: 640px) 100vw, 
-                               (max-width: 1024px) 50vw, 
-                               (max-width: 1280px) 33vw,
-                               25vw"
                         className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
+                        loading="lazy"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = '/placeholder.png';

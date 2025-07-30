@@ -600,12 +600,13 @@ export default function CartPage() {
                         {/* Product Image */}
                         <div className="w-full sm:w-32 h-48 sm:h-32 bg-gray-100 rounded-lg overflow-hidden">
                           {item.product?.images && item.product.images.length > 0 ? (
-                            <Image
+                            <img
                               src={item.product.images[0].image_url}
                               alt={item.product.title}
                               width={128}
                               height={128}
                               className="w-full h-full object-center object-cover"
+                              loading="lazy"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">

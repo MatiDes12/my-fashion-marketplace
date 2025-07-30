@@ -355,11 +355,11 @@ export default function StoresPage() {
                 {/* Banner Image */}
                 <div className="relative h-32 bg-gradient-to-r from-red-500 to-pink-500">
                   {seller.store_settings?.banner_url && (
-                    <Image
+                    <img
                       src={cleanImageUrl(seller.store_settings.banner_url)}
                       alt=""
-                      fill
-                      className="object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="lazy"
                     />
                   )}
                 </div>
@@ -368,11 +368,11 @@ export default function StoresPage() {
                 <div className="relative -mt-16 px-4">
                   <div className="relative w-32 h-32 mx-auto">
                     {seller.store_settings?.logo_url ? (
-                      <Image
+                      <img
                         src={cleanImageUrl(seller.store_settings.logo_url)}
                         alt={seller.store_settings.name}
-                        fill
-                        className="rounded-full object-cover border-4 border-white shadow-lg"
+                        className="absolute inset-0 w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
+                        loading="lazy"
                       />
                     ) : (
                       <div className="w-full h-full rounded-full bg-gradient-to-r from-gray-800 to-gray-900 flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg">

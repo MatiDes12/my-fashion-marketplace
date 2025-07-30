@@ -474,13 +474,12 @@ const SafeImage = ({ image, alt, className = '' }: {
 
   return (
     <div className={`relative ${className}`}>
-      <Image
+      <img
         src={formattedUrl}
         alt={alt}
-        fill
-        className="object-contain"
+        className="absolute inset-0 w-full h-full object-contain"
         onError={() => setImageError(true)}
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        loading="lazy"
       />
     </div>
   );

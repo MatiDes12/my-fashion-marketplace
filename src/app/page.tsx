@@ -715,11 +715,11 @@ const TestimonialCarousel = () => {
                     border-gray-700/50 group-hover:border-gray-600/50 
                     transition-colors bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center">
                     {testimonial.avatar ? (
-                      <Image
+                      <img
                         src={testimonial.avatar}
                         alt={testimonial.name}
-                        fill
-                        className="object-cover"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        loading="lazy"
                       />
                     ) : (
                       <span className="text-white font-semibold text-lg">
@@ -1319,11 +1319,11 @@ export default function HomePage() {
                       </div>
 
                       <div className="aspect-w-1 aspect-h-1 relative bg-[#0A0A0A]">
-                        <Image
+                        <img
                           src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
                           alt={flashProduct.product.title}
-                          fill
-                          className="object-cover transform group-hover:scale-105 transition-transform duration-500"
+                          className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
                         />
                       </div>
 
@@ -1504,11 +1504,11 @@ export default function HomePage() {
             className="block relative bg-gray-800/50 backdrop-blur-sm rounded-lg overflow-hidden transition-all duration-300 hover:shadow-lg hover:bg-gray-800/70 group"
           >
             <div className="aspect-w-1 aspect-h-1 relative bg-[#0A0A0A]">
-              <Image
+              <img
                 src={cleanImageUrl(product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
                 alt={product.title}
-                fill
-                className="object-cover transform group-hover:scale-105 transition-transform duration-500"
+                className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
               />
             </div>
 
@@ -1965,14 +1965,11 @@ export default function HomePage() {
                       >
                         {/* Update the image container */}
                         <div className="relative w-full pt-[100%]">
-                          <Image
+                          <img
                             src={image.src}
                             alt={image.alt}
-                            fill
-                            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 20vw"
                             className="absolute inset-0 w-full h-full object-cover rounded-lg shadow-lg"
-                            priority={index === 0}
-                            quality={75}
+                            loading={index === 0 ? "eager" : "lazy"}
                           />
                         </div>
                       </motion.div>
@@ -2140,11 +2137,11 @@ export default function HomePage() {
                             </div>
 
                             <div className="aspect-w-1 aspect-h-1 relative bg-[#0A0A0A]">
-                              <Image
+                              <img
                                 src={cleanImageUrl(flashProduct.product.product_images[0]?.image_url) || PLACEHOLDER_IMAGE}
                                 alt={flashProduct.product.title}
-                                fill
-                                className="object-cover transform group-hover:scale-105 transition-transform duration-500"
+                                className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                                loading="lazy"
                               />
                             </div>
 
@@ -2256,11 +2253,11 @@ export default function HomePage() {
                           className="block relative h-[200px] rounded-lg overflow-hidden group touch-pan-y w-full"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
-                          <Image
+                          <img
                             src={category.image}
                             alt={category.name}
-                            fill
-                            className="object-cover transform group-hover:scale-110 transition-transform duration-500"
+                            className="absolute inset-0 w-full h-full object-cover rounded-lg shadow-lg"
+                            loading="lazy"
                           />
                           <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
                             <div className="flex items-center gap-2 text-white mb-2">

@@ -104,13 +104,12 @@ const ProductImage = ({ imageUrl, title }: { imageUrl: string; title: string }) 
 
   return (
     <div className="relative aspect-w-3 aspect-h-2 bg-gray-100">
-      <Image
+      <img
         src={formattedUrl}
         alt={title}
-        fill
-        className="object-cover"
+        className="absolute inset-0 w-full h-full object-cover"
+        loading="lazy"
         onError={() => setImageError(true)}
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       />
     </div>
   );
@@ -590,20 +589,20 @@ function ProductsPage() {
                     {product.product_images && product.product_images.length > 0 ? (
                       <div className="w-full h-full">
                         {viewMode === 'list' ? (
-                          <Image
+                          <img
                             src={formatImageUrl(product.product_images[0].image_url)}
                             alt={product.title}
                             width={192}
                             height={192}
                             className="object-cover rounded-l-lg"
+                            loading="lazy"
                           />
                         ) : (
-                        <Image
+                        <img
                           src={formatImageUrl(product.product_images[0].image_url)}
                           alt={product.title}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          className="absolute inset-0 w-full h-full object-cover"
+                          loading="lazy"
                         />
                         )}
                       </div>
@@ -683,12 +682,11 @@ function ProductsPage() {
                         <div className="relative h-48">
                           {product.product_images && product.product_images.length > 0 ? (
                             <div className="w-full h-full">
-                              <Image
+                              <img
                                 src={formatImageUrl(cleanImageUrl(product.product_images[0].image_url))}
                                 alt={product.title}
-                                fill
-                                className="object-cover"
-                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                className="absolute inset-0 w-full h-full object-cover"
+                                loading="lazy"
                               />
                             </div>
                           ) : (
@@ -778,12 +776,11 @@ function ProductsPage() {
                       <div className="relative h-48">
                         {product.product_images && product.product_images.length > 0 ? (
                           <div className="w-full h-full">
-                          <Image
+                          <img
                               src={formatImageUrl(cleanImageUrl(product.product_images[0].image_url))}
                             alt={product.title}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              className="absolute inset-0 w-full h-full object-cover"
+                              loading="lazy"
                             />
                             <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
                               <span className="text-white text-lg font-bold">Out of Stock</span>

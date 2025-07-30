@@ -721,11 +721,11 @@ export default function ProfilePage() {
               <label className="text-sm font-medium text-gray-700">Store Logo</label>
               <div className="sm:col-span-2">
                 <div className="relative h-32 w-32 rounded-lg overflow-hidden">
-                  <Image
+                  <img
                     src={profile.store_settings.logo_url}
                     alt="Store Logo"
-                    fill
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -738,11 +738,11 @@ export default function ProfilePage() {
               <label className="text-sm font-medium text-gray-700">Store Banner</label>
               <div className="sm:col-span-2">
                 <div className="relative h-48 w-full rounded-lg overflow-hidden">
-                  <Image
+                  <img
                     src={profile.store_settings.banner_url}
                     alt="Store Banner"
-                    fill
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
                   />
                 </div>
               </div>
@@ -905,7 +905,7 @@ export default function ProfilePage() {
                   {/* Show Telebirr if active */}
                   {profile.store_settings.payment_methods.TELEBIRR && (
                     <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                      <Image 
+                      <img 
                         src="/images/payment-methods/Telebirr-logo.png" 
                         alt="Telebirr" 
                         width={24} 
@@ -919,7 +919,7 @@ export default function ProfilePage() {
                   {/* Show CBE if active */}
                   {profile.store_settings.payment_methods.CBE && (
                     <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                      <Image 
+                      <img 
                         src="/images/payment-methods/cbe-logo.png" 
                         alt="CBE" 
                         width={24} 
@@ -933,7 +933,7 @@ export default function ProfilePage() {
                   {/* Show Amole if active */}
                   {profile.store_settings.payment_methods.AMOLE && (
                     <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                      <Image 
+                      <img 
                         src="/images/payment-methods/amole-logo.png" 
                         alt="Amole" 
                         width={24} 
@@ -947,7 +947,7 @@ export default function ProfilePage() {
                   {/* Show Chapa if active */}
                   {profile.store_settings.payment_methods.CHAPA && (
                     <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                      <Image 
+                      <img 
                         src="/images/payment-methods/chapa-logo.png" 
                         alt="Chapa" 
                         width={48} 
@@ -970,7 +970,7 @@ export default function ProfilePage() {
                   {/* Show M-PESA if active */}
                   {profile.store_settings.payment_methods.MPESA && (
                     <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
-                      <Image 
+                      <img 
                         src="/images/payment-methods/mpesa-logo.png" 
                         alt="M-PESA" 
                         width={24} 
