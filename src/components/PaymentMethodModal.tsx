@@ -542,84 +542,26 @@ export default function PaymentMethodModal({
           await clearCart(userDetails.id);
         }
 
-        // Send Telegram notifications for each order
+        // Send Telegram notifications for cash orders
         try {
-          const { TelegramBot, getTelegramConfig } = await import('@/lib/telegram');
-          const config = await getTelegramConfig();
-          const bot = new TelegramBot(config);
-
-          let telegramProductIndex = 0;
-          for (const seller of sellers) {
-            for (const product of seller.products) {
-              telegramProductIndex++;
-              const variantSuffix = product.selected_variant_sku 
-                ? `-${product.selected_variant_sku.replace(/[^a-zA-Z0-9]/g, '')}` 
-                : product.selected_size 
-                  ? `-${product.selected_size.replace(/[^a-zA-Z0-9]/g, '')}` 
-                  : product.selected_color 
-                    ? `-${product.selected_color.replace(/[^a-zA-Z0-9]/g, '')}` 
-                    : '-default';
-              
-              const uniqueTxRef = `${txRef}${variantSuffix}-${telegramProductIndex}-${Math.random().toString(36).substr(2, 9)}`;
-
-              // Calculate amounts for this specific product
-              const originalPrice = Number(product.price);
-              const itemSubtotal = Number((product.quantity * originalPrice).toFixed(2));
-              const serviceFee = Number((itemSubtotal * 0.03).toFixed(2)); // 3% service fee
-              const itemDeliveryFee = Number(seller.deliveryFee || 0);
-              const itemTotal = Number((itemSubtotal + itemDeliveryFee).toFixed(2));
-
-              // Send order confirmation
-              const orderData = {
-                orderId: uniqueTxRef, // Using tx_ref as order ID for now
-                productName: product.title,
-                quantity: product.quantity,
-                amount: itemTotal,
-                orderStatus: 'confirmed',
-                paymentStatus: 'pending',
-                customerName: userDetails?.full_name || 'Customer',
-                customerEmail: userDetails?.email || '',
-                deliveryMethod: product.delivery_method === 'delivery' || product.delivery_method === 'home_delivery' 
-                  ? 'home_delivery' 
-                  : 'store_pickup',
-                deliveryAddress: product.delivery_address,
-                pickupCode: product.delivery_method === 'pickup' || product.delivery_method === 'store_pickup' 
-                  ? await generateUniquePickupCode()
-                  : null,
-                createdAt: new Date().toISOString()
-              };
-
-              await bot.sendOrderConfirmation(userDetails?.id!, orderData);
-
-              // Send receipt
-              const receiptData = {
-                orderId: uniqueTxRef,
-                txRef: uniqueTxRef,
-                amount: itemTotal,
-                subtotal: itemSubtotal,
-                serviceFee: serviceFee,
-                deliveryFee: itemDeliveryFee,
-                paymentMethod: 'CASH',
-                customerName: userDetails?.full_name || 'Customer',
-                customerEmail: userDetails?.email || '',
-                customerPhone: customerPhone || 'N/A',
-                productName: product.title,
-                quantity: product.quantity,
-                deliveryMethod: product.delivery_method === 'delivery' || product.delivery_method === 'home_delivery' 
-                  ? 'home_delivery' 
-                  : 'store_pickup',
-                deliveryAddress: product.delivery_address,
-                pickupCode: orderData.pickupCode,
-                receiptUrl: `/api/receipts/cash/${uniqueTxRef}`,
-                createdAt: new Date().toISOString()
-              };
-
-              await bot.sendReceipt(userDetails?.id!, receiptData);
-            }
+          const notificationResponse = await fetch('/api/payments/cash/notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              baseTxRef: txRef,
+              userId: userDetails?.id
+            }),
+          });
+          if (notificationResponse.ok) {
+            console.log('Cash payment notifications sent successfully');
+          } else {
+            console.error('Failed to send cash payment notifications');
           }
-        } catch (telegramError) {
-          console.error('Error sending Telegram notifications:', telegramError);
-          // Don't fail the order if Telegram notification fails
+        } catch (notificationError) {
+          console.error('Error sending cash payment notifications:', notificationError);
+          // Don't fail the order if notification fails
         }
 
         // Close modal

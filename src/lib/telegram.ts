@@ -299,6 +299,11 @@ export class TelegramBot {
       }
       
       console.log('[TELEGRAM] User linked to Telegram, sending order confirmation to chat_id:', user.chat_id);
+      console.log('[TELEGRAM] Order confirmation data:', {
+        orderId: orderData.orderId,
+        productName: orderData.productName,
+        orderData: orderData
+      });
 
       const message = this.formatOrderConfirmation(orderData);
       
@@ -372,14 +377,22 @@ export class TelegramBot {
       // Create inline keyboard with useful actions
       const inlineKeyboard = [];
       
-      // Add receipt button if available
+      // Add receipt button if available and not localhost
       if (paymentData.receiptUrl) {
-        inlineKeyboard.push([
-          {
-            text: '📄 View Receipt',
-            url: paymentData.receiptUrl
-          }
-        ]);
+        // Check if the URL contains localhost to avoid Telegram API errors
+        const isLocalhost = process.env.NEXT_PUBLIC_SITE_URL?.includes('localhost') || 
+                           process.env.NEXT_PUBLIC_SITE_URL?.includes('127.0.0.1') ||
+                           paymentData.receiptUrl.includes('localhost') ||
+                           paymentData.receiptUrl.includes('127.0.0.1');
+        
+        if (!isLocalhost) {
+          inlineKeyboard.push([
+            {
+              text: '📄 View Receipt',
+              url: paymentData.receiptUrl
+            }
+          ]);
+        }
       }
       
       // Add order tracking buttons
@@ -604,8 +617,8 @@ export class TelegramBot {
         const simpleMessage = `
 🧾 <b>Payment Receipt - AVRIO</b>
 
-📋 Receipt No: <code>${receiptData.txRef || 'N/A'}</code>
-Order ID: <code>${receiptData.orderId || 'N/A'}</code>
+📋 Receipt No: <code>${receiptData.txRef ? receiptData.txRef.slice(-12) : 'N/A'}</code>
+Order ID: <code>${receiptData.orderId ? receiptData.orderId.slice(-12) : 'N/A'}</code>
 Amount: <b>${receiptData.amount} ETB</b>
 Status: ✅ Paid
 
@@ -616,26 +629,36 @@ Status: ✅ Paid
 🎉 Thank you for your purchase!
         `.trim();
 
-        await this.sendMessage({
-          chat_id: user.chat_id,
-          text: simpleMessage,
-          parse_mode: 'HTML',
-          reply_markup: {
+        // Check if we have a valid site URL (not localhost) for the receipt button
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+        const isLocalhost = siteUrl?.includes('localhost') || siteUrl?.includes('127.0.0.1');
+        
+        let replyMarkup = undefined;
+        
+        if (!isLocalhost && receiptData.receiptUrl) {
+          // Only add receipt button if we have a valid production URL
+          let receiptUrl = receiptData.receiptUrl;
+          if (!receiptUrl.startsWith('http')) {
+            receiptUrl = `${siteUrl}${receiptUrl}`;
+          }
+          
+          replyMarkup = {
             inline_keyboard: [
               [
                 {
                   text: '📄 Download Receipt',
-                  url: receiptData.receiptUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/api/receipts/${receiptData.paymentMethod?.toLowerCase() || 'cash'}/${receiptData.txRef}`
-                }
-              ],
-              [
-                {
-                  text: '🛒 Continue Shopping',
-                  url: `${process.env.NEXT_PUBLIC_SITE_URL}/products`
+                  url: receiptUrl
                 }
               ]
             ]
-          }
+          };
+        }
+
+        await this.sendMessage({
+          chat_id: user.chat_id,
+          text: simpleMessage,
+          parse_mode: 'HTML',
+          reply_markup: replyMarkup
         });
         
         // Log successful receipt
@@ -675,9 +698,18 @@ Status: ✅ Paid
   private formatDeliveryAddress(address: any): string {
     if (!address) return '';
     
-    // If address is a string, return it as is
+    // If address is a string, try to parse it as JSON first
     if (typeof address === 'string') {
-      return address;
+      try {
+        const parsedAddress = JSON.parse(address);
+        if (typeof parsedAddress === 'object') {
+          address = parsedAddress;
+        } else {
+          return address; // Return as is if parsing doesn't result in an object
+        }
+      } catch (e) {
+        return address; // Return as is if JSON parsing fails
+      }
     }
     
     // If address is a JSON object, format it nicely
@@ -765,6 +797,12 @@ ${orderData.pickupCode ? `🔑 Pickup Code: <code>${orderData.pickupCode}</code>
     const status = paymentData.status === 'paid' || paymentData.status === 'SUCCESS' ? '✅ Successful' : '❌ Failed';
     const amount = typeof paymentData.amount === 'number' ? paymentData.amount.toLocaleString() : paymentData.amount;
     
+    // Shorten transaction ref and reference to show only the last section
+    const txRef = paymentData.txRef || paymentData.tx_ref || 'N/A';
+    const reference = paymentData.reference || '';
+    const shortTxRef = txRef !== 'N/A' ? txRef.split('-').pop() || txRef : 'N/A';
+    const shortReference = reference ? reference.split('-').pop() || reference : '';
+    
     let message = `
 💳 <b>Payment Confirmation - AVRIO</b>
 
@@ -776,8 +814,8 @@ Amount: <b>${amount} ETB</b>
 💳 <b>Payment Info:</b>
 Method: ${paymentData.paymentMethod || paymentData.method}
 Status: ${status}
-Transaction Ref: <code>${paymentData.txRef || paymentData.tx_ref || 'N/A'}</code>
-${paymentData.reference ? `Reference: <code>${paymentData.reference}</code>` : ''}
+Transaction Ref: <code>${shortTxRef}</code>
+${shortReference ? `Reference: <code>${shortReference}</code>` : ''}
 
 👤 <b>Customer:</b>
 Name: ${paymentData.customerName || 'Customer'}
@@ -1089,6 +1127,26 @@ Contact us: support@avrioxshop.com
             { command, from, responseType: 'products_overview' }
           );
           break;
+        case '/receipt':
+          await this.sendReceiptInstructions(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'receipt_instructions' }
+          );
+          break;
+        case '/more':
+          await this.sendMoreOptions(chatId);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'more_options' }
+          );
+          break;
         default:
           const unknownMessage = 'Unknown command. Use /help to see available commands.';
           await this.sendMessage({
@@ -1290,10 +1348,12 @@ Use /link to connect your AVRIO account to Telegram
 /orders - View your recent orders
 /tracking - Track deliveries
 /profile - Your account information
+/receipt - Get receipt information
 
 <b>🆘 Support:</b>
 /support - Contact customer support
 /help - Show detailed help message
+/more - View all available options
 
 🔗 <b>Quick Links:</b>
 • <a href="https://www.avrioxshop.com">Visit AVRIO Shop</a>
@@ -1333,10 +1393,12 @@ Here are all the commands you can use:
 /orders - View your recent orders
 /tracking - View delivery tracking for all orders
 /profile - Your account information
+/receipt - Get receipt information and access
 
 <b>🆘 Support:</b>
 /support - Contact customer support
 /help - Show this help message
+/more - View all available options and features
 
 <b>💡 Command Differences:</b>
 • <code>/flash</code> - Quick overview of active flash sales
@@ -3001,6 +3063,81 @@ To search for products, please visit our website:
         text: 'Sorry, I couldn\'t fetch products. Please try again later.'
       });
     }
+  }
+
+  private async sendReceiptInstructions(chatId: number): Promise<void> {
+    const message = `
+🧾 <b>Receipt Information</b>
+
+To access your payment receipts:
+
+1️⃣ <b>Recent Orders:</b>
+   • Use /orders to see your recent orders
+   • Click on any order to view details and receipt
+
+2️⃣ <b>Payment Confirmations:</b>
+   • Receipts are automatically sent after successful payments
+   • Check your recent messages for payment confirmations
+
+3️⃣ <b>Manual Access:</b>
+   • Visit our website: <a href="https://www.avrioxshop.com/orders">View Orders</a>
+   • Contact support if you need a specific receipt
+
+📞 <b>Need Help?</b>
+If you can't find your receipt, contact our support team.
+
+🔗 <a href="https://www.avrioxshop.com/support">Contact Support</a>
+    `;
+
+    await this.sendMessage({
+      chat_id: chatId.toString(),
+      text: message,
+      parse_mode: 'HTML'
+    });
+  }
+
+  private async sendMoreOptions(chatId: number): Promise<void> {
+    const message = `
+🔧 <b>More Options & Features</b>
+
+📋 <b>Account Management:</b>
+• /profile - View your profile and account details
+• /link - Link your Telegram account to your website account
+
+🛍️ <b>Shopping Features:</b>
+• /orders - View your recent orders
+• /wishlist - View your saved items
+• /tracking - Track your deliveries
+
+🏪 <b>Store & Product Features:</b>
+• /stores - Browse stores and sellers
+• /products - Browse all products
+• /categories - Browse by category
+• /deals - View current deals and promotions
+• /flash - View flash sales
+
+🔍 <b>Search & Discovery:</b>
+• /search - Learn how to search for products
+• /categories - Browse product categories
+
+📞 <b>Support & Help:</b>
+• /support - Get help and contact support
+• /help - View all available commands
+
+🎯 <b>Quick Actions:</b>
+• Track deliveries in real-time
+• Get notified about order updates
+• Receive payment confirmations
+• Access receipts and order details
+
+🔗 <a href="https://www.avrioxshop.com">Visit Our Website</a>
+    `;
+
+    await this.sendMessage({
+      chat_id: chatId.toString(),
+      text: message,
+      parse_mode: 'HTML'
+    });
   }
 
   private getCategoryEmoji(category: string): string {

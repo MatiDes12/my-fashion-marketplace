@@ -261,7 +261,7 @@ export async function GET(request: Request) {
           // Get product details
           const { data: product } = await supabase
             .from('products')
-            .select('name, price')
+            .select('title, price')
             .eq('id', tempOrder.product_id)
             .single();
 
@@ -273,7 +273,7 @@ export async function GET(request: Request) {
             status: 'paid',
             customerName: user?.full_name || verifyData.data.first_name + ' ' + verifyData.data.last_name,
             customerEmail: user?.email || verifyData.data.email,
-            productName: product?.name || 'Product',
+            productName: product?.title || 'Product',
             receiptUrl: receiptUrl,
             orderStatus: 'confirmed',
             createdAt: order.created_at,
@@ -286,7 +286,7 @@ export async function GET(request: Request) {
           // Also send order confirmation notification
           const orderData = {
             orderId: order.id,
-            productName: product?.name || 'Product',
+            productName: product?.title || 'Product',
             quantity: tempOrder.quantity,
             amount: tempOrder.total_price,
             orderStatus: 'confirmed',
@@ -314,7 +314,7 @@ export async function GET(request: Request) {
             customerName: user?.full_name || verifyData.data.first_name + ' ' + verifyData.data.last_name,
             customerEmail: user?.email || verifyData.data.email,
             customerPhone: tempOrder.customer_phone || 'N/A',
-            productName: product?.name || 'Product',
+            productName: product?.title || 'Product',
             quantity: tempOrder.quantity,
             deliveryMethod: tempOrder.delivery_method,
             deliveryAddress: tempOrder.delivery_address,
