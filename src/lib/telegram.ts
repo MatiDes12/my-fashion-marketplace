@@ -988,10 +988,30 @@ Contact us: support@avrioxshop.com
       .single();
 
     if (!existingUser) {
+      // Check if there's a pending username link
+      let pendingLinkMessage = '';
+      if (from.username) {
+        const { data: pendingLink } = await supabaseService
+          .from('telegram_users')
+          .select('user_id, chat_id, username')
+          .eq('username', from.username)
+          .eq('is_active', true)
+          .single();
+
+        if (pendingLink && pendingLink.chat_id.startsWith('pending_')) {
+          pendingLinkMessage = `
+
+🎯 <b>Pending Link Detected!</b>
+I found a pending link for username @${from.username}. 
+Sending any message to this bot should complete the linking process.
+          `;
+        }
+      }
+
       const helpMessage = `
 💬 <b>Thanks for messaging!</b>
 
-I see you're not linked to an AVRIO account yet. To get the most out of our bot, please link your account:
+I see you're not linked to an AVRIO account yet. To get the most out of our bot, please link your account:${pendingLinkMessage}
 
 🔗 <b>Link Your Account:</b>
 • Visit your profile page on AVRIO
@@ -1013,6 +1033,7 @@ I see you're not linked to an AVRIO account yet. To get the most out of our bot,
 /start - Welcome message
 /help - Show all commands
 /myid - Get your Chat ID
+/debug - Debug information
 /support - Contact support
 
 🔗 <b>Visit our shop:</b>
@@ -1030,6 +1051,7 @@ I see you're not linked to an AVRIO account yet. To get the most out of our bot,
   private async handleUsernameLinking(chatId: number, from: any): Promise<void> {
     try {
       console.log(`[USERNAME_LINKING] Processing chat_id: ${chatId}, username: ${from.username}`);
+      console.log(`[USERNAME_LINKING] Full from object:`, JSON.stringify(from, null, 2));
       
       // Check if this chat_id is already linked
       const { data: existingUser } = await supabaseService
@@ -1235,6 +1257,16 @@ Thank you for choosing AVRIO! 🛍️
             'bot_command',
             `User executed: ${command}`,
             { command, from, responseType: 'chat_id_info' }
+          );
+          break;
+        case '/debug':
+          await this.sendDebugInfo(chatId, from);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'debug_info' }
           );
           break;
         case '/profile':
@@ -1583,10 +1615,11 @@ Here are all the commands you can use:
 /stores - Browse popular stores
 
 <b>📦 Account & Orders:</b>
-/start - Welcome message
-/link - Link your AVRIO account
-/myid - Get your Telegram Chat ID for linking
-/orders - View your recent orders
+                /start - Welcome message
+                /link - Link your AVRIO account
+                /myid - Get your Telegram Chat ID for linking
+                /debug - Debug information (for troubleshooting)
+                /orders - View your recent orders
 /tracking - View delivery tracking for all orders
 /profile - Your account information
 /receipt - Get receipt information and access
@@ -3342,6 +3375,12 @@ If you can't find your receipt, contact our support team.
   }
 
   private async sendChatIdInfo(chatId: number, from: any): Promise<void> {
+    // Debug logging to see what's in the from object
+    console.log(`[CHAT_ID_INFO] Debug - from object:`, JSON.stringify(from, null, 2));
+    console.log(`[CHAT_ID_INFO] Debug - from.username:`, from.username);
+    console.log(`[CHAT_ID_INFO] Debug - from.first_name:`, from.first_name);
+    console.log(`[CHAT_ID_INFO] Debug - from.last_name:`, from.last_name);
+    
     const message = `
 🆔 <b>Your Telegram Information</b>
 
@@ -3377,6 +3416,53 @@ Hi ${from.first_name}! Here's your Telegram account information:
 • Visit our website for more information
 
 Your Chat ID is unique to your Telegram account and is required for linking your AVRIO account! 🔗
+    `;
+
+    await this.sendMessage({
+      chat_id: chatId.toString(),
+      text: message,
+      parse_mode: 'HTML'
+    });
+  }
+
+  private async sendDebugInfo(chatId: number, from: any): Promise<void> {
+    // Get database info
+    const { data: dbUser } = await supabaseService
+      .from('telegram_users')
+      .select('*')
+      .eq('chat_id', chatId.toString())
+      .eq('is_active', true)
+      .single();
+
+    const { data: pendingLink } = await supabaseService
+      .from('telegram_users')
+      .select('*')
+      .eq('username', from.username || '')
+      .eq('is_active', true)
+      .single();
+
+    const message = `
+🔍 <b>Debug Information</b>
+
+<b>📱 Telegram Data:</b>
+• Chat ID: <code>${chatId}</code>
+• Username: ${from.username ? `@${from.username}` : 'Not set'}
+• First Name: ${from.first_name || 'Not set'}
+• Last Name: ${from.last_name || 'Not set'}
+• Full from object: <code>${JSON.stringify(from, null, 2)}</code>
+
+<b>🗄️ Database Status:</b>
+• Linked User: ${dbUser ? `Yes (${dbUser.user_id})` : 'No'}
+• Pending Link: ${pendingLink && pendingLink.chat_id.startsWith('pending_') ? `Yes (${pendingLink.chat_id})` : 'No'}
+
+<b>🔧 Technical Info:</b>
+• Environment: ${process.env.NODE_ENV || 'Not set'}
+• Site URL: ${process.env.NEXT_PUBLIC_SITE_URL || 'Not set'}
+
+<b>💡 Next Steps:</b>
+• If you have a pending link, send any message to complete linking
+• Use /myid for your Chat ID
+• Use /link for linking instructions
     `;
 
     await this.sendMessage({
