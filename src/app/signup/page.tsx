@@ -42,6 +42,10 @@ export default function SignupPage() {
   const [otp, setOtp] = useState('');
   const [signupMethod, setSignupMethod] = useState<'email' | 'phone'>('email');
   const [telegramChatId, setTelegramChatId] = useState('');
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [linkMethod, setLinkMethod] = useState<'chatId' | 'username'>('chatId');
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
 
   useEffect(() => {
     if (searchParams) {
@@ -51,6 +55,45 @@ export default function SignupPage() {
       }
     }
   }, [searchParams]);
+
+  // Check username availability
+  const checkUsernameAvailability = async (username: string) => {
+    if (!username.trim()) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    setCheckingUsername(true);
+    try {
+      const cleanUsername = username.replace('@', '');
+      const response = await fetch(`/api/telegram/link-account-by-username?username=${encodeURIComponent(cleanUsername)}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUsernameAvailable(data.available);
+      } else {
+        setUsernameAvailable(false);
+      }
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      setUsernameAvailable(false);
+    } finally {
+      setCheckingUsername(false);
+    }
+  };
+
+  // Debounced username check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (telegramUsername.trim()) {
+        checkUsernameAvailability(telegramUsername);
+      } else {
+        setUsernameAvailable(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [telegramUsername]);
 
   // Helper to format phone number (ensure E.164, avoid double country code)
   const formatPhone = (input: string) => {
@@ -177,10 +220,10 @@ export default function SignupPage() {
           })
           .eq('id', data.user.id);
 
-        // If Telegram chat ID is provided, link it directly
-        if (telegramChatId.trim()) {
+        // If Telegram linking is provided, link it directly
+        if (linkMethod === 'chatId' && telegramChatId.trim()) {
           try {
-            console.log('Signup - Attempting to link Telegram account directly');
+            console.log('Signup - Attempting to link Telegram account directly via Chat ID');
             
             const response = await fetch('/api/telegram/link-account-direct', {
               method: 'POST',
@@ -195,6 +238,34 @@ export default function SignupPage() {
 
             const responseData = await response.json();
             console.log('Signup - Direct Telegram link response:', responseData);
+
+            if (response.ok) {
+              console.log('Signup - Telegram account linked successfully during signup');
+            } else {
+              console.error('Signup - Failed to link Telegram account:', responseData);
+            }
+          } catch (telegramError) {
+            console.error('Error linking Telegram account during signup:', telegramError);
+            // Don't fail the signup if Telegram linking fails
+          }
+        } else if (linkMethod === 'username' && telegramUsername.trim()) {
+          try {
+            console.log('Signup - Attempting to link Telegram account directly via Username');
+            
+            const cleanUsername = telegramUsername.replace('@', '');
+            const response = await fetch('/api/telegram/link-account-by-username', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: data.user.id,
+                username: cleanUsername
+              }),
+            });
+
+            const responseData = await response.json();
+            console.log('Signup - Direct Telegram username link response:', responseData);
 
             if (response.ok) {
               console.log('Signup - Telegram account linked successfully during signup');
@@ -531,32 +602,110 @@ export default function SignupPage() {
                   )}
                 </div>
                 
-                {/* Optional Telegram Chat ID */}
+                {/* Optional Telegram Integration */}
                 <div>
-                  <label htmlFor="telegramChatId" className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
                     <span className="flex items-center">
                       <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.27-.48.74-.74 2.87-1.25 4.79-2.09 5.76-2.51 2.7-1.18 3.26-1.38 3.64-1.39.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
                       </svg>
-                      Telegram Chat ID (Optional)
+                      Telegram Integration (Optional)
                     </span>
                   </label>
-                  <div className="mt-1 relative">
-                    <input
+                  
+                  {/* Link Method Selection */}
+                  <div className="mb-3">
+                    <div className="flex space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="linkMethod"
+                          value="chatId"
+                          checked={linkMethod === 'chatId'}
+                          onChange={(e) => setLinkMethod(e.target.value as 'chatId' | 'username')}
+                          className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Chat ID</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="linkMethod"
+                          value="username"
+                          checked={linkMethod === 'username'}
+                          onChange={(e) => setLinkMethod(e.target.value as 'chatId' | 'username')}
+                          className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Username</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Chat ID Input */}
+                  {linkMethod === 'chatId' && (
+                    <div className="relative">
+                                          <input
                       id="telegramChatId"
                       name="telegramChatId"
                       type="text"
                       placeholder="e.g., 744335448"
                       className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm"
                       value={telegramChatId}
-                      onChange={(e) => setTelegramChatId(e.target.value)}
+                      onChange={(e) => {
+                        // Only allow numbers
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        setTelegramChatId(value);
+                      }}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                     />
-                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Username Input */}
+                  {linkMethod === 'username' && (
+                    <div className="relative">
+                      <input
+                        id="telegramUsername"
+                        name="telegramUsername"
+                        type="text"
+                        placeholder="e.g., @username or username"
+                        className={`appearance-none block w-full px-3 py-2 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm ${
+                          usernameAvailable === true ? 'border-green-300 bg-green-50' :
+                          usernameAvailable === false ? 'border-red-300 bg-red-50' :
+                          'border-gray-300'
+                        }`}
+                        value={telegramUsername}
+                        onChange={(e) => setTelegramUsername(e.target.value)}
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                        {checkingUsername ? (
+                          <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : usernameAvailable === true ? (
+                          <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : usernameAvailable === false ? (
+                          <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        ) : (
+                          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <p className="mt-1 text-xs text-gray-500">
                     Get instant notifications about orders and deliveries. 
                     <a 
@@ -565,7 +714,7 @@ export default function SignupPage() {
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 ml-1"
                     >
-                      Get your Chat ID →
+                      {linkMethod === 'chatId' ? 'Get your Chat ID →' : 'Start the bot →'}
                     </a>
                   </p>
                 </div>

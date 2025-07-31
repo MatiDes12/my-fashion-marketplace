@@ -8,7 +8,7 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { userId, chatId } = await request.json();
+    const { userId, chatId, username, firstName, lastName } = await request.json();
 
     if (!userId || !chatId) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('Direct API - Attempting to link Telegram account:', { userId, chatId });
+    console.log('Direct API - Attempting to link Telegram account:', { userId, chatId, username, firstName, lastName });
 
     // Verify user exists
     const { data: user, error: userError } = await supabase
@@ -40,6 +40,9 @@ export async function POST(request: Request) {
       .upsert({
         user_id: userId,
         chat_id: chatId,
+        username: username || null,
+        first_name: firstName || null,
+        last_name: lastName || null,
         is_active: true,
         created_at: new Date().toISOString()
       })

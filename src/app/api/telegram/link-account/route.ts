@@ -9,7 +9,7 @@ const supabase = createClient(
 
 export async function POST(request: Request) {
   try {
-    const { userId, chatId } = await request.json();
+    const { userId, chatId, username, firstName, lastName } = await request.json();
 
     if (!userId || !chatId) {
       return NextResponse.json(
@@ -76,13 +76,16 @@ export async function POST(request: Request) {
     }
 
     // Link Telegram account using the authenticated client
-    console.log('API - Attempting to link Telegram account:', { userId, chatId });
+    console.log('API - Attempting to link Telegram account:', { userId, chatId, username, firstName, lastName });
     
     const { data: linkData, error: linkError } = await supabaseWithAuth
       .from('telegram_users')
       .upsert({
         user_id: userId,
         chat_id: chatId,
+        username: username || null,
+        first_name: firstName || null,
+        last_name: lastName || null,
         is_active: true,
         created_at: new Date().toISOString()
       })
@@ -116,6 +119,7 @@ export async function POST(request: Request) {
 Hi ${userDetails?.full_name || 'there'}! 👋
 
 Your Telegram account has been successfully linked to your AVRIO account.
+${username ? `\n📱 Username: @${username}` : ''}
 
 <b>What you'll receive:</b>
 📦 Order updates and tracking
@@ -154,7 +158,8 @@ Thank you for choosing AVRIO! 🛍️
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Telegram account linked successfully' 
+      message: 'Telegram account linked successfully',
+      data: linkData
     });
 
   } catch (error) {

@@ -12,8 +12,12 @@ interface TelegramIntegrationProps {
 export default function TelegramIntegration({ userId, className = '' }: TelegramIntegrationProps) {
   const [isLinked, setIsLinked] = useState(false);
   const [chatId, setChatId] = useState('');
+  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [showLinkForm, setShowLinkForm] = useState(false);
+  const [linkMethod, setLinkMethod] = useState<'chatId' | 'username'>('chatId');
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
   const supabase = createClientComponent();
 
   useEffect(() => {
@@ -35,10 +39,54 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
     }
   };
 
+  const checkUsernameAvailability = async (usernameToCheck: string) => {
+    if (!usernameToCheck.trim()) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    setCheckingUsername(true);
+    try {
+      const cleanUsername = usernameToCheck.replace('@', '');
+      const response = await fetch(`/api/telegram/link-account-by-username?username=${encodeURIComponent(cleanUsername)}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUsernameAvailable(data.available);
+      } else {
+        setUsernameAvailable(false);
+      }
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      setUsernameAvailable(false);
+    } finally {
+      setCheckingUsername(false);
+    }
+  };
+
+  // Debounced username check
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (username.trim()) {
+        checkUsernameAvailability(username);
+      } else {
+        setUsernameAvailable(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [username]);
+
   const handleLinkAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatId.trim()) {
+    
+    if (linkMethod === 'chatId' && !chatId.trim()) {
       toast.error('Please enter your Telegram Chat ID');
+      return;
+    }
+    
+    if (linkMethod === 'username' && !username.trim()) {
+      toast.error('Please enter your Telegram username');
       return;
     }
 
@@ -51,17 +99,32 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
         throw new Error('Authentication required');
       }
 
-      const response = await fetch('/api/telegram/link-account', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          userId,
-          chatId: chatId.trim()
-        }),
-      });
+      let response;
+      if (linkMethod === 'chatId') {
+        response = await fetch('/api/telegram/link-account', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            userId,
+            chatId: chatId.trim()
+          }),
+        });
+      } else {
+        response = await fetch('/api/telegram/link-account-by-username', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            userId,
+            username: username.trim()
+          }),
+        });
+      }
 
       const data = await response.json();
 
@@ -69,10 +132,17 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
         throw new Error(data.error || 'Failed to link account');
       }
 
-      toast.success('Telegram account linked successfully!');
+      if (linkMethod === 'username' && data.nextStep) {
+        toast.success(data.message);
+        toast(data.nextStep, { icon: 'ℹ️' });
+      } else {
+        toast.success('Telegram account linked successfully!');
+      }
+      
       setIsLinked(true);
       setShowLinkForm(false);
       setChatId('');
+      setUsername('');
     } catch (error) {
       console.error('Error linking account:', error);
       toast.error('Failed to link Telegram account');
@@ -215,34 +285,135 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
             </div>
           ) : (
             <form onSubmit={handleLinkAccount} className="space-y-4">
+              {/* Link Method Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Telegram Chat ID
+                  Link Method
                 </label>
-                <input
-                  type="text"
-                  value={chatId}
-                  onChange={(e) => setChatId(e.target.value)}
-                  placeholder="Enter your Telegram Chat ID"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={loading}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Send /start to our bot to get your Chat ID
-                </p>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="chatId"
+                      checked={linkMethod === 'chatId'}
+                      onChange={(e) => setLinkMethod(e.target.value as 'chatId' | 'username')}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Chat ID</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="username"
+                      checked={linkMethod === 'username'}
+                      onChange={(e) => setLinkMethod(e.target.value as 'chatId' | 'username')}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Username</span>
+                  </label>
+                </div>
               </div>
+
+              {/* Chat ID Input */}
+              {linkMethod === 'chatId' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telegram Chat ID
+                  </label>
+                                     <input
+                     type="text"
+                     value={chatId}
+                     onChange={(e) => {
+                       // Only allow numbers
+                       const value = e.target.value.replace(/[^0-9]/g, '');
+                       setChatId(value);
+                     }}
+                     placeholder="Enter your Telegram Chat ID"
+                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     disabled={loading}
+                     inputMode="numeric"
+                     pattern="[0-9]*"
+                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Get your Chat ID by sending /start to our bot
+                  </p>
+                </div>
+              )}
+
+              {/* Username Input */}
+              {linkMethod === 'username' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Telegram Username
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Enter your Telegram username (e.g., @username)"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        usernameAvailable === true ? 'border-green-300 bg-green-50' :
+                        usernameAvailable === false ? 'border-red-300 bg-red-50' :
+                        'border-gray-300'
+                      }`}
+                      disabled={loading}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      {checkingUsername ? (
+                        <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : usernameAvailable === true ? (
+                        <svg className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : usernameAvailable === false ? (
+                        <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-1">
+                    {usernameAvailable === true && (
+                      <p className="text-xs text-green-600">✓ Username available for linking</p>
+                    )}
+                    {usernameAvailable === false && (
+                      <p className="text-xs text-red-600">✗ Username already linked to another account</p>
+                    )}
+                    {usernameAvailable === null && username.trim() && (
+                      <p className="text-xs text-gray-500">Checking username availability...</p>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter your Telegram username (with or without @ symbol)
+                  </p>
+                </div>
+              )}
               
               <div className="flex space-x-3">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || (linkMethod === 'username' && usernameAvailable === false)}
                   className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
                 >
                   {loading ? 'Linking...' : 'Link Account'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowLinkForm(false)}
+                  onClick={() => {
+                    setShowLinkForm(false);
+                    setLinkMethod('chatId');
+                    setChatId('');
+                    setUsername('');
+                    setUsernameAvailable(null);
+                  }}
                   disabled={loading}
                   className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >

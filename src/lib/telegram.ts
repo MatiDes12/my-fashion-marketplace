@@ -960,18 +960,178 @@ Contact us: support@avrioxshop.com
   private async handleMessage(message: any): Promise<void> {
     const chatId = message.chat.id;
     const text = message.text;
+    const from = message.from;
 
     if (!text) return;
 
     // Handle commands
     if (text.startsWith('/')) {
-      await this.handleCommand(chatId, text, message.from);
+      await this.handleCommand(chatId, text, from);
       return;
     }
 
     // Handle regular messages (for support chat)
     if (chatId.toString() === this.config.supportChatId) {
       await this.handleSupportMessage(message);
+      return;
+    }
+
+    // Handle username-based linking
+    await this.handleUsernameLinking(chatId, from);
+    
+    // If no pending link was found, send a helpful message
+    const { data: existingUser } = await supabaseService
+      .from('telegram_users')
+      .select('user_id, username')
+      .eq('chat_id', chatId.toString())
+      .eq('is_active', true)
+      .single();
+
+    if (!existingUser) {
+      const helpMessage = `
+💬 <b>Thanks for messaging!</b>
+
+I see you're not linked to an AVRIO account yet. To get the most out of our bot, please link your account:
+
+🔗 <b>Link Your Account:</b>
+• Visit your profile page on AVRIO
+• Use the Telegram linking feature
+• Or use the /link command for instructions
+
+💡 <b>Need your Chat ID?</b>
+• Use /myid to get your Telegram Chat ID
+• Copy it and paste it in the profile page
+
+📋 <b>What you'll get:</b>
+📦 Order updates and tracking
+💳 Payment confirmations  
+🚚 Delivery notifications
+🎯 Flash sale alerts
+🆘 Customer support
+
+<b>Quick Commands:</b>
+/start - Welcome message
+/help - Show all commands
+/myid - Get your Chat ID
+/support - Contact support
+
+🔗 <b>Visit our shop:</b>
+<a href="https://www.avrioxshop.com">AVRIO Marketplace</a>
+      `;
+
+      await this.sendMessage({
+        chat_id: chatId.toString(),
+        text: helpMessage,
+        parse_mode: 'HTML'
+      });
+    }
+  }
+
+  private async handleUsernameLinking(chatId: number, from: any): Promise<void> {
+    try {
+      console.log(`[USERNAME_LINKING] Processing chat_id: ${chatId}, username: ${from.username}`);
+      
+      // Check if this chat_id is already linked
+      const { data: existingUser } = await supabaseService
+        .from('telegram_users')
+        .select('user_id, username')
+        .eq('chat_id', chatId.toString())
+        .eq('is_active', true)
+        .single();
+
+      if (existingUser) {
+        console.log(`[USERNAME_LINKING] Chat ID ${chatId} is already linked to user ${existingUser.user_id}`);
+        return;
+      }
+
+      // Check if there's a pending username link for this user
+      if (from.username) {
+        console.log(`[USERNAME_LINKING] Looking for pending link with username: ${from.username}`);
+        
+        const { data: pendingLink } = await supabaseService
+          .from('telegram_users')
+          .select('user_id, chat_id, username')
+          .eq('username', from.username)
+          .eq('is_active', true)
+          .single();
+
+        console.log(`[USERNAME_LINKING] Found pending link:`, pendingLink);
+
+        if (pendingLink && pendingLink.chat_id.startsWith('pending_')) {
+          console.log(`[USERNAME_LINKING] Updating pending link for user ${pendingLink.user_id}`);
+          
+          // Update the pending link with the actual chat_id
+          const { error: updateError } = await supabaseService
+            .from('telegram_users')
+            .update({
+              chat_id: chatId.toString(),
+              first_name: from.first_name || null,
+              last_name: from.last_name || null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', pendingLink.user_id)
+            .eq('username', from.username);
+
+          if (!updateError) {
+            console.log(`[USERNAME_LINKING] Successfully updated chat_id from ${pendingLink.chat_id} to ${chatId}`);
+            
+            // Send confirmation message
+            const confirmationMessage = `
+🎉 <b>Account Successfully Linked!</b>
+
+Hi ${from.first_name}! 👋
+
+Your Telegram account (@${from.username}) has been successfully linked to your AVRIO account.
+
+<b>What you'll receive:</b>
+📦 Order updates and tracking
+💳 Payment confirmations
+🚚 Delivery notifications
+🎯 Flash sale alerts
+🆘 Customer support
+
+<b>Quick Commands:</b>
+/start - Welcome message
+/orders - View your orders
+/profile - Your account info
+/help - Show all commands
+/support - Contact support
+
+🔗 <b>Visit our shop:</b>
+<a href="https://www.avrioxshop.com">AVRIO Marketplace</a>
+
+🏆 Best Marketplace 2023 | ⭐ 4.9/5 Rating | 🔒 Secure Payments | 🚚 Fast Delivery
+
+Thank you for choosing AVRIO! 🛍️
+            `;
+
+            await this.sendMessage({
+              chat_id: chatId.toString(),
+              text: confirmationMessage,
+              parse_mode: 'HTML'
+            });
+
+            // Log the successful linking
+            await this.logNotification(
+              pendingLink.user_id,
+              chatId.toString(),
+              'account_linked',
+              `Username @${from.username} successfully linked to account`,
+              { username: from.username, method: 'username_linking' }
+            );
+
+            console.log(`[USERNAME_LINKING] Username @${from.username} successfully linked to user ${pendingLink.user_id}`);
+          } else {
+            console.error(`[USERNAME_LINKING] Error updating pending link:`, updateError);
+          }
+        } else {
+          console.log(`[USERNAME_LINKING] No pending link found for username ${from.username}`);
+        }
+      } else {
+        console.log(`[USERNAME_LINKING] No username provided in message from chat_id ${chatId}`);
+      }
+    } catch (error) {
+      console.error('[USERNAME_LINKING] Error handling username linking:', error);
     }
   }
 
@@ -1065,6 +1225,16 @@ Contact us: support@avrioxshop.com
             'bot_command',
             `User executed: ${command}`,
             { command, from, responseType: 'link_instructions' }
+          );
+          break;
+        case '/myid':
+          await this.sendChatIdInfo(chatId, from);
+          await this.logNotification(
+            user?.user_id || null,
+            chatId.toString(),
+            'bot_command',
+            `User executed: ${command}`,
+            { command, from, responseType: 'chat_id_info' }
           );
           break;
         case '/profile':
@@ -1323,15 +1493,40 @@ Contact us: support@avrioxshop.com
   }
 
   private async sendWelcomeMessage(chatId: number, from: any): Promise<void> {
+    // Check if there's a pending username link for this user
+    let pendingLinkMessage = '';
+    if (from.username) {
+      const { data: pendingLink } = await supabaseService
+        .from('telegram_users')
+        .select('user_id, chat_id, username')
+        .eq('username', from.username)
+        .eq('is_active', true)
+        .single();
+
+      if (pendingLink && pendingLink.chat_id.startsWith('pending_')) {
+        pendingLinkMessage = `
+
+🔗 <b>Account Linking Detected!</b>
+I found a pending link for username @${from.username}. 
+Your account will be automatically linked when you send any message to me.
+
+💡 <b>Just send any message (like "hello" or "hi") to complete the linking!</b>
+        `;
+      }
+    }
+
     const message = `
 🎉 <b>Welcome to AVRIO!</b>
 
 Hi ${from.first_name}! 👋
 
-I'm your personal AVRIO shopping assistant. Discover amazing Ethiopian products & more!
+I'm your personal AVRIO shopping assistant. Discover amazing Ethiopian products & more!${pendingLinkMessage}
 
 🔗 <b>First Step:</b>
 Use /link to connect your AVRIO account to Telegram
+
+💡 <b>Need your Chat ID?</b>
+Use /myid to get your Telegram Chat ID for linking
 
 📋 <b>Available Commands:</b>
 
@@ -1390,6 +1585,7 @@ Here are all the commands you can use:
 <b>📦 Account & Orders:</b>
 /start - Welcome message
 /link - Link your AVRIO account
+/myid - Get your Telegram Chat ID for linking
 /orders - View your recent orders
 /tracking - View delivery tracking for all orders
 /profile - Your account information
@@ -2374,6 +2570,10 @@ To use all bot features, you need to link your Telegram account to your AVRIO ac
 <b>Your Telegram ID:</b> <code>${chatId}</code>
 (You may need this for manual linking)
 
+💡 <b>Quick Tip:</b>
+• Use /myid anytime to get your Chat ID
+• Use /help to see all available commands
+
 <b>Need help?</b>
 Contact support: /support
       `;
@@ -3103,6 +3303,7 @@ If you can't find your receipt, contact our support team.
 📋 <b>Account Management:</b>
 • /profile - View your profile and account details
 • /link - Link your Telegram account to your website account
+• /myid - Get your Telegram Chat ID for linking
 
 🛍️ <b>Shopping Features:</b>
 • /orders - View your recent orders
@@ -3131,6 +3332,51 @@ If you can't find your receipt, contact our support team.
 • Access receipts and order details
 
 🔗 <a href="https://www.avrioxshop.com">Visit Our Website</a>
+    `;
+
+    await this.sendMessage({
+      chat_id: chatId.toString(),
+      text: message,
+      parse_mode: 'HTML'
+    });
+  }
+
+  private async sendChatIdInfo(chatId: number, from: any): Promise<void> {
+    const message = `
+🆔 <b>Your Telegram Information</b>
+
+Hi ${from.first_name}! Here's your Telegram account information:
+
+<b>📱 Chat ID:</b> <code>${chatId}</code>
+<b>👤 Username:</b> ${from.username ? `@${from.username}` : 'Not set'}
+<b>📝 Name:</b> ${from.first_name}${from.last_name ? ` ${from.last_name}` : ''}
+
+<b>💡 How to use this information:</b>
+
+<b>For Chat ID linking:</b>
+• Copy your Chat ID: <code>${chatId}</code>
+• Go to your AVRIO profile page
+• Paste it in the "Chat ID" field
+• Click "Link Account"
+
+<b>For Username linking:</b>
+• Your username: ${from.username ? `@${from.username}` : 'Not available'}
+• Go to your AVRIO profile page
+• Enter your username in the "Username" field
+• Click "Link Account"
+• Send any message to this bot to complete linking
+
+<b>🔗 Quick Actions:</b>
+• <a href="${process.env.NEXT_PUBLIC_SITE_URL}/profile">Go to Profile Page</a>
+• Use /link for detailed linking instructions
+• Use /help for all available commands
+
+<b>❓ Need help?</b>
+• Use /support to contact customer service
+• Use /link for step-by-step instructions
+• Visit our website for more information
+
+Your Chat ID is unique to your Telegram account and is required for linking your AVRIO account! 🔗
     `;
 
     await this.sendMessage({
@@ -3207,12 +3453,15 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
   };
 }
 
-export async function linkTelegramUser(userId: string, chatId: string): Promise<void> {
+export async function linkTelegramUser(userId: string, chatId: string, username?: string, firstName?: string, lastName?: string): Promise<void> {
   const { error } = await supabaseService
     .from('telegram_users')
     .upsert({
       user_id: userId,
       chat_id: chatId,
+      username: username || null,
+      first_name: firstName || null,
+      last_name: lastName || null,
       is_active: true,
       created_at: new Date().toISOString()
     });
