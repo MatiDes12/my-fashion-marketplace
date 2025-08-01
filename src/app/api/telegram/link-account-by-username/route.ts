@@ -101,9 +101,9 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ 
         success: true, 
-        message: 'Username link request stored. Please send a message to @Avrioxshop_bot to complete the connection.',
+        message: `Username link request stored. Please send a message to @${process.env.TELEGRAM_BOT_USERNAME || 'Avrioxshop_bot'} to complete the connection.`,
         data: linkData,
-        nextStep: 'Send a message to @Avrioxshop_bot to complete the connection'
+                  nextStep: `Send a message to @${process.env.TELEGRAM_BOT_USERNAME || 'Avrioxshop_bot'} to complete the connection`
       });
 
     } catch (telegramError) {

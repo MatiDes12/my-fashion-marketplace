@@ -190,9 +190,27 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
     }
   };
 
-  const openTelegramBot = () => {
-    // Open the AVRIO bot
-    window.open('https://t.me/Avrioxshop_bot', '_blank');
+  const openTelegramBot = async () => {
+    try {
+      console.log('Fetching bot URL...');
+      const response = await fetch('/api/telegram/bot-url');
+      const data = await response.json();
+      
+      console.log('Bot URL response:', data);
+      
+      if (data.success && data.botUrl) {
+        console.log('Opening bot URL:', data.botUrl);
+        window.open(data.botUrl, '_blank');
+      } else {
+        console.log('Using fallback URL');
+        // Fallback to default URL
+        window.open('https://t.me/Avrioxshop_bot', '_blank');
+      }
+    } catch (error) {
+      console.error('Error opening Telegram bot:', error);
+      // Fallback to default URL
+      window.open('https://t.me/Avrioxshop_bot', '_blank');
+    }
   };
 
   return (

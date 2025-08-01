@@ -2996,7 +2996,7 @@ export default function HomePage() {
                 </li>
                 <li className="pt-2">
                   <a 
-                    href="https://t.me/Avrioxshop_bot" 
+                    href={process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || 'https://t.me/Avrioxshop_bot'} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"

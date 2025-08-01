@@ -13,6 +13,7 @@ const supabaseService = createClient(
 
 export interface TelegramConfig {
   botToken: string;
+  botUsername: string;
   webhookUrl: string;
   adminChatId: string;
   supportChatId: string;
@@ -3512,6 +3513,7 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
     } else if (settings) {
       return {
         botToken: settings.bot_token,
+        botUsername: settings.bot_username,
         webhookUrl: settings.webhook_url,
         adminChatId: settings.admin_chat_id,
         supportChatId: settings.support_chat_id
@@ -3523,6 +3525,7 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
 
   // Fallback to environment variables
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME;
   const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
   const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
   const supportChatId = process.env.TELEGRAM_SUPPORT_CHAT_ID;
@@ -3533,10 +3536,26 @@ export async function getTelegramConfig(): Promise<TelegramConfig> {
 
   return {
     botToken,
+    botUsername: botUsername || 'Avrioxshop_bot', // Fallback to default username
     webhookUrl: webhookUrl || '',
     adminChatId,
     supportChatId: supportChatId || adminChatId
   };
+}
+
+export async function getTelegramBotUrl(): Promise<string> {
+  try {
+    console.log('Getting Telegram config...');
+    const config = await getTelegramConfig();
+    console.log('Telegram config:', { botUsername: config.botUsername });
+    const botUrl = `https://t.me/${config.botUsername}`;
+    console.log('Generated bot URL:', botUrl);
+    return botUrl;
+  } catch (error) {
+    console.error('Error getting Telegram bot URL:', error);
+    // Fallback to default URL
+    return 'https://t.me/Avrioxshop_bot';
+  }
 }
 
 export async function linkTelegramUser(userId: string, chatId: string, username?: string, firstName?: string, lastName?: string): Promise<void> {

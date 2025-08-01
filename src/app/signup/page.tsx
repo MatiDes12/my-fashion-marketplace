@@ -709,7 +709,7 @@ export default function SignupPage() {
                   <p className="mt-1 text-xs text-gray-500">
                     Get instant notifications about orders and deliveries. 
                     <a 
-                      href="https://t.me/Avrioxshop_bot" 
+                      href={process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || 'https://t.me/Avrioxshop_bot'} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 ml-1"
