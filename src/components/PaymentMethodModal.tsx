@@ -344,6 +344,7 @@ export default function PaymentMethodModal({
   const [step, setStep] = useState<'method' | 'phone' | 'otp'>('method');
   const [error, setError] = useState('');
   const [localProcessing, setLocalProcessing] = useState(false);
+  const [isButtonDisabled, setIsButtonDisabled] = useState(false);
   const router = useRouter();
 
   // Add this console.log to see what data we're receiving
@@ -370,11 +371,18 @@ export default function PaymentMethodModal({
   const availablePaymentMethods = getAvailablePaymentMethods();
 
   const handleSubmit = async () => {
-    try {
-    if (!selectedMethod) {
-      setError('Please select a payment method');
+    // Prevent multiple clicks
+    if (isButtonDisabled || localProcessing) {
       return;
     }
+
+    try {
+      setIsButtonDisabled(true);
+      
+      if (!selectedMethod) {
+        setError('Please select a payment method');
+        return;
+      }
 
       // Validate order data before proceeding
       try {
@@ -576,6 +584,7 @@ export default function PaymentMethodModal({
         setError(error instanceof Error ? error.message : 'Failed to create order');
       } finally {
         setLocalProcessing(false);
+        setIsButtonDisabled(false);
       }
       return;
     }
@@ -761,6 +770,8 @@ export default function PaymentMethodModal({
     } catch (error) {
       console.error('Payment error:', error);
       setError(error instanceof Error ? error.message : 'Payment failed');
+    } finally {
+      setIsButtonDisabled(false);
     }
   };
 
@@ -771,6 +782,7 @@ export default function PaymentMethodModal({
       }
 
       setLocalProcessing(true);
+      setIsButtonDisabled(true);
       const totalAmount = sellers.reduce((sum, seller) => 
         sum + seller.total, 0
       );
@@ -894,6 +906,7 @@ export default function PaymentMethodModal({
       toast.error(error instanceof Error ? error.message : 'Payment failed');
     } finally {
       setLocalProcessing(false);
+      setIsButtonDisabled(false);
     }
   };
 
@@ -1067,10 +1080,10 @@ export default function PaymentMethodModal({
                       <div className="mt-6">
                         <button
                           onClick={handleSubmit}
-                          disabled={!selectedMethod || isProcessing}
+                          disabled={!selectedMethod || isProcessing || localProcessing || isButtonDisabled}
                           className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
                         >
-                          {isProcessing ? 'Processing...' : 'Continue'}
+                          {isProcessing || localProcessing ? 'Processing...' : 'Continue'}
                         </button>
                       </div>
                     </>
@@ -1105,7 +1118,7 @@ export default function PaymentMethodModal({
                         <button
                           type="button"
                           onClick={handleSubmit}
-                          disabled={!phoneNumber || isProcessing || localProcessing}
+                          disabled={!phoneNumber || isProcessing || localProcessing || isButtonDisabled}
                           className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
                           {isProcessing || localProcessing ? 'Sending OTP...' : 'Send OTP'}
@@ -1143,7 +1156,7 @@ export default function PaymentMethodModal({
                         <button
                           type="button"
                           onClick={handleSubmit}
-                          disabled={!otpCode || isProcessing || localProcessing}
+                          disabled={!otpCode || isProcessing || localProcessing || isButtonDisabled}
                           className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
                           {isProcessing || localProcessing ? 'Verifying...' : 'Verify OTP'}

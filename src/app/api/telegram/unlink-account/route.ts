@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getTelegramConfig, TelegramBot } from '@/lib/telegram';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,8 +95,11 @@ export async function POST(request: Request) {
 
     console.log('API - Telegram account unlinked successfully for user:', userId);
 
-    // Send goodbye notification to the user
+    // Send goodbye notification to the user (optional - don't fail if this doesn't work)
     try {
+      // Dynamically import to avoid issues with environment variables
+      const { getTelegramConfig, TelegramBot } = await import('@/lib/telegram');
+      
       const config = await getTelegramConfig();
       const bot = new TelegramBot(config);
       
@@ -144,8 +146,9 @@ We hope to see you back soon! 🛍️
       console.log('Goodbye notification sent successfully to chat ID:', currentLink.chat_id);
 
     } catch (notificationError) {
-      console.error('Failed to send goodbye notification:', notificationError);
+      console.error('Failed to send goodbye notification (this is optional):', notificationError);
       // Don't fail the entire request if notification fails
+      // This is expected behavior if bot is not configured or Telegram API is down
     }
 
     return NextResponse.json({ 

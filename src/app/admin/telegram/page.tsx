@@ -408,48 +408,54 @@ export default function TelegramAdminPage() {
               </select>
               <button
                 onClick={() => {
-                  let filteredNotifications = notifications;
-                  
-                  // Filter by status
-                  if (statusFilter !== 'all') {
-                    filteredNotifications = filteredNotifications.filter(n => n.status === statusFilter);
+                  try {
+                    let filteredNotifications = notifications;
+                    
+                    // Filter by status
+                    if (statusFilter !== 'all') {
+                      filteredNotifications = filteredNotifications.filter(n => n.status === statusFilter);
+                    }
+                    
+                    // Filter by type
+                    if (typeFilter !== 'all') {
+                      filteredNotifications = filteredNotifications.filter(n => n.notification_type === typeFilter);
+                    }
+                    
+                    if (filteredNotifications.length === 0) {
+                      toast.error('No notifications to export');
+                      return;
+                    }
+                    
+                    // Create CSV content with better data handling
+                    const headers = ['Type', 'Chat ID', 'Status', 'Sent At', 'Message', 'Error Message'];
+                    const csvContent = [
+                      headers.join(','),
+                      ...filteredNotifications.map(n => [
+                        n.notification_type || '',
+                        n.chat_id || '',
+                        n.status || '',
+                        n.sent_at ? new Date(n.sent_at).toLocaleString() : '',
+                        `"${(n.message_text || '').replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '')}"`,
+                        `"${(n.error_message || '').replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '')}"`
+                      ].join(','))
+                    ].join('\n');
+                    
+                    // Download CSV file
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `telegram-notifications-${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    toast.success(`Successfully exported ${filteredNotifications.length} notifications`);
+                  } catch (error) {
+                    console.error('Error exporting CSV:', error);
+                    toast.error('Failed to export CSV. Please try again.');
                   }
-                  
-                  // Filter by type
-                  if (typeFilter !== 'all') {
-                    filteredNotifications = filteredNotifications.filter(n => n.notification_type === typeFilter);
-                  }
-                  
-                  if (filteredNotifications.length === 0) {
-                    toast.error('No notifications to export');
-                    return;
-                  }
-                  
-                  // Create CSV content
-                  const headers = ['Type', 'Chat ID', 'Status', 'Sent At', 'Message'];
-                  const csvContent = [
-                    headers.join(','),
-                    ...filteredNotifications.map(n => [
-                      n.notification_type,
-                      n.chat_id,
-                      n.status,
-                      new Date(n.sent_at).toLocaleString(),
-                      `"${n.message_text.replace(/"/g, '""')}"`
-                    ].join(','))
-                  ].join('\n');
-                  
-                  // Download CSV file
-                  const blob = new Blob([csvContent], { type: 'text/csv' });
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `telegram-notifications-${new Date().toISOString().split('T')[0]}.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  window.URL.revokeObjectURL(url);
-                  
-                  toast.success('Notifications exported successfully');
                 }}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >

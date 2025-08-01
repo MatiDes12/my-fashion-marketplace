@@ -180,9 +180,11 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
 
       toast.success('Telegram account unlinked successfully');
       setIsLinked(false);
+      setShowLinkForm(false); // Hide the link form if it was open
     } catch (error) {
       console.error('Error unlinking account:', error);
-      toast.error('Failed to unlink account');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to unlink account';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
