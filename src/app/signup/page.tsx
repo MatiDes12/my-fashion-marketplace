@@ -707,16 +707,68 @@ export default function SignupPage() {
                   )}
 
                   <p className="mt-1 text-xs text-gray-500">
-                    Get instant notifications about orders and deliveries. 
+                    Get instant notifications about orders and deliveries.
+                  </p>
+                  
+                  {/* Mobile-friendly Open Bot button */}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/telegram/bot-url');
+                        const data = await response.json();
+                        
+                        if (data.success && data.botUrl) {
+                          window.open(data.botUrl, '_blank');
+                        } else {
+                          window.open('https://t.me/Avrioxshop_bot', '_blank');
+                        }
+                      } catch (error) {
+                        window.open('https://t.me/Avrioxshop_bot', '_blank');
+                      }
+                    }}
+                    className="mt-2 w-full bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.27-.48.74-.74 2.87-1.25 4.79-2.09 5.76-2.51 2.7-1.18 3.26-1.38 3.64-1.39.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+                    </svg>
+                    <span>Open Telegram Bot</span>
+                  </button>
+                  
+                  {/* Fallback link in case button doesn't work */}
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Button not working? 
                     <a 
-                      href={process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || 'https://t.me/Avrioxshop_bot'} 
+                      href="https://t.me/Avrioxshop_bot" 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 ml-1"
+                      className="text-blue-600 hover:text-blue-800 ml-1 underline"
                     >
-                      {linkMethod === 'chatId' ? 'Get your Chat ID →' : 'Start the bot →'}
+                      Click here to open bot
                     </a>
                   </p>
+                  
+                  {/* Instructions based on link method */}
+                  {linkMethod === 'chatId' && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-800 font-medium mb-1">📝 How to get your Chat ID:</p>
+                      <ol className="text-xs text-blue-700 space-y-1">
+                        <li>1. Click "Open Telegram Bot" above to open the bot</li>
+                        <li>2. Send <strong>/start</strong> to the bot</li>
+                        <li>3. Send <strong>/myid</strong> to get your Chat ID</li>
+                        <li>4. Copy the Chat ID and paste it above</li>
+                      </ol>
+                    </div>
+                  )}
+                  
+                  {linkMethod === 'username' && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-800 font-medium mb-1">📝 Next Step:</p>
+                      <p className="text-xs text-blue-700">
+                        After signing up, send <strong>"hello"</strong> to the bot to complete the connection
+                      </p>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
