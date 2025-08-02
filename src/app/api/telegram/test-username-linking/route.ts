@@ -1,0 +1,92 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseService = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(request: Request) {
+  try {
+    const { username, chatId, firstName, lastName } = await request.json();
+
+    console.log(`[TEST_USERNAME_LINKING] Testing with username: ${username}, chatId: ${chatId}`);
+
+    // Check if this chat_id is already linked
+    const { data: existingUser } = await supabaseService
+      .from('telegram_users')
+      .select('user_id, username')
+      .eq('chat_id', chatId.toString())
+      .eq('is_active', true)
+      .single();
+
+    if (existingUser) {
+      console.log(`[TEST_USERNAME_LINKING] Chat ID ${chatId} is already linked to user ${existingUser.user_id}`);
+      return NextResponse.json({
+        success: false,
+        message: 'Already linked',
+        existingUser
+      });
+    }
+
+    // Check if there's a pending username link for this user
+    if (username) {
+      console.log(`[TEST_USERNAME_LINKING] Looking for pending link with username: ${username}`);
+      
+      const { data: pendingLink } = await supabaseService
+        .from('telegram_users')
+        .select('user_id, chat_id, username')
+        .eq('username', username)
+        .eq('is_active', true)
+        .single();
+
+      console.log(`[TEST_USERNAME_LINKING] Found pending link:`, pendingLink);
+
+      if (pendingLink && pendingLink.chat_id.startsWith('pending_')) {
+        console.log(`[TEST_USERNAME_LINKING] Would update pending link for user ${pendingLink.user_id}`);
+        
+        // Simulate the update (don't actually update in test mode)
+        const updateData = {
+          chat_id: chatId.toString(),
+          first_name: firstName || null,
+          last_name: lastName || null,
+          updated_at: new Date().toISOString()
+        };
+
+        return NextResponse.json({
+          success: true,
+          message: 'Would successfully link',
+          pendingLink,
+          wouldUpdate: updateData,
+          testMode: true
+        });
+      } else {
+        console.log(`[TEST_USERNAME_LINKING] No pending link found for username ${username}`);
+        
+        return NextResponse.json({
+          success: false,
+          message: 'No pending link found',
+          username,
+          chatId
+        });
+      }
+    } else {
+      console.log(`[TEST_USERNAME_LINKING] No username provided`);
+      return NextResponse.json({
+        success: false,
+        message: 'No username provided',
+        chatId
+      });
+    }
+
+  } catch (error) {
+    console.error('[TEST_USERNAME_LINKING] Error:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+} 

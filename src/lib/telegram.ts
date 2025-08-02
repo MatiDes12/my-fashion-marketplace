@@ -977,8 +977,14 @@ Contact us: support@avrioxshop.com
       return;
     }
 
-    // Handle username-based linking
-    await this.handleUsernameLinking(chatId, from);
+    // Handle username-based linking and get the result
+    const linkingResult = await this.handleUsernameLinking(chatId, from);
+    
+    // If linking was successful, don't send additional messages
+    if (linkingResult && linkingResult.success) {
+      console.log(`[MESSAGE_HANDLER] Username linking successful for chat_id ${chatId}, not sending additional messages`);
+      return;
+    }
     
     // If no pending link was found, send a helpful message
     const { data: existingUser } = await supabaseService
@@ -1049,7 +1055,7 @@ I see you're not linked to an AVRIO account yet. To get the most out of our bot,
     }
   }
 
-  private async handleUsernameLinking(chatId: number, from: any): Promise<void> {
+  private async handleUsernameLinking(chatId: number, from: any): Promise<{ success: boolean; message?: string }> {
     try {
       console.log(`[USERNAME_LINKING] Processing chat_id: ${chatId}, username: ${from.username}`);
       console.log(`[USERNAME_LINKING] Full from object:`, JSON.stringify(from, null, 2));
@@ -1064,7 +1070,7 @@ I see you're not linked to an AVRIO account yet. To get the most out of our bot,
 
       if (existingUser) {
         console.log(`[USERNAME_LINKING] Chat ID ${chatId} is already linked to user ${existingUser.user_id}`);
-        return;
+        return { success: false, message: 'Already linked' };
       }
 
       // Check if there's a pending username link for this user
@@ -1082,6 +1088,15 @@ I see you're not linked to an AVRIO account yet. To get the most out of our bot,
 
         if (pendingLink && pendingLink.chat_id.startsWith('pending_')) {
           console.log(`[USERNAME_LINKING] Updating pending link for user ${pendingLink.user_id}`);
+          
+          // Log the pending link found
+          await this.logNotification(
+            pendingLink.user_id,
+            chatId.toString(),
+            'username_linking_pending',
+            `Found pending link for username @${from.username} - attempting to complete`,
+            { username: from.username, pendingChatId: pendingLink.chat_id, actualChatId: chatId.toString() }
+          );
           
           // Update the pending link with the actual chat_id
           const { error: updateError } = await supabaseService
@@ -1144,17 +1159,32 @@ Thank you for choosing AVRIO! 🛍️
             );
 
             console.log(`[USERNAME_LINKING] Username @${from.username} successfully linked to user ${pendingLink.user_id}`);
+            return { success: true, message: 'Successfully linked' };
           } else {
             console.error(`[USERNAME_LINKING] Error updating pending link:`, updateError);
+            return { success: false, message: 'Failed to update link' };
           }
         } else {
           console.log(`[USERNAME_LINKING] No pending link found for username ${from.username}`);
+          
+          // Log this attempt for debugging
+          await this.logNotification(
+            null,
+            chatId.toString(),
+            'username_linking_attempt',
+            `Username linking attempt for @${from.username} - no pending link found`,
+            { username: from.username, chatId: chatId.toString() }
+          );
+          
+          return { success: false, message: 'No pending link found' };
         }
       } else {
         console.log(`[USERNAME_LINKING] No username provided in message from chat_id ${chatId}`);
+        return { success: false, message: 'No username provided' };
       }
     } catch (error) {
       console.error('[USERNAME_LINKING] Error handling username linking:', error);
+      return { success: false, message: 'Error occurred' };
     }
   }
 
