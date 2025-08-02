@@ -1574,6 +1574,8 @@ I found a pending link for username @${from.username}.
 Your account will be automatically linked when you send any message to me.
 
 💡 <b>Just send any message (like "hello" or "hi") to complete the linking!</b>
+
+⚠️ <b>Important:</b> Send "hello" to complete your account connection!
         `;
       }
     }
@@ -1590,6 +1592,9 @@ Use /link to connect your AVRIO account to Telegram
 
 💡 <b>Need your Chat ID?</b>
 Use /myid to get your Telegram Chat ID for linking
+
+📝 <b>Username Linking:</b>
+If you linked using a username, send "hello" to complete the connection
 
 📋 <b>Available Commands:</b>
 
@@ -2625,7 +2630,11 @@ To use all bot features, you need to link your Telegram account to your AVRIO ac
 3️⃣ <b>Click the link button:</b>
    This will connect your accounts
 
-4️⃣ <b>Come back here and try:</b>
+4️⃣ <b>Complete the connection:</b>
+   • If using Chat ID: You're all set!
+   • If using username: Send "hello" to this bot
+
+5️⃣ <b>Come back here and try:</b>
    /orders - View your orders
    /wishlist - View your wishlist
    /tracking - Track deliveries
@@ -3434,7 +3443,7 @@ Hi ${from.first_name}! Here's your Telegram account information:
 • Go to your AVRIO profile page
 • Enter your username in the "Username" field
 • Click "Link Account"
-• Send any message to this bot to complete linking
+• Send <strong>"hello"</strong> to this bot to complete linking
 
 <b>🔗 Quick Actions:</b>
 • <a href="${process.env.NEXT_PUBLIC_SITE_URL}/profile">Go to Profile Page</a>

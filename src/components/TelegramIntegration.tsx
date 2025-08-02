@@ -270,6 +270,39 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
               {loading ? 'Unlinking...' : 'Unlink'}
             </button>
           </div>
+          
+          {/* Fallback link in case button doesn't work */}
+          <p className="text-xs text-gray-500 text-center">
+            Button not working? 
+            <a 
+              href="https://t.me/Avrioxshop_bot" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 ml-1 underline"
+            >
+              Click here to open bot
+            </a>
+          </p>
+          
+          {/* Instructions for connected users */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-xs text-blue-800 font-medium mb-2">📱 Available Bot Commands:</p>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li>• <strong>/start</strong> - Welcome message</li>
+              <li>• <strong>/myid</strong> - Get your Chat ID</li>
+              <li>• <strong>/orders</strong> - View your recent orders</li>
+              <li>• <strong>/profile</strong> - Your account information</li>
+              <li>• <strong>/help</strong> - Show all available commands</li>
+            </ul>
+          </div>
+          
+          {/* Username linking completion reminder */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-xs text-yellow-800 font-medium mb-1">⚠️ Username Connection Reminder:</p>
+            <p className="text-xs text-yellow-700">
+              If you linked your account using a username, make sure to send <strong>"hello"</strong> to the bot to complete the connection.
+            </p>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -336,9 +369,9 @@ export default function TelegramIntegration({ userId, className = '' }: Telegram
 
               {/* Chat ID Input */}
               {linkMethod === 'chatId' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Telegram Chat ID
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Telegram Chat ID
                 </label>
                 <input
                   type="text"
