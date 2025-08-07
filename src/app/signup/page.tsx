@@ -9,7 +9,7 @@ import { EMAIL_CONFIG } from '@/config/email';
 type Role = 'customer' | 'owner';
 
 // Add this function to check password strength
-const isPasswordStrong = (password: string) => {
+export const isPasswordStrong = (password: string) => {
     const minLength = 8;
     const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
