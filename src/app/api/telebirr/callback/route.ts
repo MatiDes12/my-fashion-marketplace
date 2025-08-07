@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServerAnon } from '@/lib/supabase-server';
 import { tools } from '@/utils/tools';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabase = supabaseServerAnon;
 
 interface TelebirrCallback {
   merch_order_id: string;

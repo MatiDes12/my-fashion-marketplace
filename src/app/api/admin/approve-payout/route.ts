@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import { transferToSeller } from '@/utils/telebirr-transfer';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(request: Request) {
   try {
     const { transactionId } = await request.json();
 
     // Get transaction details
-    const { data: transaction, error: txError } = await supabase
+    const { data: transaction, error: txError } = await supabaseServer
       .from('transactions')
       .select('*')
       .eq('id', transactionId)
@@ -30,7 +25,7 @@ export async function POST(request: Request) {
     );
 
     // Update transaction status
-    await supabase
+    await supabaseServer
       .from('transactions')
       .update({
         seller_payout_status: 'completed',
@@ -39,7 +34,7 @@ export async function POST(request: Request) {
       .eq('id', transactionId);
 
     // Notify seller
-    await supabase.from('notifications').insert({
+    await supabaseServer.from('notifications').insert({
       user_id: transaction.seller_id,
       type: 'payout_completed',
       title: 'Payout Completed',

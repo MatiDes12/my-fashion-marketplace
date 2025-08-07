@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import { Resend } from 'resend';
-
-// Initialize Supabase client with service role key for admin access
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -31,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     // Get active subscribers of the specified type
-    const { data: subscribers, error: fetchError } = await supabase
+    const { data: subscribers, error: fetchError } = await supabaseServer
       .from('email_subscribers')
       .select('email')
       .eq('subscription_type', type)
@@ -53,7 +47,7 @@ export async function POST(request: Request) {
     for (let i = 0; i < subscribers.length; i += batchSize) {
       const batch = subscribers.slice(i, i + batchSize);
       
-      const batchPromises = batch.map(subscriber => 
+      const batchPromises = batch.map((subscriber: any) => 
         resend.emails.send({
           from: 'noreply@avrioxshop.com',
           to: subscriber.email,

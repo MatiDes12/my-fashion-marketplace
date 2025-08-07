@@ -1,15 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServer, supabaseServerAnon } from '@/lib/supabase-server';
 
-// Create both anon and service role clients
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-const supabaseService = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Use centralized Supabase clients
+const supabase = supabaseServerAnon;
+const supabaseService = supabaseServer;
 
 export interface TelegramConfig {
   botToken: string;

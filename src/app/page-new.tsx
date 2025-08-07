@@ -234,8 +234,14 @@ export default function HomePage() {
           ...product,
           like_count: product.likes?.length || 0,
           average_rating: Math.random() * 2 + 3, // Mock rating
+          users: {
+            id: product.users?.[0]?.id || '',
+            full_name: product.users?.[0]?.full_name || '',
+            email: product.users?.[0]?.email || '',
+            store_settings: product.users?.[0]?.store_settings || undefined
+          }
         }))
-        .sort((a, b) => b.like_count - a.like_count);
+        .sort((a, b) => b.like_count - a.like_count) as PopularProduct[];
 
       setMostLikedProducts(processedLikedProducts);
     } catch (error) {
@@ -246,7 +252,25 @@ export default function HomePage() {
   const fetchFlashSales = async () => {
     try {
       const flashSales = await getAllActiveFlashSales();
-      setActiveFlashSales(flashSales);
+      // Transform the data to match FlashSale interface
+      const transformedFlashSales = flashSales.map((sale: any) => ({
+        id: sale.id,
+        title: sale.title,
+        description: sale.description,
+        discount_percentage: sale.discount_percentage,
+        start_time: sale.start_time,
+        end_time: sale.end_time,
+        store_id: sale.store_id,
+        store_name: sale.store_name,
+        created_by: sale.created_by || sale.store_id, // Fallback to store_id if created_by is not available
+        products: sale.flash_sale_products?.map((fsp: any) => ({
+          id: fsp.id,
+          product_id: fsp.product_id,
+          special_price: fsp.special_price,
+          product: fsp.products
+        })) || []
+      })) as FlashSale[];
+      setActiveFlashSales(transformedFlashSales);
     } catch (error) {
       console.error('Error fetching flash sales:', error);
     }

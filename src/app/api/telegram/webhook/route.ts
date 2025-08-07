@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       
       config = {
         botToken,
+        botUsername: process.env.TELEGRAM_BOT_USERNAME || 'Avrioxshop_bot',
         webhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
         adminChatId,
         supportChatId: process.env.TELEGRAM_SUPPORT_CHAT_ID || adminChatId

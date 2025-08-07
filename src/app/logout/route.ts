@@ -3,8 +3,10 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const cookieStore = cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const cookieStore = await cookies();
+  const supabase = createRouteHandlerClient({ 
+    cookies: () => cookies() // Changed this line
+  });
   
   // Sign out the user
   await supabase.auth.signOut();
@@ -20,11 +22,11 @@ export async function GET() {
   
   // Clear all cookies related to authentication
   const allCookies = cookieStore.getAll();
-  allCookies.forEach(cookie => {
+  for (const cookie of allCookies) {
     if (cookie.name.includes('supabase') || cookie.name.includes('auth') || cookie.name.includes('sb-')) {
       response.cookies.delete(cookie.name);
     }
-  });
+  }
   
   return response;
-} 
+}

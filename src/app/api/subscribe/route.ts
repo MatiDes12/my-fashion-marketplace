@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseServer } from '@/lib/supabase-server';
 import { Resend } from 'resend';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -29,7 +24,7 @@ export async function POST(request: Request) {
     }
 
     // Check if already subscribed to this specific type
-    const { data: existingSubscription, error: checkError } = await supabase
+    const { data: existingSubscription, error: checkError } = await supabaseServer
       .from('email_subscribers')
       .select('*')
       .eq('email', email)
@@ -53,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     // Add new subscription
-    const { error: subscribeError } = await supabase
+    const { error: subscribeError } = await supabaseServer
       .from('email_subscribers')
       .insert([
         {
