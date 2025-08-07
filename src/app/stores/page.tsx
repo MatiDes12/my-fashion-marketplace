@@ -129,9 +129,14 @@ export default function StoresPage() {
 
       if (sellersError) throw sellersError;
 
-      // Calculate metrics for each store
+      // Calculate metrics for each store - filter out stores without proper setup
       const formattedSellers: Seller[] = (sellersData || [])
-        .filter(seller => seller.store_settings)
+        .filter(seller => {
+          // Filter out stores that don't have store_settings or basic required fields
+          return seller.store_settings && 
+                 seller.store_settings.name &&
+                 seller.verification_status === 'verified';
+        })
         .map(seller => {
           const products = seller.products || [];
           
@@ -410,7 +415,9 @@ export default function StoresPage() {
                   </div>
                   
                   <p className="mt-2 text-sm text-gray-500 line-clamp-2">
-                    {seller.store_settings?.shortDescription || seller.store_settings?.description || 'Ethiopian Store'}
+                    {seller.store_settings?.shortDescription || 
+                     seller.store_settings?.description || 
+                     'Verified Ethiopian Store'}
                   </p>
 
                   {/* Metrics */}

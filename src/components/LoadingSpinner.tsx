@@ -20,13 +20,30 @@ export default function LoadingSpinner() {
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 w-full h-full z-[99999] flex items-center justify-center"
+      className="fixed inset-0 w-full h-full flex items-center justify-center"
+      style={{ 
+        zIndex: 9999999,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh'
+      }}
     >
       {/* Enhanced darker blue blurred backdrop */}
       <div className="fixed inset-0 bg-gradient-to-br from-slate-950/98 via-blue-950/98 to-slate-950/98 backdrop-blur-2xl after:absolute after:inset-0 after:bg-blue-950/30" />
       
       {/* Content container with glass effect */}
-      <div className="relative z-10 flex flex-col items-center justify-center p-8 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/10 shadow-2xl transform -translate-y-8">
+      <div 
+        className="relative z-20 flex flex-col items-center justify-center p-8 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/10 shadow-2xl"
+        style={{ 
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 1000000
+        }}
+      >
         {/* Logo and brand name with enhanced animation */}
         <motion.div 
           initial={{ scale: 0.8, opacity: 0 }}
@@ -83,8 +100,8 @@ export default function LoadingSpinner() {
         </div>
 
         {/* Enhanced loading text */}
-        <div className="mt-16 space-y-3 text-center">
-          <p className="text-gray-200 text-sm font-medium tracking-wide px-8 whitespace-nowrap">
+        <div className="mt-12 space-y-3 text-center">
+          <p className="text-blue-900 text-sm font-medium tracking-wide px-8 whitespace-nowrap">
             Loading amazing things...
           </p>
           <div className="flex items-center justify-center gap-2">

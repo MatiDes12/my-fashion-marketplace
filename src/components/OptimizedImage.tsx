@@ -15,6 +15,8 @@ interface OptimizedImageProps {
   quality?: number;
   placeholder?: 'blur' | 'empty';
   blurDataURL?: string;
+  onError?: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
+  onLoad?: () => void;
 }
 
 export default function OptimizedImage({
@@ -28,7 +30,9 @@ export default function OptimizedImage({
   sizes,
   quality = 75,
   placeholder = 'empty',
-  blurDataURL
+  blurDataURL,
+  onError,
+  onLoad
 }: OptimizedImageProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -86,7 +90,7 @@ export default function OptimizedImage({
   };
 
   // Handle image error - try direct URL if Next.js optimization fails
-  const handleError = (e: any) => {
+  const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
     
     // Check if it's a 402 error (payment required)
@@ -98,11 +102,21 @@ export default function OptimizedImage({
     }
     
     setImageError(true);
+    
+    // Call custom onError if provided
+    if (onError) {
+      onError(e);
+    }
   };
 
   // Handle image load
   const handleLoad = () => {
     setIsLoaded(true);
+    
+    // Call custom onLoad if provided
+    if (onLoad) {
+      onLoad();
+    }
   };
 
   // Don't render if not in view and not priority

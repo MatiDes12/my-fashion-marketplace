@@ -75,7 +75,7 @@ interface StoreSettings {
 
 export default function StorePage() {
   const params = useParams();
-  const id = params?.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : null;
+  const id = params?.id ? (Array.isArray(params.id) ? (params.id.length > 0 ? params.id[0] : null) : params.id) : null;
   const router = useRouter();
   const [owner, setOwner] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -114,6 +114,11 @@ export default function StorePage() {
       const storeData = await storeResponse.json();
       if (!storeData.owner) {
         throw new Error(`Store not found. ID: ${id}`);
+      }
+      
+      // Check if the store has proper setup (store_settings)
+      if (!storeData.owner.store_settings) {
+        throw new Error('This store is not set up yet. Please check back later.');
       }
 
       // Rest of the data fetching (products, ratings, likes)
@@ -158,7 +163,26 @@ export default function StorePage() {
       });
 
       // Set the store data (which now includes payment methods from the API)
-      setStore(storeData.owner.store_settings);
+      const storeSettings = storeData.owner.store_settings;
+      
+      // Ensure all required fields have defaults
+      const safeStoreSettings = {
+        name: storeSettings.name || 'Unnamed Store',
+        description: storeSettings.description || '',
+        shortDescription: storeSettings.shortDescription || '',
+        logo_url: storeSettings.logo_url || '',
+        banner_url: storeSettings.banner_url || '',
+        address: storeSettings.address || {},
+        phone: storeSettings.phone || '',
+        alternativePhone: storeSettings.alternativePhone || '',
+        socialMedia: storeSettings.socialMedia || {},
+        workingHours: storeSettings.workingHours || {},
+        payment_methods: storeSettings.payment_methods || {},
+        delivery_options: storeSettings.delivery_options || {},
+        ...storeSettings
+      };
+      
+      setStore(safeStoreSettings);
       setOwner(storeData.owner);
       setProducts(productsWithMetrics || []);
 

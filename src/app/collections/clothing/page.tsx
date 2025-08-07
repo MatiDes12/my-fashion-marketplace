@@ -8,6 +8,7 @@ import ErrorMessage from '@/components/ErrorMessage';
 import { motion } from 'framer-motion';
 import { CATEGORY_GROUPS, normalizeCategory, DB_CATEGORY_MAP } from '@/utils/constants';
 import { generateTemplateCategoryProducts } from '@/utils/templateData';
+import { Sparkles, Filter, RefreshCw, Star, ShoppingBag, Shirt } from 'lucide-react';
 
 // Add proper type definitions
 interface ProductImage {
@@ -55,26 +56,37 @@ interface Section {
   hasProducts: boolean;
 }
 
-// Add the EmptyProductCard component at the top level
+// Enhanced EmptyProductCard component with luxurious design
 const EmptyProductCard = ({ category }: { category: string }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-gray-800/30 backdrop-blur-sm rounded-lg border border-gray-700/50 overflow-hidden"
+    className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden group hover:bg-white/10 transition-all duration-300"
   >
-    <div className="aspect-w-1 aspect-h-1 bg-gray-800/50">
-      <div className="flex items-center justify-center">
-        <svg className="w-12 h-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
+    <div className="aspect-square bg-gradient-to-br from-amber-500/10 to-yellow-500/5 flex items-center justify-center relative">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+      <motion.div
+        animate={{ rotate: [0, 5, -5, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        className="relative z-10"
+      >
+        <Shirt className="w-16 h-16 text-amber-400/60" />
+      </motion.div>
+      <div className="absolute top-4 right-4">
+        <Sparkles className="w-5 h-5 text-amber-400/40" />
       </div>
     </div>
-    <div className="p-4">
-      <h3 className="text-lg font-medium text-gray-300">{category} Coming Soon</h3>
-      <p className="mt-1 text-sm text-gray-400">New products will be added soon</p>
-      <div className="mt-2 flex justify-between items-center">
-        <span className="text-gray-500">ETB ---.--</span>
-        <span className="text-sm text-gray-500">Coming Soon</span>
+    <div className="p-6">
+      <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-amber-300 transition-colors">
+        {category}
+      </h3>
+      <p className="text-gray-400 text-sm mb-4">Exciting new pieces coming soon to our collection</p>
+      <div className="flex justify-between items-center">
+        <span className="text-amber-400/60 font-medium">Coming Soon</span>
+        <div className="flex items-center gap-1">
+          <Star className="w-4 h-4 text-amber-400/40" />
+          <span className="text-gray-500 text-sm">New</span>
+        </div>
       </div>
     </div>
   </motion.div>
@@ -268,40 +280,98 @@ export default function ClothingCollection() {
   if (error) return <ErrorMessage message={error} />;
 
   return (
-    <div className="min-h-screen bg-gray-900 pt-20 pb-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <motion.h1 
-            className="text-4xl font-bold text-white mb-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            Clothing Collection
-          </motion.h1>
-          <motion.p 
-            className="text-gray-400 max-w-2xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            Explore our most popular fashion and traditional wear
-          </motion.p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30">
+      {/* Hero Section */}
+      <div className="relative py-24 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-transparent to-yellow-500/5"></div>
+        <div className="absolute top-0 left-1/4 w-72 h-72 bg-amber-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-400/5 rounded-full blur-3xl"></div>
+        
+        <div className="relative max-w-screen-2xl mx-auto px-4 lg:px-12 xl:px-16">
+          <div className="text-center">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 px-6 py-3 rounded-full text-sm font-medium mb-8 shadow-lg"
+            >
+              <Shirt className="w-5 h-5" />
+              Fashion & Traditional Wear
+            </motion.div>
+            
+            <motion.h1 
+              className="text-5xl md:text-7xl font-bold text-gray-900 mb-6 tracking-tight"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              Clothing
+              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-yellow-500">
+                Collection
+              </span>
+            </motion.h1>
+            
+            <motion.p 
+              className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Discover our exquisite collection of traditional Ethiopian wear and contemporary fashion. 
+              From timeless heritage pieces to modern style statements.
+            </motion.p>
+
+            <motion.div 
+              className="flex flex-wrap justify-center gap-8 mt-12"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+            >
+              <div className="flex items-center gap-2 text-gray-600">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                <span className="font-medium">Premium Quality</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                <span className="font-medium">Authentic Designs</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <ShoppingBag className="w-5 h-5 text-amber-500" />
+                <span className="font-medium">Curated Selection</span>
+              </div>
+            </motion.div>
+          </div>
         </div>
+      </div>
+
+      <div className="max-w-screen-2xl mx-auto px-4 lg:px-12 xl:px-16 pb-20">
 
         {/* Filter Section */}
-        <div className="mb-8">
-          <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <motion.div 
+          className="mb-16"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-8">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-amber-100 rounded-xl">
+                <Filter className="w-5 h-5 text-amber-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Filter Collections</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Category Filter */}
-              <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-2">
+              <div className="space-y-3">
+                <label htmlFor="category" className="block text-sm font-semibold text-gray-700">
                   Category
                 </label>
                 <select
                   id="category"
                   value={filters.category}
                   onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                  className="bg-gray-700 text-white rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 shadow-sm transition-all duration-200"
                 >
                   <option value="All">All Categories</option>
                   <optgroup label="Traditional Wear">
@@ -318,15 +388,15 @@ export default function ClothingCollection() {
               </div>
 
               {/* Price Range Filter */}
-              <div>
-                <label htmlFor="priceRange" className="block text-sm font-medium text-gray-300 mb-2">
+              <div className="space-y-3">
+                <label htmlFor="priceRange" className="block text-sm font-semibold text-gray-700">
                   Price Range
                 </label>
                 <select
                   id="priceRange"
                   value={filters.priceRange}
                   onChange={(e) => setFilters(prev => ({ ...prev, priceRange: e.target.value }))}
-                  className="bg-gray-700 text-white rounded-md px-3 py-2 w-full focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 shadow-sm transition-all duration-200"
                 >
                   {priceRanges.map(range => (
                     <option key={range.value} value={range.value}>
@@ -338,27 +408,45 @@ export default function ClothingCollection() {
             </div>
 
             {/* Reset Filters Button */}
-            <button
+            <motion.button
               onClick={() => setFilters({ category: 'All', priceRange: 'all' })}
-              className="mt-4 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors group"
             >
+              <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-300" />
               Reset Filters
-            </button>
+            </motion.button>
           </div>
-        </div>
+        </motion.div>
 
         {/* Products Grid - Updated to show sections with products first */}
-        <div className="space-y-16">
-          {getSortedSections().map(section => (
+        <div className="space-y-20">
+          {getSortedSections().map((section, sectionIndex) => (
             <motion.section
               key={section.title}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-8"
+              transition={{ duration: 0.8, delay: sectionIndex * 0.2 }}
+              className="space-y-12"
             >
-              <h2 className="text-2xl font-bold text-white border-b border-gray-800 pb-4">
-                {section.title}
-              </h2>
+              <div className="text-center">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.6, delay: sectionIndex * 0.2 + 0.3 }}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-700 px-6 py-3 rounded-full text-sm font-medium mb-6 shadow-lg"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {section.title}
+                </motion.div>
+                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                  {section.title}
+                  <span className="block text-2xl md:text-3xl font-normal text-gray-600 mt-2">
+                    {section.title === 'Traditional Wear' ? 'Heritage & Authenticity' : 'Contemporary Style'}
+                  </span>
+                </h2>
+              </div>
               <div className="space-y-12">
                 {/* Categories with real products */}
                 {section.categories
@@ -372,15 +460,20 @@ export default function ClothingCollection() {
                     }
 
                     return (
-                      <div key={category} className="space-y-4">
-                        <h3 className="text-xl font-semibold text-white">{category}</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      <div key={category} className="space-y-8">
+                        <div className="text-center">
+                          <h3 className="text-2xl font-bold text-gray-800 mb-2">{category}</h3>
+                          <div className="w-24 h-1 bg-gradient-to-r from-amber-500 to-yellow-500 mx-auto rounded-full"></div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                           {filteredProducts.map((product, index) => (
                             <motion.div
                               key={product.id}
-                              initial={{ opacity: 0, y: 20 }}
+                              initial={{ opacity: 0, y: 30 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: index * 0.1 }}
+                              transition={{ delay: index * 0.1, duration: 0.6 }}
+                              whileHover={{ y: -5 }}
+                              className="group"
                             >
                               <ProductCard product={product} />
                             </motion.div>
@@ -400,9 +493,12 @@ export default function ClothingCollection() {
                     }
 
                     return (
-                      <div key={category} className="space-y-4">
-                        <h3 className="text-xl font-semibold text-white">{category}</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      <div key={category} className="space-y-8">
+                        <div className="text-center">
+                          <h3 className="text-2xl font-bold text-gray-800 mb-2">{category}</h3>
+                          <div className="w-24 h-1 bg-gradient-to-r from-amber-400/50 to-yellow-400/50 mx-auto rounded-full"></div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                           <EmptyProductCard category={category} />
                         </div>
                       </div>
@@ -416,19 +512,35 @@ export default function ClothingCollection() {
           {CATEGORY_GROUPS['Traditional Wear'].length === 0 && 
            CATEGORY_GROUPS['Modern Fashion'].length === 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center py-12"
+              className="text-center py-20"
             >
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-8 max-w-2xl mx-auto">
-                <div className="text-6xl mb-4">👗</div>
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  Coming Soon!
+              <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-12 max-w-3xl mx-auto">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className="text-8xl mb-8"
+                >
+                  👗
+                </motion.div>
+                <h3 className="text-3xl font-bold text-gray-900 mb-4">
+                  Amazing Collections Coming Soon!
                 </h3>
-                <p className="text-gray-400">
-                  We're putting together an amazing collection of traditional and modern fashion. 
-                  Check back soon to discover beautiful clothing pieces.
+                <p className="text-xl text-gray-600 leading-relaxed">
+                  We're curating an extraordinary collection of traditional Ethiopian wear and contemporary fashion. 
+                  Beautiful pieces that celebrate heritage and embrace modern style await you.
                 </p>
+                <div className="mt-8 flex justify-center gap-4">
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Sparkles className="w-5 h-5" />
+                    <span className="font-medium">Authentic Designs</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Star className="w-5 h-5" />
+                    <span className="font-medium">Premium Quality</span>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}

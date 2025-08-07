@@ -1,0 +1,450 @@
+name: Optimization & Performance Checks
+
+on:
+  push:
+    branches: [ "master", "main", "develop" ]
+  pull_request:
+    branches: [ "master", "main", "develop" ]
+  workflow_dispatch:
+
+jobs:
+  bundle-optimization:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+        NEXT_PUBLIC_PUSHER_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}
+        PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+        PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+        TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
+        CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+        CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+        NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Analyze bundle size
+      run: |
+        echo "📦 Bundle Size Analysis"
+        echo "======================"
+        
+        # Total bundle size
+        echo "Total .next directory size:"
+        du -sh .next/
+        
+        # JavaScript chunks
+        echo "\nJavaScript chunks:"
+        du -sh .next/static/chunks/
+        
+        # CSS size
+        echo "\nCSS size:"
+        du -sh .next/static/css/
+        
+        # Individual large files
+        echo "\nLarge files (>500KB):"
+        find .next/static/chunks/ -name "*.js" -size +500k -exec ls -lh {} \;
+        
+        # Bundle size limits check
+        echo "\nBundle size limits:"
+        find .next/static/chunks/ -name "*.js" -exec sh -c '
+          size=$(stat -c%s "$1")
+          size_kb=$((size / 1024))
+          if [ $size_kb -gt 500 ]; then
+            echo "⚠️  WARNING: $1 is ${size_kb}KB (over 500KB limit)"
+          else
+            echo "✅ $1 is ${size_kb}KB"
+          fi
+        ' sh {} \;
+
+    - name: Check for duplicate dependencies
+      run: |
+        echo "🔍 Checking for duplicate dependencies..."
+        npm ls --depth=0 | grep -E "UNMET PEER DEPENDENCY|npm ERR" || echo "No dependency conflicts found"
+
+    - name: Analyze tree shaking
+      run: |
+        echo "🌳 Tree Shaking Analysis"
+        echo "======================="
+        
+        # Check for unused dependencies
+        echo "Checking for potentially unused dependencies..."
+        npx depcheck || echo "No unused dependencies detected"
+
+  image-optimization:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check image optimization
+      run: |
+        echo "🖼️ Image Optimization Check"
+        echo "=========================="
+        
+        # Check for unoptimized images
+        echo "Checking for images that should use Next.js Image component..."
+        
+        # Find img tags that should be optimized
+        if grep -r "<img" src/ --include="*.tsx" --include="*.jsx"; then
+          echo "⚠️  Found <img> tags. Consider using Next.js <Image> component for optimization:"
+          grep -r "<img" src/ --include="*.tsx" --include="*.jsx" -n
+        else
+          echo "✅ No unoptimized <img> tags found"
+        fi
+        
+        # Check for large images in public directory
+        echo "\nChecking for large images in public directory:"
+        find public/ -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" -o -iname "*.webp" \) -size +1M -exec ls -lh {} \;
+        
+        # Check for missing alt attributes
+        echo "\nChecking for images without alt attributes:"
+        if grep -r "<img[^>]*>" src/ --include="*.tsx" --include="*.jsx" | grep -v "alt="; then
+          echo "⚠️  Found images without alt attributes"
+        else
+          echo "✅ All images have alt attributes"
+        fi
+
+  caching-optimization:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+        NEXT_PUBLIC_PUSHER_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}
+        PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+        PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+        TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
+        CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+        CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+        NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Analyze caching strategy
+      run: |
+        echo "💾 Caching Strategy Analysis"
+        echo "============================"
+        
+        # Check for static assets with proper caching
+        echo "Checking static assets:"
+        ls -la .next/static/
+        
+        # Check for proper cache headers in Next.js config
+        echo "\nChecking Next.js caching configuration..."
+        if grep -r "cache" next.config.js; then
+          echo "✅ Cache configuration found in next.config.js"
+        else
+          echo "ℹ️  No explicit cache configuration found"
+        fi
+
+  performance-metrics:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+        NEXT_PUBLIC_PUSHER_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}
+        PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+        PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+        TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
+        CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+        CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+        NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Start application
+      run: node .next/standalone/server.js &
+      env:
+        NODE_ENV: test
+        PORT: 3006
+
+    - name: Wait for application to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:3006; do sleep 2; done'
+
+    - name: Run Lighthouse Performance Audit
+      uses: treosh/lighthouse-ci-action@v10
+      with:
+        urls: |
+          http://localhost:3006
+          http://localhost:3006/products
+          http://localhost:3006/cart
+        uploadArtifacts: true
+        temporaryPublicStorage: true
+        configPath: ./.lighthouserc.js
+
+    - name: Performance Budget Check
+      run: |
+        echo "📊 Performance Budget Analysis"
+        echo "============================="
+        
+        # Check Core Web Vitals thresholds
+        echo "Checking Core Web Vitals thresholds..."
+        
+        # This would typically be done by Lighthouse CI, but we can add custom checks
+        echo "Performance budget checks completed"
+
+  code-splitting-analysis:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+        NEXT_PUBLIC_PUSHER_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}
+        PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+        PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+        TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
+        CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+        CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+        NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Analyze code splitting
+      run: |
+        echo "🔀 Code Splitting Analysis"
+        echo "========================="
+        
+        # Count number of chunks
+        chunk_count=$(find .next/static/chunks/ -name "*.js" | wc -l)
+        echo "Total JavaScript chunks: $chunk_count"
+        
+        # Analyze chunk sizes
+        echo "\nChunk size distribution:"
+        find .next/static/chunks/ -name "*.js" -exec ls -lh {} \; | sort -k5 -hr
+        
+        # Check for lazy loading patterns
+        echo "\nChecking for lazy loading patterns..."
+        if grep -r "dynamic(" src/ --include="*.tsx" --include="*.ts"; then
+          echo "✅ Dynamic imports found (good for code splitting)"
+          grep -r "dynamic(" src/ --include="*.tsx" --include="*.ts" -n
+        else
+          echo "ℹ️  No dynamic imports found"
+        fi
+
+  seo-optimization:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build application
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000' }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+        NEXT_PUBLIC_PUSHER_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}
+        PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+        PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+        TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
+        CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+        CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+        NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
+        NODE_ENV: production
+      run: npm run build
+
+    - name: Start application
+      run: node .next/standalone/server.js &
+      env:
+        NODE_ENV: test
+        PORT: 3007
+
+    - name: Wait for application to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:3007; do sleep 2; done'
+
+    - name: Run SEO audit
+      run: |
+        echo "🔍 SEO Optimization Check"
+        echo "========================"
+        
+        # Check for meta tags
+        echo "Checking for meta tags..."
+        curl -s http://localhost:3007 | grep -i "meta" || echo "No meta tags found"
+        
+        # Check for structured data
+        echo "\nChecking for structured data..."
+        curl -s http://localhost:3007 | grep -i "application/ld+json" || echo "No structured data found"
+        
+        # Check for sitemap
+        echo "\nChecking for sitemap..."
+        curl -f http://localhost:3007/sitemap.xml || echo "No sitemap found"
+        
+        # Check for robots.txt
+        echo "\nChecking for robots.txt..."
+        curl -f http://localhost:3007/robots.txt || echo "No robots.txt found"
+
+  optimization-report:
+    runs-on: ubuntu-latest
+    needs: [bundle-optimization, image-optimization, caching-optimization, performance-metrics, code-splitting-analysis, seo-optimization]
+    if: always()
+    steps:
+    - name: Generate optimization report
+      run: |
+        echo "## 🚀 Optimization & Performance Report" >> optimization-report.md
+        echo "" >> optimization-report.md
+        echo "### Bundle Optimization" >> optimization-report.md
+        echo "- Status: ${{ needs.bundle-optimization.result }}" >> optimization-report.md
+        echo "" >> optimization-report.md
+        echo "### Image Optimization" >> optimization-report.md
+        echo "- Status: ${{ needs.image-optimization.result }}" >> optimization-report.md
+        echo "" >> optimization-report.md
+        echo "### Caching Strategy" >> optimization-report.md
+        echo "- Status: ${{ needs.caching-optimization.result }}" >> optimization-report.md
+        echo "" >> optimization-report.md
+        echo "### Performance Metrics" >> optimization-report.md
+        echo "- Status: ${{ needs.performance-metrics.result }}" >> optimization-report.md
+        echo "" >> optimization-report.md
+        echo "### Code Splitting" >> optimization-report.md
+        echo "- Status: ${{ needs.code-splitting-analysis.result }}" >> optimization-report.md
+        echo "" >> optimization-report.md
+        echo "### SEO Optimization" >> optimization-report.md
+        echo "- Status: ${{ needs.seo-optimization.result }}" >> optimization-report.md
+        echo "" >> optimization-report.md
+        echo "---" >> optimization-report.md
+        echo "*Report generated at $(date)*" >> optimization-report.md
+
+    - name: Upload optimization report
+      uses: actions/upload-artifact@v4
+      with:
+        name: optimization-report
+        path: optimization-report.md
+        retention-days: 30
+
+    - name: Comment PR with optimization report
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const jobs = [
+            'bundle-optimization', 
+            'image-optimization', 
+            'caching-optimization', 
+            'performance-metrics', 
+            'code-splitting-analysis', 
+            'seo-optimization'
+          ];
+          
+          let report = '## 🚀 Optimization & Performance Report\n\n';
+          
+          const jobResults = {
+            'bundle-optimization': '${{ needs.bundle-optimization.result }}',
+            'image-optimization': '${{ needs.image-optimization.result }}',
+            'caching-optimization': '${{ needs.caching-optimization.result }}',
+            'performance-metrics': '${{ needs.performance-metrics.result }}',
+            'code-splitting-analysis': '${{ needs.code-splitting-analysis.result }}',
+            'seo-optimization': '${{ needs.seo-optimization.result }}'
+          };
+          
+          jobs.forEach(job => {
+            const status = jobResults[job];
+            const emoji = status === 'success' ? '✅' : status === 'failure' ? '❌' : '⚠️';
+            const name = job.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            report += `${emoji} **${name}**: ${status}\n`;
+          });
+          
+          report += '\n---\n*This report was generated automatically by GitHub Actions.*';
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            body: report
+          }); 

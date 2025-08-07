@@ -20,16 +20,31 @@ export default function LoadingPage() {
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 w-full h-full z-[99999] flex items-center justify-center"
+      className="fixed inset-0 w-full h-full flex items-center justify-center"
+      style={{ 
+        zIndex: 9999999,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh'
+      }}
     >
-      {/* Enhanced darker blue blurred backdrop */}
-      <div className="fixed inset-0 bg-gradient-to-br from-slate-950/98 via-blue-950/98 to-slate-950/98 backdrop-blur-2xl after:absolute after:inset-0 after:bg-blue-950/30" />
+      {/* Enhanced lighter backdrop */}
+      <div className="fixed inset-0 bg-gradient-to-br from-white/95 via-gray-50/95 to-white/95 backdrop-blur-2xl after:absolute after:inset-0 after:bg-white/30" />
       
       {/* Content container with glass effect */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 flex flex-col items-center justify-center p-10 rounded-3xl bg-white/10 backdrop-blur-sm border border-white/10 shadow-2xl transform -translate-y-8"
+        className="relative z-20 flex flex-col items-center justify-center p-10 rounded-3xl bg-white/90 backdrop-blur-sm border border-gray-200 shadow-2xl"
+        style={{ 
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 1000000
+        }}
       >
         {/* Logo and brand name with enhanced animation */}
         <motion.div 
@@ -79,11 +94,11 @@ export default function LoadingPage() {
         </div>
 
         {/* Enhanced loading text with typing effect */}
-        <div className="mt-20 space-y-3 text-center">
+        <div className="mt-16 space-y-3 text-center">
           <motion.p 
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="text-gray-200 text-sm font-medium tracking-wide px-8 whitespace-nowrap"
+            className="text-blue-900 text-sm font-medium tracking-wide px-8 whitespace-nowrap"
           >
             Loading amazing things...
           </motion.p>
