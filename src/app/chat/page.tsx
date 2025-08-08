@@ -154,7 +154,7 @@ export default function CustomerChatPage() {
   }, [selectedRoom]);
 
   // Presence-driven online
-  const { isOnline } = useChatStatus(currentUser, undefined);
+  const { isOnline } = useChatStatus(currentUser, undefined, { channelName: 'presence-users', enabled: true });
 
   const loadSellers = async () => {
     try {

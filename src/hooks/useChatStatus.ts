@@ -1,13 +1,23 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { createClientComponent } from '@/lib/supabase';
 import { pusherClient } from '@/lib/pusher-client';
 
 // Presence-based chat status (no DB writes)
+type UseChatStatusOptions = {
+  channelName?: string; // presence channel name
+  enabled?: boolean;    // subscribe only when true
+};
+
 export const useChatStatus = (
   currentUser: any,
-  onStatusUpdate?: (userId: string, isOnline: boolean) => void
+  onStatusUpdate?: (userId: string, isOnline: boolean) => void,
+  options?: UseChatStatusOptions
 ) => {
+  const channelName = options?.channelName || 'presence-users';
+  const enabled = options?.enabled ?? true;
   const presenceChannelRef = useRef<any>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const supabase = createClientComponent();
 
   const handleSubscriptionSucceeded = useCallback(() => {
     try {
@@ -38,10 +48,10 @@ export const useChatStatus = (
   }, [onStatusUpdate]);
 
   useEffect(() => {
-    if (!currentUser || !currentUser.id) return;
+    if (!enabled || !currentUser || !currentUser.id) return;
 
     // Subscribe to a presence channel for global user presence
-    const presence = pusherClient.subscribe('presence-users');
+    const presence = pusherClient.subscribe(channelName);
     presenceChannelRef.current = presence;
 
     // When we connect successfully, mark all current members as online
@@ -80,7 +90,28 @@ export const useChatStatus = (
       } catch {}
       presenceChannelRef.current = null;
     };
-  }, [currentUser, handleSubscriptionSucceeded, onStatusUpdate]);
+  }, [enabled, currentUser, channelName, handleSubscriptionSucceeded, onStatusUpdate]);
+
+  // Force cleanup on sign-out to avoid lingering presence
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        try {
+          const ch = presenceChannelRef.current;
+          if (ch) {
+            ch.unsubscribe();
+          }
+        } catch {}
+        try {
+          pusherClient.disconnect();
+        } catch {}
+        setOnlineUserIds(new Set());
+      }
+    });
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   // Keep API-compatible return, but no-op since presence handles updates
   const updateStatus = useCallback((_isOnline: boolean, _statusMessage?: string) => {}, []);
