@@ -17,6 +17,8 @@ import { FloatingPreview } from '@/components/FloatingPreview';
 import Header from '@/components/Header';
 import ReactQueryProvider from '@/components/ReactQueryProvider';
 import TelegramLinkAfterVerification from '@/components/TelegramLinkAfterVerification';
+import ConsoleSilencer from '@/components/ConsoleSilencer';
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -50,8 +52,24 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" key="viewport" />
         <meta name="theme-color" content="#ffffff" key="theme-color" />
         <link rel="icon" href="/favicon.ico" key="favicon" />
+        {process.env.NODE_ENV === 'production' && (
+          <Script id="silence-console-log" strategy="beforeInteractive">
+            {`
+              (function(){
+                try {
+                  if (typeof window !== 'undefined' && window.console && typeof window.console.log === 'function') {
+                    var originalLog = window.console.log;
+                    window.console.log = function(){ /* no-op in production */ };
+                    window.__restoreConsoleLog = function(){ window.console.log = originalLog; };
+                  }
+                } catch (e) { /* ignore */ }
+              })();
+            `}
+          </Script>
+        )}
       </head>
       <body className={`${inter.className} bg-white text-gray-900`}>
+        <ConsoleSilencer />
         <ScrollProgress />
         <AuthProvider>
           <LanguageProvider>
