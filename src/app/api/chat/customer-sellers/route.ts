@@ -13,7 +13,8 @@ const limiter = rateLimit({
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();

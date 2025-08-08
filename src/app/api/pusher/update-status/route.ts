@@ -12,7 +12,8 @@ const limiter = rateLimit({
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
     // Try to refresh the session first
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();

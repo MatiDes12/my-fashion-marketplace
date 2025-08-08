@@ -14,7 +14,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   {
     id: 'telebirr',
     name: 'Telebirr (Coming Soon)',
-    logo: '/images/payment-methods/telebirr-logo.png',
+    logo: '/images/payment-methods/Telebirr-logo.png',
     description: 'Coming soon - Pay directly with your Telebirr mobile wallet',
     isAvailable: false
   },
