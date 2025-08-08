@@ -254,3 +254,6 @@ docs/private/
 secrets/
 keys/
 credentials/
+/data.sql
+/remote.sql
+/supabase/avrio_db/
