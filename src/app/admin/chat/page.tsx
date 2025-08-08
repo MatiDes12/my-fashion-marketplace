@@ -7,11 +7,14 @@ import {
   UserCircleIcon,
   CheckCircleIcon,
   XCircleIcon,
-  PaperAirplaneIcon
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline';
-import { pusherClient } from '@/lib/pusher-client';
 import { useChatStatus } from '@/hooks/useChatStatus';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useFastChat } from '@/hooks/useFastChat';
+import FastMessageInput from '@/components/FastMessageInput';
+import FastMessageList from '@/components/FastMessageList';
+import Link from 'next/link';
 
 interface User {
   id: string;
@@ -60,18 +63,38 @@ export default function AdminChatPage() {
   const [customers, setCustomers] = useState<User[]>([]);
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'sellers' | 'customers' | 'recent'>('sellers');
-  const [channel, setChannel] = useState<any>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponent();
   const { refresh: refreshUnreadCount } = useUnreadMessages();
 
-  // Handle real-time status updates
+  // Use fast chat hook for the selected room
+  const {
+    messages: fastMessages,
+    sendMessage: fastSendMessage,
+    isLoading: messagesLoading,
+    error: messagesError,
+    markAsRead
+  } = useFastChat(selectedRoom?.id || '', currentUser);
+
+  useEffect(() => {
+    // Get current user
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    getCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadUsers();
+      loadCustomers();
+      loadRooms();
+    }
+  }, [currentUser]);
+
+  // Define handleStatusUpdate before using it
   const handleStatusUpdate = (userId: string, isOnline: boolean, statusMessage?: string) => {
     setUsers(prev => prev.map(user => 
       user.id === userId 
@@ -99,92 +122,8 @@ export default function AdminChatPage() {
     ));
   };
 
-  // Initialize chat status
-  useChatStatus(currentUser, handleStatusUpdate);
-
-  useEffect(() => {
-    // Get current user
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
-    };
-    getCurrentUser();
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      loadUsers();
-      loadCustomers();
-      loadRooms();
-    }
-  }, [currentUser]);
-
-  // Subscribe to room channel when selectedRoom changes
-  useEffect(() => {
-    if (selectedRoom && !selectedRoom.id.startsWith('temp-')) {
-      // Unsubscribe from previous channel
-      if (channel) {
-        channel.unsubscribe();
-      }
-
-      // Subscribe to new room channel
-      const newChannel = pusherClient.subscribe(`room-${selectedRoom.id}`);
-      
-      newChannel.bind('new_message', (message: ChatMessage) => {
-        console.log('Received new message:', message);
-        setMessages(prev => {
-          // Remove any temp message with the same text and sender (within last 5 seconds)
-          const fiveSecondsAgo = Date.now() - 5000;
-          const filtered = prev.filter(m => {
-            if (m.id.startsWith('temp-')) {
-              const tempTime = parseInt(m.id.replace('temp-', ''));
-              return !(tempTime > fiveSecondsAgo && m.message === message.message && m.sender_id === message.sender_id);
-            }
-            return true;
-          });
-          
-          // Check if message already exists to prevent duplicates
-          const exists = filtered.some(m => m.id === message.id);
-          if (exists) return filtered;
-          
-          return [...filtered, message];
-        });
-        
-        // Update room order when new message is received
-        setRooms(prev => {
-          const updatedRooms = prev.map(room => {
-            if (room.id === message.room_id) {
-              return {
-              ...room,
-              last_message_at: message.created_at,
-              messages: [...(room.messages || []), message]
-            };
-            }
-            return room;
-          });
-          
-          // Re-sort rooms by last_message_at (most recent first)
-          return updatedRooms.sort((a, b) => {
-            const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
-            const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
-            return bTime - aTime;
-          });
-        });
-        
-        if (selectedRoom && message.room_id === selectedRoom.id) {
-          scrollToBottom();
-        }
-      });
-
-      setChannel(newChannel);
-    }
-
-    return () => {
-      if (channel) {
-        channel.unsubscribe();
-      }
-    };
-  }, [selectedRoom]);
+  // Use chat status hook
+  const { updateStatus } = useChatStatus(currentUser, handleStatusUpdate);
 
   const loadUsers = async () => {
     try {
@@ -260,501 +199,361 @@ export default function AdminChatPage() {
   };
 
   const createOrJoinRoom = async (userId: string, userType: 'seller' | 'customer' = 'seller') => {
+    if (!currentUser) return;
+
     try {
-      // First, check if a room already exists
-      const existingRoom = rooms.find(r => {
-        if (userType === 'seller') {
-          return r.seller_id === userId && r.admin_id === currentUser.id;
-        } else {
-          return r.customer_id === userId && r.admin_id === currentUser.id;
-        }
-      });
+      // Check if room already exists
+      const { data: existingRoom, error: checkError } = await supabase
+        .from('chat_rooms')
+        .select('*')
+        .eq('admin_id', currentUser.id)
+        .eq(userType === 'seller' ? 'seller_id' : 'customer_id', userId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
 
       if (existingRoom) {
-        // Room exists, just select it and load messages
-        setSelectedRoom(existingRoom);
-        await loadMessages(existingRoom.id);
+        // Room exists, select it
+        const user = userType === 'seller' 
+          ? users.find(u => u.id === existingRoom.seller_id)
+          : customers.find(u => u.id === existingRoom.customer_id);
+
+        setSelectedRoom({
+          ...existingRoom,
+          admin: currentUser,
+          seller: userType === 'seller' ? user : undefined,
+          customer: userType === 'customer' ? user : undefined
+        });
         return;
       }
 
-      // If no room exists, create a temporary room for the chat interface
-      // but don't save it to the database until a message is sent
+      // Create new room
+      const { data: newRoom, error: createError } = await supabase
+        .from('chat_rooms')
+        .insert({
+          room_type: userType === 'seller' ? 'admin_seller' : 'customer_admin',
+          admin_id: currentUser.id,
+          [userType === 'seller' ? 'seller_id' : 'customer_id']: userId,
+          last_message_at: new Date().toISOString()
+        })
+        .select('*')
+        .single();
+
+      if (createError) throw createError;
+
+      // Add to rooms list
       const user = userType === 'seller' 
         ? users.find(u => u.id === userId)
         : customers.find(u => u.id === userId);
-        
-      if (user) {
-        const tempRoom: ChatRoom = {
-          id: `temp-${Date.now()}`,
-          room_type: userType === 'seller' ? 'admin_seller' : 'customer_admin',
-          ...(userType === 'seller' ? { seller_id: userId } : { customer_id: userId }),
-          admin_id: currentUser.id,
-          last_message_at: new Date().toISOString(),
-          ...(userType === 'seller' ? { seller: user } : { customer: user }),
-          admin: currentUser,
-          messages: []
-        };
-        
-        setSelectedRoom(tempRoom);
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error('Error creating/joining room:', error);
-      toast.error('Failed to create chat room');
-    }
-  };
 
-  const loadMessages = async (roomId: string) => {
-    // Don't load messages for temporary rooms
-    if (roomId.startsWith('temp-')) {
-      setMessages([]);
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/chat/messages?roomId=${roomId}`);
-      const data = await response.json();
-      if (data.messages) {
-        setMessages(data.messages);
-        
-        // Mark messages as read when entering the room
-        try {
-          await fetch('/api/chat/mark-read', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ roomId }),
-          });
-          
-          // Refresh unread count to update notification badges
-          refreshUnreadCount();
-        } catch (error) {
-          console.error('Error marking messages as read:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      toast.error('Failed to load messages');
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedRoom || !currentUser) return;
-
-    const messageText = newMessage.trim();
-    
-    try {
-      // Clear input immediately for better UX
-      setNewMessage('');
-      setIsTyping(false);
-
-      // If this is a temp room, create a real room first
-      let roomId = selectedRoom.id;
-      if (selectedRoom.id.startsWith('temp-')) {
-        try {
-          const roomData = selectedRoom.room_type === 'admin_seller' 
-            ? {
-                roomType: 'admin_seller',
-                sellerId: selectedRoom.seller_id,
-                adminId: currentUser.id
-              }
-            : {
-                roomType: 'customer_admin',
-                customerId: selectedRoom.customer_id,
-                adminId: currentUser.id
-              };
-
-          const response = await fetch('/api/chat/rooms', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(roomData),
-          });
-
-          const data = await response.json();
-          if (data.room) {
-            roomId = data.room.id;
-            
-            // Replace temp room with real room
-            const realRoom: ChatRoom = {
-              ...data.room,
-              ...(selectedRoom.seller ? { seller: selectedRoom.seller } : { customer: selectedRoom.customer }),
-              admin: currentUser,
-              messages: []
-            };
-            
-            // Don't add to rooms list yet (will be added when first message is sent)
-            setSelectedRoom(realRoom);
-          }
-        } catch (error) {
-          console.error('Error creating room:', error);
-          toast.error('Failed to create chat room');
-          setNewMessage(messageText);
-          return;
-        }
-      }
-
-      // Add message to local state immediately (optimistic update)
-      const tempMessage: ChatMessage = {
-        id: `temp-${Date.now()}`,
-        room_id: roomId,
-        sender_id: currentUser.id,
-        sender_type: 'admin',
-        message: messageText,
-        message_type: 'text',
-        is_read: false,
-        created_at: new Date().toISOString(),
-        sender: currentUser
+      const roomWithUsers = {
+        ...newRoom,
+        admin: currentUser,
+        seller: userType === 'seller' ? user : undefined,
+        customer: userType === 'customer' ? user : undefined
       };
 
-      setMessages(prev => [...prev, tempMessage]);
-      scrollToBottom();
+      setRooms(prev => [roomWithUsers, ...prev]);
+      setSelectedRoom(roomWithUsers);
+      
+      toast.success(`Started chat with ${user?.full_name || user?.email}`);
+    } catch (error) {
+      console.error('Error creating/joining room:', error);
+      toast.error('Failed to start chat');
+    }
+  };
 
-      // Send message via API
-      const response = await fetch('/api/pusher/send-message', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          roomId: roomId,
-          senderId: currentUser.id,
-          senderType: 'admin',
-          message: messageText,
-          messageType: 'text'
-        }),
-      });
+  const handleSendMessage = async (content: string) => {
+    if (!selectedRoom || !content.trim()) return;
 
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
+    try {
+      await fastSendMessage(content);
+      
+      // Update room's last_message_at
+      await supabase
+        .from('chat_rooms')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', selectedRoom.id);
 
-      // If this is the first message in a room, add it to the rooms list
-      if (!rooms.some(r => r.id === selectedRoom.id)) {
-        setRooms(prev => {
-          const updatedRooms = [selectedRoom, ...prev];
-          return updatedRooms.sort((a, b) => {
-            const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
-            const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
-            return bTime - aTime;
-          });
-        });
-      }
-
-      // Auto-remove temp message after 10 seconds if not replaced
-      setTimeout(() => {
-        setMessages(prev => prev.filter(m => m.id !== tempMessage.id));
-      }, 10000);
-
-      // Fallback: reload messages from server after 1 second
-      setTimeout(() => {
-        if (selectedRoom) loadMessages(selectedRoom.id);
-      }, 1000);
-
+      // Refresh unread count
+      refreshUnreadCount();
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
-      // Restore message if sending failed
-      setNewMessage(messageText);
     }
   };
-
-  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value);
-  };
-
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'end',
-        inline: 'nearest'
-      });
-    }
-  };
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages]);
 
   const formatTime = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime()) || !dateString || dateString.startsWith('temp-')) {
-        return 'Sending...';
-      }
-      return date.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-    } catch (error) {
-      console.error('Date formatting error:', error, dateString);
-      return 'Sending...';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffInHours < 48) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString();
     }
   };
 
   const getLastMessage = (room: ChatRoom) => {
-    if (room.messages && room.messages.length > 0) {
-      const lastMsg = room.messages[room.messages.length - 1];
-      return lastMsg.message.length > 50 
-        ? lastMsg.message.substring(0, 50) + '...' 
-        : lastMsg.message;
+    if (fastMessages.length > 0 && room.id === selectedRoom?.id) {
+      const lastMessage = fastMessages[fastMessages.length - 1];
+      return {
+        content: lastMessage.content,
+        time: formatTime(lastMessage.created_at),
+        sender: lastMessage.sender_name
+      };
     }
-    return 'No messages yet';
+    
+    // Fallback to room data
+    return {
+      content: 'No messages yet',
+      time: formatTime(room.last_message_at),
+      sender: ''
+    };
   };
 
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-gray-50">
-      {/* Sidebar - Users and Rooms */}
-      <div className={`${selectedRoom ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white border-r border-gray-200 flex-col`}>
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-gray-900">Admin Chat</h1>
-          <p className="text-sm text-gray-500">Chat with sellers</p>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-semibold text-gray-900">Admin Chat</h1>
+            <Link href="/admin" className="text-red-600 hover:text-red-700">
+              <ArrowLeftIcon className="h-5 w-5" />
+            </Link>
+          </div>
         </div>
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200">
-          <button 
+          <button
             onClick={() => setActiveTab('sellers')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'sellers' 
-                ? 'text-gray-900 border-b-2 border-red-500' 
+            className={`flex-1 py-3 text-sm font-medium ${
+              activeTab === 'sellers'
+                ? 'text-red-600 border-b-2 border-red-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             Sellers ({users.length})
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('customers')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'customers' 
-                ? 'text-gray-900 border-b-2 border-red-500' 
+            className={`flex-1 py-3 text-sm font-medium ${
+              activeTab === 'customers'
+                ? 'text-red-600 border-b-2 border-red-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             Customers ({customers.length})
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('recent')}
-            className={`flex-1 py-3 px-4 text-sm font-medium ${
-              activeTab === 'recent' 
-                ? 'text-gray-900 border-b-2 border-red-500' 
+            className={`flex-1 py-3 text-sm font-medium ${
+              activeTab === 'recent'
+                ? 'text-red-600 border-b-2 border-red-600'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-                          Recent Chats ({rooms.filter(room => room.messages?.length > 0).length})
+            Recent
           </button>
         </div>
 
-        {/* Content based on active tab */}
+        {/* User List */}
         <div className="flex-1 overflow-y-auto">
-          {activeTab === 'sellers' ? (
-            /* Sellers List */
-            users.map((user) => (
-              <div
-                key={user.id}
-                onClick={() => createOrJoinRoom(user.id, 'seller')}
-                className="p-3 md:p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-              >
-                <div className="flex items-center space-x-3">
+          {activeTab === 'sellers' && (
+            <div className="p-4 space-y-3">
+              {users.map((seller) => (
+                <div
+                  key={seller.id}
+                  onClick={() => createOrJoinRoom(seller.id, 'seller')}
+                  className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                >
                   <div className="relative">
-                    <UserCircleIcon className="w-10 h-10 text-gray-400" />
-                    <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online 
-                        ? (user.user_chat_status?.status_message === 'Away' 
-                            ? <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
-                            : <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                          )
-                        : <XCircleIcon className="w-4 h-4 text-gray-400" />
-                      }
+                    {seller.avatar_url ? (
+                      <img
+                        src={seller.avatar_url}
+                        alt={seller.full_name}
+                        className="w-10 h-10 rounded-full"
+                      />
+                    ) : (
+                      <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                    )}
+                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                      seller.user_chat_status?.is_online ? 'bg-green-500' : 'bg-gray-400'
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {seller.full_name || seller.email}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {seller.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'customers' && (
+            <div className="p-4 space-y-3">
+              {customers.map((customer) => (
+                <div
+                  key={customer.id}
+                  onClick={() => createOrJoinRoom(customer.id, 'customer')}
+                  className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                >
+                  <div className="relative">
+                    {customer.avatar_url ? (
+                      <img
+                        src={customer.avatar_url}
+                        alt={customer.full_name}
+                        className="w-10 h-10 rounded-full"
+                      />
+                    ) : (
+                      <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                    )}
+                    <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                      customer.user_chat_status?.is_online ? 'bg-green-500' : 'bg-gray-400'
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {customer.full_name || customer.email}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {customer.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'recent' && (
+            <div className="p-4 space-y-3">
+              {rooms.map((room) => {
+                const otherUser = room.seller || room.customer;
+                const lastMessage = getLastMessage(room);
+                
+                return (
+                  <div
+                    key={room.id}
+                    onClick={() => setSelectedRoom(room)}
+                    className={`flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer ${
+                      selectedRoom?.id === room.id ? 'bg-red-50' : ''
+                    }`}
+                  >
+                    <div className="relative">
+                      {otherUser?.avatar_url ? (
+                        <img
+                          src={otherUser.avatar_url}
+                          alt={otherUser.full_name}
+                          className="w-10 h-10 rounded-full"
+                        />
+                      ) : (
+                        <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                      )}
+                      <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                        otherUser?.user_chat_status?.is_online ? 'bg-green-500' : 'bg-gray-400'
+                      }`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {otherUser?.full_name || otherUser?.email}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {lastMessage.content}
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {lastMessage.time}
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {user.full_name}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online 
-                        ? (user.user_chat_status?.status_message === 'Away' ? '🟡 Away' : '🟢 Online')
-                        : '⚪ Offline'
-                      }
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : activeTab === 'customers' ? (
-            /* Customers List */
-            customers.map((customer) => (
-              <div
-                key={customer.id}
-                onClick={() => createOrJoinRoom(customer.id, 'customer')}
-                className="p-3 md:p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <UserCircleIcon className="w-10 h-10 text-gray-400" />
-                    <div className="absolute -bottom-1 -right-1">
-                      {customer.user_chat_status?.is_online 
-                        ? (customer.user_chat_status?.status_message === 'Away' 
-                            ? <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
-                            : <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                          )
-                        : <XCircleIcon className="w-4 h-4 text-gray-400" />
-                      }
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {customer.full_name}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {customer.latest_message ? customer.latest_message.substring(0, 30) + '...' : 'No messages yet'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            /* Recent Chats List - Only show rooms with messages */
-            rooms.filter(room => room.messages?.length > 0).map((room) => (
-              <div
-                key={room.id}
-                onClick={async () => {
-                  setSelectedRoom(room);
-                  await loadMessages(room.id);
-                }}
-                className={`p-3 md:p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                  selectedRoom?.id === room.id ? 'bg-gray-100' : ''
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <UserCircleIcon className="w-10 h-10 text-gray-400" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {room.seller?.full_name || room.customer?.full_name || 'Unknown User'}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {getLastMessage(room)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
 
       {/* Chat Area */}
-      <div className={`${selectedRoom ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0`}>
+      <div className="flex-1 flex flex-col">
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-3 md:p-4 flex-shrink-0">
-              <div className="flex items-center space-x-2 md:space-x-3">
-                <button 
+            <div className="bg-white border-b border-gray-200 p-4">
+              <div className="flex items-center space-x-3">
+                <button
                   onClick={() => setSelectedRoom(null)}
-                  className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="lg:hidden text-gray-500 hover:text-gray-700"
                 >
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
+                  <ArrowLeftIcon className="h-5 w-5" />
                 </button>
-                {selectedRoom.seller ? (
-                  <UserCircleIcon className="w-8 h-8 text-gray-400" />
-                ) : selectedRoom.customer ? (
-                  <UserCircleIcon className="w-8 h-8 text-gray-400" />
-                ) : null}
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base md:text-lg font-medium text-gray-900 truncate">
-                    {selectedRoom.seller?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
+                <div className="relative">
+                  {selectedRoom.seller?.avatar_url || selectedRoom.customer?.avatar_url ? (
+                    <img
+                      src={selectedRoom.seller?.avatar_url || selectedRoom.customer?.avatar_url}
+                      alt={selectedRoom.seller?.full_name || selectedRoom.customer?.full_name}
+                      className="w-10 h-10 rounded-full"
+                    />
+                  ) : (
+                    <UserCircleIcon className="w-10 h-10 text-gray-400" />
+                  )}
+                  <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                    (selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) ? 'bg-green-500' : 'bg-gray-400'
+                  }`} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {selectedRoom.seller?.full_name || selectedRoom.customer?.full_name || 'Unknown'}
                   </h2>
-                  <p className="text-xs md:text-sm text-gray-500">
-                    {(selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) 
-                      ? ((selectedRoom.seller?.user_chat_status?.status_message === 'Away' || selectedRoom.customer?.user_chat_status?.status_message === 'Away') ? '🟡 Away' : '🟢 Online')
-                      : '⚪ Offline'
-                    }
+                  <p className="text-sm text-gray-500">
+                    {(selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Messages - Scrollable area */}
-            <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4 min-h-0">
-              {messages.map((message, index) => {
-                const isOwnMessage = message.sender_id === currentUser?.id;
-                return (
-                  <div
-                    key={`${message.id}-${index}`}
-                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-[85%] md:max-w-xs lg:max-w-md px-3 md:px-4 py-2 rounded-lg ${
-                        isOwnMessage
-                          ? 'bg-red-500 text-white'
-                          : 'bg-gray-200 text-gray-900'
-                      }`}
-                    >
-                      <p className="text-sm">{message.message}</p>
-                      <p className={`text-xs mt-1 ${
-                        isOwnMessage ? 'text-red-100' : 'text-gray-500'
-                      }`}>
-                        {formatTime(message.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-              
-              {/* Typing indicator */}
-              {typingUsers.length > 0 && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-200 text-gray-900 px-4 py-2 rounded-lg">
-                    <p className="text-sm italic">Typing...</p>
-                  </div>
-                </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
+            {/* Messages */}
+            <FastMessageList
+              messages={fastMessages}
+              currentUserId={currentUser.id}
+              isLoading={messagesLoading}
+            />
 
-            {/* Message Input - Fixed at bottom */}
-            <div className="bg-white border-t border-gray-200 p-3 md:p-4 flex-shrink-0">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={handleTyping}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Type a message..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm md:text-base"
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim()}
-                  className="px-3 md:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <PaperAirplaneIcon className="w-4 h-4 md:w-5 md:h-5" />
-                </button>
-              </div>
-            </div>
+            {/* Message Input */}
+            <FastMessageInput
+              onSendMessage={handleSendMessage}
+              disabled={messagesLoading}
+              placeholder="Type a message..."
+            />
           </>
         ) : (
-          /* Empty State */
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <UserCircleIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Select a seller to start chatting
-              </h3>
-              <p className="text-gray-500">
-                Choose a seller from the list to begin a conversation
+              <UserCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No conversation selected</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Choose a seller or customer to start chatting.
               </p>
             </div>
           </div>
