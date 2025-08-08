@@ -70,17 +70,8 @@ export default function AdminChatPage() {
   const supabase = createClientComponent();
   const { refresh: refreshUnreadCount } = useUnreadMessages();
 
-  // Handle real-time status updates
-  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
-        : user
-    ));
-  };
-
-  // Initialize chat status
-  useChatStatus(currentUser, handleStatusUpdate);
+  // Presence-driven online map
+  const { isOnline } = useChatStatus(currentUser, undefined);
 
   useEffect(() => {
     // Get current user
@@ -546,7 +537,7 @@ export default function AdminChatPage() {
                   <div className="relative">
                     <UserCircleIcon className="w-10 h-10 text-gray-400" />
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
+                      {isOnline(user.id) ? (
                         <CheckCircleIcon className="w-4 h-4 text-green-500" />
                       ) : (
                         <XCircleIcon className="w-4 h-4 text-gray-400" />
@@ -558,7 +549,7 @@ export default function AdminChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                      {isOnline(user.id) ? 'Online' : 'Offline'}
                     </p>
                   </div>
                 </div>
@@ -576,7 +567,7 @@ export default function AdminChatPage() {
                   <div className="relative">
                     <UserCircleIcon className="w-10 h-10 text-gray-400" />
                     <div className="absolute -bottom-1 -right-1">
-                      {customer.user_chat_status?.is_online ? (
+                      {isOnline(customer.id) ? (
                         <CheckCircleIcon className="w-4 h-4 text-green-500" />
                       ) : (
                         <XCircleIcon className="w-4 h-4 text-gray-400" />
@@ -649,7 +640,7 @@ export default function AdminChatPage() {
                     {selectedRoom.seller?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
                   </h2>
                   <p className="text-xs md:text-sm text-gray-500">
-                    {selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                      {(selectedRoom.seller && isOnline(selectedRoom.seller.id)) || (selectedRoom.customer && isOnline(selectedRoom.customer.id)) ? 'Online' : 'Offline'}
                   </p>
                 </div>
               </div>

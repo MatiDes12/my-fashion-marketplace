@@ -153,22 +153,8 @@ export default function CustomerChatPage() {
     };
   }, [selectedRoom]);
 
-  // Handle real-time status updates
-  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
-    setSellers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
-        : user
-    ));
-    setAdmins(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
-        : user
-    ));
-  };
-
-  // Initialize chat status
-  useChatStatus(currentUser, handleStatusUpdate);
+  // Presence-driven online
+  const { isOnline } = useChatStatus(currentUser, undefined);
 
   const loadSellers = async () => {
     try {
@@ -558,7 +544,7 @@ export default function CustomerChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
+                      {isOnline(user.id) ? '🟢 Online' : '⚪ Offline'}
                     </p>
                   </div>
                 </div>
@@ -590,7 +576,7 @@ export default function CustomerChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
+                      {isOnline(user.id) ? '🟢 Online' : '⚪ Offline'}
                     </p>
                   </div>
                 </div>
@@ -651,7 +637,7 @@ export default function CustomerChatPage() {
                     {selectedRoom.seller?.full_name || selectedRoom.admin?.full_name || 'Unknown User'}
                   </h2>
                   <p className="text-xs text-gray-600">
-                    {(selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.admin?.user_chat_status?.is_online) ? '🟢 Online' : '⚪ Offline'}
+                     {(selectedRoom.seller && isOnline(selectedRoom.seller.id)) || (selectedRoom.admin && isOnline(selectedRoom.admin.id)) ? '🟢 Online' : '⚪ Offline'}
                   </p>
                 </div>
               </div>

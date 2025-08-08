@@ -13,15 +13,6 @@ const limiter = rateLimit({
 
 export async function GET(request: NextRequest) {
   try {
-    // Apply rate limiting
-    try {
-      await limiter.check(request, 3, 'CUSTOMER_SELLERS'); // 3 requests per interval
-    } catch {
-      return new NextResponse('Too Many Requests', { status: 429, headers: {
-        'Retry-After': '5'
-      }});
-    }
-
     const supabase = createRouteHandlerClient({ cookies });
     
     // Get current user
@@ -33,6 +24,15 @@ export async function GET(request: NextRequest) {
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
+
+    // Apply rate limiting per-customer AFTER authentication
+    try {
+      await limiter.check(request, 3, `CUSTOMER_SELLERS_${user.id}`);
+    } catch {
+      return new NextResponse('Too Many Requests', { status: 429, headers: {
+        'Retry-After': '5'
+      }});
+    }
 
     // Verify the current user is the customer
     if (user.id !== customerId) {

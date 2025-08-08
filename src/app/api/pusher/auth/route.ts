@@ -22,8 +22,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing socket_id or channel_name' }, { status: 400 });
     }
 
-    // Authorize the channel
-    const authResponse = pusherServer.authorizeChannel(socketId, channel);
+    // For presence channels, include user_id and user_info
+    let authResponse: any;
+    if (channel.startsWith('presence-')) {
+      authResponse = pusherServer.authorizeChannel(socketId, channel, {
+        user_id: user.id,
+        user_info: {
+          email: user.email,
+          name: (user as any).user_metadata?.full_name || (user as any).user_metadata?.name || user.email,
+        },
+      } as any);
+    } else {
+      // Private/public channels
+      authResponse = pusherServer.authorizeChannel(socketId, channel);
+    }
     
     return NextResponse.json(authResponse);
   } catch (error) {

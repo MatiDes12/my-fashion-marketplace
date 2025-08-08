@@ -13,25 +13,29 @@ export function rateLimit(options?: RateLimitOptions) {
 
   return {
     check: (request: Request, limit: number, token: string = request.headers.get('x-forwarded-for') || 'anonymous') => {
-      const tokenCount = (tokenCache.get(token) as number[]) || [0];
+      // Initialize counter for this token if needed
+      let tokenCount = (tokenCache.get(token) as number[]) || [0];
       if (tokenCount[0] === 0) {
         tokenCache.set(token, tokenCount);
       }
-      tokenCount[0] += 1;
 
-      const currentUsage = tokenCount[0];
-      const isRateLimited = currentUsage >= limit;
+      // Check before increment to allow exactly `limit` requests per interval
+      const willBeUsage = tokenCount[0] + 1;
+      const isRateLimited = willBeUsage > limit;
 
       return new Promise((resolve, reject) => {
         if (isRateLimited) {
           reject(new Error('Rate limit exceeded'));
-        } else {
-          resolve({
-            isRateLimited: false,
-            currentUsage,
-            remainingRequests: Math.max(0, limit - currentUsage),
-          });
+          return;
         }
+
+        // Safe to increment and resolve
+        tokenCount[0] = willBeUsage;
+        resolve({
+          isRateLimited: false,
+          currentUsage: tokenCount[0],
+          remainingRequests: Math.max(0, limit - tokenCount[0]),
+        });
       });
     },
   };

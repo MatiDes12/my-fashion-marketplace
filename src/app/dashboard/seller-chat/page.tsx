@@ -67,22 +67,8 @@ export default function SellerChatPage() {
   const supabase = createClientComponent();
   const { refresh: refreshUnreadCount } = useUnreadMessages();
 
-  // Handle real-time status updates
-  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
-        : user
-    ));
-    setCustomers(prev => prev.map(user => 
-      user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
-        : user
-    ));
-  };
-
-  // Initialize chat status
-  useChatStatus(currentUser, handleStatusUpdate);
+  // Presence-driven online
+  const { isOnline } = useChatStatus(currentUser, undefined);
 
   useEffect(() => {
     // Get current user
@@ -562,7 +548,7 @@ export default function SellerChatPage() {
                       {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
+                      {isOnline(user.id) ? (
                         <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
                         <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
@@ -574,7 +560,7 @@ export default function SellerChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
+                      {isOnline(user.id) ? '🟢 Online' : '⚪ Offline'}
                     </p>
                   </div>
                 </div>
@@ -594,7 +580,7 @@ export default function SellerChatPage() {
                       {user.full_name?.charAt(0)?.toUpperCase() || 'C'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
+                      {isOnline(user.id) ? (
                         <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
                         <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
@@ -606,7 +592,7 @@ export default function SellerChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
+                      {isOnline(user.id) ? '🟢 Online' : '⚪ Offline'}
                     </p>
                   </div>
                 </div>
@@ -667,7 +653,7 @@ export default function SellerChatPage() {
                     {selectedRoom.admin?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
                   </h2>
                   <p className="text-xs md:text-sm text-gray-600">
-                    {(selectedRoom.admin?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) ? '🟢 Online' : '⚪ Offline'}
+                    {(selectedRoom.admin && isOnline(selectedRoom.admin.id)) || (selectedRoom.customer && isOnline(selectedRoom.customer.id)) ? '🟢 Online' : '⚪ Offline'}
                   </p>
                 </div>
               </div>

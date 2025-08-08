@@ -12,13 +12,6 @@ const limiter = rateLimit({
 
 export async function POST(request: NextRequest) {
   try {
-    // Apply rate limiting
-    try {
-      await limiter.check(request, 5, 'UPDATE_STATUS'); // 5 requests per interval
-    } catch {
-      return new NextResponse('Too Many Requests', { status: 429 });
-    }
-
     const supabase = createRouteHandlerClient({ cookies });
     
     // Try to refresh the session first
@@ -45,6 +38,13 @@ export async function POST(request: NextRequest) {
     if (!user) {
       console.error('No user found in update-status');
       return NextResponse.json({ error: 'No authenticated user' }, { status: 401 });
+    }
+
+    // Apply per-user rate limiting AFTER we know the user
+    try {
+      await limiter.check(request, 5, `UPDATE_STATUS_${user.id}`); // 5 requests per 10s per user
+    } catch {
+      return new NextResponse('Too Many Requests', { status: 429, headers: { 'Retry-After': '10' } });
     }
 
     const body = await request.json();
