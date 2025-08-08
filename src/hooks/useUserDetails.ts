@@ -36,7 +36,6 @@ export function useUserDetails() {
   const supabase = createClientComponentClient();
 
   const fetchUserDetails = useCallback(async () => {
-    setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -61,21 +60,29 @@ export function useUserDetails() {
   }, [supabase]);
 
   useEffect(() => {
+    setLoading(true);
     fetchUserDetails();
   }, [fetchUserDetails]);
 
   useEffect(() => {
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        await fetchUserDetails();
-      } else if (event === 'SIGNED_OUT') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
         setUserDetails(null);
+        setLoading(false);
+        return;
+      }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        setLoading(true);
+        fetchUserDetails();
       }
     });
-    return () => {
-      subscription.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [supabase, fetchUserDetails]);
 
-  return { userDetails, loading, refresh: fetchUserDetails };
-} 
+  const refresh = useCallback(() => {
+    setLoading(true);
+    fetchUserDetails();
+  }, [fetchUserDetails]);
+
+  return { userDetails, loading, refresh };
+}
