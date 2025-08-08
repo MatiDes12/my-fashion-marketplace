@@ -532,7 +532,7 @@ export default function CustomerChatPage() {
                       {user.full_name?.charAt(0)?.toUpperCase() || 'S'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
+                      {isOnline(user.id) ? (
                         <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
                         <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
@@ -564,7 +564,7 @@ export default function CustomerChatPage() {
                       {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
+                      {isOnline(user.id) ? (
                         <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
                         <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
