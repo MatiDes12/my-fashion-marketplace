@@ -20,29 +20,13 @@ import {
   PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
-import { useUserStatus } from '@/hooks/useUserStatus';
 import NotificationBadge from './NotificationBadge';
-import React from 'react';
 
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClientComponent();
   const { unreadCount } = useUnreadMessages();
-  
-  // Get current user for status management
-  const [currentUser, setCurrentUser] = React.useState<any>(null);
-  
-  React.useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
-    };
-    getUser();
-  }, [supabase.auth]);
-
-  // Use the optimized user status hook
-  const { isOnline } = useUserStatus(currentUser);
 
   const navigation = [
     { 
@@ -130,15 +114,11 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     try {
-      // Use the logout route which properly sets user status to offline
-      const response = await fetch('/logout', { method: 'POST' });
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
-      if (response.ok) {
-        toast.success('Logged out successfully');
-        router.push('/login');
-      } else {
-        throw new Error('Logout failed');
-      }
+      toast.success('Logged out successfully');
+      router.push('/login');
     } catch (error) {
       console.error('Error logging out:', error);
       toast.error('Failed to log out');
@@ -159,9 +139,6 @@ export default function Sidebar() {
           />
           <span className="text-xl font-bold text-gray-900">Admin</span>
         </Link>
-        {/* Online status indicator */}
-        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} 
-             title={isOnline ? 'Online' : 'Offline'} />
       </div>
 
       {/* Navigation */}

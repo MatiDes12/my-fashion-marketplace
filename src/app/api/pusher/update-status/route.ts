@@ -4,9 +4,9 @@ import { cookies } from 'next/headers';
 import { pusherServer } from '@/lib/pusher';
 import { rateLimit } from '@/utils/rate-limit';
 
-// Create a rate limiter that allows 10 requests per 30 seconds (more lenient)
+// Create a rate limiter that allows 5 requests per 10 seconds
 const limiter = rateLimit({
-  interval: 30 * 1000, // 30 seconds
+  interval: 10 * 1000, // 10 seconds
   uniqueTokenPerInterval: 500, // Max 500 users per interval
 });
 
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     // Apply rate limiting
     try {
-      await limiter.check(request, 10, 'UPDATE_STATUS'); // 10 requests per 30 seconds
+      await limiter.check(request, 5, 'UPDATE_STATUS'); // 5 requests per interval
     } catch {
       return new NextResponse('Too Many Requests', { status: 429 });
     }
@@ -47,35 +47,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No authenticated user' }, { status: 401 });
     }
 
-    // Handle sendBeacon requests (no request body) vs regular POST requests
-    let body;
-    try {
-      body = await request.json();
-    } catch (error) {
-      // For sendBeacon requests, set default offline status
-      body = { isOnline: false, statusMessage: 'Offline' };
-    }
-
+    const body = await request.json();
     const { isOnline, statusMessage } = body;
-
-    console.log(`Updating status for user ${user.id}: ${isOnline ? 'Online' : 'Offline'} - ${statusMessage}`);
-
-    // Clean up stale online statuses (users who haven't been active for 30 minutes)
-    try {
-      await supabase
-        .from('user_chat_status')
-        .update({
-          is_online: false,
-          status_message: 'Offline',
-          last_seen: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('is_online', true)
-        .lt('last_seen', new Date(Date.now() - 30 * 60 * 1000).toISOString()); // 30 minutes ago
-    } catch (error) {
-      console.error('Error cleaning up stale statuses:', error);
-      // Don't fail the main operation if cleanup fails
-    }
 
     // Update user status in database
     const { error: statusError } = await supabase
@@ -99,8 +72,6 @@ export async function POST(request: NextRequest) {
       lastSeen: new Date().toISOString(),
       statusMessage
     });
-
-    console.log(`Status updated successfully for user ${user.id}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -5,9 +5,9 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { rateLimit } from '@/utils/rate-limit';
 
-// Create a rate limiter that allows 5 requests per 10 seconds (more lenient)
+// Create a rate limiter that allows 3 requests per 5 seconds
 const limiter = rateLimit({
-  interval: 10 * 1000, // 10 seconds
+  interval: 5 * 1000, // 5 seconds
   uniqueTokenPerInterval: 500, // Max 500 users per interval
 });
 
@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
   try {
     // Apply rate limiting
     try {
-      await limiter.check(request, 5, 'CUSTOMER_SELLERS'); // 5 requests per 10 seconds
+      await limiter.check(request, 3, 'CUSTOMER_SELLERS'); // 3 requests per interval
     } catch {
       return new NextResponse('Too Many Requests', { status: 429, headers: {
-        'Retry-After': '10'
+        'Retry-After': '5'
       }});
     }
 
