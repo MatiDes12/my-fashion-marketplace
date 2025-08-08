@@ -6,7 +6,7 @@ export const PLACEHOLDER_IMAGES = {
   // Collections
   'clothing': 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=400&fit=crop',
   'home-living': 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=400&fit=crop',
-  'traditional': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=crop',
+  'traditional': 'https://images.pexels.com/photos/19976711/pexels-photo-19976711.jpeg?w=400&h=400&fit=crop',
   
   // Customer Avatars
   'customer1': 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',

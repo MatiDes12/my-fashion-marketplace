@@ -42,7 +42,7 @@ const collections: Collection[] = [
     id: '3',
     title: 'Traditional Wear',
     description: 'Authentic Ethiopian traditional clothing and accessories',
-    image: '/images/collections/traditional-wear.jpg',
+    image: getPlaceholderImage('traditional'),
     price: 'From ETB 800',
     itemCount: 18,
     badge: 'Heritage',

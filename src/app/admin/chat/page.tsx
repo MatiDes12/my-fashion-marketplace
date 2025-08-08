@@ -23,6 +23,7 @@ interface User {
   user_chat_status: {
     is_online: boolean;
     last_seen: string;
+    status_message?: string;
   };
   latest_message?: string;
   latest_message_time?: string;
@@ -71,10 +72,29 @@ export default function AdminChatPage() {
   const { refresh: refreshUnreadCount } = useUnreadMessages();
 
   // Handle real-time status updates
-  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
+  const handleStatusUpdate = (userId: string, isOnline: boolean, statusMessage?: string) => {
     setUsers(prev => prev.map(user => 
       user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
+        ? { 
+            ...user, 
+            user_chat_status: { 
+              ...user.user_chat_status, 
+              is_online: isOnline,
+              status_message: statusMessage 
+            } 
+          }
+        : user
+    ));
+    setCustomers(prev => prev.map(user => 
+      user.id === userId 
+        ? { 
+            ...user, 
+            user_chat_status: { 
+              ...user.user_chat_status, 
+              is_online: isOnline,
+              status_message: statusMessage 
+            } 
+          }
         : user
     ));
   };
@@ -546,11 +566,13 @@ export default function AdminChatPage() {
                   <div className="relative">
                     <UserCircleIcon className="w-10 h-10 text-gray-400" />
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
-                        <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <XCircleIcon className="w-4 h-4 text-gray-400" />
-                      )}
+                      {user.user_chat_status?.is_online 
+                        ? (user.user_chat_status?.status_message === 'Away' 
+                            ? <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
+                            : <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                          )
+                        : <XCircleIcon className="w-4 h-4 text-gray-400" />
+                      }
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -558,7 +580,10 @@ export default function AdminChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                      {user.user_chat_status?.is_online 
+                        ? (user.user_chat_status?.status_message === 'Away' ? '🟡 Away' : '🟢 Online')
+                        : '⚪ Offline'
+                      }
                     </p>
                   </div>
                 </div>
@@ -576,11 +601,13 @@ export default function AdminChatPage() {
                   <div className="relative">
                     <UserCircleIcon className="w-10 h-10 text-gray-400" />
                     <div className="absolute -bottom-1 -right-1">
-                      {customer.user_chat_status?.is_online ? (
-                        <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <XCircleIcon className="w-4 h-4 text-gray-400" />
-                      )}
+                      {customer.user_chat_status?.is_online 
+                        ? (customer.user_chat_status?.status_message === 'Away' 
+                            ? <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
+                            : <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                          )
+                        : <XCircleIcon className="w-4 h-4 text-gray-400" />
+                      }
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -649,7 +676,10 @@ export default function AdminChatPage() {
                     {selectedRoom.seller?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
                   </h2>
                   <p className="text-xs md:text-sm text-gray-500">
-                    {selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online ? 'Online' : 'Offline'}
+                    {(selectedRoom.seller?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) 
+                      ? ((selectedRoom.seller?.user_chat_status?.status_message === 'Away' || selectedRoom.customer?.user_chat_status?.status_message === 'Away') ? '🟡 Away' : '🟢 Online')
+                      : '⚪ Offline'
+                    }
                   </p>
                 </div>
               </div>

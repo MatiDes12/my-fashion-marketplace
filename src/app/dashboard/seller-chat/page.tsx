@@ -23,6 +23,7 @@ interface User {
   user_chat_status: {
     is_online: boolean;
     last_seen: string;
+    status_message?: string;
   };
 }
 
@@ -68,15 +69,29 @@ export default function SellerChatPage() {
   const { refresh: refreshUnreadCount } = useUnreadMessages();
 
   // Handle real-time status updates
-  const handleStatusUpdate = (userId: string, isOnline: boolean) => {
+  const handleStatusUpdate = (userId: string, isOnline: boolean, statusMessage?: string) => {
     setUsers(prev => prev.map(user => 
       user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
+        ? { 
+            ...user, 
+            user_chat_status: { 
+              ...user.user_chat_status, 
+              is_online: isOnline,
+              status_message: statusMessage 
+            } 
+          }
         : user
     ));
     setCustomers(prev => prev.map(user => 
       user.id === userId 
-        ? { ...user, user_chat_status: { ...user.user_chat_status, is_online: isOnline } }
+        ? { 
+            ...user, 
+            user_chat_status: { 
+              ...user.user_chat_status, 
+              is_online: isOnline,
+              status_message: statusMessage 
+            } 
+          }
         : user
     ));
   };
@@ -562,11 +577,13 @@ export default function SellerChatPage() {
                       {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
-                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                      ) : (
-                        <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
-                      )}
+                      {user.user_chat_status?.is_online 
+                        ? (user.user_chat_status?.status_message === 'Away' 
+                            ? <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
+                            : <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          )
+                        : <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
+                      }
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -574,7 +591,10 @@ export default function SellerChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
+                      {user.user_chat_status?.is_online 
+                        ? (user.user_chat_status?.status_message === 'Away' ? '🟡 Away' : '🟢 Online')
+                        : '⚪ Offline'
+                      }
                     </p>
                   </div>
                 </div>
@@ -594,11 +614,13 @@ export default function SellerChatPage() {
                       {user.full_name?.charAt(0)?.toUpperCase() || 'C'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
-                      {user.user_chat_status?.is_online ? (
-                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                      ) : (
-                        <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
-                      )}
+                      {user.user_chat_status?.is_online 
+                        ? (user.user_chat_status?.status_message === 'Away' 
+                            ? <div className="w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
+                            : <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          )
+                        : <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
+                      }
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -606,7 +628,10 @@ export default function SellerChatPage() {
                       {user.full_name}
                     </p>
                     <p className="text-xs text-gray-500 truncate">
-                      {user.user_chat_status?.is_online ? '🟢 Online' : '⚪ Offline'}
+                      {user.user_chat_status?.is_online 
+                        ? (user.user_chat_status?.status_message === 'Away' ? '🟡 Away' : '🟢 Online')
+                        : '⚪ Offline'
+                      }
                     </p>
                   </div>
                 </div>
@@ -667,7 +692,10 @@ export default function SellerChatPage() {
                     {selectedRoom.admin?.full_name || selectedRoom.customer?.full_name || 'Unknown User'}
                   </h2>
                   <p className="text-xs md:text-sm text-gray-600">
-                    {(selectedRoom.admin?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) ? '🟢 Online' : '⚪ Offline'}
+                    {(selectedRoom.admin?.user_chat_status?.is_online || selectedRoom.customer?.user_chat_status?.is_online) 
+                      ? ((selectedRoom.admin?.user_chat_status?.status_message === 'Away' || selectedRoom.customer?.user_chat_status?.status_message === 'Away') ? '🟡 Away' : '🟢 Online')
+                      : '⚪ Offline'
+                    }
                   </p>
                 </div>
               </div>
