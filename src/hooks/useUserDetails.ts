@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export interface UserDetails {
@@ -35,35 +35,47 @@ export function useUserDetails() {
   const [loading, setLoading] = useState(true);
   const supabase = createClientComponentClient();
 
-  useEffect(() => {
-    async function fetchUserDetails() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          setUserDetails(null);
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from('users')
-          .select('*, store_settings')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error) throw error;
-        
-        setUserDetails(data);
-      } catch (error) {
-        console.error('Error fetching user details:', error);
+  const fetchUserDetails = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         setUserDetails(null);
-      } finally {
-        setLoading(false);
+        return;
       }
-    }
 
-    fetchUserDetails();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*, store_settings')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) throw error;
+      setUserDetails(data);
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      setUserDetails(null);
+    } finally {
+      setLoading(false);
+    }
   }, [supabase]);
 
-  return { userDetails, loading };
+  useEffect(() => {
+    fetchUserDetails();
+  }, [fetchUserDetails]);
+
+  useEffect(() => {
+    const { data: subscription } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        await fetchUserDetails();
+      } else if (event === 'SIGNED_OUT') {
+        setUserDetails(null);
+      }
+    });
+    return () => {
+      subscription.subscription.unsubscribe();
+    };
+  }, [supabase, fetchUserDetails]);
+
+  return { userDetails, loading, refresh: fetchUserDetails };
 } 
