@@ -898,14 +898,14 @@ function NewProductPage() {
                         <option value="used">Used</option>
                         <option value="refurbished">Refurbished</option>
                       </select>
-                      <p className="mt-2 text-sm text-gray-500">
-                        Select the condition of your item:
+                      <div className="mt-2 text-sm text-gray-500">
+                        <p>Select the condition of your item:</p>
                         <ul className="list-disc pl-5 mt-1">
                           <li>New: Brand new, unused item</li>
                           <li>Used: Previously owned and used item</li>
                           <li>Refurbished: Restored to like-new condition</li>
                         </ul>
-                      </p>
+                      </div>
                     </div>
                   </div>
                 </div>

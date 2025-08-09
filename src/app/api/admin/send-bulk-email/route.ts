@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase-server';
+import { getSupabaseServer } from '@/lib/supabase-server';
 import { Resend } from 'resend';
 
 // Initialize Resend
@@ -29,14 +29,14 @@ export async function POST(request: Request) {
       recipients = [{ email: singleEmail }];
     } else {
       // Get active subscribers of the specified type
-      const { data: subscribers, error: fetchError } = await supabaseServer
+      const { data: subscribers, error: fetchError } = await getSupabaseServer()
         .from('email_subscribers')
         .select('email')
         .eq('subscription_type', type)
         .eq('is_active', true);
 
       if (fetchError) throw fetchError;
-      recipients = subscribers || [];
+      recipients = (subscribers as { email: string }[]) || [];
     }
     if (!recipients?.length) {
       return NextResponse.json(
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
     const failed = results.filter(r => r.status === 'rejected').length;
 
     // Log campaign
-    await supabaseServer
+    await getSupabaseServer()
       .from('email_campaigns')
       .insert({
         subject,

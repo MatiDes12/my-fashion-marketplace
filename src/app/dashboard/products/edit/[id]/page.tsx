@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, use } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -60,7 +60,8 @@ const formatImageUrl = (url: string) => {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/products/${url}`;
 };
 
-export default function EditProductPage({ params }: { params: { id: string } }) {
+export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -196,7 +197,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
               is_model_picture
             )
           `)
-          .eq('id', params.id)
+          .eq('id', id)
           .single();
         
         if (error) throw error;
@@ -301,7 +302,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     };
     
     fetchProduct();
-  }, [params.id, supabase]);
+  }, [id, supabase]);
 
   // Regenerate variants when custom variant types, sizes, or colors change
   useEffect(() => {
@@ -621,7 +622,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
           delivery_options: deliveryOptions,
           owner_id: session.user.id
         })
-        .eq('id', params.id)
+        .eq('id', id)
         .eq('owner_id', session.user.id); // Only allow update if user owns the product
 
       if (updateError) throw updateError;
@@ -634,7 +635,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             const { error: deleteImageError } = await supabase
               .from('product_images')
               .delete()
-              .eq('product_id', params.id)
+              .eq('product_id', id)
               .eq('image_url', imageUrl);
 
             if (deleteImageError) {
@@ -647,7 +648,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
               if (fileName) {
                 await supabase.storage
                   .from('products')
-                  .remove([`${params.id}/${fileName}`]);
+                  .remove([`${id}/${fileName}`]);
               }
             } catch (storageError) {
               console.warn('Failed to delete image from storage:', storageError);
@@ -665,7 +666,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         try {
           for (const image of images) {
             const fileExt = image.name.split('.').pop();
-            const fileName = `${params.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `${id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
             
             // Upload image to storage
             const { error: uploadError } = await supabase.storage
@@ -687,7 +688,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
             const { error: imageRefError } = await supabase
               .from('product_images')
               .insert({
-                product_id: params.id,
+                product_id: id,
                 image_url: publicUrlData.publicUrl,
                 is_model_picture: false
               });
@@ -1214,8 +1215,8 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         required
                       />
                     </div>
-                    <p className="mt-2 text-sm text-gray-500">
-                      Include detailed information about:
+                    <div className="mt-2 text-sm text-gray-500">
+                      <p>Include detailed information about:</p>
                       <ul className="list-disc pl-5 mt-1">
                         <li>Materials and fabric composition</li>
                         <li>Size and measurements</li>
@@ -1224,7 +1225,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         <li>Any customization options</li>
                         <li>Return policy specifics</li>
                       </ul>
-                    </p>
+                    </div>
                   </div>
                 </div>
 
@@ -1246,14 +1247,14 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         <option value="used">Used</option>
                         <option value="refurbished">Refurbished</option>
                       </select>
-                      <p className="mt-2 text-sm text-gray-500">
-                        Select the condition of your item:
+                      <div className="mt-2 text-sm text-gray-500">
+                        <p>Select the condition of your item:</p>
                         <ul className="list-disc pl-5 mt-1">
                           <li>New: Brand new, unused item</li>
                           <li>Used: Previously owned and used item</li>
                           <li>Refurbished: Restored to like-new condition</li>
                         </ul>
-                      </p>
+                      </div>
                     </div>
                   </div>
                 </div>
