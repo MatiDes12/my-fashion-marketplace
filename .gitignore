@@ -257,3 +257,5 @@ credentials/
 /data.sql
 /remote.sql
 /supabase/avrio_db/
+supabase/avrio_db/remote.sql
+supabase/avrio_db/data.sql

@@ -40,7 +40,7 @@ export default function Sidebar() {
       icon: CreditCardIcon
     },
     { 
-      name: 'Subscribers', 
+      name: 'Newsletter', 
       href: '/admin/subscribers', 
       icon: EnvelopeIcon
     },
@@ -103,12 +103,11 @@ export default function Sidebar() {
     {
       name: 'Telegram',
       href: '/admin/telegram',
-      icon: PaperAirplaneIcon
-    },
-    {
-      name: 'Telegram Test',
-      href: '/admin/telegram-test',
-      icon: PaperAirplaneIcon
+      icon: PaperAirplaneIcon,
+      // child links displayed under Telegram
+      children: [
+        { name: 'Telegram Test', href: '/admin/telegram-test' },
+      ]
     }
   ];
 
@@ -145,6 +144,41 @@ export default function Sidebar() {
       <nav className="flex-1 px-4 py-4 space-y-1">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
+          const isTelegramParent = item.name === 'Telegram' && item.children;
+          const isParentActive = isTelegramParent && pathname.startsWith('/admin/telegram');
+          if (isTelegramParent) {
+            return (
+              <div key={item.name} className="space-y-1">
+                <Link
+                  href={item.href}
+                  className={`flex items-center justify-between px-4 py-2 text-sm font-medium rounded-lg ${
+                    isParentActive ? 'bg-red-50 text-red-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <item.icon className="h-5 w-5 mr-3" />
+                    {item.name}
+                  </div>
+                </Link>
+                <div className="ml-8 space-y-1">
+                  {item.children!.map((child) => {
+                    const childActive = pathname === child.href;
+                    return (
+                      <Link
+                        key={child.name}
+                        href={child.href}
+                        className={`flex items-center px-3 py-2 text-sm rounded-lg ${
+                          childActive ? 'bg-red-50 text-red-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        }`}
+                      >
+                        {child.name}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
           return (
             <Link
               key={item.name}
@@ -156,7 +190,7 @@ export default function Sidebar() {
               }`}
             >
               <div className="relative">
-              <item.icon className="h-5 w-5 mr-3" />
+                <item.icon className="h-5 w-5 mr-3" />
                 {item.showBadge && (
                   <NotificationBadge 
                     count={unreadCount} 

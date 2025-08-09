@@ -98,9 +98,9 @@ export default function CategoryGrid() {
   const [selectedPreference, setSelectedPreference] = useState<string | null>(null);
 
   const tabs = [
-    { id: 'Style', label: 'Style', color: 'text-amber-600' },
-    { id: 'Budget', label: 'Budget', color: 'text-blue-600' },
-    { id: 'Occasion', label: 'Occasion', color: 'text-purple-600' }
+  { id: 'Style', label: 'Style', color: 'text-red-600' },
+  { id: 'Budget', label: 'Budget', color: 'text-blue-600' },
+  { id: 'Occasion', label: 'Occasion', color: 'text-purple-600' }
   ];
 
   const renderContent = () => {
@@ -118,7 +118,7 @@ export default function CategoryGrid() {
                 <Link href={style.href}>
                   <div className={`
                     relative p-6 bg-white border-2 rounded-2xl text-center cursor-pointer transition-all duration-300 hover:shadow-lg group
-                    ${selectedPreference === style.id ? 'border-amber-400 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}
+                    ${selectedPreference === style.id ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'}
                   `}
                   onClick={() => setSelectedPreference(style.id)}
                   >
@@ -173,7 +173,7 @@ export default function CategoryGrid() {
                 <Link href={occasion.href}>
                   <div className={`
                     p-6 bg-white border-2 rounded-2xl text-center cursor-pointer transition-all duration-300 hover:shadow-lg
-                    ${selectedPreference === occasion.id ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}
+                    ${selectedPreference === occasion.id ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'}
                   `}
                   onClick={() => setSelectedPreference(occasion.id)}
                   >
@@ -202,7 +202,7 @@ export default function CategoryGrid() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
               Find Your Perfect Pieces
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
@@ -260,7 +260,7 @@ export default function CategoryGrid() {
             className="text-center"
           >
             <Link href="/products">
-              <button className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-4 rounded-full font-semibold hover:from-amber-600 hover:to-amber-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+              <button className="bg-gradient-to-r from-red-600 to-pink-600 text-white px-8 py-4 rounded-full font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
                 Explore All Products
               </button>
             </Link>

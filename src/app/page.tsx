@@ -299,7 +299,7 @@ interface FlashSale {
         // Trigger cart count update in the header
         window.dispatchEvent(new CustomEvent('cart-updated'));
 
-      } catch (error) {
+    } catch (error) {
         console.error('Error adding to cart:', error);
         console.error('Error details:', JSON.stringify(error, null, 2));
         console.error('Product ID:', product.id);
@@ -317,8 +317,8 @@ interface FlashSale {
         toast.error(errorMessage);
       } finally {
         setIsAddingToCart(false);
-      }
-    };
+    }
+  };
 
   return (
     <div
@@ -362,7 +362,7 @@ interface FlashSale {
         <div className="absolute top-4 right-4">
           <span className={`text-white px-3 py-1 rounded-full text-xs font-semibold ${
             product.quantity <= 3 ? 'bg-red-500' : 
-            product.quantity <= 10 ? 'bg-amber-500' : 'bg-green-500'
+            product.quantity <= 10 ? 'bg-red-400' : 'bg-green-500'
           }`}>
             {scarcityMessage}
           </span>
@@ -389,7 +389,7 @@ interface FlashSale {
         {/* Quick View Overlay */}
         {isHovered && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <button 
+          <button 
               onClick={(e) => {
                 e.stopPropagation(); // Prevent card click navigation
                 router.push(`/products/${product.id}`);
@@ -402,7 +402,7 @@ interface FlashSale {
       </svg>
               Quick View
             </button>
-      </div>
+              </div>
         )}
 
         {/* Social Proof Overlay */}
@@ -413,8 +413,8 @@ interface FlashSale {
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
           </svg>
               {socialProofMessage}
-        </div>
-      </div>
+              </div>
+            </div>
     </div>
       </div>
 
@@ -431,15 +431,15 @@ interface FlashSale {
 
         {/* Price */}
         <div className="flex items-center gap-2 mb-3">
-          <span className="font-bold text-xl text-amber-600">
+          <span className="font-bold text-xl text-red-600">
             {formatETB(displayPrice || 0)}
-          </span>
+        </span>
           {originalPrice && (
             <span className="text-sm text-gray-500 line-through">
               {formatETB(originalPrice)}
             </span>
           )}
-            </div>
+      </div>
 
         {/* Size & Color Options */}
         <div className="space-y-2 mb-4 flex-1">
@@ -499,9 +499,9 @@ interface FlashSale {
                     viewBox="0 0 24 24"
                   >
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
+            </svg>
             ))}
-          </div>
+        </div>
                 <span>({(product.average_rating || 0).toFixed(1)})</span>
         </div>
             )}
@@ -520,12 +520,12 @@ interface FlashSale {
             ) : (
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.8-1.8m1.8 1.8l10.6 0M7 13v6a2 2 0 002 2h8a2 2 0 002-2v-6" />
-              </svg>
+            </svg>
             )}
             {isAddingToCart ? 'Adding...' : 'Add to Cart'}
           </button>
         </div>
-      </div>
+    </div>
 
       {/* Variant Selection Modal */}
       {showVariantModal && (
@@ -560,9 +560,9 @@ interface FlashSale {
               >
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                  </svg>
               </button>
-            </div>
+                </div>
 
             {/* Product Info */}
             <div className="flex items-center gap-3 mb-6 p-3 bg-gray-50 rounded-lg">
@@ -571,8 +571,8 @@ interface FlashSale {
                   src={cleanImageUrl(product.product_images[0].image_url)}
                   alt={product.title}
                   className="w-16 h-16 object-cover rounded-lg"
-                />
-              ) : (
+                      />
+                    ) : (
                 <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
                   <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -582,8 +582,8 @@ interface FlashSale {
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900 line-clamp-2">{product.title}</h4>
                 <p className="text-lg font-bold text-gray-900">{formatETB(product.price)}</p>
-              </div>
-            </div>
+                  </div>
+                  </div>
 
             {/* Size Selector */}
             {availableSizes.length > 0 && (
@@ -612,9 +612,9 @@ interface FlashSale {
                     >
                       {size}
                     </button>
-                  ))}
-                </div>
-              </div>
+            ))}
+          </div>
+        </div>
             )}
 
             {/* Color Selector */}
@@ -628,7 +628,7 @@ interface FlashSale {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {availableColors.map((color) => (
-                    <button
+                  <button
                       key={color}
                       onClick={() => {
                         setSelectedColor(color);
@@ -643,17 +643,17 @@ interface FlashSale {
                       }`}
                     >
                       {color}
-                    </button>
+                  </button>
                   ))}
                 </div>
-              </div>
+          </div>
             )}
 
             {/* Validation Error */}
             {validationError && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-sm text-red-600">{validationError}</p>
-              </div>
+    </div>
             )}
 
             {/* Action Buttons */}
@@ -692,12 +692,12 @@ interface FlashSale {
                 )}
                 {isAddingToCart ? 'Adding...' : 'Add to Cart'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-    );
+  </div>
+      </div>
+      )}
+  </div>
+);
   };
 
 export default function HomePage() {
@@ -1024,7 +1024,7 @@ export default function HomePage() {
 
           {/* Floating Elements */}
           <div className="absolute top-20 right-20 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl animate-float" />
-          <div className="absolute bottom-32 left-16 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl animate-float" style={{ animationDelay: '2s' }} />
+          <div className="absolute bottom-32 left-16 w-24 h-24 bg-red-500/10 rounded-full blur-2xl animate-float" style={{ animationDelay: '2s' }} />
 
                     {/* Main Hero Content */}
           <div className="flex-1 flex items-center">
@@ -1041,20 +1041,20 @@ export default function HomePage() {
                         transition={{ duration: 0.5, delay: 0.2 }}
                       >
                         <Sparkles className="w-3 h-3" />
-                        New Collection 2024
+                        All‑in‑one Ethiopian Marketplace
                       </motion.div>
                       
                   <motion.h1
-                        className="text-5xl lg:text-7xl font-bold text-white leading-tight"
+                        className="text-3xl lg:text-5xl font-bold text-white leading-tight"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                   >
                         Discover
-                        <span className="block text-transparent bg-gradient-to-r from-pink-500 to-amber-500 bg-clip-text">
-                          Fashion
+                        <span className="block text-transparent bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text">
+                          Everything
                         </span>
-                        That Speaks
+                        You Need
                   </motion.h1>
                       
                   <motion.p
@@ -1063,8 +1063,8 @@ export default function HomePage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
                   >
-                        Explore curated collections from top designers and emerging brands. 
-                        Express your unique style with our premium fashion marketplace.
+                        Shop electronics, fashion, home & living, beauty and more from trusted Ethiopian sellers.
+                        Secure payments, fast delivery, and real customer support — all in one place.
                   </motion.p>
                     </div>
 
@@ -1105,7 +1105,7 @@ export default function HomePage() {
                         <span className="text-sm">50K+ Active Users</span>
                       </div>
                       <div className="flex items-center gap-2 text-white/80">
-                        <TrendingUp className="w-5 h-5 text-amber-400" />
+                        <TrendingUp className="w-5 h-5 text-red-400" />
                         <span className="text-sm">10K+ Products</span>
                       </div>
                     </motion.div>
@@ -1289,7 +1289,7 @@ export default function HomePage() {
               <span className="text-white/60 text-sm mb-2">Scroll to explore</span>
               <div className="w-6 h-10 border-2 border-white/40 rounded-full flex justify-center">
                 <div className="w-1 h-3 bg-white/60 rounded-full mt-2 animate-bounce" />
-        </div>
+            </div>
           </div>
               </div>
         </section>
@@ -1301,7 +1301,7 @@ export default function HomePage() {
           <div className="w-full">
             <FeaturedCollections />
             </div>
-
+        
         {/* Flash Sales Section */}
         {activeFlashSales.length > 0 && (
           <section className="py-12 w-full bg-gradient-to-br from-red-500/5 via-pink-500/5 to-orange-500/5 relative overflow-hidden">
@@ -1330,7 +1330,7 @@ export default function HomePage() {
                           endTime={activeFlashSales[0].end_time} 
                           className="text-sm font-bold text-red-600"
                         />
-                      </div>
+                  </div>
                     )}
                   </div>
                   <p className="text-sm text-gray-600">
@@ -1490,7 +1490,7 @@ export default function HomePage() {
                                     endTime={flashProduct.parentSale?.end_time} 
                                     className="text-sm font-bold text-red-600"
                                   />
-                                </div>
+                  </div>
                 </div>
               </div>
               </div>
@@ -1510,7 +1510,7 @@ export default function HomePage() {
                         <Link href="/flash-sales">
                           <div className="bg-gradient-to-br from-red-50 via-pink-50 to-orange-50 rounded-3xl border-2 border-dashed border-red-300 hover:border-red-500 transition-all duration-300 flex items-center justify-center group hover:shadow-xl transform hover:-translate-y-3" style={{ height: '320px' }}>
                             <div className="text-center p-4">
-                              <motion.div 
+                      <motion.div
                                 className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg"
                                 animate={{ rotate: [0, 5, -5, 0] }}
                                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -1528,8 +1528,8 @@ export default function HomePage() {
                                   ? `${getAllFlashSaleProducts().length - 10}+ More Deals →`
                                   : `${activeFlashSales.length - 1} More Flash Sale${activeFlashSales.length > 2 ? 's' : ''} →`
                                 }
-                              </div>
                             </div>
+                          </div>
                           </div>
                         </Link>
                       </motion.div>
@@ -1551,7 +1551,7 @@ export default function HomePage() {
               </div>
 
         {/* Featured Brands */}
-          <section className="py-8 w-full bg-gradient-to-br from-slate-50 to-amber-50">
+          <section className="py-8 w-full bg-gradient-to-br from-slate-50 to-rose-50">
             <div className="w-full px-4 lg:px-12 xl:px-16">
               <div className="max-w-screen-2xl mx-auto">
               <motion.div
@@ -1561,7 +1561,7 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 className="text-center mb-16"
               >
-                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">Featured Brands</h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Featured Brands</h2>
                 <p className="text-xl text-gray-600 max-w-2xl mx-auto">
                   Discover amazing stores and trusted sellers on our platform
                 </p>
@@ -1579,7 +1579,7 @@ export default function HomePage() {
                   >
                                          <Link href={`/stores/${brand.seller_id}`}>
                        <div className="bg-white rounded-2xl p-6 text-center shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 h-[280px] flex flex-col">
-                         <div className="relative w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-4 border-amber-200 group-hover:border-amber-400 transition-colors">
+                         <div className="relative w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-4 border-red-200 group-hover:border-red-400 transition-colors">
                             {brand.store_settings.logo_url ? (
                               <Image
                                 src={cleanImageUrl(brand.store_settings.logo_url)}
@@ -1589,13 +1589,13 @@ export default function HomePage() {
                                sizes="80px"
                               />
                             ) : (
-                             <div className="w-full h-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white text-2xl font-bold">
+                             <div className="w-full h-full bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center text-white text-2xl font-bold">
                                {brand.store_settings.name?.[0]?.toUpperCase() || '?'}
                              </div>
                             )}
                           </div>
                          <div className="flex items-center justify-center gap-2 mb-2">
-                           <h3 className="text-lg font-semibold text-gray-900 group-hover:text-amber-600 transition-colors line-clamp-1">
+                           <h3 className="text-lg font-semibold text-gray-900 group-hover:text-red-600 transition-colors line-clamp-1">
                                 {brand.store_settings.name}
                               </h3>
                               {brand.verification_status === 'verified' && (
@@ -1625,21 +1625,21 @@ export default function HomePage() {
           <section className="py-8 w-full">
             <div className="w-full px-4 lg:px-12 xl:px-16">
               <div className="max-w-screen-2xl mx-auto">
-               <motion.div
+                  <motion.div
                  initial={{ opacity: 0, y: 30 }}
-                 whileInView={{ opacity: 1, y: 0 }}
-                 transition={{ duration: 0.6 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
                  viewport={{ once: true }}
                  className="flex items-center justify-between mb-12"
                >
                  <div>
-                   <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">🔥 Trending Products</h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Trending Products</h2>
                    <p className="text-xl text-gray-600 max-w-2xl">
-                     Discover the most popular and trending products that everyone is loving right now
+                    Discover the most popular and trending products that everyone is loving right now
                    </p>
-                  </div>
+                </div>
                  <div className="hidden md:flex items-center gap-4">
-                <button 
+                  <button 
                      onClick={() => {
                        const container = document.getElementById('trending-scroll');
                        container?.scrollBy({ left: -320, behavior: 'smooth' });
@@ -1648,10 +1648,10 @@ export default function HomePage() {
                      aria-label="Scroll left"
                    >
                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button 
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button 
                      onClick={() => {
                        const container = document.getElementById('trending-scroll');
                        container?.scrollBy({ left: 320, behavior: 'smooth' });
@@ -1660,9 +1660,9 @@ export default function HomePage() {
                      aria-label="Scroll right"
                    >
                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                  </div>
                </motion.div>
 
@@ -1671,14 +1671,14 @@ export default function HomePage() {
                  <div 
                    id="trending-scroll"
                    className="flex gap-6 overflow-x-auto scrollbar-hide pb-4"
-                  style={{ 
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
+                    style={{ 
+                      scrollbarWidth: 'none',
+                      msOverflowStyle: 'none',
                    }}
                  >
                    {mostLikedProducts.slice(0, 12).map((product, index) => (
-                      <motion.div
-                        key={product.id}
+                        <motion.div
+                          key={product.id}
                        initial={{ opacity: 0, x: 50 }}
                        whileInView={{ opacity: 1, x: 0 }}
                        transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -1707,24 +1707,24 @@ export default function HomePage() {
                            <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                              <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                  </svg>
-                                </div>
+                                    </svg>
+                                  </div>
                            <h3 className="text-lg font-semibold text-gray-900 mb-2">View All Products</h3>
                            <p className="text-gray-600 text-xs">
                              Explore more
                            </p>
+                              </div>
                             </div>
-                          </div>
-                        </Link>
-                      </motion.div>
-                </div>
+                          </Link>
+                        </motion.div>
+                  </div>
 
                  {/* Gradient Fade Effects */}
                  <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none"></div>
                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
-                </div>
                   </div>
-                </div>
+                      </div>
+                    </div>
           </section>
 
           {/* Testimonials */}
@@ -1743,10 +1743,10 @@ export default function HomePage() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.6 }}
                 >
-                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-sm font-semibold px-4 py-2 rounded-full mb-6">
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 text-white text-sm font-semibold px-4 py-2 rounded-full mb-6">
                     📱 Coming Soon
           </div>
-                  <h2 className="text-4xl md:text-5xl font-bold mb-6">
+                  <h2 className="text-2xl md:text-3xl font-bold mb-4">
                     Our mobile app is coming soon!
                   </h2>
                   <p className="text-xl text-gray-300 mb-8">
@@ -1786,14 +1786,14 @@ export default function HomePage() {
                           placeholder="Enter your email"
                           value={notifyEmail}
                           onChange={(e) => setNotifyEmail(e.target.value)}
-                        className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-amber-500 text-white placeholder-gray-400"
+                        className="flex-1 px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-red-500 text-white placeholder-gray-400"
                           disabled={subscriptionLoading}
                         required
                         />
                         <button
                           type="submit"
                           disabled={subscriptionLoading}
-                        className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-black font-semibold rounded-lg hover:from-amber-400 hover:to-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white font-semibold rounded-lg hover:from-red-700 hover:to-pink-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {subscriptionLoading ? 'Subscribing...' : 'Notify Me'}
                         </button>
@@ -1811,7 +1811,7 @@ export default function HomePage() {
                 >
                   <div className="relative mx-auto w-64 h-96 bg-gray-800 rounded-3xl p-2 shadow-2xl">
                     <div className="w-full h-full bg-gray-900 rounded-2xl overflow-hidden relative">
-                      <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-amber-600/20 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-gradient-to-br from-red-500/20 to-pink-600/20 flex items-center justify-center">
                         <div className="text-center">
                           <div className="text-6xl mb-4">📱</div>
                           <div className="text-white text-lg font-semibold mb-2">AVRIO</div>

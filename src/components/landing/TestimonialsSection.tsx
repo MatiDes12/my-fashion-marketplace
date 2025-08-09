@@ -93,13 +93,13 @@ export default function TestimonialsSection() {
       <Star
         key={index}
         size={16}
-        className={`${index < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+        className={`${index < rating ? 'text-red-500 fill-current' : 'text-gray-300'}`}
       />
     ));
   };
 
   return (
-    <section id="testimonials" className="py-8 w-full bg-gradient-to-br from-blue-50 to-indigo-50">
+    <section id="testimonials" className="py-8 w-full bg-gradient-to-br from-red-50 to-pink-50">
       <div className="w-full px-4 lg:px-12 xl:px-16">
         <div className="max-w-screen-2xl mx-auto">
           
@@ -111,7 +111,7 @@ export default function TestimonialsSection() {
             viewport={{ once: true }}
             className="text-center mb-8"
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
               What Our Customers Say
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">

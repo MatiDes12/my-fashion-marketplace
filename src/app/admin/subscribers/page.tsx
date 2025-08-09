@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -14,6 +14,17 @@ interface Subscriber {
   created_at: string;
 }
 
+interface Campaign {
+  id: string;
+  subject: string;
+  message: string;
+  subscription_type: 'notify_me' | 'newsletter' | null;
+  single_email: string | null;
+  recipients_count: number;
+  failed_count: number;
+  created_at: string;
+}
+
 export default function SubscribersPage() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [filteredSubscribers, setFilteredSubscribers] = useState<Subscriber[]>([]);
@@ -22,12 +33,16 @@ export default function SubscribersPage() {
   const [messageType, setMessageType] = useState<'notify_me' | 'newsletter'>('newsletter');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [singleEmail, setSingleEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
   const supabase = createClientComponent();
 
   useEffect(() => {
     fetchSubscribers();
+    fetchCampaigns();
   }, []);
 
   // Filter subscribers based on search query
@@ -68,6 +83,20 @@ export default function SubscribersPage() {
     }
   };
 
+  const fetchCampaigns = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('email_campaigns')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setCampaigns((data || []) as Campaign[]);
+    } catch (error) {
+      console.error('Error fetching campaigns:', error);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!subject.trim() || !message.trim()) {
       toast.error('Please fill in both subject and message');
@@ -82,7 +111,8 @@ export default function SubscribersPage() {
         body: JSON.stringify({
           type: messageType,
           subject,
-          message
+          message,
+          singleEmail: singleEmail.trim() || undefined
         }),
       });
 
@@ -93,7 +123,9 @@ export default function SubscribersPage() {
       toast.success('Messages sent successfully!');
       setSubject('');
       setMessage('');
+      setSingleEmail('');
       setShowComposer(false);
+      fetchCampaigns();
     } catch (error) {
       console.error('Error sending messages:', error);
       toast.error('Failed to send messages');
@@ -115,9 +147,9 @@ export default function SubscribersPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="sm:flex sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Subscriber Management</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Newsletter</h1>
           <p className="mt-2 text-sm text-gray-700">
-            Manage your email subscribers and send targeted messages
+            Manage subscribers and send updates or announcements
           </p>
         </div>
         <div className="mt-4 sm:mt-0">
@@ -128,7 +160,7 @@ export default function SubscribersPage() {
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            {showComposer ? 'Hide Composer' : 'Send Message'}
+            {showComposer ? 'Hide Composer' : 'Send Newsletter'}
           </button>
         </div>
       </div>
@@ -223,6 +255,7 @@ export default function SubscribersPage() {
                   <option value="newsletter">Newsletter</option>
                   <option value="notify_me">Launch Notification</option>
                 </select>
+                <p className="mt-1 text-xs text-gray-500">Or send to a single email below.</p>
               </div>
 
               <div>
@@ -233,6 +266,19 @@ export default function SubscribersPage() {
                   onChange={(e) => setSubject(e.target.value)}
                   className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
                   placeholder="Enter email subject"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Single recipient (optional)</label>
+                <input
+                  type="email"
+                  value={singleEmail}
+                  onChange={(e) => setSingleEmail(e.target.value)}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
+                  placeholder="example@domain.com"
                 />
               </div>
             </div>
@@ -345,6 +391,79 @@ export default function SubscribersPage() {
           ]}
           itemsPerPage={10}
         />
+      </div>
+
+      {/* Sent Campaigns */}
+      <div className="mt-10">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Sent Newsletters</h2>
+        <div className="bg-white shadow-lg rounded-xl border border-gray-200 overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipients</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Failed</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {campaigns.map((c) => (
+                <Fragment key={c.id}>
+                  <tr>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                      {new Date(c.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 truncate max-w-[320px]" title={c.subject}>
+                      {c.subject}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      {c.single_email ? 'Single' : (c.subscription_type === 'notify_me' ? 'Launch' : 'Newsletter')}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{c.recipients_count}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{c.failed_count}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 max-w-[360px]">
+                      <div className="text-gray-700 line-clamp-2 whitespace-pre-wrap">{c.message}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-3 whitespace-nowrap">
+                      <button
+                        onClick={() => navigator.clipboard.writeText(c.message)}
+                        className="text-sm text-red-600 hover:text-red-700"
+                        title="Copy message"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        onClick={() => setExpandedCampaignId(expandedCampaignId === c.id ? null : c.id)}
+                        className="text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        {expandedCampaignId === c.id ? 'Hide' : 'View'}
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedCampaignId === c.id && (
+                    <tr key={`${c.id}-expanded`}>
+                      <td colSpan={7} className="px-4 pb-4">
+                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800 whitespace-pre-wrap overflow-auto max-h-80">
+                          {c.message}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+              {campaigns.length === 0 && (
+                <tr>
+                  <td className="px-4 py-6 text-center text-sm text-gray-500" colSpan={7}>
+                    No newsletters sent yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

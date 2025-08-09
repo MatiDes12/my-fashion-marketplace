@@ -7,45 +7,50 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
-    const { type, subject, message } = await request.json();
+    const { type, subject, message, singleEmail } = await request.json();
 
     // Validate input
-    if (!type || !subject || !message) {
+    if (!subject || !message || (!type && !singleEmail)) {
       return NextResponse.json(
-        { error: 'Type, subject, and message are required' },
+        { error: 'Provide subject, message, and either subscription type or a singleEmail' },
         { status: 400 }
       );
     }
 
-    if (!['notify_me', 'newsletter'].includes(type)) {
+    if (type && !['notify_me', 'newsletter'].includes(type)) {
       return NextResponse.json(
         { error: 'Invalid subscription type' },
         { status: 400 }
       );
     }
 
-    // Get active subscribers of the specified type
-    const { data: subscribers, error: fetchError } = await supabaseServer
-      .from('email_subscribers')
-      .select('email')
-      .eq('subscription_type', type)
-      .eq('is_active', true);
+    let recipients: { email: string }[] = [];
+    if (singleEmail) {
+      recipients = [{ email: singleEmail }];
+    } else {
+      // Get active subscribers of the specified type
+      const { data: subscribers, error: fetchError } = await supabaseServer
+        .from('email_subscribers')
+        .select('email')
+        .eq('subscription_type', type)
+        .eq('is_active', true);
 
-    if (fetchError) throw fetchError;
-
-    if (!subscribers?.length) {
+      if (fetchError) throw fetchError;
+      recipients = subscribers || [];
+    }
+    if (!recipients?.length) {
       return NextResponse.json(
         { error: 'No active subscribers found' },
         { status: 404 }
       );
     }
 
-    // Send emails in batches of 50 (to avoid rate limits)
-    const batchSize = 50;
+    // Send emails in smaller batches and throttle between batches (prod rate limits)
+    const batchSize = 25;
     const emailPromises = [];
     
-    for (let i = 0; i < subscribers.length; i += batchSize) {
-      const batch = subscribers.slice(i, i + batchSize);
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
       
       const batchPromises = batch.map((subscriber: any) => 
         resend.emails.send({
@@ -90,14 +95,30 @@ export async function POST(request: Request) {
       );
       
       emailPromises.push(...batchPromises);
+
+      // throttle between batches (200ms)
+      await new Promise((r) => setTimeout(r, 200));
     }
 
-    // Wait for all emails to be sent
-    await Promise.all(emailPromises);
+    // Wait for all emails to be sent safely
+    const results = await Promise.allSettled(emailPromises);
+    const failed = results.filter(r => r.status === 'rejected').length;
+
+    // Log campaign
+    await supabaseServer
+      .from('email_campaigns')
+      .insert({
+        subject,
+        message,
+        subscription_type: singleEmail ? null : type,
+        single_email: singleEmail || null,
+        recipients_count: recipients.length,
+        failed_count: failed
+      });
 
     return NextResponse.json({
       success: true,
-      message: `Successfully sent ${subscribers.length} emails`
+      message: `Attempted ${recipients.length} emails (${recipients.length - failed} succeeded, ${failed} failed)`
     });
 
   } catch (error) {

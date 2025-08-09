@@ -17,9 +17,9 @@ export default function LandingPage() {
         className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center"
       >
         <div className="text-center text-white">
-          <h1 className="text-6xl md:text-7xl font-bold mb-6">
+          <h1 className="text-3xl md:text-5xl font-bold mb-4">
             <span className="block">Discover Your</span>
-            <span className="block bg-gradient-to-r from-amber-400 to-yellow-400 bg-clip-text text-transparent">
+            <span className="block bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
               Perfect Style
             </span>
           </h1>

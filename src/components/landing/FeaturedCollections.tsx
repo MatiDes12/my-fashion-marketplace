@@ -68,13 +68,13 @@ export default function FeaturedCollections() {
             whileInView={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
             viewport={{ once: true }}
-            className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-2 rounded-full text-sm font-medium mb-6"
+            className="inline-flex items-center gap-2 bg-red-50 text-red-700 px-4 py-2 rounded-full text-sm font-medium mb-6"
           >
             <Sparkles className="w-4 h-4" />
             Curated Collections
           </motion.div>
           
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
             Featured Collections
           </h2>
           
@@ -108,7 +108,7 @@ export default function FeaturedCollections() {
                     
                     {/* Badge */}
                     <div className="absolute top-4 left-4">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-500 text-white shadow-lg">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-600 text-white shadow-lg">
                         {collection.badge}
                       </span>
                     </div>
@@ -119,7 +119,7 @@ export default function FeaturedCollections() {
                         <motion.button
                           initial={{ opacity: 0, y: 20 }}
                           whileHover={{ opacity: 1, y: 0 }}
-                          className="w-full bg-white text-gray-900 px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-amber-50 transition-colors duration-300"
+                          className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 hover:from-red-500 hover:to-pink-500 transition-colors duration-300"
                         >
                           Shop Now
                           <ArrowRight className="w-4 h-4" />
@@ -130,7 +130,7 @@ export default function FeaturedCollections() {
 
                   {/* Content */}
                   <div className="p-6">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-amber-600 transition-colors duration-300">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-red-600 transition-colors duration-300">
                       {collection.title}
                     </h3>
                     
@@ -139,7 +139,7 @@ export default function FeaturedCollections() {
                     </p>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-amber-600">
+                      <span className="text-lg font-bold text-red-600">
                         {collection.price}
                       </span>
                       <span className="text-sm text-gray-500">
@@ -163,7 +163,7 @@ export default function FeaturedCollections() {
         >
           <Link
             href="/collections"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-8 py-3 rounded-full font-semibold hover:from-amber-700 hover:to-yellow-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 text-white px-8 py-3 rounded-full font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
           >
             View All Collections
             <ArrowRight className="w-5 h-5" />
