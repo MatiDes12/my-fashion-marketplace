@@ -2,7 +2,8 @@ import { supabaseServer, supabaseServerAnon } from '@/lib/supabase-server';
 
 // Use centralized Supabase clients
 const supabase = supabaseServerAnon;
-const supabaseService = supabaseServer;
+// Cast to any to avoid TS complaining in shared module; actual runtime is server-only where used
+const supabaseService: any = supabaseServer as any;
 
 export interface TelegramConfig {
   botToken: string;
@@ -842,10 +843,15 @@ ${paymentData.receiptUrl ? `📄 <a href="${paymentData.receiptUrl}">View Receip
       'failed': '❌'
     };
 
-    return `
-${statusEmoji[deliveryData.status] || '📦'} <b>Delivery Update</b>
+    const productLine = deliveryData.product_name
+      ? `
+${deliveryData.status === 'delivered' ? '🎉' : deliveryData.status === 'picked_up' ? '✅' : '📦'} ${deliveryData.product_name} is ${deliveryData.status === 'picked_up' ? 'picked up' : deliveryData.status}`
+      : '';
 
-Order ID: <code>${deliveryData.order_id}</code>
+    return `
+${statusEmoji[deliveryData.status] || '📦'} <b>Delivery Update</b>${productLine}
+
+Order ID: <code>${String(deliveryData.order_id || '').slice(-12)}</code>
 Status: ${deliveryData.status.toUpperCase()}
 ${deliveryData.notes ? `Notes: ${deliveryData.notes}` : ''}
 
@@ -1732,7 +1738,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       let message = '📋 <b>Your Recent Orders:</b>\n\n';
       const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
 
-      orders.forEach((order, index) => {
+      orders.forEach((order: any, index: number) => {
         // Format delivery method
         const deliveryMethodText = order.delivery_method === 'home_delivery' ? '🏠 Home Delivery' : 
                                    order.delivery_method === 'store_pickup' ? '🏪 Store Pickup' : 
@@ -1818,11 +1824,11 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       const { data: deliveryStatuses } = await supabaseService
         .from('delivery_statuses')
         .select('*')
-        .in('order_id', orders.map(o => o.id))
+        .in('order_id', orders.map((o: any) => o.id))
         .order('created_at', { ascending: true });
 
       // Group delivery statuses by order_id
-      const statusesByOrder = deliveryStatuses?.reduce((acc: any, status) => {
+      const statusesByOrder = deliveryStatuses?.reduce((acc: any, status: any) => {
         if (!acc[status.order_id]) {
           acc[status.order_id] = [];
         }
@@ -1833,7 +1839,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       let message = '🚚 <b>Delivery Tracking Overview</b>\n\n';
       const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
 
-      orders.forEach((order, index) => {
+      orders.forEach((order: any, index: number) => {
         const orderStatuses = statusesByOrder[order.id] || [];
         const latestStatus = orderStatuses.length > 0 ? orderStatuses[orderStatuses.length - 1] : null;
         
@@ -1957,7 +1963,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       let message = '⚡ <b>Active Flash Sales</b>\n\n';
       const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
 
-      flashSales.forEach((sale, index) => {
+      flashSales.forEach((sale: any, index: number) => {
         const products = sale.products || [];
         const totalWishlistCount = products.reduce((sum: number, fp: any) => {
           return sum + (fp.product?.likes?.[0]?.count || 0);
@@ -2078,7 +2084,7 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
       let message = '💝 <b>Your Wishlist</b>\n\n';
       const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
 
-      wishlistItems.forEach((item: any, index) => {
+      wishlistItems.forEach((item: any, index: number) => {
         const product = item.products;
         if (!product) return;
 
@@ -2191,26 +2197,26 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
 
       // Calculate metrics for each store
       const formattedSellers = sellersData
-        .filter(seller => seller.store_settings)
-        .map(seller => {
-          const products = seller.products || [];
+        .filter((seller: any) => seller.store_settings)
+        .map((seller: any) => {
+          const products: any[] = seller.products || [];
           
           // Calculate metrics
           const total_products = products.length;
-          const allRatings = products.flatMap(product => product.ratings || []);
+          const allRatings = products.flatMap((product: any) => product.ratings || []);
           const totalRatings = allRatings.length;
           const avgRating = totalRatings > 0
-            ? allRatings.reduce((sum, r) => sum + r.rating, 0) / totalRatings
+            ? allRatings.reduce((sum: number, r: any) => sum + r.rating, 0) / totalRatings
             : 0;
-          const allLikes = products.flatMap(product => product.likes || []);
+          const allLikes = products.flatMap((product: any) => product.likes || []);
           const totalLikes = allLikes.length;
 
           // Calculate recent activity (last 30 days)
           const now = new Date();
           const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-          const recentActivity = allRatings.filter(r => 
+          const recentActivity = allRatings.filter((r: any) => 
             now.getTime() - new Date(r.created_at).getTime() < THIRTY_DAYS
-          ).length + allLikes.filter(l => 
+          ).length + allLikes.filter((l: any) => 
             now.getTime() - new Date(l.created_at).getTime() < THIRTY_DAYS
           ).length;
 
@@ -2233,13 +2239,13 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
             verification_status: seller.verification_status
           };
         })
-        .sort((a, b) => b.trendingScore - a.trendingScore)
+        .sort((a: any, b: any) => b.trendingScore - a.trendingScore)
         .slice(0, 10); // Show top 10 stores
 
       let message = '🏪 <b>Popular Ethiopian Stores</b>\n\n';
       const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
 
-      formattedSellers.forEach((seller, index) => {
+      formattedSellers.forEach((seller: any, index: number) => {
         const storeName = seller.store_settings?.name || seller.full_name;
         const storeDescription = seller.store_settings?.shortDescription || 
                                 seller.store_settings?.description || 
@@ -2532,13 +2538,13 @@ Need immediate help? Contact our support team at https://www.avrioxshop.com/supp
         return;
       }
 
-      const products = seller.products || [];
-      const allRatings = products.flatMap(product => product.ratings || []);
+      const products: any[] = seller.products || [];
+      const allRatings = products.flatMap((product: any) => product.ratings || []);
       const totalRatings = allRatings.length;
       const avgRating = totalRatings > 0
-        ? allRatings.reduce((sum, r) => sum + r.rating, 0) / totalRatings
+        ? allRatings.reduce((sum: number, r: any) => sum + r.rating, 0) / totalRatings
         : 0;
-      const allLikes = products.flatMap(product => product.likes || []);
+      const allLikes = products.flatMap((product: any) => product.likes || []);
       const totalLikes = allLikes.length;
 
       const storeName = seller.store_settings.name || seller.full_name;
@@ -3071,7 +3077,7 @@ To search for products, please visit our website:
 
       // Count products per category
       const categoryCounts: { [key: string]: number } = {};
-      categories?.forEach(product => {
+      categories?.forEach((product: any) => {
         if (product.category) {
           categoryCounts[product.category] = (categoryCounts[product.category] || 0) + 1;
         }
@@ -3172,7 +3178,7 @@ To search for products, please visit our website:
       let message = '🔥 <b>All Active Deals & Promotions</b>\n\n';
       const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
 
-      flashSales.forEach((sale, index) => {
+      flashSales.forEach((sale: any, index: number) => {
         const products = sale.products || [];
         const totalSavings = products.reduce((sum: number, fp: any) => {
           const originalPrice = fp.product?.price || 0;
@@ -3274,7 +3280,7 @@ To search for products, please visit our website:
       let message = '🛍️ <b>Latest Products</b>\n\n';
       const keyboard: Array<Array<{ text: string; callback_data?: string; url?: string }>> = [];
 
-      products.forEach((product, index) => {
+      products.forEach((product: any, index: number) => {
         const storeName = (product.owner as any)?.store_settings?.name || 'Unknown Store';
         const likeCount = product.likes?.[0]?.count || 0;
         const avgRating = product.ratings?.length > 0 

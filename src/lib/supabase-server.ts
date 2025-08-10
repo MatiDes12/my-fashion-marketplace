@@ -27,7 +27,9 @@ if (typeof window === 'undefined') {
   });
 }
 
-export const supabaseServer = supabaseServerInternal;
+// Export as non-optional type to avoid TS noise in server-only imports.
+// Do NOT import this in client components.
+export const supabaseServer = (supabaseServerInternal as unknown as ReturnType<typeof createClient>);
 
 export function getSupabaseServer() {
   if (!supabaseServerInternal) {

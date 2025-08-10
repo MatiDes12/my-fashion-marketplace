@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { verifyPickupCode } from '@/utils/pickupCodeServer';
+import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
 
 export async function POST(request: Request) {
   try {
@@ -33,6 +34,31 @@ export async function POST(request: Request) {
         success: false, 
         error: result.error || 'Failed to verify pickup code'
       }, { status: 400 });
+    }
+
+    // Fire Telegram notification for store pickup (store_pickup)
+    try {
+      const supabase = createRouteHandlerClient({ cookies });
+      // Fetch order to get user_id and product title if not provided
+      const { data: orderRow } = await supabase
+        .from('orders')
+        .select('id, user_id, delivery_method, product:products(title)')
+        .eq('id', orderId)
+        .single();
+
+      if (orderRow?.user_id && (orderRow as any)?.delivery_method === 'store_pickup') {
+        const config = await getTelegramConfig();
+        const bot = new TelegramBot(config);
+        await bot.sendDeliveryUpdate(orderRow.user_id, {
+          order_id: orderId,
+          status: 'picked_up',
+          updated_at: new Date().toISOString(),
+          product_name: (orderRow as any)?.product?.title || undefined,
+          notes: 'Pickup verified by code at store'
+        });
+      }
+    } catch (notifyError) {
+      console.error('[PICKUP_NOTIFY] Failed to send Telegram pickup notification:', notifyError);
     }
 
     return NextResponse.json({ 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
 
-// Use centralized Supabase client
+// Use centralized Supabase client (server-only)
 const supabase = supabaseServer;
 
 export async function POST(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
       .from('delivery_tracking')
       .select(`
         *,
-        delivery_accounts!inner(
+        delivery_accounts:delivery_accounts!inner(
           id,
           is_active,
           delivery_person_name,
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid delivery ID' }, { status: 404 });
     }
 
-    if (!deliveryData.delivery_accounts.is_active) {
+    if (!(deliveryData as any).delivery_accounts?.is_active) {
       return NextResponse.json({ error: 'Delivery account is not active' }, { status: 403 });
     }
 
@@ -84,8 +85,8 @@ export async function POST(request: NextRequest) {
         delivery_account_id: deliveryData.delivery_account_id,
         status: deliveryStatus,
         notes: deliveryNotes,
-        delivery_person_name: deliveryData.delivery_accounts?.delivery_person_name,
-        delivery_person_phone: deliveryData.delivery_accounts?.phone_number,
+        delivery_person_name: (deliveryData as any).delivery_accounts?.delivery_person_name || null,
+        delivery_person_phone: (deliveryData as any).delivery_accounts?.phone_number || null,
         proof_image: proofImages && proofImages.length > 0 ? proofImages[0] : null
       });
 
@@ -97,9 +98,9 @@ export async function POST(request: NextRequest) {
     // Update order status based on delivery status
     const orderStatusMapping: { [key: string]: string } = {
       'assigned': 'confirmed',
-      'picked_up': 'shipped',
+      'picked_up': 'picked up',
       'in_transit': 'shipped',
-      'out_for_delivery': 'shipped', // Keep as shipped since we combine with in_transit
+      'out_for_delivery': 'shipped', // Combine with in_transit
       'delivered': 'delivered',
       'failed': 'cancelled'
     };
@@ -107,7 +108,7 @@ export async function POST(request: NextRequest) {
     const orderStatus = orderStatusMapping[status];
     if (orderStatus) {
       // Update order with status and delivery proof image
-      const updateData: any = {
+      const updateData: Record<string, any> = {
         order_status: orderStatus,
         updated_at: new Date().toISOString()
       };
@@ -124,8 +125,8 @@ export async function POST(request: NextRequest) {
 
       const { error: orderError } = await supabase
         .from('orders')
-        .update(updateData)
-        .eq('id', deliveryData.order_id);
+        .update(updateData as Record<string, unknown>)
+        .eq('id', String(deliveryData.order_id));
 
       if (orderError) {
         console.error('Error updating order status:', orderError);
@@ -145,9 +146,9 @@ export async function POST(request: NextRequest) {
             platform_payout_status: 'completed',
             seller_payout_status: 'pending',
             updated_at: new Date().toISOString()
-          })
-          .eq('order_id', deliveryData.order_id)
-          .select();
+          } as Record<string, unknown>)
+          .eq('order_id', String(deliveryData.order_id))
+          .select('*');
 
         if (transactionError) {
           console.error('Transaction update error:', transactionError);
@@ -155,6 +156,42 @@ export async function POST(request: NextRequest) {
         } else {
           console.log('Transaction updated successfully for order:', deliveryData.order_id, 'Updated rows:', transactionData);
         }
+      }
+    }
+
+    // Send Telegram notification for key delivery status changes
+    if (status === 'picked_up' || status === 'delivered') {
+      try {
+        // Get the order's user to target the Telegram recipient
+        const { data: orderRow, error: orderFetchError } = await supabase
+          .from('orders')
+          .select('id, user_id, delivery_method, product:products(title)')
+          .eq('id', String(deliveryData.order_id))
+          .single();
+
+        if (!orderFetchError && orderRow?.user_id) {
+          const config = await getTelegramConfig();
+          const bot = new TelegramBot(config);
+
+          const isHomeDelivery = (orderRow as any)?.delivery_method === 'home_delivery';
+          const isStorePickup = (orderRow as any)?.delivery_method === 'store_pickup';
+
+          const shouldNotify = (status === 'delivered' && isHomeDelivery) || (status === 'picked_up' && isStorePickup);
+
+          if (shouldNotify) {
+            await bot.sendDeliveryUpdate(String((orderRow as any).user_id), {
+              order_id: deliveryData.order_id,
+              status,
+              notes: deliveryNotes || null,
+              updated_at: new Date().toISOString(),
+              product_name: (orderRow as any)?.product?.title || undefined
+            });
+          }
+        } else if (orderFetchError) {
+          console.error('Failed to fetch order for Telegram delivery update:', orderFetchError);
+        }
+      } catch (notifyError) {
+        console.error('Error sending Telegram delivery update:', notifyError);
       }
     }
 

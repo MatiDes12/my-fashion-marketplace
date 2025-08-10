@@ -1637,9 +1637,9 @@ export default function HomePage() {
                    <p className="text-xl text-gray-600 max-w-2xl">
                     Discover the most popular and trending products that everyone is loving right now
                    </p>
-                </div>
+                  </div>
                  <div className="hidden md:flex items-center gap-4">
-                  <button 
+                <button 
                      onClick={() => {
                        const container = document.getElementById('trending-scroll');
                        container?.scrollBy({ left: -320, behavior: 'smooth' });
@@ -1648,10 +1648,10 @@ export default function HomePage() {
                      aria-label="Scroll left"
                    >
                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button 
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button 
                      onClick={() => {
                        const container = document.getElementById('trending-scroll');
                        container?.scrollBy({ left: 320, behavior: 'smooth' });
@@ -1660,9 +1660,9 @@ export default function HomePage() {
                      aria-label="Scroll right"
                    >
                      <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
                  </div>
                </motion.div>
 
@@ -1671,14 +1671,14 @@ export default function HomePage() {
                  <div 
                    id="trending-scroll"
                    className="flex gap-6 overflow-x-auto scrollbar-hide pb-4"
-                    style={{ 
-                      scrollbarWidth: 'none',
-                      msOverflowStyle: 'none',
+                  style={{ 
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
                    }}
                  >
                    {mostLikedProducts.slice(0, 12).map((product, index) => (
-                        <motion.div
-                          key={product.id}
+                      <motion.div
+                        key={product.id}
                        initial={{ opacity: 0, x: 50 }}
                        whileInView={{ opacity: 1, x: 0 }}
                        transition={{ duration: 0.6, delay: index * 0.1 }}
@@ -1707,24 +1707,24 @@ export default function HomePage() {
                            <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                              <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                    </svg>
-                                  </div>
+                                  </svg>
+                                </div>
                            <h3 className="text-lg font-semibold text-gray-900 mb-2">View All Products</h3>
                            <p className="text-gray-600 text-xs">
                              Explore more
                            </p>
-                              </div>
                             </div>
-                          </Link>
-                        </motion.div>
-                  </div>
+                          </div>
+                        </Link>
+                      </motion.div>
+                </div>
 
                  {/* Gradient Fade Effects */}
                  <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none"></div>
                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
+                </div>
                   </div>
-                      </div>
-                    </div>
+                </div>
           </section>
 
           {/* Testimonials */}
