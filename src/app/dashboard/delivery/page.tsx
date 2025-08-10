@@ -81,7 +81,8 @@ type Order = {
 function DeliveryPage() {
   const [deliveryAccounts, setDeliveryAccounts] = useState<DeliveryAccount[]>([]);
   const [deliveryTracking, setDeliveryTracking] = useState<DeliveryTracking[]>([]);
-  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<Order[]>([]); // confirmed only (Pending tab)
+  const [shippedOrders, setShippedOrders] = useState<Order[]>([]); // shipped only (Shipped tab)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -109,6 +110,73 @@ function DeliveryPage() {
 
   const router = useRouter();
   const supabase = createClientComponent();
+  const PAGE_SIZE = 10;
+  const [sellerProductIds, setSellerProductIds] = useState<string[]>([]);
+  const [pendingTotalCount, setPendingTotalCount] = useState<number>(0);
+  const [shippedTotalCount, setShippedTotalCount] = useState<number>(0);
+  const [trackingTotalCount, setTrackingTotalCount] = useState<number>(0);
+
+  // Normalizers to keep types consistent (Supabase may return nested arrays)
+  const normalizeOrder = (raw: any): Order => {
+    return {
+      id: raw.id,
+      user_id: raw.user_id,
+      total_price: raw.total_price,
+      delivery_address: raw.delivery_address,
+      delivery_method: raw.delivery_method,
+      pickup_code: raw.pickup_code || undefined,
+      order_status: raw.order_status,
+      created_at: raw.created_at,
+      product_id: raw.product_id,
+      quantity: raw.quantity,
+      users: Array.isArray(raw.users) ? raw.users[0] : raw.users,
+      products: Array.isArray(raw.products) ? raw.products[0] : raw.products,
+    } as Order;
+  };
+
+  const normalizeTracking = (raw: any): DeliveryTracking => {
+    return {
+      id: raw.id,
+      order_id: raw.order_id,
+      delivery_account_id: raw.delivery_account_id,
+      status: raw.status,
+      assigned_at: raw.assigned_at,
+      picked_up_at: raw.picked_up_at,
+      delivered_at: raw.delivered_at,
+      delivery_notes: raw.delivery_notes,
+      proof_images: raw.proof_images,
+      order: normalizeOrder(Array.isArray(raw.order) ? raw.order[0] : raw.order),
+      delivery_accounts: Array.isArray(raw.delivery_accounts) ? raw.delivery_accounts[0] : raw.delivery_accounts,
+    } as DeliveryTracking;
+  };
+
+  const getTrackingAccentClasses = (status: DeliveryTracking['status']) => {
+    switch (status) {
+      case 'delivered':
+        return 'border-l-4 border-green-500';
+      case 'in_transit':
+        return 'border-l-4 border-blue-500';
+      case 'picked_up':
+        return 'border-l-4 border-yellow-500';
+      case 'failed':
+        return 'border-l-4 border-red-500';
+      default:
+        return 'border-l-4 border-emerald-400';
+    }
+  };
+
+  // Per-tab loading + pagination control
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [shippedLoading, setShippedLoading] = useState(false);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+
+  const [pendingPage, setPendingPage] = useState(0);
+  const [pendingHasMore, setPendingHasMore] = useState(true);
+  const [shippedPage, setShippedPage] = useState(0);
+  const [shippedHasMore, setShippedHasMore] = useState(true);
+  const [trackingPage, setTrackingPage] = useState(0);
+  const [trackingHasMore, setTrackingHasMore] = useState(true);
 
   const fetchDeliveryData = async () => {
     try {
@@ -120,81 +188,63 @@ function DeliveryPage() {
         return;
       }
 
-      // Fetch delivery accounts
+      // Fetch delivery accounts (lightweight)
+      setAccountsLoading(true);
       const { data: accountsData, error: accountsError } = await supabase
         .from('delivery_accounts')
-        .select('*')
+        .select('id, delivery_person_name, phone_number, email, is_active, created_at, updated_at')
         .eq('seller_id', session.user.id)
         .order('created_at', { ascending: false });
-
       if (accountsError) throw accountsError;
+      setDeliveryAccounts(accountsData || []);
+      setAccountsLoading(false);
 
-      // Fetch delivery tracking with order details
-      // First get all products owned by the seller
+      // Fetch seller product ids once
       const { data: sellerProducts, error: sellerProductsError } = await supabase
         .from('products')
         .select('id')
         .eq('owner_id', session.user.id);
-
       if (sellerProductsError) throw sellerProductsError;
+      const ids = (sellerProducts || []).map((p: any) => p.id);
+      setSellerProductIds(ids);
 
-      let trackingData: any[] = [];
-      if (sellerProducts && sellerProducts.length > 0) {
-        // Then fetch delivery tracking for orders of these products
-        const { data: trackingResult, error: trackingError } = await supabase
-          .from('delivery_tracking')
-          .select(`
-            *,
-            order:orders!inner(
-              id,
-              user_id,
-              total_price,
-              delivery_address,
-              delivery_method,
-              pickup_code,
-              product_id,
-              quantity,
-              users!inner(full_name, email, phone),
-              products!inner(title, description, price)
-            ),
-            delivery_accounts!inner(delivery_person_name, phone_number)
-          `)
-          .in('order.product_id', sellerProducts.map(p => p.id))
-          .order('assigned_at', { ascending: false });
+      // Prime tab counters instantly without loading full lists
+      if (ids.length > 0) {
+        const [pendingCnt, shippedCnt, trackingCnt] = await Promise.all([
+          supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .in('product_id', ids)
+            .eq('order_status', 'confirmed')
+            .eq('delivery_method', 'home_delivery'),
+          supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .in('product_id', ids)
+            .eq('order_status', 'shipped')
+            .eq('delivery_method', 'home_delivery'),
+          supabase
+            .from('delivery_tracking')
+            .select('id, order:orders!inner(id)', { count: 'exact', head: true })
+            .in('order.product_id', ids),
+        ]);
 
-        if (trackingError) throw trackingError;
-        trackingData = trackingResult || [];
+        setPendingTotalCount(pendingCnt.count || 0);
+        setShippedTotalCount(shippedCnt.count || 0);
+        setTrackingTotalCount(trackingCnt.count || 0);
+      } else {
+        setPendingTotalCount(0);
+        setShippedTotalCount(0);
+        setTrackingTotalCount(0);
       }
 
-      // Fetch pending orders that need delivery assignment
-      let pendingOrdersData: any[] = [];
-      if (sellerProducts && sellerProducts.length > 0) {
-        // Then fetch orders for these products - include both confirmed and shipped orders
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('orders')
-          .select(`
-            *,
-            users!inner(full_name, email, phone),
-            products!inner(title, description, price)
-          `)
-          .in('product_id', sellerProducts.map(p => p.id))
-          .in('order_status', ['confirmed', 'shipped'])
-          .eq('delivery_method', 'home_delivery')
-          .order('created_at', { ascending: false });
-
-        if (ordersError) throw ordersError;
-
-        // Filter out orders that are already assigned for delivery
-        const assignedOrderIds = new Set(trackingData.map(t => t.order_id));
-        pendingOrdersData = ordersData?.filter(order => !assignedOrderIds.has(order.id)) || [];
-      }
-
-      console.log('Fetched delivery tracking data:', trackingData);
-      console.log('Fetched pending orders data:', pendingOrdersData);
-      
-      setDeliveryAccounts(accountsData || []);
-      setDeliveryTracking(trackingData);
-      setPendingOrders(pendingOrdersData);
+      // Reset lists; they will lazy-load per tab
+      setPendingOrders([]);
+      setShippedOrders([]);
+      setDeliveryTracking([]);
+      setPendingPage(0); setPendingHasMore(true);
+      setShippedPage(0); setShippedHasMore(true);
+      setTrackingPage(0); setTrackingHasMore(true);
     } catch (error) {
       console.error('Error fetching delivery data:', error);
       setError('Failed to load delivery data');
@@ -206,6 +256,113 @@ function DeliveryPage() {
   useEffect(() => {
     fetchDeliveryData();
   }, []);
+
+  // Lazy loaders per tab
+  const fetchPendingPage = async (page: number) => {
+    if (pendingLoading || sellerProductIds.length === 0) return;
+    try {
+      setPendingLoading(true);
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id, user_id, total_price, delivery_address, delivery_method, pickup_code, order_status, created_at, product_id, quantity,
+          users:users(full_name, email, phone),
+          products:products(title, description, price)
+        `)
+        .in('product_id', sellerProductIds)
+        .eq('order_status', 'confirmed')
+        .eq('delivery_method', 'home_delivery')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      const newItems = (data || []).map(normalizeOrder) as Order[];
+      setPendingOrders(prev => (page === 0 ? newItems : ([...prev, ...newItems])));
+      setPendingHasMore(newItems.length === PAGE_SIZE);
+      setPendingPage(page);
+    } catch (e) {
+      console.error('Error loading pending orders:', e);
+      toast.error('Failed to load pending orders');
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const fetchShippedPage = async (page: number) => {
+    if (shippedLoading || sellerProductIds.length === 0) return;
+    try {
+      setShippedLoading(true);
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id, user_id, total_price, delivery_address, delivery_method, pickup_code, order_status, created_at, product_id, quantity,
+          users:users(full_name, email, phone),
+          products:products(title, description, price)
+        `)
+        .in('product_id', sellerProductIds)
+        .eq('order_status', 'shipped')
+        .eq('delivery_method', 'home_delivery')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      const newItems = (data || []).map(normalizeOrder) as Order[];
+      setShippedOrders(prev => (page === 0 ? newItems : ([...prev, ...newItems])));
+      setShippedHasMore(newItems.length === PAGE_SIZE);
+      setShippedPage(page);
+    } catch (e) {
+      console.error('Error loading shipped orders:', e);
+      toast.error('Failed to load shipped orders');
+    } finally {
+      setShippedLoading(false);
+    }
+  };
+
+  const fetchTrackingPage = async (page: number) => {
+    if (trackingLoading || sellerProductIds.length === 0) return;
+    try {
+      setTrackingLoading(true);
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from('delivery_tracking')
+        .select(`
+          id, order_id, delivery_account_id, status, assigned_at, picked_up_at, delivered_at, delivery_notes, proof_images,
+          order:orders!inner(
+            id, user_id, total_price, delivery_address, delivery_method, pickup_code, product_id, quantity,
+            users:users!inner(full_name, email, phone),
+            products:products!inner(title, description, price)
+          ),
+          delivery_accounts:delivery_accounts!inner(delivery_person_name, phone_number)
+        `)
+        .in('order.product_id', sellerProductIds)
+        .order('assigned_at', { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      const newItems = (data || []).map(normalizeTracking) as DeliveryTracking[];
+      setDeliveryTracking(prev => (page === 0 ? newItems : ([...prev, ...newItems])));
+      setTrackingHasMore(newItems.length === PAGE_SIZE);
+      setTrackingPage(page);
+    } catch (e) {
+      console.error('Error loading tracking:', e);
+      toast.error('Failed to load tracking');
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (sellerProductIds.length === 0) return;
+    if (activeTab === 'orders' && pendingOrders.length === 0) {
+      fetchPendingPage(0);
+    } else if (activeTab === 'shipped' && shippedOrders.length === 0) {
+      fetchShippedPage(0);
+    } else if (activeTab === 'tracking' && deliveryTracking.length === 0) {
+      fetchTrackingPage(0);
+    }
+  }, [activeTab, sellerProductIds]);
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,6 +424,33 @@ function DeliveryPage() {
       if (error) throw error;
 
       toast.success('Delivery assigned successfully!');
+      
+      // Notify customer on Telegram about assignment
+      try {
+        const ctxOrder = shippedOrders.find(o => o.id === orderId) || pendingOrders.find(o => o.id === orderId);
+        if (ctxOrder?.user_id) {
+          const payload = {
+            type: 'delivery_update',
+            userId: String(ctxOrder.user_id),
+            data: {
+              order_id: String(ctxOrder.id),
+              status: 'assigned',
+              updated_at: new Date().toISOString(),
+              product_name: (ctxOrder as any)?.products?.title || undefined,
+              notes: 'A delivery person has been assigned to your order'
+            }
+          };
+          await fetch('/api/telegram/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          console.log('[TELEGRAM] Delivery assignment notification sent:', payload);
+        }
+      } catch (notifyErr) {
+        console.warn('[TELEGRAM] Failed to send delivery assignment notification:', notifyErr);
+      }
+
       fetchDeliveryData();
     } catch (error) {
       console.error('Error assigning delivery:', error);
@@ -342,12 +526,8 @@ function DeliveryPage() {
   };
 
   // Helper functions for shipped orders filtering
-  const getShippedOrders = () => {
-    return pendingOrders.filter(order => order.order_status === 'shipped');
-  };
-
   const getFilteredShippedOrders = () => {
-    let filtered = getShippedOrders();
+    let filtered = shippedOrders;
 
     // Apply search filter
     if (shippedSearchTerm) {
@@ -401,14 +581,14 @@ function DeliveryPage() {
         {/* Tabs */}
         <div className="mb-6 sm:mb-8">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex flex-wrap sm:flex-nowrap overflow-x-auto" aria-label="Tabs">
+            <nav className="-mb-px flex flex-wrap sm:flex-nowrap overflow-x-auto gap-1" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('accounts')}
                 className={`${
                   activeTab === 'accounts'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm flex-shrink-0`}
+                    ? 'border-green-500 text-green-700 bg-green-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
+                } whitespace-nowrap py-3 sm:py-4 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm flex-shrink-0 rounded-t-md transition-colors`}
               >
                 Accounts ({deliveryAccounts.length})
               </button>
@@ -416,14 +596,14 @@ function DeliveryPage() {
                 onClick={() => setActiveTab('orders')}
                 className={`${
                   activeTab === 'orders'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0`}
+                    ? 'border-green-500 text-green-700 bg-green-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
+                } whitespace-nowrap py-3 sm:py-4 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0 rounded-t-md transition-colors`}
               >
-                Pending ({pendingOrders.length})
-                {pendingOrders.length > 0 && (
+                Pending ({pendingTotalCount || pendingOrders.length})
+                {(pendingTotalCount || pendingOrders.length) > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
-                    {pendingOrders.length}
+                    {pendingTotalCount || pendingOrders.length}
                   </span>
                 )}
               </button>
@@ -431,14 +611,14 @@ function DeliveryPage() {
                 onClick={() => setActiveTab('shipped')}
                 className={`${
                   activeTab === 'shipped'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0`}
+                    ? 'border-green-500 text-green-700 bg-green-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
+                } whitespace-nowrap py-3 sm:py-4 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0 rounded-t-md transition-colors`}
               >
-                Shipped ({getShippedOrders().length})
-                {getShippedOrders().filter(order => !deliveryTracking.some(t => t.order_id === order.id)).length > 0 && (
+                Shipped ({shippedTotalCount || shippedOrders.length})
+                {(shippedTotalCount || shippedOrders.length) > 0 && (
                   <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
-                    {getShippedOrders().filter(order => !deliveryTracking.some(t => t.order_id === order.id)).length}
+                    {shippedTotalCount || shippedOrders.length}
                   </span>
                 )}
               </button>
@@ -446,14 +626,14 @@ function DeliveryPage() {
                 onClick={() => setActiveTab('tracking')}
                 className={`${
                   activeTab === 'tracking'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-3 sm:py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0`}
+                    ? 'border-green-500 text-green-700 bg-green-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
+                } whitespace-nowrap py-3 sm:py-4 px-3 sm:px-4 border-b-2 font-medium text-xs sm:text-sm relative flex-shrink-0 rounded-t-md transition-colors`}
               >
-                Tracking ({deliveryTracking.length})
-                {deliveryTracking.filter(d => d.status === 'assigned').length > 0 && (
+                Tracking ({trackingTotalCount || deliveryTracking.length})
+                {(trackingTotalCount || deliveryTracking.length) > 0 && (
                   <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center">
-                    {deliveryTracking.filter(d => d.status === 'assigned').length}
+                    {trackingTotalCount || deliveryTracking.length}
                   </span>
                 )}
               </button>
@@ -648,19 +828,31 @@ function DeliveryPage() {
         ) : activeTab === 'orders' ? (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <div className="px-4 py-4 sm:py-6">
-              <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900 mb-4">
-                Pending Orders ({pendingOrders.length})
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base sm:text-lg leading-6 font-medium text-gray-900">
+                  Pending Orders ({pendingOrders.length})
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => fetchPendingPage(0)}
+                    disabled={pendingLoading}
+                    className="px-3 py-1.5 text-xs sm:text-sm rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
               {pendingOrders.length === 0 ? (
                 <div className="text-center py-6 sm:py-8">
                   <p className="text-gray-500 text-sm sm:text-base">No pending orders that need delivery assignment.</p>
                   <p className="text-xs sm:text-sm text-gray-400 mt-2">Orders will appear here when they are confirmed and ready for delivery.</p>
                 </div>
               ) : (
+                <>
                 <div className="space-y-4 sm:space-y-6">
                   {pendingOrders.map((order) => (
-                    <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50">
+                      <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200">
+                       <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-2 sm:space-y-0">
                           <div>
                             <h4 className="text-base sm:text-lg font-medium text-gray-900">
@@ -690,7 +882,7 @@ function DeliveryPage() {
                         </div>
                       </div>
 
-                      <div className="px-4 sm:px-6 py-4">
+                       <div className="px-4 sm:px-6 py-4">
                         <div className="grid grid-cols-1 gap-4 sm:gap-6">
                           {/* Customer Information */}
                           <div>
@@ -860,15 +1052,40 @@ function DeliveryPage() {
                     </div>
                   ))}
                 </div>
+                <div className="mt-4 flex justify-center">
+                  {pendingHasMore ? (
+                    <button
+                      onClick={() => fetchPendingPage(pendingPage + 1)}
+                      disabled={pendingLoading}
+                      className="px-4 py-2 text-sm font-medium rounded-md bg-white border hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {pendingLoading ? 'Loading…' : 'Load more'}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">No more orders</span>
+                  )}
+                </div>
+                </>
               )}
             </div>
           </div>
         ) : activeTab === 'shipped' ? (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Shipped Orders ({getShippedOrders().length})
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Shipped Orders ({shippedOrders.length})
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => fetchShippedPage(0)}
+                    disabled={shippedLoading}
+                    className="px-3 py-1.5 text-xs sm:text-sm rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
               
               {/* Filters */}
               <div className="mb-6 bg-gray-50 rounded-lg p-4">
@@ -909,25 +1126,26 @@ function DeliveryPage() {
               {getFilteredShippedOrders().length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500">
-                    {getShippedOrders().length === 0 
+                    {shippedOrders.length === 0 
                       ? "No shipped orders found." 
                       : "No shipped orders match your filters."}
                   </p>
                   <p className="text-sm text-gray-400 mt-2">
-                    {getShippedOrders().length === 0 
+                    {shippedOrders.length === 0 
                       ? "Orders will appear here when they are marked as shipped." 
                       : "Try adjusting your search or filter criteria."}
                   </p>
                 </div>
               ) : (
+                <>
                 <div className="space-y-6">
                   {getFilteredShippedOrders().map((order) => {
                     const isAssigned = deliveryTracking.some(t => t.order_id === order.id);
                     const assignedTracking = deliveryTracking.find(t => t.order_id === order.id);
                     
                     return (
-                      <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                      <div key={order.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200">
+                        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                           <div className="flex justify-between items-start">
                             <div>
                               <h4 className="text-lg font-medium text-gray-900">
@@ -1129,25 +1347,64 @@ function DeliveryPage() {
                     );
                   })}
                 </div>
+                <div className="mt-4 flex justify-center">
+                  {shippedHasMore ? (
+                    <button
+                      onClick={() => fetchShippedPage(shippedPage + 1)}
+                      disabled={shippedLoading}
+                      className="px-4 py-2 text-sm font-medium rounded-md bg-white border hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {shippedLoading ? 'Loading…' : 'Load more'}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">No more orders</span>
+                  )}
+                </div>
+                <div className="mt-4 flex justify-center">
+                  {shippedHasMore ? (
+                    <button
+                      onClick={() => fetchShippedPage(shippedPage + 1)}
+                      disabled={shippedLoading}
+                      className="px-4 py-2 text-sm font-medium rounded-md bg-white border hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {shippedLoading ? 'Loading…' : 'Load more'}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">No more orders</span>
+                  )}
+                </div>
+                </>
               )}
             </div>
           </div>
         ) : (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                Delivery Tracking ({deliveryTracking.length})
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Delivery Tracking ({deliveryTracking.length})
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => fetchTrackingPage(0)}
+                    disabled={trackingLoading}
+                    className="px-3 py-1.5 text-xs sm:text-sm rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
               {deliveryTracking.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500">No deliveries assigned yet.</p>
                   <p className="text-sm text-gray-400 mt-2">Assign deliveries from the Pending Orders tab.</p>
                 </div>
               ) : (
+                <>
                 <div className="space-y-6">
                   {deliveryTracking.map((tracking) => (
-                    <div key={tracking.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                      <div key={tracking.id} className={`bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${getTrackingAccentClasses(tracking.status)}`}>
+                      <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="text-lg font-medium text-gray-900">
@@ -1366,6 +1623,33 @@ function DeliveryPage() {
                     </div>
                   ))}
                 </div>
+                <div className="mt-4 flex justify-center">
+                  {trackingHasMore ? (
+                    <button
+                      onClick={() => fetchTrackingPage(trackingPage + 1)}
+                      disabled={trackingLoading}
+                      className="px-4 py-2 text-sm font-medium rounded-md bg-white border hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {trackingLoading ? 'Loading…' : 'Load more'}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">No more deliveries</span>
+                  )}
+                </div>
+                <div className="mt-4 flex justify-center">
+                  {trackingHasMore ? (
+                    <button
+                      onClick={() => fetchTrackingPage(trackingPage + 1)}
+                      disabled={trackingLoading}
+                      className="px-4 py-2 text-sm font-medium rounded-md bg-white border hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {trackingLoading ? 'Loading…' : 'Load more'}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">No more deliveries</span>
+                  )}
+                </div>
+                </>
               )}
             </div>
           </div>
