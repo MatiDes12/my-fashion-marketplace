@@ -614,6 +614,33 @@ export default function OrdersPage() {
         } else {
           console.log('Transaction updated successfully for order:', selectedOrder.id, 'Updated rows:', transactionData);
         }
+
+        // Send Telegram notification when status is finalized via this page
+        try {
+          const isStorePickup = selectedOrder.delivery_method === 'store_pickup';
+          const shouldNotify = (isMarkingDelivered && !isStorePickup) || (isMarkingPickedUp && isStorePickup);
+          if (shouldNotify && selectedOrder.user_id) {
+            const payload = {
+              type: 'delivery_update',
+              userId: String(selectedOrder.user_id),
+              data: {
+                order_id: String(selectedOrder.id),
+                status: isMarkingDelivered ? 'delivered' : 'picked_up',
+                updated_at: new Date().toISOString(),
+                product_name: (selectedOrder as any)?.product?.title || undefined,
+                notes: isMarkingPickedUp ? 'Pickup confirmed by seller' : undefined
+              }
+            };
+            await fetch('/api/telegram/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            console.log('[TELEGRAM] Sent delivery update from orders page:', payload);
+          }
+        } catch (notifyErr) {
+          console.warn('[TELEGRAM] Failed to send delivery update from orders page:', notifyErr);
+        }
       } else {
         console.log('Not updating transaction - conditions not met:', { isMarkingDelivered, isMarkingPickedUp });
       }
