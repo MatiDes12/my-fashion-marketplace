@@ -12,6 +12,12 @@ module.exports = {
       // Do not auto-start the server here. Our workflows start the server
       // explicitly on the desired port to avoid port conflicts.
       numberOfRuns: 3,
+      settings: {
+        formFactor: 'desktop',
+        screenEmulation: { disabled: true },
+        // Help headless Chrome in CI
+        chromeFlags: '--no-sandbox --disable-dev-shm-usage --ignore-certificate-errors --allow-insecure-localhost --disable-gpu --disable-web-security'
+      }
     },
     assert: {
       assertions: {
