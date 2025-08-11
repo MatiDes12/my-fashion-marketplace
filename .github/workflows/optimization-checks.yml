@@ -255,12 +255,10 @@ jobs:
           http://127.0.0.1:3006/about
           http://127.0.0.1:3006/products
           http://127.0.0.1:3006/cart
-        uploadArtifacts: true
+        uploadArtifacts: false
         temporaryPublicStorage: true
         configPath: ./.lighthouserc.js
         runs: 3
-        # Extra Chrome flags to avoid interstitials/SSL checks in CI
-        chromeFlags: "--no-sandbox --disable-dev-shm-usage --ignore-certificate-errors --allow-insecure-localhost --disable-gpu"
 
     - name: Performance Budget Check
       run: |

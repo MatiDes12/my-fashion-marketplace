@@ -71,15 +71,15 @@ jobs:
     if: always()
     steps:
     - name: Notify Slack
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-        text: |
-          Production deployment ${{ job.status }} for ${{ github.repository }}
+      if: env.SLACK_WEBHOOK_URL != ''
+      uses: rtCamp/action-slack-notify@v2
+      env:
+        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_CHANNEL: deployments
+        SLACK_COLOR: ${{ job.status == 'success' && 'good' || job.status == 'failure' && 'danger' || '#ffd700' }}
+        SLACK_TITLE: "Production deployment ${ { job.status } }"
+        SLACK_MESSAGE: |
+          Repository: ${{ github.repository }}
           Branch: ${{ github.ref_name }}
           Commit: ${{ github.sha }}
           Author: ${{ github.actor }}
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
