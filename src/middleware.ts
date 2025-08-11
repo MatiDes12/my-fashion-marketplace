@@ -115,10 +115,12 @@ export async function middleware(req: NextRequest) {
   }
 
   // 3. Ensure HTTPS in production (skip for localhost to avoid CI interstitials)
+  const host = req.nextUrl.hostname;
+  const isLocalHost = host.includes('localhost') || host === '127.0.0.1' || host === '::1';
   if (
     process.env.NODE_ENV === 'production' &&
     !req.nextUrl.protocol.includes('https') &&
-    !req.nextUrl.hostname.includes('localhost')
+    !isLocalHost
   ) {
     return NextResponse.redirect(
       `https://${req.nextUrl.host}${req.nextUrl.pathname}`,
