@@ -1,6 +1,7 @@
 module.exports = {
   ci: {
     collect: {
+      // Default URLs for local runs; CI jobs may override via action inputs
       url: [
         'http://localhost:3000',
         'http://localhost:3000/products',
@@ -8,9 +9,8 @@ module.exports = {
         'http://localhost:3000/login',
         'http://localhost:3000/signup'
       ],
-      startServerCommand: 'npm run start',
-      startServerReadyPattern: 'ready on',
-      startServerReadyTimeout: 60000,
+      // Do not auto-start the server here. Our workflows start the server
+      // explicitly on the desired port to avoid port conflicts.
       numberOfRuns: 3,
     },
     assert: {

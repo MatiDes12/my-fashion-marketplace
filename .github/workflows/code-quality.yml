@@ -134,10 +134,28 @@ jobs:
       run: node .next/standalone/server.js &
       env:
         NODE_ENV: test
+        PORT: 3006
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL || 'http://localhost:3006' }}
+        RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+        NEXT_PUBLIC_PUSHER_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}
+        PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+        PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+        TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
+        CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+        CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+        NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
+        NEXT_TELEMETRY_DISABLED: 1
 
     - name: Wait for application to be ready
       run: |
-        timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+        timeout 60 bash -c 'until curl -f http://localhost:3006; do sleep 2; done'
 
     - name: Run accessibility tests
       run: |
@@ -223,7 +241,7 @@ jobs:
       uses: treosh/lighthouse-ci-action@v10
       with:
         urls: |
-          http://localhost:3000
+          http://localhost:3006
         uploadArtifacts: true
         temporaryPublicStorage: true
         configPath: ./.lighthouserc.js

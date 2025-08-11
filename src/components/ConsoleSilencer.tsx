@@ -18,7 +18,7 @@ export default function ConsoleSilencer(): null {
 
     // Replace console.log with a no-op in production (client only)
     // Preserve function shape to avoid potential consumer checks
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line no-unused-vars
     console.log = (..._args: unknown[]): void => {};
 
     // Restore on unmount (mainly useful during HMR in non-prod, but harmless)
