@@ -114,8 +114,12 @@ export async function middleware(req: NextRequest) {
     return new NextResponse('Forbidden', { status: 403 });
   }
 
-  // 3. Ensure HTTPS in production
-  if (process.env.NODE_ENV === 'production' && !req.nextUrl.protocol.includes('https')) {
+  // 3. Ensure HTTPS in production (skip for localhost to avoid CI interstitials)
+  if (
+    process.env.NODE_ENV === 'production' &&
+    !req.nextUrl.protocol.includes('https') &&
+    !req.nextUrl.hostname.includes('localhost')
+  ) {
     return NextResponse.redirect(
       `https://${req.nextUrl.host}${req.nextUrl.pathname}`,
       301

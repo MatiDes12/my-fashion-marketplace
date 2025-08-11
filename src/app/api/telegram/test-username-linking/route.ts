@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     if (username) {
       console.log(`[TEST_USERNAME_LINKING] Looking for pending link with username: ${username}`);
       
+      type PendingLink = { user_id: string; username: string | null; chat_id: string };
       const { data: pendingLink } = await supabaseService
         .from('telegram_users')
         .select('user_id, chat_id, username')
@@ -39,8 +40,9 @@ export async function POST(request: Request) {
 
       console.log(`[TEST_USERNAME_LINKING] Found pending link:`, pendingLink);
 
-      if (pendingLink && pendingLink.chat_id.startsWith('pending_')) {
-        console.log(`[TEST_USERNAME_LINKING] Would update pending link for user ${pendingLink.user_id}`);
+      const pending = pendingLink as unknown as PendingLink | null;
+      if (pending && typeof pending.chat_id === 'string' && pending.chat_id.startsWith('pending_')) {
+        console.log(`[TEST_USERNAME_LINKING] Would update pending link for user ${pending.user_id}`);
         
         // Simulate the update (don't actually update in test mode)
         const updateData = {
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
           success: true,
           message: 'Would successfully link',
-          pendingLink,
+          pendingLink: pending,
           wouldUpdate: updateData,
           testMode: true
         });

@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { transferToSeller } from '@/utils/telebirr-transfer';
 
+type TransactionRow = {
+  id: string;
+  seller_id: string;
+  seller_payout_amount: number | string | null;
+};
+
 export async function POST(request: Request) {
   try {
     const { transactionId } = await request.json();
@@ -17,12 +23,20 @@ export async function POST(request: Request) {
       throw new Error('Transaction not found');
     }
 
+    // Validate and normalize fields
+    const normalized = transaction as unknown as TransactionRow;
+    const amountRaw = normalized.seller_payout_amount;
+    const amount = typeof amountRaw === 'number' ? amountRaw : Number(amountRaw);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Invalid seller payout amount');
+    }
+
+    const sellerId: string = String(normalized.seller_id);
+    const txId: string = String(normalized.id);
+
     // Transfer money to seller
-    await transferToSeller(
-      transaction.seller_payout_amount,
-      transaction.seller_id,
-      transaction.id
-    );
+    await transferToSeller(amount, sellerId, txId);
 
     // Update transaction status
     await supabaseServer
@@ -35,13 +49,13 @@ export async function POST(request: Request) {
 
     // Notify seller
     await supabaseServer.from('notifications').insert({
-      user_id: transaction.seller_id,
+      user_id: sellerId,
       type: 'payout_completed',
       title: 'Payout Completed',
-      message: `Your payout of ${transaction.seller_payout_amount} ETB has been processed`,
+      message: `Your payout of ${amount} ETB has been processed`,
       metadata: {
-        transaction_id: transaction.id,
-        amount: transaction.seller_payout_amount
+        transaction_id: txId,
+        amount
       }
     });
 
