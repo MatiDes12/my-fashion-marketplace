@@ -147,7 +147,8 @@ jobs:
 
     - name: Run Lighthouse CLI
       run: |
-        npm i -g lighthouse@11 puppeteer
+        npm i -g lighthouse@11
+        npm i puppeteer --no-save
         CHROME=$(node -e "console.log(require('puppeteer').executablePath())")
         lighthouse http://127.0.0.1:3005 --chrome-path="$CHROME" --chrome-flags="--headless" --preset=desktop --quiet || true
         lighthouse http://127.0.0.1:3005/products --chrome-path="$CHROME" --chrome-flags="--headless" --preset=desktop --quiet || true

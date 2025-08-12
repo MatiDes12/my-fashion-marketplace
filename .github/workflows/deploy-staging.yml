@@ -65,6 +65,24 @@ jobs:
         VERCEL_PROJECT_ID: ${{ secrets.VERCEL_STAGING_PROJECT_ID }}
       run: |
         npm i -g vercel@latest
+        # Ensure required env vars are present for preview build
+        mkdir -p .vercel
+        echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .vercel/.env.preview.local
+        echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .vercel/.env.preview.local
+        echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .vercel/.env.preview.local
+        echo "NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}" >> .vercel/.env.preview.local
+        echo "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" >> .vercel/.env.preview.local
+        echo "NEXT_PUBLIC_PUSHER_APP_KEY=${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}" >> .vercel/.env.preview.local
+        echo "NEXT_PUBLIC_PUSHER_CLUSTER=${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}" >> .vercel/.env.preview.local
+        echo "PUSHER_APP_ID=${{ secrets.PUSHER_APP_ID }}" >> .vercel/.env.preview.local
+        echo "PUSHER_SECRET=${{ secrets.PUSHER_SECRET }}" >> .vercel/.env.preview.local
+        echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> .vercel/.env.preview.local
+        echo "TELEGRAM_WEBHOOK_URL=${{ secrets.TELEGRAM_WEBHOOK_URL }}" >> .vercel/.env.preview.local
+        echo "TELEGRAM_ADMIN_CHAT_ID=${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}" >> .vercel/.env.preview.local
+        echo "TELEGRAM_SUPPORT_CHAT_ID=${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}" >> .vercel/.env.preview.local
+        echo "CHAPA_SECRET_KEY=${{ secrets.CHAPA_SECRET_KEY }}" >> .vercel/.env.preview.local
+        echo "CHAPA_PUBLIC_KEY=${{ secrets.CHAPA_PUBLIC_KEY }}" >> .vercel/.env.preview.local
+        echo "NEXT_PUBLIC_JAWG_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}" >> .vercel/.env.preview.local
         vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
         vercel build --token="$VERCEL_TOKEN"
         output=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
