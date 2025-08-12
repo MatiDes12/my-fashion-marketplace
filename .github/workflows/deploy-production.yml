@@ -55,6 +55,9 @@ jobs:
     - name: Deploy to Vercel
       run: |
         npm i -g vercel@latest
+        mkdir -p .vercel
+        # Pull current Vercel env and settings first, then append required vars
+        vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
         # Ensure required env vars are present in Vercel env for build phase
         echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .vercel/.env.production.local
         echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .vercel/.env.production.local
@@ -72,7 +75,6 @@ jobs:
         echo "CHAPA_SECRET_KEY=${{ secrets.CHAPA_SECRET_KEY }}" >> .vercel/.env.production.local
         echo "CHAPA_PUBLIC_KEY=${{ secrets.CHAPA_PUBLIC_KEY }}" >> .vercel/.env.production.local
         echo "NEXT_PUBLIC_JAWG_ACCESS_TOKEN=${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}" >> .vercel/.env.production.local
-        vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
         vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
         vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
 
