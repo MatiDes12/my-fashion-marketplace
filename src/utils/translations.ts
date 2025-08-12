@@ -152,6 +152,15 @@ export const translations: Translation = {
   'testimonials.verifiedReviews': { en: 'Verified Reviews', am: 'የተረጋገጡ ግምገማዎች' },
   'testimonials.secureShopping': { en: 'Secure Shopping', am: 'ደህንነታማ ግብዣ' },
   'testimonials.ethiopianOwned': { en: 'Ethiopian Owned', am: 'በኢትዮጵያውያን የተባለ' },
+  // Products - Hero
+  'products.hero.title': {
+    en: "Discover Ethiopia's Online Marketplace",
+    am: 'የኢትዮጵያ የመስመር ላይ ገበያን ያግኙ'
+  },
+  'products.hero.subtitle': {
+    en: 'Shop a wide range of products from trusted local sellers — fashion, home & living, beauty, accessories, and more.',
+    am: 'ከታማኝ አካባቢያዊ ሻጮች የሚመጡ የተለያዩ ምርቶችን ይፈልጉ እና ይግዙ — ፋሽን፣ ቤትና ኑሮ፣ ውበት፣ አክሴሰሪዎች እና ሌሎችም ብዙ.'
+  },
   // Products
   'products.title': {
     en: 'All Products',

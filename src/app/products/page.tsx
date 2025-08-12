@@ -110,16 +110,16 @@ const RATING_RANGES = [
 const MIN_REVIEWS_OPTIONS = [0, 5, 10, 20, 50];
 
 function ProductsHero() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   return (
     <div className="relative overflow-hidden bg-gradient-to-r from-red-50 to-red-100 py-16 mb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative z-10 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            {language === 'am' ? 'የኢትዮጵያ ፋሽን ያግኙ' : 'Discover Ethiopian Fashion'}
+            {t('products.hero.title')}
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            {language === 'am' ? 'የባህላዊ እና ዘመናዊ ፋሽን በፍቅር እና ባህላዊነት የተሠሩ ስብስቦችን ያግኙ።' : 'Explore our curated collection of traditional and modern Ethiopian fashion, handcrafted with love and cultural authenticity.'}
+            {t('products.hero.subtitle')}
           </p>
         </div>
       </div>
