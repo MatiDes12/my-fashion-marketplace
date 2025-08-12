@@ -19,6 +19,7 @@ interface CartItem {
     id: string;
     title: string;
     price: number;
+    quantity?: number;
     delivery_fee?: number;
     delivery_options?: {
       delivery: boolean;
@@ -28,6 +29,9 @@ interface CartItem {
       processing_time: string;
       return_policy?: string;
     };
+    available_variants?: any[];
+    sizes?: string[];
+    colors?: string[];
     images?: Array<{
       image_url: string;
     }>;
@@ -109,10 +113,14 @@ export default function CartPage() {
             id, 
             title, 
             price,
+            quantity,
             delivery_fee,
             delivery_options,
             shipping_info,
             delivery_time,
+            available_variants,
+            sizes,
+            colors,
             images:product_images(*),
             owner:users(
               id,
@@ -190,6 +198,14 @@ export default function CartPage() {
     setIsUpdating(prev => ({ ...prev, [itemId]: true }));
     
     try {
+      // Guard against exceeding available quantity
+      const targetItem = cartItems.find(i => i.id === itemId);
+      const availableQty = targetItem ? getAvailableQuantityForItem(targetItem) : 0;
+      if (newQuantity > availableQty) {
+        toast.error(`Only ${availableQty} item${availableQty === 1 ? '' : 's'} available`);
+        return;
+      }
+      
       const { error } = await supabase
         .from('cart_items')
         .update({ 
@@ -207,7 +223,7 @@ export default function CartPage() {
             ? { 
                 ...item, 
                 quantity: newQuantity,
-                subtotal: newQuantity * item.product.price
+                  subtotal: newQuantity * (item.flash_sale_price || item.product.price)
               }
             : item
         )
@@ -529,6 +545,33 @@ export default function CartPage() {
     }
   };
 
+  // Determine available quantity for a cart item (variant-aware)
+  const getAvailableQuantityForItem = (item: CartItem): number => {
+    const product = item.product;
+    if (!product) return 0;
+    if (
+      item.selected_variant_sku &&
+      Array.isArray(product.available_variants) &&
+      product.available_variants.length > 0
+    ) {
+      const variantBySku = product.available_variants.find(
+        (v: any) => v?.sku === item.selected_variant_sku
+      );
+      if (typeof variantBySku?.quantity === 'number') {
+        return Math.max(0, variantBySku.quantity);
+      }
+      const variantByAttrs = product.available_variants.find((v: any) => {
+        const sizeMatch = v?.size ? v.size === item.selected_size : true;
+        const colorMatch = v?.color ? v.color === item.selected_color : true;
+        return sizeMatch && colorMatch;
+      });
+      if (typeof variantByAttrs?.quantity === 'number') {
+        return Math.max(0, variantByAttrs.quantity);
+      }
+    }
+    return Math.max(0, product.quantity ?? 0);
+  };
+
   // When creating the order, include the delivery information
   const createOrder = async (cartItem: CartItem) => {
     const { data: orderData, error: orderError } = await supabase
@@ -691,12 +734,20 @@ export default function CartPage() {
                                 </span>
                                 <button
                                   onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                  disabled={isUpdating[item.id]}
+                                disabled={
+                                  isUpdating[item.id] ||
+                                  item.quantity >= getAvailableQuantityForItem(item)
+                                }
                                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 transition-colors"
                                 >
                                   +
                                 </button>
                               </div>
+                            {item.quantity >= getAvailableQuantityForItem(item) && (
+                              <span className="text-sm text-orange-600">
+                                Max quantity reached
+                              </span>
+                            )}
                               <button
                                 onClick={() => removeItem(item.id)}
                                 className="text-sm font-medium text-red-600 hover:text-red-700"

@@ -11,6 +11,8 @@ jobs:
   deploy-staging:
     runs-on: ubuntu-latest
     environment: staging
+    outputs:
+      preview-url: ${{ steps.vercel.outputs.preview-url }}
 
     steps:
     - name: Checkout repository
@@ -53,12 +55,19 @@ jobs:
       run: npm run build
 
     - name: Deploy to Vercel (Staging)
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_STAGING_PROJECT_ID }}
-        vercel-args: '--target=preview'
+      id: vercel
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_STAGING_PROJECT_ID }}
+      run: |
+        npm i -g vercel@latest
+        vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+        vercel build --token="$VERCEL_TOKEN"
+        output=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+        echo "$output"
+        url=$(echo "$output" | grep -Eo 'https?://[^ ]+\.vercel\.app' | head -n1)
+        if [ -n "$url" ]; then echo "preview-url=$url" >> "$GITHUB_OUTPUT"; fi
 
     - name: Run E2E tests against staging
       run: |
@@ -66,7 +75,7 @@ jobs:
         sleep 30
         
         # Run basic smoke tests
-        curl -f ${{ steps.deploy.outputs.preview-url }} || exit 1
+        curl -f ${{ steps.vercel.outputs.preview-url }} || exit 1
 
     - name: Comment PR with staging URL
       if: github.event_name == 'pull_request'
@@ -91,7 +100,7 @@ jobs:
               body: `
                 🚀 **Staging deployment ready!**
                 
-                **Preview URL:** ${{ steps.deploy.outputs.preview-url }}
+                 **Preview URL:** ${{ steps.vercel.outputs.preview-url }}
                 
                 Please test the following:
                 - [ ] Home page loads correctly

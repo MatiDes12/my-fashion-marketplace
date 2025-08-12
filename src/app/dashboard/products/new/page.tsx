@@ -203,6 +203,9 @@ function NewProductPage() {
   const categoryRef = useRef<HTMLSelectElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
   const imageSectionRef = useRef<HTMLDivElement>(null);
+  const deliveryOptionsRef = useRef<HTMLDivElement>(null);
+  const deliveryCheckboxRef = useRef<HTMLInputElement>(null);
+  const pickupLocationRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,6 +223,7 @@ function NewProductPage() {
     if (showCustomCategory && !customCategory) missing.category = true;
     if (!quantity) missing.quantity = true;
     if (images.length < 2) missing.images = true;
+    if (!deliveryOptions.delivery && !deliveryOptions.pickup) missing.deliveryOptions = true;
     if (deliveryOptions.pickup && !pickupLocation) missing.pickupLocation = true;
 
     if (Object.keys(missing).length > 0) {
@@ -232,6 +236,17 @@ function NewProductPage() {
       else if (missing.category && categoryRef.current) categoryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       else if (missing.quantity && quantityRef.current) quantityRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       else if (missing.images && imageSectionRef.current) imageSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else if (missing.deliveryOptions && deliveryOptionsRef.current) {
+        deliveryOptionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (!deliveryOptions.delivery && deliveryCheckboxRef.current) {
+          deliveryCheckboxRef.current.focus();
+        }
+        toast.error('Please select at least one delivery option');
+      } else if (missing.pickupLocation && deliveryOptionsRef.current) {
+        deliveryOptionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (pickupLocationRef.current) pickupLocationRef.current.focus();
+        toast.error('Please provide a pickup location when store pickup is selected');
+      }
         return;
       }
 
@@ -1684,13 +1699,19 @@ function NewProductPage() {
                 )}
 
                 {/* Delivery Options Section */}
-                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={deliveryOptionsRef}>
                   <h4 className="text-base font-medium text-gray-900">Delivery Options</h4>
                   <div className="space-y-4">
+                    {!deliveryOptions.delivery && !deliveryOptions.pickup && (
+                      <p className="text-sm text-red-500">
+                        Please select at least one delivery option
+                      </p>
+                    )}
                     <div className="flex items-center space-x-3">
                       <input
                         type="checkbox"
                         id="delivery"
+                        ref={deliveryCheckboxRef}
                         checked={deliveryOptions.delivery}
                         onChange={(e) => setDeliveryOptions(prev => ({
                           ...prev,
@@ -1779,6 +1800,7 @@ function NewProductPage() {
                             Pickup Location <span className="text-red-500">*</span>
                           </label>
                           <textarea
+                            ref={pickupLocationRef}
                             value={pickupLocation}
                             onChange={(e) => setPickupLocation(e.target.value)}
                             placeholder={useStoreAddress ? storeAddress : "Enter pickup address and instructions"}

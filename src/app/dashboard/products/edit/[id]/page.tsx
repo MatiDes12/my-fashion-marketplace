@@ -120,8 +120,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [storeAddress, setStoreAddress] = useState('');
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isSavingCustomCategory, setIsSavingCustomCategory] = useState(false);
+  const [deliveryOptionsError, setDeliveryOptionsError] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const deliveryOptionsRef = useRef<HTMLDivElement>(null);
+  const deliveryCheckboxRef = useRef<HTMLInputElement>(null);
+  const pickupLocationRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
   const supabase = createClientComponent();
 
@@ -483,6 +487,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     setLoading(true);
     setError(null);
     setImageError(null);
+    setDeliveryOptionsError(false);
 
     // Enforce minimum 2 images (existing + new - toDelete)
     const totalImages = existingImages.filter(img => !imagesToDelete.includes(img.image_url)).length + images.length;
@@ -506,8 +511,30 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         throw new Error('Please fill in all required fields');
       }
 
+      // Require at least one delivery option
+      if (!deliveryOptions.delivery && !deliveryOptions.pickup) {
+        setDeliveryOptionsError(true);
+        if (deliveryOptionsRef.current) {
+          deliveryOptionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (deliveryCheckboxRef.current) {
+          deliveryCheckboxRef.current.focus();
+        }
+        toast.error('Please select at least one delivery option');
+        setLoading(false);
+        return;
+      }
+
       if (deliveryOptions.pickup && !deliveryOptions.pickup_location) {
-        throw new Error('Please provide a pickup location when store pickup is selected');
+        if (deliveryOptionsRef.current) {
+          deliveryOptionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (pickupLocationRef.current) {
+          pickupLocationRef.current.focus();
+        }
+        toast.error('Please provide a pickup location when store pickup is selected');
+        setLoading(false);
+        return;
       }
 
       // Generate variants based on sizes and colors if no specific variants are set
@@ -1057,18 +1084,27 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={deliveryOptionsRef}>
                   <h4 className="text-base font-medium text-gray-900">Delivery Options</h4>
                   <div className="space-y-4">
+                    {!deliveryOptions.delivery && !deliveryOptions.pickup && (
+                      <p className="text-sm text-red-500">
+                        Please select at least one delivery option
+                      </p>
+                    )}
                     <div className="flex items-center space-x-3">
                       <input
                         type="checkbox"
                         id="delivery"
+                        ref={deliveryCheckboxRef}
                         checked={deliveryOptions.delivery}
-                        onChange={(e) => setDeliveryOptions(prev => ({
-                          ...prev,
-                          delivery: e.target.checked
-                        }))}
+                        onChange={(e) => {
+                          setDeliveryOptions(prev => ({
+                            ...prev,
+                            delivery: e.target.checked
+                          }));
+                          if (e.target.checked) setDeliveryOptionsError(false);
+                        }}
                         className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                       />
                       <label htmlFor="delivery" className="text-sm text-gray-700">
@@ -1126,10 +1162,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         type="checkbox"
                         id="pickup"
                         checked={deliveryOptions.pickup}
-                        onChange={(e) => setDeliveryOptions(prev => ({
-                          ...prev,
-                          pickup: e.target.checked
-                        }))}
+                        onChange={(e) => {
+                          setDeliveryOptions(prev => ({
+                            ...prev,
+                            pickup: e.target.checked
+                          }));
+                          if (e.target.checked) setDeliveryOptionsError(false);
+                        }}
                         className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                       />
                       <label htmlFor="pickup" className="text-sm text-gray-700">
@@ -1170,6 +1209,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                             Pickup Location <span className="text-red-500">*</span>
                           </label>
                           <textarea
+                            ref={pickupLocationRef}
                             value={deliveryOptions.pickup_location}
                             onChange={(e) => setDeliveryOptions(prev => ({
                               ...prev,

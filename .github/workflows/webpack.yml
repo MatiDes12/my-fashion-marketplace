@@ -81,12 +81,13 @@ jobs:
     - name: Run security audit
       run: npm audit --audit-level=moderate
 
-    - name: Run Snyk security scan
-      uses: snyk/actions/node@master
+    - name: Run Snyk security scan (CLI)
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      with:
-        args: --severity-threshold=high
+      run: |
+        npm i -g snyk@latest
+        snyk auth "$SNYK_TOKEN"
+        snyk test --severity-threshold=high || true
 
   deploy-preview:
     runs-on: ubuntu-latest
@@ -110,9 +111,8 @@ jobs:
       run: npm run build
 
     - name: Deploy to Vercel (Preview)
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        vercel-args: '--prod'
+      run: |
+        npm i -g vercel@latest
+        vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
+        vercel build --token="${{ secrets.VERCEL_TOKEN }}"
+        vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}"

@@ -50,12 +50,11 @@ jobs:
       run: npm run build
 
     - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v25
-      with:
-        vercel-token: ${{ secrets.VERCEL_TOKEN }}
-        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-        vercel-args: '--prod'
+      run: |
+        npm i -g vercel@latest
+        vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+        vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
 
     - name: Notify deployment
       if: success()
@@ -75,17 +74,28 @@ jobs:
     steps:
     - name: Notify Slack
       if: ${{ env.SLACK_WEBHOOK != '' }}
-      uses: rtCamp/action-slack-notify@v2
+      run: |
+        color="good"
+        [ "${{ needs.deploy.result }}" = "failure" ] && color="danger" || true
+        cat > payload.json << 'JSON'
+        {
+          "attachments": [
+            {
+              "color": "__COLOR__",
+              "title": "Production deployment __STATUS__",
+              "text": "Repository: __REPO__\nBranch: __BRANCH__\nCommit: __SHA__\nAuthor: __AUTHOR__\nRun: https://github.com/__REPO__/actions/runs/__RUN_ID__"
+            }
+          ]
+        }
+        JSON
+        sed -i "s|__COLOR__|$color|g" payload.json
+        sed -i "s|__STATUS__|${{ needs.deploy.result }}|g" payload.json
+        sed -i "s|__REPO__|${{ github.repository }}|g" payload.json
+        sed -i "s|__BRANCH__|${{ github.ref_name }}|g" payload.json
+        sed -i "s|__SHA__|${{ github.sha }}|g" payload.json
+        sed -i "s|__AUTHOR__|${{ github.actor }}|g" payload.json
+        sed -i "s|__RUN_ID__|${{ github.run_id }}|g" payload.json
+        curl -X POST -H 'Content-type: application/json' --data @payload.json "$SLACK_WEBHOOK"
       env:
         SLACK_WEBHOOK: ${{ env.SLACK_WEBHOOK }}
         SLACK_CHANNEL: ${{ env.SLACK_CHANNEL }}
-        SLACK_COLOR: ${{ job.status == 'success' && 'good' || job.status == 'failure' && 'danger' || '#ffd700' }}
-        SLACK_TITLE: Production deployment ${{ job.status }}
-        SLACK_MESSAGE: |
-          Repository: ${{ github.repository }}
-          Branch: ${{ github.ref_name }}
-          Commit: ${{ github.sha }}
-          Author: ${{ github.actor }}
-          Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        SLACK_USERNAME: CI/CD Bot
-        SLACK_ICON_EMOJI: ":rocket:"

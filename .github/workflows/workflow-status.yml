@@ -13,9 +13,15 @@ on:
       - "Database Migrations"
       - "Dependency Updates"
       - "Datadog Synthetic Tests"
+    branches:
+      - master
+      - main
     types:
       - completed
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   workflow-status:

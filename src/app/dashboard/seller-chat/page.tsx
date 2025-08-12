@@ -474,11 +474,11 @@ export default function SellerChatPage() {
   const adminUsers = users;
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-indigo-100 -mt-4">
+    <div className="flex h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-indigo-100 -mt-2 md:-mt-4">
       {/* Sidebar - Users and Rooms */}
-      <div className={`${selectedRoom ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white shadow-xl border-r border-gray-200 flex-col`}>
+      <div className={`${selectedRoom ? 'hidden md:flex' : 'flex'} w-full md:w-80 bg-white shadow-md md:shadow-xl border-r border-gray-200 flex-col`}>
         {/* Header */}
-        <div className="p-4 md:p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600">
+        <div className="p-3 md:p-5 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600">
           <h1 className="text-lg md:text-xl font-bold text-white">Seller Chat</h1>
           <p className="text-blue-100 text-xs md:text-sm mt-1">Connect with admins and customers</p>
         </div>
@@ -487,7 +487,7 @@ export default function SellerChatPage() {
         <div className="flex border-b border-gray-200 bg-gray-50">
           <button 
             onClick={() => setActiveTab('admins')}
-            className={`flex-1 py-3 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 py-2 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
               activeTab === 'admins' 
                 ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
                 : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
@@ -502,7 +502,7 @@ export default function SellerChatPage() {
           </button>
           <button 
             onClick={() => setActiveTab('customers')}
-            className={`flex-1 py-3 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 py-2 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
               activeTab === 'customers' 
                 ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
                 : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
@@ -517,7 +517,7 @@ export default function SellerChatPage() {
           </button>
           <button 
             onClick={() => setActiveTab('recent')}
-            className={`flex-1 py-3 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
+            className={`flex-1 py-2 md:py-4 px-2 md:px-4 text-xs md:text-sm font-medium transition-all duration-200 ${
               activeTab === 'recent' 
                 ? 'text-blue-600 border-b-2 border-blue-600 bg-white' 
                 : 'text-gray-600 hover:text-blue-600 hover:bg-gray-100'
@@ -540,18 +540,18 @@ export default function SellerChatPage() {
               <div
                 key={user.id}
                 onClick={() => createOrJoinRoom(user.id, 'admin')}
-                className="p-3 md:p-4 border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
+                className="p-2.5 md:p-4 border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-all duration-200 group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
+                    <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                       {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
                       {isOnline(user.id) ? (
-                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                        <div className="w-3 h-3 md:w-4 md:h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
-                        <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
+                        <div className="w-3 h-3 md:w-4 md:h-4 bg-gray-400 rounded-full border-2 border-white"></div>
                       )}
                     </div>
                   </div>
@@ -572,18 +572,18 @@ export default function SellerChatPage() {
               <div
                 key={user.id}
                 onClick={() => createOrJoinRoom(user.id, 'customer')}
-                className="p-3 md:p-4 border-b border-gray-100 hover:bg-green-50 cursor-pointer transition-all duration-200 group"
+                className="p-2.5 md:p-4 border-b border-gray-100 hover:bg-green-50 cursor-pointer transition-all duration-200 group"
               >
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
+                    <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                       {user.full_name?.charAt(0)?.toUpperCase() || 'C'}
                     </div>
                     <div className="absolute -bottom-1 -right-1">
                       {isOnline(user.id) ? (
-                        <div className="w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                        <div className="w-3 h-3 md:w-4 md:h-4 bg-green-500 rounded-full border-2 border-white"></div>
                       ) : (
-                        <div className="w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
+                        <div className="w-3 h-3 md:w-4 md:h-4 bg-gray-400 rounded-full border-2 border-white"></div>
                       )}
                     </div>
                   </div>
@@ -607,12 +607,12 @@ export default function SellerChatPage() {
                   setSelectedRoom(room);
                   await loadMessages(room.id);
                 }}
-                className={`p-3 md:p-4 border-b border-gray-100 hover:bg-purple-50 cursor-pointer transition-all duration-200 group ${
+                className={`p-2.5 md:p-4 border-b border-gray-100 hover:bg-purple-50 cursor-pointer transition-all duration-200 group ${
                   selectedRoom?.id === room.id ? 'bg-purple-100 border-l-4 border-purple-500' : ''
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
+                  <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                     {(room.admin?.full_name || room.customer?.full_name || 'U')?.charAt(0)?.toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -631,11 +631,11 @@ export default function SellerChatPage() {
       </div>
 
       {/* Chat Area */}
-      <div className={`${selectedRoom ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white shadow-lg`}>
+      <div className={`${selectedRoom ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white shadow-md md:shadow-lg`}>
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-4 md:p-6 flex-shrink-0">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 p-3 md:p-5 flex-shrink-0">
               <div className="flex items-center space-x-3 md:space-x-4">
                 <button 
                   onClick={() => setSelectedRoom(null)}
@@ -645,7 +645,7 @@ export default function SellerChatPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
+                <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-base md:text-lg">
                   {(selectedRoom.admin?.full_name || selectedRoom.customer?.full_name || 'U')?.charAt(0)?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -660,7 +660,7 @@ export default function SellerChatPage() {
             </div>
 
             {/* Messages - Scrollable area */}
-            <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-3 md:space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-2.5 md:p-6 space-y-2.5 md:space-y-4 bg-gray-50 overscroll-contain">
               {messages.map((message, index) => {
                 const isOwnMessage = message.sender_id === currentUser?.id;
                 return (
@@ -689,7 +689,7 @@ export default function SellerChatPage() {
               {/* Typing indicator */}
               {typingUsers.length > 0 && (
                 <div className="flex justify-start">
-                  <div className="bg-white text-gray-900 px-4 py-3 rounded-2xl border border-gray-200 shadow-sm">
+                  <div className="bg-white text-gray-900 px-3 py-2 rounded-2xl border border-gray-200 shadow-sm">
                     <div className="flex items-center space-x-1">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
@@ -706,7 +706,7 @@ export default function SellerChatPage() {
             </div>
 
             {/* Message Input - Fixed at bottom */}
-            <div className="bg-white border-t border-gray-200 p-3 md:p-6 flex-shrink-0">
+            <div className="bg-white border-t border-gray-200 p-2.5 md:p-5 flex-shrink-0">
               <div className="flex space-x-2 md:space-x-3">
                 <input
                   type="text"
@@ -719,7 +719,7 @@ export default function SellerChatPage() {
                 <button
                   onClick={sendMessage}
                   disabled={!newMessage.trim()}
-                  className="px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  className="px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md md:shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
                   <PaperAirplaneIcon className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
@@ -730,12 +730,12 @@ export default function SellerChatPage() {
           /* Empty State */
           <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
             <div className="text-center">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 md:w-12 md:h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Start a Conversation</h3>
+              <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-2">Start a Conversation</h3>
               <p className="text-gray-600">Select an admin or customer to begin chatting</p>
             </div>
           </div>

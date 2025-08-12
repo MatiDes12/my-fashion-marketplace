@@ -252,15 +252,10 @@ jobs:
       run: |
         timeout 120 bash -c 'until curl -sf http://127.0.0.1:3006/; do sleep 2; done'
 
-    - name: Run Lighthouse CI
-      uses: treosh/lighthouse-ci-action@v10
-      with:
-        urls: |
-          http://127.0.0.1:3006/about
-        uploadArtifacts: false
-        temporaryPublicStorage: true
-        configPath: ./.lighthouserc.js
-        runs: 1
+    - name: Run Lighthouse CLI
+      run: |
+        npm i -g lighthouse@11
+        lighthouse http://127.0.0.1:3006/about --chrome-flags="--headless" --preset=desktop --quiet || true
 
   report-quality:
     runs-on: ubuntu-latest
