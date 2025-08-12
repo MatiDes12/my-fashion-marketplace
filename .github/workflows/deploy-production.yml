@@ -55,6 +55,7 @@ jobs:
     - name: Deploy to Vercel
       run: |
         npm i -g vercel@latest
+        mkdir -p .vercel
         # Ensure required env vars are present in Vercel env for build phase
         echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> .vercel/.env.production.local
         echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> .vercel/.env.production.local
