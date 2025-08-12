@@ -7,6 +7,9 @@ on:
     branches: [ "master", "main", "develop" ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     timeout-minutes: 60
@@ -144,7 +147,8 @@ jobs:
 
     - name: Run Lighthouse CLI
       run: |
-        npm i -g lighthouse@11
-        lighthouse http://127.0.0.1:3005 --chrome-flags="--headless" --preset=desktop --quiet || true
-        lighthouse http://127.0.0.1:3005/products --chrome-flags="--headless" --preset=desktop --quiet || true
-        lighthouse http://127.0.0.1:3005/cart --chrome-flags="--headless" --preset=desktop --quiet || true
+        npm i -g lighthouse@11 puppeteer
+        CHROME=$(node -e "console.log(require('puppeteer').executablePath())")
+        lighthouse http://127.0.0.1:3005 --chrome-path="$CHROME" --chrome-flags="--headless" --preset=desktop --quiet || true
+        lighthouse http://127.0.0.1:3005/products --chrome-path="$CHROME" --chrome-flags="--headless" --preset=desktop --quiet || true
+        lighthouse http://127.0.0.1:3005/cart --chrome-path="$CHROME" --chrome-flags="--headless" --preset=desktop --quiet || true
