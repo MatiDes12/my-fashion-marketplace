@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -53,6 +55,7 @@ type DeliveryAccount = {
 };
 
 function DeliveryDashboard() {
+  const { language } = useLanguage();
   const [deliveries, setDeliveries] = useState<DeliveryTracking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -324,7 +327,7 @@ function DeliveryDashboard() {
                 </div>
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Delivery Dashboard</h1>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{translations['delivery.dashboardTitle'][language]}</h1>
                 <p className="text-sm sm:text-base text-gray-600">Welcome back, <span className="font-semibold text-emerald-600">{deliveryAccount.name}</span></p>
               </div>
             </div>
@@ -335,7 +338,7 @@ function DeliveryDashboard() {
               <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              Logout
+              {translations['delivery.logout'][language]}
             </button>
           </div>
         </div>
@@ -423,7 +426,7 @@ function DeliveryDashboard() {
                   </svg>
                 </div>
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-                  Your Deliveries ({filteredDeliveries.length})
+                  {translations['delivery.yourDeliveries'][language]} ({filteredDeliveries.length})
                 </h3>
               </div>
             </div>
@@ -744,7 +747,7 @@ function DeliveryDashboard() {
                               <svg className="h-4 w-4 sm:h-5 sm:w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                               </svg>
-                              Update Status
+                              {translations['delivery.updateStatus'][language]}
                             </button>
                           )}
                         </div>
@@ -770,7 +773,7 @@ function DeliveryDashboard() {
                       </svg>
                     </div>
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-                      Update Delivery Status
+                       {translations['delivery.updateStatus'][language]}
                     </h3>
                   </div>
                   <button
@@ -857,7 +860,7 @@ function DeliveryDashboard() {
 
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Delivery Status
+                      {translations['delivery.statusLabel'][language]}
                     </label>
                     <select
                       value={updateData.status}
@@ -876,7 +879,7 @@ function DeliveryDashboard() {
                   </div>
                   <div className="mb-6">
                     <label className="block text-sm font-semibold text-gray-700 mb-3">
-                      Delivery Notes
+                      {translations['delivery.notesLabel'][language]}
                     </label>
                     <textarea
                       value={updateData.delivery_notes}
@@ -909,7 +912,7 @@ function DeliveryDashboard() {
                           : 'text-white bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700'
                       }`}
                     >
-                      {selectedDelivery?.status === 'delivered' ? 'Already Delivered' : 'Update Status'}
+                      {selectedDelivery?.status === 'delivered' ? translations['delivery.alreadyDelivered'][language] : translations['delivery.updateStatus'][language]}
                     </button>
                   </div>
                 </form>

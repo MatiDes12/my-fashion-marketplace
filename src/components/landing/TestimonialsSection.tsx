@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { Quote, Star, Users, ShoppingBag, Store, Heart, CheckCircle } from 'lucide-react';
 
 interface Testimonial {
@@ -56,6 +58,7 @@ const marketplaceStats = [
 ];
 
 export default function TestimonialsSection() {
+  const { language } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -112,10 +115,10 @@ export default function TestimonialsSection() {
             className="text-center mb-8"
           >
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-              What Our Customers Say
+              {translations['testimonials.title'][language]}
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Trusted by thousands of Ethiopians for quality products and reliable service
+              {translations['testimonials.subtitle'][language]}
             </p>
           </motion.div>
 
@@ -232,15 +235,15 @@ export default function TestimonialsSection() {
             <div className="flex flex-wrap justify-center items-center gap-6 text-gray-500">
               <div className="flex items-center">
                 <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-sm">Verified Reviews</span>
+                <span className="text-sm">{translations['testimonials.verifiedReviews'][language]}</span>
               </div>
               <div className="flex items-center">
                 <ShoppingBag className="w-5 h-5 text-blue-500 mr-2" />
-                <span className="text-sm">Secure Shopping</span>
+                <span className="text-sm">{translations['testimonials.secureShopping'][language]}</span>
               </div>
               <div className="flex items-center">
                 <Heart className="w-5 h-5 text-red-500 mr-2" />
-                <span className="text-sm">Ethiopian Owned</span>
+                <span className="text-sm">{translations['testimonials.ethiopianOwned'][language]}</span>
               </div>
             </div>
           </motion.div>

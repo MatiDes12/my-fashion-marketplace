@@ -14,6 +14,7 @@ import { QuestionMarkCircleIcon, ChatBubbleLeftRightIcon } from '@heroicons/reac
 import FloatingSupportButton from '@/components/FloatingSupportButton';
 import { toast } from 'react-hot-toast';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useLanguage } from '@/contexts/LanguageContext';
 import NotificationBadge from '@/components/NotificationBadge';
 
 interface UserData {
@@ -23,6 +24,7 @@ interface UserData {
 }
 
 const UnverifiedHeader = () => {
+  const { t, language, setLanguage } = useLanguage();
   return (
     <div className="fixed top-0 left-0 right-0 z-[40] bg-white shadow-sm backdrop-blur-sm bg-white/90">
       <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
@@ -37,8 +39,8 @@ const UnverifiedHeader = () => {
             />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">Seller Verification</h1>
-            <p className="text-sm text-gray-500">Complete verification to access dashboard</p>
+            <h1 className="text-lg font-semibold text-gray-900">{t('dashboard.sellerVerification.title')}</h1>
+            <p className="text-sm text-gray-500">{t('dashboard.sellerVerification.subtitle')}</p>
           </div>
         </div>
         <Link
@@ -49,6 +51,13 @@ const UnverifiedHeader = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
         </Link>
+        <button
+          onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
+          className="ml-2 px-2 py-1 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          aria-label="Toggle language"
+        >
+          {language === 'en' ? 'AM' : 'EN'}
+        </button>
       </div>
     </div>
   );
@@ -59,6 +68,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { t, language, setLanguage } = useLanguage();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -91,21 +101,21 @@ export default function DashboardLayout({
         
         if (error) {
           console.error('Error fetching user role:', error);
-          toast.error('Error verifying permissions');
+          toast.error(t('dashboard.error.verifyPermissions'));
           router.push('/login?message=Error verifying permissions');
           return;
         }
         
         if (!data) {
           console.error('No user data found');
-          toast.error('User data not found');
+          toast.error(t('dashboard.error.userNotFound'));
           router.push('/login?message=User data not found');
           return;
         }
         
         if (data.role !== 'owner') {
           console.log('Access denied - not an owner');
-          toast.error('Access denied - Insufficient permissions');
+          toast.error(t('dashboard.error.accessDenied'));
           router.push('/?message=Access denied');
           return;
         }
@@ -123,7 +133,7 @@ export default function DashboardLayout({
         setIsAuthorized(true);
       } catch (error) {
         console.error('Error checking access:', error);
-        toast.error('Authentication error');
+        toast.error(t('dashboard.error.auth'));
         router.push('/login?message=Authentication error');
       } finally {
         setIsLoading(false);
@@ -180,31 +190,31 @@ export default function DashboardLayout({
 
   const navigation = [
     { 
-      name: 'Dashboard', 
+      name: t('dashboard.sidebar.dashboard'), 
       href: '/dashboard', 
       icon: HomeIcon,
       show: true
     },
     { 
-      name: 'Products', 
+      name: t('dashboard.sidebar.products'), 
       href: '/dashboard/products', 
       icon: ProductsIcon,
       show: true
     },
     { 
-      name: 'Orders', 
+      name: t('dashboard.sidebar.orders'), 
       href: '/dashboard/orders', 
       icon: OrdersIcon,
       show: true
     },
-    { name: 'Analytics', href: '/dashboard/analytics', icon: AnalyticsIcon, show: true },
+    { name: t('dashboard.sidebar.analytics'), href: '/dashboard/analytics', icon: AnalyticsIcon, show: true },
     { 
-      name: 'Marketing', 
+      name: t('dashboard.sidebar.marketing'), 
       href: '/dashboard/marketing', 
       icon: MarketingIcon,
       subItems: [
         {
-          name: 'Flash Sales',
+          name: t('dashboard.sidebar.marketing.flashSales'),
           href: '/dashboard/marketing/flash-sales',
           icon: LightningBoltIcon,
           current: pathname === '/dashboard/marketing/flash-sales'
@@ -212,13 +222,13 @@ export default function DashboardLayout({
       ],
       show: true
     },
-    { name: 'Payment Settings', href: '/dashboard/payment-settings', icon: PaymentSettingsIcon, show: true },
-    { name: 'Subscription', href: '/dashboard/subscription', icon: SubscriptionIcon, show: true },
-    { name: 'Delivery', href: '/dashboard/delivery', icon: DeliveryIcon, show: true },
-    { name: 'Chat', href: '/dashboard/seller-chat', icon: ChatBubbleLeftRightIcon, show: true, showBadge: true },
-    { name: 'Store Setup', href: '/dashboard/settings', icon: StoreIcon, show: true },
+    { name: t('dashboard.sidebar.paymentSettings'), href: '/dashboard/payment-settings', icon: PaymentSettingsIcon, show: true },
+    { name: t('dashboard.sidebar.subscription'), href: '/dashboard/subscription', icon: SubscriptionIcon, show: true },
+    { name: t('dashboard.sidebar.delivery'), href: '/dashboard/delivery', icon: DeliveryIcon, show: true },
+    { name: t('dashboard.sidebar.chat'), href: '/dashboard/seller-chat', icon: ChatBubbleLeftRightIcon, show: true, showBadge: true },
+    { name: t('dashboard.sidebar.storeSetup'), href: '/dashboard/settings', icon: StoreIcon, show: true },
     { 
-      name: 'Get Support',
+      name: t('dashboard.sidebar.getSupport'),
       href: '/support',
       icon: QuestionMarkCircleIcon,
       show: true
@@ -226,9 +236,20 @@ export default function DashboardLayout({
   ];
 
   const DashboardHeader = () => {
+    const { t, language, setLanguage } = useLanguage();
     return (
       <div className="fixed top-0 left-0 right-0 z-[40] bg-white shadow-sm backdrop-blur-sm bg-white/90">
         <div className="flex items-center justify-between px-4 py-2 h-16 max-w-7xl mx-auto">
+          {/* Center test content */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="inline-flex items-center gap-2 px-2 py-1 rounded-full border border-gray-200 text-xs text-gray-700 bg-white/60">
+              <svg className="w-4 h-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.462a1 1 0 00.95-.69l1.07-3.292z"/>
+              </svg>
+              <span>Center Test</span>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -262,8 +283,8 @@ export default function DashboardLayout({
                 />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-lg font-semibold text-gray-900">Business Dashboard</h1>
-                <p className="text-sm text-gray-500">Manage your store</p>
+                <h1 className="text-lg font-semibold text-gray-900">{t('dashboard.header.title')}</h1>
+                <p className="text-sm text-gray-500">{t('dashboard.header.subtitle')}</p>
               </div>
             </div>
           </div>
@@ -279,6 +300,13 @@ export default function DashboardLayout({
                 />
               </svg>
             </Link>
+            <button
+              onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
+              className="px-2 py-1 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              aria-label="Toggle language"
+            >
+              {language === 'en' ? 'AM' : 'EN'}
+            </button>
           </div>
         </div>
       </div>
@@ -291,7 +319,7 @@ export default function DashboardLayout({
       router.push('/');
     } catch (error) {
       console.error('Error logging out:', error);
-      toast.error('Failed to log out');
+      toast.error(t('dashboard.logoutFailed'));
     }
   };
 
@@ -316,7 +344,7 @@ export default function DashboardLayout({
               />
             </Link>
             <span className="ml-2 text-xl font-semibold text-gray-900">
-              Dashboard
+              {t('dashboard.mobile.headerTitle')}
             </span>
           </div>
 
@@ -324,7 +352,7 @@ export default function DashboardLayout({
           <div className="flex-1 flex flex-col overflow-y-auto">
             <nav className="flex-1 px-4 py-4 space-y-1">
               {navigation.map((item) => {
-                if (!item.show && item.name !== 'Get Support') return null;
+                if (!item.show && item.href !== '/support') return null;
                 const isActive = pathname === item.href;
                 return (
                   <Link
@@ -384,7 +412,7 @@ export default function DashboardLayout({
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" 
                 />
               </svg>
-              Logout
+              {t('dashboard.logout')}
             </button>
           </div>
         </div>
@@ -424,15 +452,24 @@ export default function DashboardLayout({
                 className="h-8 w-auto"
               />
               <span className="ml-2 text-lg font-semibold text-gray-900">
-                Dashboard
+                {t('dashboard.mobile.headerTitle')}
               </span>
             </div>
-            <Link
-              href="/"
-              className="p-2 text-gray-500 hover:text-gray-600"
-            >
-              <HomeIcon className="h-5 w-5" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="p-2 text-gray-500 hover:text-gray-600"
+              >
+                <HomeIcon className="h-5 w-5" />
+              </Link>
+              <button
+                onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
+                className="px-2 py-1 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                aria-label="Toggle language"
+              >
+                {language === 'en' ? 'AM' : 'EN'}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -440,15 +477,25 @@ export default function DashboardLayout({
         <header className="bg-white shadow-sm z-10 hidden md:block">
           <div className="flex items-center justify-between px-6 py-4">
             <h1 className="text-2xl font-semibold text-gray-900">
-              {navigation.find(item => item.href === pathname)?.name || 'Dashboard'}
+              {navigation.find(item => item.href === pathname)?.name || t('dashboard.mobile.headerTitle')}
             </h1>
-            <Link
-              href="/"
-              className="p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100/80 transition-all"
-              title="Go to Homepage"
-            >
-              <HomeIcon className="h-6 w-6" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
+                className="px-2 py-1 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                aria-label="Toggle language"
+                title={language === 'en' ? 'Switch to አማርኛ' : 'Switch to English'}
+              >
+                {language === 'en' ? 'AM' : 'EN'}
+              </button>
+              <Link
+                href="/"
+                className="p-2 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100/80 transition-all"
+                title="Go to Homepage"
+              >
+                <HomeIcon className="h-6 w-6" />
+              </Link>
+            </div>
           </div>
         </header>
 

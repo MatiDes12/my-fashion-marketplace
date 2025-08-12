@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -100,6 +101,7 @@ interface PaymentMethods {
 }
 
 export default function StoreSettingsPage() {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,7 +208,7 @@ export default function StoreSettingsPage() {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
         if (!currentSession) {
-          router.push('/login?message=Please login to access the dashboard');
+          router.push(`/login?message=${encodeURIComponent(t('dashboard.error.auth'))}`);
           return;
         }
 
@@ -231,7 +233,7 @@ export default function StoreSettingsPage() {
         
         if (userError) {
           console.error('Error fetching user data:', userError);
-          setError('Failed to verify user role');
+          setError(t('dashboard.error.verifyPermissions'));
           return;
         }
         
@@ -273,7 +275,7 @@ export default function StoreSettingsPage() {
         }
       } catch (error) {
         console.error('Error loading store settings:', error);
-        setError('Failed to load store settings');
+        setError(t('settings.errors.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -474,7 +476,7 @@ export default function StoreSettingsPage() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
       console.error('Error saving store settings:', error);
-      setError('Failed to save store settings');
+      setError(t('settings.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -484,7 +486,7 @@ export default function StoreSettingsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setError('No authenticated user');
+        setError(t('settings.errors.noAuth'));
         setLoading(false);
         return;
       }
@@ -531,7 +533,7 @@ export default function StoreSettingsPage() {
   return (
     <div className="py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Store Settings</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('settings.title')}</h1>
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-8">
@@ -542,10 +544,9 @@ export default function StoreSettingsPage() {
             <ErrorMessage message={error} />
             {columnMissing && (
               <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <h3 className="text-sm font-medium text-yellow-800">Database Migration Required</h3>
+                <h3 className="text-sm font-medium text-yellow-800">{t('settings.db.migrationRequired')}</h3>
                 <div className="mt-2 text-sm text-yellow-700">
-                  <p>The store_settings column is missing in the users table. Please run the following SQL to add it:
-                  </p>
+                  <p>{t('settings.db.migration.text1')}</p>
                   <pre className="mt-2 p-3 bg-gray-800 text-white rounded-md overflow-x-auto text-xs">
                     {`-- Add store_settings column to users table
 ALTER TABLE public.users 
@@ -556,9 +557,9 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
             )}
             {bucketMissing && (
               <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <h3 className="text-sm font-medium text-yellow-800">Storage Bucket Missing</h3>
+                <h3 className="text-sm font-medium text-yellow-800">{t('settings.storage.bucketMissing')}</h3>
                 <div className="mt-2 text-sm text-yellow-700">
-                  <p>The "stores" storage bucket is missing. Please run the following SQL in your Supabase SQL editor:</p>
+                  <p>{t('settings.storage.bucketMissing.text1')}</p>
                   <pre className="mt-2 p-3 bg-gray-800 text-white rounded-md overflow-x-auto text-xs">
                     {`-- Create the 'stores' bucket for store logos and banners
 INSERT INTO storage.buckets (id, name, public)
@@ -640,9 +641,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                           </svg>
                         </div>
                         <div className="ml-3">
-                          <p className="text-sm font-medium text-green-800">
-                            Store settings saved successfully!
-                          </p>
+                          <p className="text-sm font-medium text-green-800">{t('settings.toast.saved')}</p>
                         </div>
                       </div>
                     </div>
@@ -652,10 +651,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                     <div className="space-y-8 divide-y divide-gray-200">
                       <div className="space-y-6">
                         <div>
-                          <h3 className="text-lg leading-6 font-medium text-gray-900">Basic Information</h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                            This information will be displayed publicly on your store page.
-                          </p>
+                          <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.basicInfo.title')}</h3>
+                          <p className="mt-1 text-sm text-gray-500">{t('settings.basicInfo.subtitle')}</p>
                         </div>
 
                         <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
@@ -665,7 +662,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                           {/* Store Name */}
                               <div className="sm:col-span-1">
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                                  Store Name
+                                  {t('settings.storeName')}
                             </label>
                             <div className="mt-1">
                               <input
@@ -675,7 +672,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                 value={storeData.name}
                                 onChange={handleInputChange}
                                 className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                                    placeholder="Your store name"
+                                    placeholder={t('settings.storeName.placeholder')}
                                   />
                                 </div>
                               </div>
@@ -683,7 +680,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                               {/* Store Email */}
                               <div className="sm:col-span-1">
                                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                  Store Email
+                                  {t('settings.storeEmail')}
                                 </label>
                                 <div className="mt-1">
                                   <input
@@ -693,7 +690,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     value={storeData.email}
                                     onChange={handleInputChange}
                                     className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                                    placeholder="store@example.com"
+                                    placeholder={t('settings.storeEmail.placeholder')}
                                   />
                                 </div>
                               </div>
@@ -703,7 +700,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                           {/* Short Description */}
                           <div className="sm:col-span-6">
                             <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-700">
-                              Short Description
+                              {t('settings.shortDescription')}
                             </label>
                             <div className="mt-1">
                               <input
@@ -712,19 +709,17 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                 id="shortDescription"
                                 value={storeData.shortDescription}
                                 onChange={handleInputChange}
-                                placeholder="Brief tagline or summary of your store"
+                                placeholder={t('settings.shortDescription.placeholder')}
                                 className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                               />
                             </div>
-                            <p className="mt-2 text-sm text-gray-500">
-                              A short description that appears under your store name
-                            </p>
+                            <p className="mt-2 text-sm text-gray-500">{t('settings.shortDescription.help')}</p>
                           </div>
 
                           {/* Full Description */}
                           <div className="sm:col-span-6">
                             <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                              Full Description
+                              {t('settings.fullDescription')}
                             </label>
                             <div className="mt-1">
                               <textarea
@@ -733,28 +728,24 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                 rows={4}
                                 value={storeData.description}
                                 onChange={handleInputChange}
-                                placeholder="Detailed description of your store"
+                                placeholder={t('settings.fullDescription.placeholder')}
                                 className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                               />
                             </div>
-                            <p className="mt-2 text-sm text-gray-500">
-                              A detailed description of your store, products, and services
-                            </p>
+                            <p className="mt-2 text-sm text-gray-500">{t('settings.fullDescription.help')}</p>
                           </div>
                         </div>
 
                         <div className="pt-8">
                           <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">Store Branding</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                              Upload your store logo and banner images
-                            </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.branding.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.branding.subtitle')}</p>
                           </div>
 
                           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                             {/* Logo Upload */}
                             <div className="sm:col-span-3">
-                              <label className="block text-sm font-medium text-gray-700">Store Logo</label>
+                              <label className="block text-sm font-medium text-gray-700">{t('settings.branding.logo')}</label>
                               <div className="mt-1 flex items-center">
                                 {storeData.currentLogo ? (
                                   <div className="relative h-32 w-32">
@@ -782,16 +773,14 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                       accept="image/*"
                                     />
                                   </div>
-                                  <p className="mt-2 text-xs text-gray-500">
-                                    Recommended: Square image, at least 200x200 pixels
-                                  </p>
+                                  <p className="mt-2 text-xs text-gray-500">{t('settings.branding.logo.recommended')}</p>
                                 </div>
                               </div>
                             </div>
 
                             {/* Banner Upload */}
                             <div className="sm:col-span-3">
-                              <label className="block text-sm font-medium text-gray-700">Store Banner</label>
+                              <label className="block text-sm font-medium text-gray-700">{t('settings.branding.banner')}</label>
                               <div className="mt-1 flex items-center">
                                 {storeData.currentBanner ? (
                                   <div className="relative h-32 w-full">
@@ -819,9 +808,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                       accept="image/*"
                                     />
                                   </div>
-                                  <p className="mt-2 text-xs text-gray-500">
-                                    Recommended: Wide image, 1200x400 pixels
-                                  </p>
+                                  <p className="mt-2 text-xs text-gray-500">{t('settings.branding.banner.recommended')}</p>
                                 </div>
                               </div>
                             </div>
@@ -830,16 +817,14 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                         <div className="pt-8">
                           <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">Contact Information</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                              How customers can reach your business.
-                            </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.contact.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.contact.subtitle')}</p>
                           </div>
 
                           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                             <div className="sm:col-span-3">
                               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                                Primary Phone *
+                                {t('settings.contact.primaryPhone')} *
                             </label>
                             <div className="mt-1">
                               <input
@@ -849,7 +834,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   required
                                   value={storeData.phone}
                                 onChange={handleInputChange}
-                                  placeholder="+251"
+                                  placeholder={t('settings.contact.phone.placeholder')}
                                 className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                               />
                             </div>
@@ -857,7 +842,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                             <div className="sm:col-span-3">
                               <label htmlFor="alternativePhone" className="block text-sm font-medium text-gray-700">
-                                Alternative Phone
+                                {t('settings.contact.alternativePhone')}
                             </label>
                             <div className="mt-1">
                                 <input
@@ -866,7 +851,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   id="alternativePhone"
                                   value={storeData.alternativePhone}
                                 onChange={handleInputChange}
-                                  placeholder="+251"
+                                  placeholder={t('settings.contact.phone.placeholder')}
                                 className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                               />
                             </div>
@@ -874,7 +859,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                             <div className="sm:col-span-3">
                               <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                                City *
+                                {t('settings.contact.city')} *
                             </label>
                             <div className="mt-1">
                               <input
@@ -891,7 +876,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                           <div className="sm:col-span-3">
                               <label htmlFor="subCity" className="block text-sm font-medium text-gray-700">
-                                Sub City *
+                                {t('settings.contact.subCity')} *
                             </label>
                             <div className="mt-1">
                               <input
@@ -908,7 +893,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                             <div className="sm:col-span-2">
                               <label htmlFor="wereda" className="block text-sm font-medium text-gray-700">
-                                Wereda
+                                {t('settings.contact.wereda')}
                             </label>
                             <div className="mt-1">
                               <input
@@ -924,7 +909,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                             <div className="sm:col-span-2">
                               <label htmlFor="kebele" className="block text-sm font-medium text-gray-700">
-                                Kebele
+                                {t('settings.contact.kebele')}
                             </label>
                               <div className="mt-1">
                                 <input
@@ -940,7 +925,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                             <div className="sm:col-span-2">
                               <label htmlFor="houseNo" className="block text-sm font-medium text-gray-700">
-                                House No.
+                                {t('settings.contact.houseNo')}
                               </label>
                             <div className="mt-1">
                               <input
@@ -956,7 +941,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                           <div className="sm:col-span-6">
                               <label htmlFor="landmark" className="block text-sm font-medium text-gray-700">
-                                Landmark
+                                {t('settings.contact.landmark')}
                             </label>
                               <div className="mt-1">
                                 <input
@@ -965,7 +950,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   id="landmark"
                                   value={storeData.address.landmark}
                                   onChange={handleInputChange}
-                                  placeholder="Near to..."
+                                  placeholder={t('settings.contact.landmark.placeholder')}
                                   className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                                 />
                               </div>
@@ -973,7 +958,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                             <div className="sm:col-span-6">
                               <label htmlFor="mapLink" className="block text-sm font-medium text-gray-700">
-                                Google Maps Link
+                                {t('settings.contact.mapLink')}
                               </label>
                             <div className="mt-1">
                               <input
@@ -982,7 +967,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   id="mapLink"
                                   value={storeData.address.mapLink}
                                   onChange={handleInputChange}
-                                  placeholder="https://goo.gl/maps/..."
+                                  placeholder={t('settings.contact.mapLink.placeholder')}
                                   className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                               />
                             </div>
@@ -992,10 +977,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                       <div className="pt-8">
                         <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">Social Media</h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                              Connect with your customers on social media
-                          </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.social.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.social.subtitle')}</p>
                         </div>
 
                           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
@@ -1029,10 +1012,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                         <div className="pt-8">
                           <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">Working Hours</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                              Set your store's operating hours
-                            </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.workingHours.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.workingHours.subtitle')}</p>
                           </div>
 
                           <div className="mt-6">
@@ -1048,7 +1029,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     onChange={() => handleWorkingHoursChange(day as keyof StoreData['workingHours'], 'isOpen', !hours.isOpen)}
                                     className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                                   />
-                                  <span className="text-sm text-gray-500">Open</span>
+                                    <span className="text-sm text-gray-500">{t('settings.workingHours.open')}</span>
                               </div>
                                 {hours.isOpen && (
                                   <>
@@ -1058,7 +1039,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                       onChange={(e) => handleWorkingHoursChange(day as keyof StoreData['workingHours'], 'open', e.target.value)}
                                       className="shadow-sm focus:ring-green-500 focus:border-green-500 sm:text-sm border-gray-300 rounded-md"
                                     />
-                                    <span className="text-gray-500">to</span>
+                                    <span className="text-gray-500">{t('settings.workingHours.to')}</span>
                                     <input
                                       type="time"
                                       value={hours.close}
@@ -1074,10 +1055,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                         <div className="pt-8">
                           <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">Store Features</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                              Customize your store's functionality
-                            </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.features.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.features.subtitle')}</p>
                           </div>
 
                           <div className="mt-6">
@@ -1103,10 +1082,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                       <div className="pt-8">
                         <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">Languages</h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                              Select the languages your store supports
-                          </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.languages.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.languages.subtitle')}</p>
                         </div>
 
                         <div className="mt-6">
@@ -1132,16 +1109,14 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                         <div className="pt-8">
                           <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">SEO Settings</h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                              Optimize your store for search engines
-                            </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.seo.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.seo.subtitle')}</p>
                             </div>
 
                           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                             <div className="sm:col-span-6">
-                              <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-700">
-                                Meta Title
+                                <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-700">
+                                  {t('settings.seo.metaTitle')}
                               </label>
                               <div className="mt-1">
                                 <input
@@ -1156,8 +1131,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                               </div>
 
                             <div className="sm:col-span-6">
-                              <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700">
-                                Meta Description
+                                <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700">
+                                  {t('settings.seo.metaDescription')}
                               </label>
                               <div className="mt-1">
                                 <textarea
@@ -1172,8 +1147,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                             </div>
 
                             <div className="sm:col-span-6">
-                              <label htmlFor="keywords" className="block text-sm font-medium text-gray-700">
-                                Keywords
+                                <label htmlFor="keywords" className="block text-sm font-medium text-gray-700">
+                                  {t('settings.seo.keywords')}
                               </label>
                               <div className="mt-1">
                                 <input
@@ -1182,7 +1157,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   id="keywords"
                                   value={storeData.seo.keywords}
                                   onChange={handleInputChange}
-                                  placeholder="Separate keywords with commas"
+                                  placeholder={t('settings.seo.keywords.placeholder')}
                                   className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                                 />
                               </div>
@@ -1193,10 +1168,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                       <div className="pt-8">
                         <div>
-                          <h3 className="text-lg leading-6 font-medium text-gray-900">Delivery Options</h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                            Configure how customers can receive their orders
-                          </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.delivery.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.delivery.subtitle')}</p>
                         </div>
 
                         <div className="mt-6 space-y-6">
@@ -1212,7 +1185,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                               />
                             </div>
                             <div className="ml-3">
-                              <label className="font-medium text-gray-700">Enable Local Delivery</label>
+                              <label className="font-medium text-gray-700">{t('settings.delivery.enableLocal')}</label>
                             </div>
                           </div>
 
@@ -1220,7 +1193,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                             <div className="ml-8 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                               <div className="sm:col-span-2">
                                 <label htmlFor="deliveryRadius" className="block text-sm font-medium text-gray-700">
-                                  Delivery Radius (km)
+                                  {t('settings.delivery.radius')}
                                 </label>
                                 <div className="mt-1">
                                   <input
@@ -1237,7 +1210,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                               <div className="sm:col-span-2">
                                 <label htmlFor="deliveryFee" className="block text-sm font-medium text-gray-700">
-                                  Delivery Fee (ETB)
+                                  {t('settings.delivery.fee')}
                                 </label>
                                 <div className="mt-1">
                                   <input
@@ -1254,7 +1227,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                               <div className="sm:col-span-2">
                                 <label htmlFor="minimumOrderForFreeDelivery" className="block text-sm font-medium text-gray-700">
-                                  Free Delivery Threshold (ETB)
+                                  {t('settings.delivery.freeThreshold')}
                                 </label>
                                 <div className="mt-1">
                                   <input
@@ -1271,7 +1244,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                               <div className="sm:col-span-3">
                                 <label htmlFor="estimatedDeliveryTime" className="block text-sm font-medium text-gray-700">
-                                  Estimated Delivery Time (minutes)
+                                  {t('settings.delivery.etaMinutes')}
                                 </label>
                                 <div className="mt-1">
                                   <input
@@ -1280,7 +1253,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     id="estimatedDeliveryTime"
                                     value={storeData.delivery_options.estimatedDeliveryTime}
                                     onChange={handleInputChange}
-                                    placeholder="e.g., 30-60"
+                                    placeholder={t('settings.delivery.eta.placeholder')}
                                     className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
                                   />
                                 </div>
@@ -1300,8 +1273,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                               />
                             </div>
                             <div className="ml-3">
-                              <label className="font-medium text-gray-700">Enable Store Pickup</label>
-                              <p className="text-sm text-gray-500">Allow customers to pick up orders during working hours</p>
+                              <label className="font-medium text-gray-700">{t('settings.pickup.enable')}</label>
+                              <p className="text-sm text-gray-500">{t('settings.pickup.subtitle')}</p>
                             </div>
                           </div>
                         </div>
@@ -1309,10 +1282,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                       <div className="pt-8">
                         <div>
-                          <h3 className="text-lg leading-6 font-medium text-gray-900">Payment Methods</h3>
-                          <p className="mt-1 text-sm text-gray-500">
-                            Available payment methods for your customers
-                          </p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.payment.title')}</h3>
+                            <p className="mt-1 text-sm text-gray-500">{t('settings.payment.subtitle')}</p>
                         </div>
 
                         <div className="mt-6">
@@ -1327,12 +1298,12 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     </svg>
                                   </div>
                                   <div className="ml-3">
-                                    <h4 className="text-sm font-medium text-gray-900">Cash Payment</h4>
-                                    <p className="text-xs text-gray-500">Pay with cash on delivery</p>
+                                    <h4 className="text-sm font-medium text-gray-900">{t('settings.payment.cash.title')}</h4>
+                                    <p className="text-xs text-gray-500">{t('settings.payment.cash.desc')}</p>
                                   </div>
                                 </div>
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Always Available
+                                  {t('settings.payment.alwaysAvailable')}
                                 </span>
                               </div>
 
@@ -1345,8 +1316,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     </svg>
                                   </div>
                                   <div className="ml-3">
-                                    <h4 className="text-sm font-medium text-gray-900">Telebirr</h4>
-                                    <p className="text-xs text-gray-500">Mobile money by Ethio Telecom</p>
+                                    <h4 className="text-sm font-medium text-gray-900">{t('settings.payment.telebirr.title')}</h4>
+                                    <p className="text-xs text-gray-500">{t('settings.payment.telebirr.desc')}</p>
                                   </div>
                                 </div>
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1354,7 +1325,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     ? 'bg-green-100 text-green-800' 
                                     : 'bg-gray-100 text-gray-800'
                                 }`}>
-                                  {storeData.payment_methods.telebirr.is_active ? 'Active' : 'Inactive'}
+                                  {storeData.payment_methods.telebirr.is_active ? t('settings.status.active') : t('settings.status.inactive')}
                                 </span>
                               </div>
 
@@ -1367,8 +1338,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     </svg>
                                   </div>
                                   <div className="ml-3">
-                                    <h4 className="text-sm font-medium text-gray-900">CBE Account</h4>
-                                    <p className="text-xs text-gray-500">Commercial Bank of Ethiopia</p>
+                                    <h4 className="text-sm font-medium text-gray-900">{t('settings.payment.cbe.title')}</h4>
+                                    <p className="text-xs text-gray-500">{t('settings.payment.cbe.desc')}</p>
                                   </div>
                                 </div>
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1376,7 +1347,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     ? 'bg-green-100 text-green-800' 
                                     : 'bg-gray-100 text-gray-800'
                                 }`}>
-                                  {storeData.payment_methods.cbeBirr.is_active ? 'Active' : 'Inactive'}
+                                  {storeData.payment_methods.cbeBirr.is_active ? t('settings.status.active') : t('settings.status.inactive')}
                                 </span>
                               </div>
 
@@ -1390,8 +1361,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     </svg>
                                   </div>
                                   <div className="ml-3">
-                                    <h4 className="text-sm font-medium text-gray-900">Amole</h4>
-                                    <p className="text-xs text-gray-500">Dashen Bank mobile wallet</p>
+                                    <h4 className="text-sm font-medium text-gray-900">{t('settings.payment.amole.title')}</h4>
+                                    <p className="text-xs text-gray-500">{t('settings.payment.amole.desc')}</p>
                                   </div>
                                 </div>
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1399,7 +1370,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     ? 'bg-green-100 text-green-800' 
                                     : 'bg-gray-100 text-gray-800'
                                 }`}>
-                                  {storeData.payment_methods.amole.is_active ? 'Active' : 'Inactive'}
+                                  {storeData.payment_methods.amole.is_active ? t('settings.status.active') : t('settings.status.inactive')}
                                 </span>
                               </div>
 
@@ -1412,8 +1383,8 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     </svg>
                                   </div>
                                   <div className="ml-3">
-                                    <h4 className="text-sm font-medium text-gray-900">Chapa</h4>
-                                    <p className="text-xs text-gray-500">Online payment gateway</p>
+                                    <h4 className="text-sm font-medium text-gray-900">{t('settings.payment.chapa.title')}</h4>
+                                    <p className="text-xs text-gray-500">{t('settings.payment.chapa.desc')}</p>
                                   </div>
                                 </div>
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1421,7 +1392,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     ? 'bg-green-100 text-green-800' 
                                     : 'bg-gray-100 text-gray-800'
                                 }`}>
-                                  {storeData.payment_methods.chapa.is_active ? 'Active' : 'Inactive'}
+                                  {storeData.payment_methods.chapa.is_active ? t('settings.status.active') : t('settings.status.inactive')}
                                 </span>
                               </div>
                             </div>
@@ -1455,14 +1426,14 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                             <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
                             <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                           </svg>
-                          Preview Store
+                          {t('settings.actions.previewStore')}
                         </Link>
                         <button
                           type="button"
                           onClick={() => router.push('/dashboard')}
                           className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                         >
-                          Cancel
+                          {t('settings.actions.cancel')}
                         </button>
                         <button
                           type="submit"
@@ -1475,10 +1446,10 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                               </svg>
-                              Saving...
+                              {t('settings.actions.saving')}
                             </>
                           ) : (
-                            'Save Settings'
+                            t('settings.actions.save')
                           )}
                         </button>
                       </div>

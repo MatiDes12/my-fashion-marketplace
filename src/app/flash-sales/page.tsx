@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import CountdownTimer from '@/components/CountdownTimer';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { cleanImageUrl } from '@/utils/url';
 
 interface FlashSale {
@@ -50,6 +52,7 @@ const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/20
 
 export default function FlashSalesPage() {
   const [flashSales, setFlashSales] = useState<FlashSale[]>([]);
+  const { language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const supabase = createClientComponent();
 
@@ -108,7 +111,7 @@ export default function FlashSalesPage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-pink-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading amazing deals...</p>
+          <p className="text-gray-600 font-medium">{translations['flash.loading'][language]}</p>
         </div>
       </div>
     );
@@ -132,9 +135,7 @@ export default function FlashSalesPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">
-              ⚡ Flash Sales
-            </h1>
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6">⚡ {translations['flash.title'][language]}</h1>
             <p className="text-xl md:text-2xl text-red-100 mb-8 max-w-3xl mx-auto">
               Don't miss out on these incredible deals! Limited time offers with massive discounts.
             </p>
@@ -143,13 +144,13 @@ export default function FlashSalesPage() {
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="font-medium">Limited Time</span>
+                <span className="font-medium">{translations['flash.limitedTime'][language]}</span>
               </div>
               <div className="flex items-center gap-2">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                <span className="font-medium">Huge Savings</span>
+                <span className="font-medium">{translations['flash.hugeSavings'][language]}</span>
               </div>
             </div>
           </motion.div>
@@ -210,7 +211,7 @@ export default function FlashSalesPage() {
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <span className="font-medium">Ends in:</span>
+                          <span className="font-medium">{translations['flash.endsIn'][language]}</span>
                           <CountdownTimer 
                             endTime={flashSale.end_time}
                             className="font-mono text-white font-bold"
@@ -222,7 +223,7 @@ export default function FlashSalesPage() {
                     {flashSale.store_name && (
                       <div className="lg:text-right">
                         <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                          <span className="text-sm text-red-100 block mb-1">Presented by</span>
+                           <span className="text-sm text-red-100 block mb-1">{translations['flash.presentedBy'][language]}</span>
                           <h3 className="text-xl font-bold">{flashSale.store_name}</h3>
                         </div>
                       </div>
@@ -356,7 +357,7 @@ export default function FlashSalesPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">No Active Flash Sales</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">{translations['flash.noActive'][language]}</h3>
                 <p className="text-gray-600 mb-8">Don't worry! New amazing deals are coming soon. Check back regularly for the latest offers.</p>
                 <Link 
                   href="/products" 
@@ -365,7 +366,7 @@ export default function FlashSalesPage() {
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
-                  Browse All Products
+                  {translations['flash.browseAll'][language]}
                 </Link>
               </div>
             </motion.div>

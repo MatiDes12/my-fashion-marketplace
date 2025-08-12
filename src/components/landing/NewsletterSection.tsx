@@ -2,9 +2,12 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { Mail, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
 
 export default function NewsletterSection() {
+  const { language } = useLanguage();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -48,7 +51,7 @@ export default function NewsletterSection() {
               viewport={{ once: true }}
               className="text-white text-base md:text-lg font-medium text-center mb-3"
             >
-              Subscribe to get updates
+              {translations['newsletter.title'][language]}
             </motion.h3>
             <motion.form
               initial={{ opacity: 0, y: 20 }}
@@ -65,7 +68,7 @@ export default function NewsletterSection() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder={translations['newsletter.placeholder'][language]}
                     className="w-full pl-12 pr-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full text-white placeholder-gray-400 focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-400/20 transition-all duration-300"
                     required
                   />
@@ -78,11 +81,11 @@ export default function NewsletterSection() {
                   {isLoading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Subscribing...
+                      {translations['newsletter.subscribing'][language]}
                     </>
                   ) : (
                     <>
-                      Subscribe
+                      {translations['newsletter.subscribe'][language]}
                       <ArrowRight className="w-5 h-5" />
                     </>
                   )}
@@ -102,12 +105,12 @@ export default function NewsletterSection() {
               </div>
               
               <h3 className="text-xl font-semibold text-white mb-2">
-                Thanks for subscribing!
+                {translations['newsletter.thanks'][language]}
               </h3>
-              <p className="text-sm text-gray-300 mb-1">We'll keep you updated.</p>
+              <p className="text-sm text-gray-300 mb-1">{translations['newsletter.updated'][language]}</p>
               
               <p className="text-sm text-gray-400">
-                Check your inbox for your exclusive 15% discount code and stay tuned for amazing fashion updates!
+                {translations['newsletter.discount'][language]}
               </p>
             </motion.div>
           )}

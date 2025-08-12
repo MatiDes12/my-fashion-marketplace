@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import Link from 'next/link';
 
 const stylePreferences = [
@@ -94,13 +96,14 @@ const occasions = [
 ];
 
 export default function CategoryGrid() {
+  const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('Style');
   const [selectedPreference, setSelectedPreference] = useState<string | null>(null);
 
   const tabs = [
-  { id: 'Style', label: 'Style', color: 'text-red-600' },
-  { id: 'Budget', label: 'Budget', color: 'text-blue-600' },
-  { id: 'Occasion', label: 'Occasion', color: 'text-purple-600' }
+  { id: 'Style', label: translations['landing.tab.style'][language], color: 'text-red-600' },
+  { id: 'Budget', label: translations['landing.tab.budget'][language], color: 'text-blue-600' },
+  { id: 'Occasion', label: translations['landing.tab.occasion'][language], color: 'text-purple-600' }
   ];
 
   const renderContent = () => {
@@ -203,10 +206,10 @@ export default function CategoryGrid() {
             className="text-center mb-12"
           >
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-              Find Your Perfect Pieces
+              {translations['landing.findPerfect'][language]}
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-              Tell us your preferences and see instant personalized recommendations
+              {translations['landing.findPerfectDesc'][language]}
             </p>
           </motion.div>
 
@@ -261,7 +264,7 @@ export default function CategoryGrid() {
           >
             <Link href="/products">
               <button className="bg-gradient-to-r from-red-600 to-pink-600 text-white px-8 py-4 rounded-full font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
-                Explore All Products
+                {translations['landing.exploreAll'][language]}
               </button>
             </Link>
           </motion.div>

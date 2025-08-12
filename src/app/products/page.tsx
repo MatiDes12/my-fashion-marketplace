@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { createClientComponent } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -108,16 +110,16 @@ const RATING_RANGES = [
 const MIN_REVIEWS_OPTIONS = [0, 5, 10, 20, 50];
 
 function ProductsHero() {
+  const { language } = useLanguage();
   return (
     <div className="relative overflow-hidden bg-gradient-to-r from-red-50 to-red-100 py-16 mb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative z-10 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Discover Ethiopian Fashion
+            {language === 'am' ? 'የኢትዮጵያ ፋሽን ያግኙ' : 'Discover Ethiopian Fashion'}
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Explore our curated collection of traditional and modern Ethiopian fashion, 
-            handcrafted with love and cultural authenticity.
+            {language === 'am' ? 'የባህላዊ እና ዘመናዊ ፋሽን በፍቅር እና ባህላዊነት የተሠሩ ስብስቦችን ያግኙ።' : 'Explore our curated collection of traditional and modern Ethiopian fashion, handcrafted with love and cultural authenticity.'}
           </p>
         </div>
       </div>
@@ -153,15 +155,10 @@ function ProductsContent() {
   const [priceRange, setPriceRange] = useState<{ min: number; max: number | null }>({ min: 0, max: null });
   const [sortBy, setSortBy] = useState<string>('newest');
   const [showFilters, setShowFilters] = useState(false);
-  const [showMobilePopup, setShowMobilePopup] = useState(false);
   const [showWishlistPopup, setShowWishlistPopup] = useState(false);
   const [selectedProductForWishlist, setSelectedProductForWishlist] = useState<{id: string, title: string} | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setShowMobilePopup(true);
-    }
-  }, []);
+  
   
   const supabase = createClientComponent();
 
@@ -477,22 +474,7 @@ function ProductsContent() {
 
   return (
     <>
-      {showMobilePopup && (
-        <div className="fixed top-0 left-0 w-full z-[9999] flex justify-center items-center px-2 py-3 bg-yellow-100 border-b border-yellow-300 shadow-lg animate-fadeIn">
-          <div className="flex flex-col items-center gap-2 w-full max-w-md mx-auto">
-            <span className="text-sm font-semibold text-yellow-800 text-center">
-              For better interaction and smooth experience, we recommend using a computer or laptop until the mobile version is fixed.<br/>
-              <span className="block mt-1 text-xs font-normal text-yellow-700">የተሻለ ተግባራዊነት እና ምቹ አገልግሎት ለማግኘት እስከ mobile እትክክል እስኪሻሽ ድረስ ኮምፒውተር/ላፕቶፕ መጠቀም ይመከራል።</span>
-            </span>
-            <button
-              className="mt-2 px-4 py-1.5 rounded bg-yellow-300 text-yellow-900 font-medium hover:bg-yellow-400 transition"
-              onClick={() => setShowMobilePopup(false)}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
+      
 
       {/* Wishlist Popup */}
       {selectedProductForWishlist && (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -101,6 +102,7 @@ const subscriptionPlans: SubscriptionPlan[] = [
 ];
 
 export default function SubscriptionPage() {
+  const { t, language } = useLanguage();
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +131,7 @@ export default function SubscriptionPage() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          router.push('/login?message=Please login to access the dashboard');
+          router.push(`/login?message=${encodeURIComponent(t('dashboard.error.auth'))}`);
           return;
         }
         
@@ -142,7 +144,7 @@ export default function SubscriptionPage() {
         
         if (userError) {
           console.error('Error fetching user role:', userError);
-          throw new Error('Failed to verify user role');
+          throw new Error(t('dashboard.error.verifyPermissions'));
         }
         
         if (userData?.role !== 'owner') {
@@ -204,7 +206,7 @@ export default function SubscriptionPage() {
         
       } catch (error) {
         console.error('Subscription page error:', error);
-        setError(error instanceof Error ? error.message : 'An error occurred');
+        setError(error instanceof Error ? error.message : t('common.error'));
       } finally {
         setLoading(false);
       }
@@ -245,11 +247,11 @@ export default function SubscriptionPage() {
         setCurrentPlan(planId);
       } catch (updateError) {
         console.error('Error updating subscription:', updateError);
-        throw new Error('Failed to update subscription plan');
+        throw new Error(t('subscription.error.process'));
       }
     } catch (error) {
       console.error('Error changing plan:', error);
-      setError('Failed to update subscription plan');
+      setError(t('subscription.error.process'));
     } finally {
       setLoading(false);
     }
@@ -267,7 +269,7 @@ export default function SubscriptionPage() {
       }
 
       if (paymentMethod === 'telebirr') {
-        toast.error('Telebirr payments are coming soon. Please use Chapa for now.');
+        toast.error(t('subscription.toast.telebirrSoon'));
         setLoading(false);
         return;
       }
@@ -405,7 +407,7 @@ export default function SubscriptionPage() {
         <span className="text-4xl font-extrabold text-gray-900">
           {formatCurrency(price)}
         </span>
-        <span className="text-base font-medium text-gray-500">/{billingPeriod}</span>
+        <span className="text-base font-medium text-gray-500">/{billingPeriod === 'year' ? t('subscription.billing.suffix.year') : t('subscription.billing.suffix.month')}</span>
       </>
     );
   };
@@ -430,12 +432,12 @@ export default function SubscriptionPage() {
         {/* Add subscription dates info */}
         {currentPlan && currentPlan !== 'basic' && subscriptionDates && (
           <div className="mt-6 rounded-lg bg-white shadow-sm p-6 border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Current Subscription Details</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">{t('subscription.currentDetails.title')}</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Start Date:</span>
+                <span className="text-gray-500">{t('subscription.currentDetails.startDate')}</span>
                 <span className="font-medium">
-                  {new Date(subscriptionDates.startDate!).toLocaleDateString('en-US', {
+                  {new Date(subscriptionDates.startDate!).toLocaleDateString(language === 'am' ? 'am-ET' : 'en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
@@ -443,17 +445,17 @@ export default function SubscriptionPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">End Date:</span>
+                <span className="text-gray-500">{t('subscription.currentDetails.endDate')}</span>
                 <span className="font-medium">
-                  {subscriptionDates.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString('en-US', {
+                  {subscriptionDates.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString(language === 'am' ? 'am-ET' : 'en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
-                  }) : 'Not specified'}
+                  }) : t('subscription.date.notSpecified')}
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Status:</span>
+                <span className="text-gray-500">{t('subscription.currentDetails.status')}</span>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                   subscriptionDates.status === 'cancelled'
                     ? 'bg-yellow-100 text-yellow-800'
@@ -462,10 +464,10 @@ export default function SubscriptionPage() {
                       : 'bg-green-100 text-green-800'
                 }`}>
                   {subscriptionDates.status === 'cancelled'
-                    ? 'Cancelled'
+                    ? t('subscription.status.cancelled')
                     : subscriptionDates.status === 'expired'
-                      ? 'Expired'
-                      : 'Active'}
+                      ? t('subscription.status.expired')
+                      : t('subscription.status.active')}
                 </span>
               </div>
               {subscriptionDates.status === 'cancelled' && (
@@ -477,9 +479,7 @@ export default function SubscriptionPage() {
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-yellow-700">
-                        Your subscription has been cancelled. You will continue to have access to all paid features until the end of your billing period.
-                      </p>
+                      <p className="text-sm text-yellow-700">{t('subscription.notice.cancelled')}</p>
                     </div>
                   </div>
                 </div>
@@ -493,9 +493,7 @@ export default function SubscriptionPage() {
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-gray-700">
-                        Your subscription has expired. You have been moved to the Basic plan. Please renew to regain access to paid features.
-                      </p>
+                      <p className="text-sm text-gray-700">{t('subscription.notice.expired')}</p>
                     </div>
                   </div>
                 </div>
@@ -506,7 +504,7 @@ export default function SubscriptionPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Subscription Plans</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('subscription.plans.title')}</h1>
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-8">
@@ -527,7 +525,7 @@ export default function SubscriptionPage() {
                       : 'border border-transparent text-gray-700'
                   } relative w-1/2 rounded-md py-2 text-sm font-medium whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-500 focus:z-10 sm:w-auto sm:px-8`}
                 >
-                  Monthly
+                  {t('subscription.billing.monthly')}
                 </button>
                 <button
                   type="button"
@@ -538,7 +536,7 @@ export default function SubscriptionPage() {
                       : 'border border-transparent text-gray-700'
                   } ml-0.5 relative w-1/2 rounded-md py-2 text-sm font-medium whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-500 focus:z-10 sm:w-auto sm:px-8`}
                 >
-                  Yearly <span className="text-green-500 font-bold">Save 17%</span>
+                  {t('subscription.billing.yearly')} <span className="text-green-500 font-bold">{t('subscription.billing.save17')}</span>
                 </button>
               </div>
             </div>
@@ -557,11 +555,11 @@ export default function SubscriptionPage() {
                       {getPriceDisplay(plan)}
                     </p>
                     <p className="mt-4 text-sm text-gray-500">
-                      {plan.name === 'Basic' 
-                        ? 'Perfect for new sellers' 
-                        : plan.name === 'Pro' 
-                          ? 'For growing businesses' 
-                          : 'For established businesses'}
+                      {plan.id === 'basic' 
+                        ? t('subscription.planDesc.basic') 
+                        : plan.id === 'pro' 
+                          ? t('subscription.planDesc.pro') 
+                          : t('subscription.planDesc.enterprise')}
                     </p>
                   </div>
 
@@ -576,7 +574,7 @@ export default function SubscriptionPage() {
                             onClick={handleCancelSubscription}
                             className="block w-full bg-red-100 text-red-700 hover:bg-red-200 px-3 py-2 rounded-md text-sm font-medium"
                           >
-                            Cancel Subscription
+                            {t('subscription.cancelSubscription')}
                           </button>
                         )}
                       </div>
@@ -594,15 +592,15 @@ export default function SubscriptionPage() {
                                   </div>
                                   <div className="ml-3">
                                     <h3 className="text-sm font-medium text-yellow-800">
-                                      {subscriptionDates.status === 'cancelled' ? 'Cancelled Subscription' : 'Active Subscription'}
+                                      {subscriptionDates.status === 'cancelled' ? t('subscription.banner.cancelledTitle') : t('subscription.banner.activeTitle')}
                                     </h3>
                                     <div className="mt-2 text-sm text-yellow-700">
                                       <p>
                                         {subscriptionDates.status === 'cancelled' 
-                                          ? `Your ${currentPlan} subscription has been cancelled. You can upgrade to ${plan.name} after your current subscription period ends on `
-                                          : `You currently have an active ${currentPlan} subscription. You can upgrade to ${plan.name} after your current subscription period ends on `
+                                          ? `${t('subscription.banner.cancelledMessage').replace('{currentPlan}', String(currentPlan)).replace('{planName}', plan.name)}`
+                                          : `${t('subscription.banner.activeMessage').replace('{currentPlan}', String(currentPlan)).replace('{planName}', plan.name)}`
                                         }
-                                        {subscriptionDates?.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString('en-US', {
+                                        {subscriptionDates?.endDate ? new Date(subscriptionDates.endDate).toLocaleDateString(language === 'am' ? 'am-ET' : 'en-US', {
                                           year: 'numeric',
                                           month: 'long',
                                           day: 'numeric'
@@ -632,7 +630,7 @@ export default function SubscriptionPage() {
                                     disabled:opacity-50 disabled:cursor-not-allowed mt-4`}
                                   disabled={loading}
                                 >
-                                  {loading ? 'Processing...' : `Upgrade to ${plan.name}`}
+                                  {loading ? t('subscription.actions.processing') : t('subscription.actions.upgradeTo').replace('{planName}', plan.name)}
                                 </button>
                               </>
                             )}
@@ -643,7 +641,7 @@ export default function SubscriptionPage() {
                   </div>
                   <div className="pt-6 pb-8 px-6">
                     <h3 className="text-xs font-medium text-gray-900 tracking-wide uppercase">
-                      What's included
+                      {t('subscription.whatsIncluded')}
                     </h3>
                     <ul className="mt-6 space-y-4">
                       {plan.features.map((feature, index) => (
@@ -672,10 +670,10 @@ export default function SubscriptionPage() {
               </div>
               <div className="ml-4">
                 <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  Need a custom plan?
+                  {t('subscription.custom.title')}
                 </h3>
                 <p className="mt-2 text-base text-gray-500">
-                  Contact our sales team for a tailored solution that meets your specific business requirements.
+                  {t('subscription.custom.subtitle')}
                 </p>
               </div>
             </div>
@@ -684,38 +682,38 @@ export default function SubscriptionPage() {
                 href="mailto:sales@habeshamarket.com"
                 className="mt-3 w-full inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-green-700 bg-white hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto"
               >
-                Contact Sales
+                {t('subscription.custom.cta')}
               </a>
             </div>
           </div>
           <div className="px-6 pt-6 pb-8 bg-gray-50 sm:p-10 sm:pt-6">
             <h3 className="text-sm font-medium text-gray-900">
-              Frequently Asked Questions
+              {t('subscription.faq.title')}
             </h3>
             <div className="mt-6">
               <dl className="space-y-8">
                 <div>
                   <dt className="text-sm font-medium text-gray-900">
-                    Can I change my plan later?
+                    {t('subscription.faq.q1')}
                   </dt>
                   <dd className="mt-2 text-sm text-gray-500">
-                    Yes, you can upgrade or downgrade your plan at any time. Changes take effect at the start of your next billing cycle.
+                    {t('subscription.faq.a1')}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-900">
-                    What payment methods do you accept?
+                    {t('subscription.faq.q2')}
                   </dt>
                   <dd className="mt-2 text-sm text-gray-500">
-                    We accept all major credit cards, TeleBirr, CBE, and Amole. For enterprise plans, we also offer invoice-based payments.
+                    {t('subscription.faq.a2')}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-gray-900">
-                    What happens if I exceed my product limit?
+                    {t('subscription.faq.q3')}
                   </dt>
                   <dd className="mt-2 text-sm text-gray-500">
-                    You'll need to upgrade to a higher plan to add more products. We'll notify you when you're approaching your limit.
+                    {t('subscription.faq.a3')}
                   </dd>
                 </div>
               </dl>
@@ -724,12 +722,12 @@ export default function SubscriptionPage() {
         </div>
 
         <div className="mt-8 max-w-3xl mx-auto text-sm text-gray-500">
-          <h3 className="font-medium text-gray-900 mb-2">Important Information:</h3>
+          <h3 className="font-medium text-gray-900 mb-2">{t('subscription.info.title')}</h3>
           <ul className="list-disc pl-5 space-y-1">
-            <li>When you cancel a paid subscription, you'll be automatically moved to the Basic (free) plan.</li>
-            <li>You can continue using your current plan's features until the end of your billing period.</li>
-            <li>No refunds are provided for cancelled subscriptions.</li>
-            <li>Your data and settings will be preserved when downgrading, but some features may become unavailable.</li>
+            <li>{t('subscription.info.i1')}</li>
+            <li>{t('subscription.info.i2')}</li>
+            <li>{t('subscription.info.i3')}</li>
+            <li>{t('subscription.info.i4')}</li>
           </ul>
         </div>
       </div>

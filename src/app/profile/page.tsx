@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import TelegramIntegration from '@/components/TelegramIntegration';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Address {
   city: string;
@@ -158,6 +159,7 @@ const CustomerEditDialog = ({
     onSubmit(formData);
   };
 
+  const { t } = useLanguage();
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog 
@@ -189,19 +191,14 @@ const CustomerEditDialog = ({
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-                <Dialog.Title
-                  as="h3"
-                  className="text-lg font-medium leading-6 text-gray-900 mb-4"
-                >
-                  Edit Profile Information
+                <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
+                  {t('profile.editDialog.title')}
                 </Dialog.Title>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Full Name */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Full Name
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">{t('profile.fullName')}</label>
                     <input
                       type="text"
                       value={formData.full_name}
@@ -216,9 +213,7 @@ const CustomerEditDialog = ({
 
                   {/* Phone Number */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Phone Number
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">{t('profile.phone')}</label>
                     <input
                       type="tel"
                       value={formData.phone}
@@ -234,13 +229,11 @@ const CustomerEditDialog = ({
 
                   {/* Address Section */}
                   <div className="space-y-4">
-                    <h4 className="font-medium text-gray-900">Address</h4>
+                    <h4 className="font-medium text-gray-900">{t('profile.address')}</h4>
                     
                     {/* Sub City */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Sub City
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">{t('profile.subCity')}</label>
                       <select
                         value={formData.address.subCity}
                         onChange={(e) => setFormData({
@@ -253,7 +246,7 @@ const CustomerEditDialog = ({
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
                         required
                       >
-                        <option value="">Select Sub City</option>
+                        <option value="">{t('profile.selectSubCity')}</option>
                         {subCities.map((city) => (
                           <option key={city} value={city}>{city}</option>
                         ))}
@@ -262,9 +255,7 @@ const CustomerEditDialog = ({
 
                     {/* Wereda */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Wereda
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">{t('profile.wereda')}</label>
                       <input
                         type="text"
                         value={formData.address.wereda}
@@ -282,9 +273,7 @@ const CustomerEditDialog = ({
 
                     {/* Kebele */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Kebele
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">{t('profile.kebele')}</label>
                       <input
                         type="text"
                         value={formData.address.kebele}
@@ -302,9 +291,7 @@ const CustomerEditDialog = ({
 
                     {/* House Number */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        House Number
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">{t('profile.houseNo')}</label>
                       <input
                         type="text"
                         value={formData.address.houseNo}
@@ -322,9 +309,7 @@ const CustomerEditDialog = ({
 
                     {/* Landmark (Optional) */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Landmark (Optional)
-                      </label>
+                      <label className="block text-sm font-medium text-gray-700">{t('profile.landmarkOptional')}</label>
                       <input
                         type="text"
                         value={formData.address.landmark}
@@ -343,9 +328,7 @@ const CustomerEditDialog = ({
 
                   {/* Preferred Language */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Preferred Language
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">{t('profile.preferredLanguage')}</label>
                     <select
                       value={formData.preferredLanguage}
                       onChange={(e) => setFormData({
@@ -369,14 +352,14 @@ const CustomerEditDialog = ({
                       onClick={onClose}
                       className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                     >
-                      Cancel
+                      {t('profile.cancel')}
                     </button>
                     <button
                       type="submit"
                       disabled={saving}
                       className="inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                     >
-                      {saving ? 'Saving...' : 'Save Changes'}
+                      {saving ? t('profile.saving') : t('profile.save')}
                     </button>
                   </div>
                 </form>
@@ -390,6 +373,7 @@ const CustomerEditDialog = ({
 };
 
 export default function ProfilePage() {
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -436,7 +420,7 @@ export default function ProfilePage() {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        router.push('/login?message=Please login to view your profile');
+        router.push(`/login?message=${encodeURIComponent(t('profile.loginRequired'))}`);
         return;
       }
 
@@ -547,13 +531,13 @@ export default function ProfilePage() {
 
       if (error) throw error;
 
-      toast.success('Profile updated successfully');
+      toast.success(t('profile.toast.updateSuccess'));
       setIsEditDialogOpen(false);
       fetchProfile(); // Refresh profile data
     } catch (err) {
       console.error('Error updating profile:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
-      toast.error('Failed to update profile');
+      setError(err instanceof Error ? err.message : t('profile.toast.updateFailed'));
+      toast.error(t('profile.toast.updateFailed'));
     } finally {
       setSaving(false);
     }
@@ -563,7 +547,7 @@ export default function ProfilePage() {
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       <div className="px-4 py-5 sm:p-6">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Customer Profile</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('profile.customer.title')}</h1>
           <button
             onClick={handleEditClick}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
@@ -571,7 +555,7 @@ export default function ProfilePage() {
             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            Edit Profile
+            {t('profile.editProfile')}
           </button>
         </div>
 
@@ -580,26 +564,24 @@ export default function ProfilePage() {
         <div className="space-y-6">
           {/* Basic Information */}
           <div className="border-b border-gray-200 pb-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h2>
+            <h2 className="text-lg font-medium text-gray-900 mb-4">{t('profile.basicInfo')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Full Name</label>
-                <p className="mt-1 text-sm text-gray-900">{profile?.full_name || 'Not set'}</p>
+                <label className="block text-sm font-medium text-gray-700">{t('profile.fullName')}</label>
+                <p className="mt-1 text-sm text-gray-900">{profile?.full_name || t('profile.notSet')}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <label className="block text-sm font-medium text-gray-700">{t('profile.email')}</label>
                 <p className="mt-1 text-sm text-gray-900">{profile?.email}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Phone</label>
-                <p className="mt-1 text-sm text-gray-900">
-                  {profile?.store_settings?.phone || 'Not set'}
-                </p>
+                <label className="block text-sm font-medium text-gray-700">{t('profile.phone')}</label>
+                <p className="mt-1 text-sm text-gray-900">{profile?.store_settings?.phone || t('profile.notSet')}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Preferred Language</label>
+                <label className="block text-sm font-medium text-gray-700">{t('profile.preferredLanguage')}</label>
                 <p className="mt-1 text-sm text-gray-900 capitalize">
-                  {profile?.store_settings?.preferred_language || 'Not set'}
+                  {profile?.store_settings?.preferred_language || t('profile.notSet')}
                 </p>
               </div>
             </div>
@@ -608,41 +590,41 @@ export default function ProfilePage() {
           {/* Address Information */}
           {profile?.store_settings?.address && (
             <div className="border-b border-gray-200 pb-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Address</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4">{t('profile.address')}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">City</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile.city')}</label>
                   <p className="mt-1 text-sm text-gray-900">
                     {profile.store_settings.address.city || 'Addis Ababa'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Sub City</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile.subCity')}</label>
                   <p className="mt-1 text-sm text-gray-900">
                     {profile.store_settings.address.subCity || 'Not set'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Wereda</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile.wereda')}</label>
                   <p className="mt-1 text-sm text-gray-900">
                     {profile.store_settings.address.wereda || 'Not set'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Kebele</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile.kebele')}</label>
                   <p className="mt-1 text-sm text-gray-900">
                     {profile.store_settings.address.kebele || 'Not set'}
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">House Number</label>
+                  <label className="block text-sm font-medium text-gray-700">{t('profile.houseNo')}</label>
                   <p className="mt-1 text-sm text-gray-900">
                     {profile.store_settings.address.houseNo || 'Not set'}
                   </p>
                 </div>
                 {profile.store_settings.address.landmark && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Landmark</label>
+                    <label className="block text-sm font-medium text-gray-700">{t('profile.landmarkOptional')}</label>
                     <p className="mt-1 text-sm text-gray-900">
                       {profile.store_settings.address.landmark}
                     </p>
@@ -662,7 +644,7 @@ export default function ProfilePage() {
                   if (streetAddress) {
                     return (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Street Address</label>
+                        <label className="block text-sm font-medium text-gray-700">{t('profile.streetAddress')}</label>
                         <p className="mt-1 text-sm text-gray-900">
                           {streetAddress}
                         </p>
@@ -677,14 +659,14 @@ export default function ProfilePage() {
 
           {/* Account Information */}
           <div>
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Account Information</h2>
+            <h2 className="text-lg font-medium text-gray-900 mb-4">{t('profile.accountInfo')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Account Type</label>
+                <label className="block text-sm font-medium text-gray-700">{t('profile.accountType')}</label>
                 <p className="mt-1 text-sm text-gray-900 capitalize">{profile?.role}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Member Since</label>
+                <label className="block text-sm font-medium text-gray-700">{t('profile.memberSince')}</label>
                 <p className="mt-1 text-sm text-gray-900">
                   {new Date(profile?.created_at || '').toLocaleDateString()}
                 </p>
@@ -700,7 +682,7 @@ export default function ProfilePage() {
     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
       <div className="px-4 py-5 sm:p-6">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Store Information</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('profile.store.title')}</h1>
           <button
             onClick={handleEditClick}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700"
@@ -708,7 +690,7 @@ export default function ProfilePage() {
             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
-            Edit Store Settings
+            {t('profile.store.edit')}
           </button>
         </div>
 
@@ -718,7 +700,7 @@ export default function ProfilePage() {
           {/* Store Logo */}
           {profile?.store_settings?.logo_url && (
             <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-              <label className="text-sm font-medium text-gray-700">Store Logo</label>
+              <label className="text-sm font-medium text-gray-700">{t('profile.store.logo')}</label>
               <div className="sm:col-span-2">
                 <div className="relative h-32 w-32 rounded-lg overflow-hidden">
                   <img
@@ -735,7 +717,7 @@ export default function ProfilePage() {
           {/* Store Banner */}
           {profile?.store_settings?.banner_url && (
             <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-              <label className="text-sm font-medium text-gray-700">Store Banner</label>
+              <label className="text-sm font-medium text-gray-700">{t('profile.store.banner')}</label>
               <div className="sm:col-span-2">
                 <div className="relative h-48 w-full rounded-lg overflow-hidden">
                   <img
@@ -751,14 +733,14 @@ export default function ProfilePage() {
 
           {/* Store Details */}
           <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-            <label className="text-sm font-medium text-gray-700">Store Name</label>
+            <label className="text-sm font-medium text-gray-700">{t('profile.store.name')}</label>
             <div className="sm:col-span-2">
               <p className="text-sm text-gray-900">{profile?.store_settings?.name}</p>
             </div>
           </div>
 
           <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-            <label className="text-sm font-medium text-gray-700">Description</label>
+            <label className="text-sm font-medium text-gray-700">{t('profile.store.description')}</label>
             <div className="sm:col-span-2">
               <p className="text-sm text-gray-900">{profile?.store_settings?.description}</p>
             </div>
@@ -766,7 +748,7 @@ export default function ProfilePage() {
 
           {/* Contact Information */}
           <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-            <label className="text-sm font-medium text-gray-700">Contact Information</label>
+            <label className="text-sm font-medium text-gray-700">{t('profile.store.contact')}</label>
             <div className="sm:col-span-2 space-y-2">
               <p className="text-sm text-gray-900">Email: {profile?.store_settings?.email}</p>
               <p className="text-sm text-gray-900">Phone: {profile?.store_settings?.phone}</p>
@@ -775,12 +757,12 @@ export default function ProfilePage() {
 
           {/* Address */}
           <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-            <label className="text-sm font-medium text-gray-700">Address</label>
+            <label className="text-sm font-medium text-gray-700">{t('profile.address')}</label>
             <div className="sm:col-span-2 space-y-2">
               {/* Extract and display complete address */}
               {(() => {
                 const address = profile?.store_settings?.address;
-                if (!address) return <p className="text-sm text-gray-900">No address set</p>;
+                if (!address) return <p className="text-sm text-gray-900">{t('profile.noAddress')}</p>;
                 
                 const streetAddressParts = [];
                 let i = 0;
@@ -791,11 +773,11 @@ export default function ProfilePage() {
                 const streetAddress = streetAddressParts.join('');
                 
                 const addressParts = [
-                  address.houseNo && `House No. ${address.houseNo}`,
+                  address.houseNo && `${t('profile.houseNoShort')} ${address.houseNo}`,
                   streetAddress,
-                  address.landmark && `Landmark: ${address.landmark}`,
-                  address.kebele && `Kebele ${address.kebele}`,
-                  address.wereda && `Wereda ${address.wereda}`,
+                  address.landmark && `${t('profile.landmarkOptional').replace(' (Optional)', '')}: ${address.landmark}`,
+                  address.kebele && `${t('profile.kebele')} ${address.kebele}`,
+                  address.wereda && `${t('profile.wereda')} ${address.wereda}`,
                   address.subCity,
                   address.city
                 ].filter(Boolean);
@@ -818,7 +800,7 @@ export default function ProfilePage() {
                   rel="noopener noreferrer"
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >
-                  View on Map
+                  {t('profile.viewOnMap')}
                 </a>
               )}
             </div>
@@ -827,7 +809,7 @@ export default function ProfilePage() {
           {/* Working Hours */}
           {profile?.store_settings?.workingHours && (
             <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-              <label className="text-sm font-medium text-gray-700">Working Hours</label>
+              <label className="text-sm font-medium text-gray-700">{t('profile.workingHours')}</label>
               <div className="sm:col-span-2">
                 <div className="space-y-2">
                   {Object.entries(profile.store_settings.workingHours).map(([day, hours]) => (
@@ -837,7 +819,7 @@ export default function ProfilePage() {
                         {hours.isOpen ? (
                           `${hours.open} - ${hours.close}`
                         ) : (
-                          <span className="text-red-600">Closed</span>
+                           <span className="text-red-600">{t('profile.closed')}</span>
                         )}
                       </span>
                     </div>
@@ -850,19 +832,19 @@ export default function ProfilePage() {
           {/* Delivery Options */}
           {profile?.store_settings?.delivery_options && (
             <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-              <label className="text-sm font-medium text-gray-700">Delivery Information</label>
+              <label className="text-sm font-medium text-gray-700">{t('profile.delivery.info')}</label>
               <div className="sm:col-span-2 space-y-2">
                 <p className="text-sm text-gray-900">
-                  Delivery Fee: ETB {profile.store_settings.delivery_options.deliveryFee}
+                  {t('profile.delivery.fee')}: ETB {profile.store_settings.delivery_options.deliveryFee}
                 </p>
                 <p className="text-sm text-gray-900">
-                  Delivery Radius: {profile.store_settings.delivery_options.deliveryRadius} km
+                  {t('profile.delivery.radius')}: {profile.store_settings.delivery_options.deliveryRadius} km
                 </p>
                 <p className="text-sm text-gray-900">
-                  Estimated Delivery Time: {profile.store_settings.delivery_options.estimatedDeliveryTime} minutes
+                  {t('profile.delivery.eta')}: {profile.store_settings.delivery_options.estimatedDeliveryTime} minutes
                 </p>
                 <p className="text-sm text-gray-900">
-                  Free Delivery Over: ETB {profile.store_settings.delivery_options.minimumOrderForFreeDelivery}
+                  {t('profile.delivery.freeOver')}: ETB {profile.store_settings.delivery_options.minimumOrderForFreeDelivery}
                 </p>
               </div>
             </div>
@@ -871,7 +853,7 @@ export default function ProfilePage() {
           {/* Social Media Links */}
           {profile?.store_settings?.socialMedia && (
             <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-              <label className="text-sm font-medium text-gray-700">Social Media</label>
+              <label className="text-sm font-medium text-gray-700">{t('profile.social')}</label>
               <div className="sm:col-span-2 flex space-x-4">
                 {Object.entries(profile.store_settings.socialMedia).map(([platform, url]) => (
                   url && (
@@ -893,13 +875,13 @@ export default function ProfilePage() {
           {/* Payment Methods */}
           {profile?.role === 'owner' && profile?.store_settings?.payment_methods && (
             <div className="sm:grid sm:grid-cols-3 sm:gap-4">
-              <label className="text-sm font-medium text-gray-700">Payment Methods</label>
+              <label className="text-sm font-medium text-gray-700">{t('profile.paymentMethods')}</label>
               <div className="sm:col-span-2">
                 <div className="flex flex-wrap gap-3">
                   {/* Always show Cash */}
                   <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
                     <span className="text-lg mr-2">💵</span>
-                    <span>Cash</span>
+                    <span>{t('payment.cash')}</span>
                   </div>
 
                   {/* Show Telebirr if active */}
@@ -912,7 +894,7 @@ export default function ProfilePage() {
                         height={24} 
                         className="mr-2"
                       />
-                      <span>Telebirr</span>
+                      <span>{t('payment.telebirr')}</span>
                     </div>
                   )}
 
@@ -926,7 +908,7 @@ export default function ProfilePage() {
                         height={24} 
                         className="mr-2"
                       />
-                      <span>CBE</span>
+                      <span>{t('payment.cbe')}</span>
                     </div>
                   )}
 
@@ -940,7 +922,7 @@ export default function ProfilePage() {
                         height={24} 
                         className="mr-2"
                       />
-                      <span>Amole</span>
+                      <span>{t('payment.amole')}</span>
                     </div>
                   )}
 
@@ -955,7 +937,7 @@ export default function ProfilePage() {
                         className="mr-2"
                         style={{ objectFit: 'contain' }}
                       />
-                      <span>Chapa</span>
+                      <span>{t('payment.chapa')}</span>
                     </div>
                   )}
 
@@ -977,7 +959,7 @@ export default function ProfilePage() {
                         height={24} 
                         className="mr-2"
                       />
-                      <span>M-PESA</span>
+                      <span>{t('payment.mpesa')}</span>
                     </div>
                   )}
                 </div>

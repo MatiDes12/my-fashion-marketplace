@@ -1,7 +1,8 @@
 export function formatETB(amount: number): string {
-  return new Intl.NumberFormat('am-ET', {
+  return new Intl.NumberFormat('en-ET', {
     style: 'currency',
     currency: 'ETB',
+    currencyDisplay: 'code',
     minimumFractionDigits: 2
   }).format(amount);
 }
@@ -20,6 +21,7 @@ export const formatCurrency = (amount: number | null | undefined): string => {
   return value.toLocaleString('en-ET', {
     style: 'currency',
     currency: 'ETB',
+    currencyDisplay: 'code',
     minimumFractionDigits: 2
   });
 }; 

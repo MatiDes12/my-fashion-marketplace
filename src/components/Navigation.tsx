@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -127,7 +127,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const searchParams = useSearchParams();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const supabase = createClientComponent();
   const [activeFlashSales, setActiveFlashSales] = useState<FlashSale[]>([]);
   const [currentFlashSaleIndex, setCurrentFlashSaleIndex] = useState(0);
@@ -151,7 +151,102 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const [activeCategory, setActiveCategory] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { unreadCount } = useUnreadMessages();
+  const navRef = useRef<HTMLDivElement>(null);
+  const [navHeight, setNavHeight] = useState<number>(116); // safer default when flash banner may be present on mobile
   const [publicCustomCategories, setPublicCustomCategories] = useState<string[]>([]);
+
+  // Category translations for Amharic display in the navbar slider and mobile menu
+  const CATEGORY_TRANSLATIONS: Record<string, string> = {
+    All: 'ሁሉም',
+    'Traditional Wear': 'ባህላዊ ልብስ',
+    'Habesha Kemis': 'ሐበሻ ቀሚስ',
+    Tilfi: 'ትልፍ',
+    'Traditional Accessories': 'ባህላዊ እቃዎች',
+    'Modern Fashion': 'ዘመናዊ ፋሽን',
+    Dresses: 'ልብሶች',
+    Tops: 'ቶፖች',
+    'Pants & Skirts': 'ሱሪ እና ሱፍ',
+    Outerwear: 'ውጭ ልብስ',
+    'Fashion Accessories': 'የፋሽን እቃዎች',
+    Shoes: 'ጫማ',
+    'Home & Living': 'ቤት እና ኑሮ',
+    Furniture: 'መሣሪያ ቤት',
+    'Home Decor': 'የቤት ማስዋብ',
+    'Kitchen & Dining': 'ኩሽና እና መመገቢያ',
+    Bedding: 'የመኝታ መገልባጭ',
+    Lighting: 'መብራት',
+    'Rugs & Carpets': 'ሰፈር ጨርቃጨርቅ',
+    'Beauty & Personal Care': 'ውበት እና የግል እንክብካቤ',
+    Skincare: 'የቆዳ እንክብካቤ',
+    'Hair Care': 'የፀጉር እንክብካቤ',
+    Makeup: 'ማክአፕ',
+    Fragrances: 'ሽቶዎች',
+    'Traditional Beauty Products': 'ባህላዊ ውበት ምርቶች',
+    Jewelry: 'ጌጣጌጥ',
+    Watches: 'የእጅ ሰዓት',
+    'Bags & Purses': 'ቦርሳ እና ኪስ',
+    'Scarves & Shawls': 'ሻማና ሸማግሌ',
+    'Art & Collectibles': 'ስነ-ጥበብ እና ስብስቦች',
+    Paintings: 'ስዕሎች',
+    Sculptures: 'ጥረ-ሥራ',
+    'Traditional Art': 'ባህላዊ ጥበብ',
+    Photography: 'ፎቶግራፊ',
+    'Handmade Crafts': 'እጅ ሥራ',
+    'Food & Beverages': 'ምግብ እና መጠጥ',
+    'Coffee & Tea': 'ቡና እና ሻይ',
+    'Spices & Seasonings': 'ቅመማ ቅመሞች',
+    'Traditional Foods': 'ባህላዊ ምግቦች',
+    Snacks: 'ነጭ ምግብ',
+    Electronics: 'ኤሌክትሮኒክስ',
+    'Phones & Accessories': 'ስልኮች እና እቃዎች',
+    'Computers & Tablets': 'ኮምፒዩተሮች እና ታብሌቶች',
+    'Audio & Headphones': 'ድምጽ እና ማዳመጫ',
+    'Smart Home': 'ስማርት ቤት',
+    'Books & Media': 'መጽሐፍ እና ሚዲያ',
+    Books: 'መጽሐፍት',
+    Music: 'ሙዚቃ',
+    Movies: 'ፊልሞች',
+    'Educational Materials': 'የትምህርት መረጃዎች',
+    'Kids & Baby': 'ህፃናት እና ሕፃን',
+    'Kids Clothing': 'የህፃናት ልብስ',
+    'Baby Essentials': 'የሕፃን አስፈላጊዎች',
+    'Toys & Games': 'ጌጣጌጦች እና ጨዋታዎች',
+    'School Supplies': 'የትምህርት መሳሪያዎች',
+    'Sports & Fitness': 'ስፖርት እና እንቅስቃሴ',
+    'Exercise Equipment': 'የእንቅስቃሴ መሳሪያዎች',
+    'Sports Wear': 'የስፖርት ልብስ',
+    'Outdoor Gear': 'የውጭ መሳሪያዎች',
+    'Health & Wellness': 'ጤና እና ደህንነት',
+    'Traditional Medicine': 'ባህላዊ ሕክምና',
+    Supplements: 'ማበረታቻ',
+    'Medical Supplies': 'የሕክምና መሳሪያ',
+    'Musical Instruments': 'የሙዚቃ መሳሪያዎች',
+    'Traditional Instruments': 'ባህላዊ መሳሪያዎች',
+    'Modern Instruments': 'ዘመናዊ መሳሪያዎች',
+    'Music Accessories': 'የሙዚቃ እቃዎች',
+    'Party & Events': 'ፓርቲ እና ክስተቶች',
+    'Wedding Supplies': 'የሰርግ እቃዎች',
+    'Holiday Decorations': 'የበዓል ማስዋብ',
+    'Event Accessories': 'የክስተት እቃዎች',
+    'Pet Supplies': 'የእንስሳት እቃዎች',
+    'Pet Food': 'የእንስሳት ምግብ',
+    'Pet Accessories': 'የእንስሳት ተቀባዮች',
+    'Pet Care': 'የእንስሳት እንክብካቤ',
+    'Office & Stationery': 'ቢሮ እና ማስታወሻ',
+    'Office Supplies': 'የቢሮ መሳሪያዎች',
+    'Writing Materials': 'የመጻፊያ እቃዎች',
+    Organization: 'ማደራጀት',
+    'Garden & Outdoor': 'አትክልት እና ውጭ',
+    'Plants & Seeds': 'እፅዋት እና ዘሮች',
+    'Garden Tools': 'የአትክልት መሳሪያዎች',
+    'Outdoor Furniture': 'የውጭ መሣሪያ',
+    'Vintage & Antiques': 'የድሮ እና አሮጌ ንጥሎች',
+    'Vintage Clothing': 'የድሮ ልብስ',
+    'Antique Furniture': 'አሮጌ መሣሪያ',
+    Collectibles: 'ስብስቦች',
+  };
+
+  const getCategoryLabel = (cat: string) => (language === 'am' ? (CATEGORY_TRANSLATIONS[cat] || cat) : cat);
 
   // Debug: Log publicCustomCategories changes
   useEffect(() => {
@@ -286,6 +381,25 @@ export default function Navigation({ userDetails }: NavigationProps) {
     const interval = setInterval(fetchFlashDeals, 60000); // Refresh every minute
     return () => clearInterval(interval);
   }, []); // Empty dependency array since we want to fetch on mount
+
+  // Recalculate dynamic navbar height (including flash banner and category bar)
+  const recalcNavHeight = useCallback(() => {
+    if (navRef.current) {
+      setNavHeight(navRef.current.offsetHeight || 0);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    recalcNavHeight();
+    const onResize = () => recalcNavHeight();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [recalcNavHeight]);
+
+  // Recalc when elements within nav change
+  useEffect(() => {
+    recalcNavHeight();
+  }, [activeFlashSales.length, isLoading, isDropdownOpen, isMobileSearchVisible, scroll.direction, recalcNavHeight]);
 
   // Refetch custom categories when auth state changes
   useEffect(() => {
@@ -716,7 +830,9 @@ export default function Navigation({ userDetails }: NavigationProps) {
   }, [activeCategory]);
 
   return (
+    <>
     <nav 
+      ref={navRef}
       className={`
         fixed top-0 left-0 right-0 z-[90] bg-white shadow-sm
         transition-transform duration-300 ease-in-out
@@ -780,7 +896,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
       {/* Main Navigation */}
       <div className="bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center h-16 gap-2">
           {/* Logo */}
             <Link href="/" className="flex items-center space-x-2 group">
               <div className="relative w-10 h-10">
@@ -796,16 +912,16 @@ export default function Navigation({ userDetails }: NavigationProps) {
                 <span className="text-2xl font-bold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
                   AVRIO
                 </span>
-                <span className="block text-xs text-gray-500">Ethio Marketplace</span>
+                <span className="block text-xs text-gray-500">{t('nav.home')}</span>
               </div>
           </Link>
 
             {/* Search Bar */}
-            <div className="hidden md:flex flex-1 max-w-2xl mx-8" ref={searchRef}>
+            <div className="hidden md:flex min-w-0 flex-1 w-full mx-2 lg:mx-4 xl:mx-4" ref={searchRef}>
             <div className="relative w-full">
               <input
                 type="text"
-                placeholder={pathname === '/stores' ? "Search brands..." : "What are you looking for?"}
+                placeholder={pathname === '/stores' ? t('nav.search.brands') : t('nav.search.placeholder')}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-full px-4 py-2 pl-10 pr-12 border-2 border-gray-200 rounded-full focus:outline-none focus:border-red-500 transition-colors"
@@ -816,7 +932,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                 </svg>
                 </div>
                 {isSearching ? (
-                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-1.5">
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2">
                     <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -824,11 +940,15 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   </div>
                 ) : (
                   <button 
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-1.5 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                    aria-label="Search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition-colors"
                     onClick={() => handleSearch(searchQuery)}
+                    title={t('nav.search.button')}
                   >
-                    Search
-              </button>
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </button>
                 )}
 
                 {/* Desktop Search Results Dropdown */}
@@ -926,13 +1046,42 @@ export default function Navigation({ userDetails }: NavigationProps) {
           </div>
 
             {/* Right Navigation Items */}
-          <div className="flex items-center space-x-6">
+          <div className="hidden md:flex items-center shrink-0 space-x-1.5 sm:space-x-2 lg:space-x-3 xl:space-x-4">
+            {/* Language Toggle */}
+            {/* Language segmented toggle */}
+            <div className="hidden sm:inline-flex rounded-full border border-gray-200 overflow-hidden" role="group" aria-label="Language selector">
+              <button
+                onClick={() => setLanguage('en' as any)}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${language === 'en' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                aria-pressed={language === 'en'}
+                title="English"
+              >
+                EN
+              </button>
+              <button
+                onClick={() => setLanguage('am' as any)}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors border-l border-gray-200 ${language === 'am' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                aria-pressed={language === 'am'}
+                title="አማርኛ"
+              >
+                AM
+              </button>
+            </div>
+            {/* Compact mobile toggle */}
+            <button
+              aria-label="Language toggle"
+              onClick={() => setLanguage(language === 'en' ? ('am' as any) : ('en' as any))}
+              className="sm:hidden inline-flex items-center px-2 py-1 rounded-full border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              title={language === 'en' ? 'Switch to አማርኛ' : 'Switch to English'}
+            >
+              {language === 'en' ? 'EN' : 'AM'}
+            </button>
             {/* Store Icon - Always visible */}
             <Link
               href="/stores"
-              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors px-1"
             >
-              <div className="relative">
+              <div className="relative shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path 
                     strokeLinecap="round" 
@@ -942,15 +1091,15 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   />
                 </svg>
               </div>
-              <span className="hidden lg:inline ml-1">Stores</span>
+              <span className="hidden xl:inline ml-1">{t('nav.stores')}</span>
             </Link>
 
             {/* Products Icon - Always visible */}
             <Link
               href="/products"
-              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors px-1"
             >
-              <div className="relative">
+              <div className="relative shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path 
                     strokeLinecap="round" 
@@ -960,15 +1109,15 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   />
                 </svg>
               </div>
-              <span className="hidden lg:inline ml-1">Products</span>
+              <span className="hidden xl:inline ml-1">{t('nav.products')}</span>
             </Link>
 
             {/* Wishlist Icon - Always visible */}
             <Link
               href="/wishlist"
-              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors px-1"
             >
-              <div className="relative">
+              <div className="relative shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path 
                     strokeLinecap="round" 
@@ -983,15 +1132,15 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   </span>
                 )}
               </div>
-              <span className="hidden lg:inline ml-1">Wishlist</span>
+              <span className="hidden xl:inline ml-1">{t('nav.wishlist')}</span>
             </Link>
 
             {/* Flash Sale Icon - Always visible */}
             <Link
               href="/flash-sales"
-              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors"
+              className="hidden md:flex items-center text-gray-700 hover:text-red-600 transition-colors px-1"
             >
-              <div className="relative">
+              <div className="relative shrink-0">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path 
                     strokeLinecap="round" 
@@ -1004,13 +1153,13 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                 )}
               </div>
-              <span className="hidden lg:inline ml-1">Flash Sales</span>
+              <span className="hidden xl:inline ml-1">{t('nav.flashsales')}</span>
             </Link>
 
             {/* Cart Icon - Always visible but redirects to login if not authenticated */}
             <Link 
               href={user ? "/cart" : "/login?returnUrl=/cart"} 
-              className="flex items-center text-gray-700 hover:text-red-600 transition-colors"
+              className="flex items-center text-gray-700 hover:text-red-600 transition-colors px-1"
               onClick={(e) => {
                 if (!user) {
                   e.preventDefault();
@@ -1029,7 +1178,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   </span>
                 )}
               </div>
-              <span className="hidden lg:inline ml-1">Cart</span>
+              <span className="hidden xl:inline ml-1">{t('nav.cart')}</span>
             </Link>
 
             {!isLoading && (
@@ -1046,7 +1195,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
                           </div>
-                          <span className="hidden md:inline font-medium">Account</span>
+                          <span className="hidden md:inline font-medium">{t('nav.account')}</span>
                         </button>
 
                         {/* Dropdown Menu Content */}
@@ -1068,7 +1217,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                               </svg>
-                              My Orders
+                              {t('nav.myOrders')}
                             </Link>
 
                             <Link 
@@ -1078,7 +1227,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                               </svg>
-                              Profile Settings
+                              {t('nav.profileSettings')}
                             </Link>
 
                             {/* Chat/Support Link - Only for customers */}
@@ -1097,7 +1246,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                                     size="sm" 
                                   />
                                 </div>
-                                Customer Support
+                                {t('nav.customerSupport')}
                               </Link>
                             )}
 
@@ -1109,7 +1258,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                                 <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                                 </svg>
-                                Dashboard
+                                 {t('nav.dashboard')}
                               </Link>
                             )}
                           </div>
@@ -1122,7 +1271,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                               </svg>
-                              Sign Out
+                              {t('nav.signout')}
                             </button>
                           </div>
                         </div>
@@ -1137,13 +1286,13 @@ export default function Navigation({ userDetails }: NavigationProps) {
                             <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <span className="text-sm">Verification Pending</span>
+                           <span className="text-sm">{t('nav.verificationPending')}</span>
                           </div>
                           <Link 
                             href="/dashboard/verify" 
                             className="hidden md:inline-flex mt-2 items-center px-4 py-1.5 text-xs font-medium rounded-full text-yellow-700 bg-yellow-50 border border-yellow-200 hover:bg-yellow-100 transition-colors"
                           >
-                            Complete Verification
+                             {t('nav.completeVerification')}
                             <svg className="w-3 h-3 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
@@ -1156,7 +1305,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                           </svg>
-                          <span className="hidden md:inline ml-2">Sign Out</span>
+                  <span className="hidden md:inline ml-2">{t('nav.signout')}</span>
                         </button>
                       </div>
                     )}
@@ -1243,7 +1392,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                       min-w-[120px] justify-center group text-sm
                     `}
                   >
-                    <span className="text-xs font-medium whitespace-nowrap">{category}</span>
+                    <span className="text-xs font-medium whitespace-nowrap">{getCategoryLabel(category)}</span>
                     {index === activeCategory && (
                       <div className="relative ml-1.5">
                         <span className="absolute inset-0 rounded-full animate-ping bg-white/60" />
@@ -1275,7 +1424,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                       min-w-[120px] justify-center group text-sm
                     `}
                   >
-                    <span className="text-xs font-medium whitespace-nowrap">{category}</span>
+                    <span className="text-xs font-medium whitespace-nowrap">{getCategoryLabel(category)}</span>
                     {(PRODUCT_CATEGORIES.length + index) === activeCategory && (
                       <div className="relative ml-1.5">
                         <span className="absolute inset-0 rounded-full animate-ping bg-white/60" />
@@ -1367,9 +1516,9 @@ export default function Navigation({ userDetails }: NavigationProps) {
       {shouldShowSearch() && isMobileSearchVisible && (
         <div 
           ref={searchContainerRef}
-          className="md:hidden fixed inset-x-0 top-[64px] z-[85] bg-white border-b border-gray-200"
+          className="md:hidden fixed inset-x-0 z-[85] bg-white border-b border-gray-200"
           style={{
-            top: activeFlashSales.length > 0 ? '116px' : '64px'
+            top: `${navHeight}px`
           }}
         >
           <div className="px-4 py-3">
@@ -1674,7 +1823,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
             {/* Categories Section */}
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h3 className="px-4 text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                Popular Categories
+                 {t('nav.popularCategories')}
               </h3>
               <div className="mt-4 space-y-1">
                 {/* Traditional Wear Section */}
@@ -1756,7 +1905,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                 {/* Custom Categories Section */}
                 {publicCustomCategories.length > 0 && (
                   <div className="px-4 py-2">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Custom Categories</h4>
+                   <h4 className="text-sm font-medium text-gray-900 mb-2">{t('nav.customCategories')}</h4>
                     <div className="flex flex-wrap gap-2">
                       {publicCustomCategories.map((category) => (
                         <button
@@ -1783,7 +1932,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                     }}
                     className="w-full py-2 mt-2 text-sm font-medium text-red-600 hover:text-red-700 flex items-center justify-center gap-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors duration-300"
                   >
-                    View All Categories
+                  {t('nav.viewAllCategories')}
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
@@ -1805,7 +1954,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   <svg className="w-6 h-6 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
-                  <span className="font-medium">Sign Out</span>
+                  <span className="font-medium">{t('nav.signout')}</span>
                 </button>
               </div>
             )}
@@ -1825,7 +1974,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                   onClick={closeMenu}
                   className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-yellow-700 bg-yellow-100 rounded-lg hover:bg-yellow-200 transition-colors"
                 >
-                  Complete Verification
+                  {t('nav.completeVerification')}
                   <svg className="w-4 h-4 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -1836,5 +1985,8 @@ export default function Navigation({ userDetails }: NavigationProps) {
         </div>
       </div>
     </nav>
+    {/* Spacer to offset fixed navbar height so content below isn't covered */}
+    <div style={{ height: navHeight }} />
+    </>
   );
 } 

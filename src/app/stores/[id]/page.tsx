@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { useParams, useRouter } from 'next/navigation';
 import { createClientComponent } from '@/lib/supabase';
 import ProductCard from '@/components/ProductCard';
@@ -74,6 +76,7 @@ interface StoreSettings {
 }
 
 export default function StorePage() {
+  const { language } = useLanguage();
   const params = useParams();
   const id = params?.id ? (Array.isArray(params.id) ? (params.id.length > 0 ? params.id[0] : null) : params.id) : null;
   const router = useRouter();
@@ -211,7 +214,7 @@ export default function StorePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Store Not Found</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">{translations['store.notFound'][language]}</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           
           {/* Debug information - remove in production */}
@@ -225,13 +228,13 @@ export default function StorePage() {
               onClick={() => router.push('/')}
               className="px-6 py-3 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 transition-all"
             >
-              Return to Home
+              {translations['store.returnHome'][language]}
             </button>
             <button 
               onClick={() => window.location.reload()}
               className="px-6 py-3 bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition-all"
             >
-              Try Again
+              {translations['store.tryAgain'][language]}
             </button>
           </div>
         </div>
@@ -422,7 +425,7 @@ export default function StorePage() {
             {/* Contact & Location */}
             <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Location</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{translations['store.location'][language]}</h2>
                 <div className="mt-4 space-y-2">
                   {/* Extract street address from character keys */}
                   {(() => {
@@ -474,7 +477,7 @@ export default function StorePage() {
 
               {/* Working Hours */}
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Working Hours</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{translations['store.workingHours'][language]}</h2>
                 <div className="mt-4 grid grid-cols-1 gap-2">
                   {Object.entries(store.workingHours).map(([day, hours]) => (
                     <div key={day} className="flex justify-between py-2 border-b">
@@ -490,7 +493,7 @@ export default function StorePage() {
 
             {/* Delivery Options */}
             <div className="mt-8">
-              <h2 className="text-lg font-semibold text-gray-900">Delivery Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{translations['store.deliveryInfo'][language]}</h2>
               <div className="mt-4 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {store.delivery_options?.delivery && (
@@ -540,7 +543,7 @@ export default function StorePage() {
 
             {/* Payment Methods */}
             <div className="mt-8">
-              <h3 className="text-lg font-semibold mb-4">Accepted Payments</h3>
+              <h3 className="text-lg font-semibold mb-4">{translations['store.acceptedPayments'][language]}</h3>
               <div className="flex flex-wrap gap-3">
                 {/* Cash is always shown */}
                 <div className="flex items-center px-3 py-2 bg-gray-100 rounded-lg">
@@ -634,7 +637,7 @@ export default function StorePage() {
         {/* Products Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <h2 className="text-2xl font-bold text-gray-900">Store Products</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{translations['store.products'][language]}</h2>
             
             {/* Sort Dropdown */}
             <select
@@ -659,7 +662,7 @@ export default function StorePage() {
                   : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 }`
               }>
-                All Products
+                {translations['store.tab.all'][language]}
               </Tab>
               <Tab className={({ selected }) =>
                 `w-full rounded-lg py-2.5 text-sm font-medium leading-5
@@ -668,7 +671,7 @@ export default function StorePage() {
                   : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 }`
               }>
-                Featured
+                {translations['store.tab.featured'][language]}
               </Tab>
               <Tab className={({ selected }) =>
                 `w-full rounded-lg py-2.5 text-sm font-medium leading-5
@@ -677,7 +680,7 @@ export default function StorePage() {
                   : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 }`
               }>
-                New Arrivals
+                {translations['store.tab.new'][language]}
               </Tab>
               <Tab className={({ selected }) =>
                 `w-full rounded-lg py-2.5 text-sm font-medium leading-5
@@ -686,7 +689,7 @@ export default function StorePage() {
                   : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 }`
               }>
-                On Sale
+                {translations['store.tab.sale'][language]}
               </Tab>
             </Tab.List>
           </Tab.Group>

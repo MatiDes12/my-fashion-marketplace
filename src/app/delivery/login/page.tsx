@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 
 export default function DeliveryLogin() {
+  const { language } = useLanguage();
   const [accessToken, setAccessToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [validatingToken, setValidatingToken] = useState(false);
@@ -77,10 +80,10 @@ export default function DeliveryLogin() {
             </svg>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Delivery Dashboard Access
+            {translations['delivery.login.title'][language]}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            {validatingToken ? 'Validating your access token...' : 'Enter your access token to view your deliveries'}
+            {validatingToken ? translations['delivery.login.validating'][language] : translations['delivery.login.prompt'][language]}
           </p>
         </div>
         
@@ -103,7 +106,7 @@ export default function DeliveryLogin() {
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm"
-                placeholder="Enter your access token (e.g., ABC123DEF456)"
+                placeholder={translations['delivery.login.placeholder'][language]}
               />
             </div>
 
@@ -113,19 +116,19 @@ export default function DeliveryLogin() {
                 disabled={loading}
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
               >
-                {loading ? <LoadingSpinner /> : 'Access Dashboard'}
+                {loading ? <LoadingSpinner /> : translations['delivery.login.cta'][language]}
               </button>
             </div>
 
             <div className="text-center">
               <p className="text-sm text-gray-500 mb-2">
-                Your access token was provided by your administrator
+                {language === 'am' ? 'የመዳረሻ ቶከንዎን ከአስተዳዳሪዎ ተቀብለዋል' : 'Your access token was provided by your administrator'}
               </p>
               <Link
                 href="/"
                 className="font-medium text-green-600 hover:text-green-500"
               >
-                Back to Homepage
+                {translations['delivery.login.back'][language]}
               </Link>
             </div>
           </form>

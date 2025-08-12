@@ -7,10 +7,12 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export default function ClientNavigation() {
   const { userDetails, loading } = useUserDetails();
   const pathname = usePathname();
+  const { language, setLanguage } = useLanguage();
   
   // Hide navigation on dashboard and admin pages
   if (pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin')) {
@@ -33,6 +35,13 @@ export default function ClientNavigation() {
           </svg>
           <span>Wishlist</span>
         </Link>
+        <button
+          onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
+          className="px-2 py-1 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          aria-label="Toggle language"
+        >
+          {language === 'en' ? 'AM' : 'EN'}
+        </button>
       </div>
 
       {/* Mobile menu */}
@@ -46,6 +55,13 @@ export default function ClientNavigation() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </Link>
+          <button
+            onClick={() => setLanguage(language === 'en' ? 'am' : 'en')}
+            className="px-2 py-1 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+            aria-label="Toggle language"
+          >
+            {language === 'en' ? 'AM' : 'EN'}
+          </button>
         </div>
       </div>
     </Navigation>

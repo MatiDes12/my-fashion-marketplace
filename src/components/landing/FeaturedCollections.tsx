@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { getPlaceholderImage } from '@/utils/placeholderImages';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 
 interface Collection {
   id: string;
@@ -51,6 +53,7 @@ const collections: Collection[] = [
 ];
 
 export default function FeaturedCollections() {
+  const { language } = useLanguage();
   return (
     <section className="py-8 w-full bg-gradient-to-b from-slate-50 to-white">
       <div className="w-full px-4 lg:px-12 xl:px-16">
@@ -71,15 +74,15 @@ export default function FeaturedCollections() {
             className="inline-flex items-center gap-2 bg-red-50 text-red-700 px-4 py-2 rounded-full text-sm font-medium mb-6"
           >
             <Sparkles className="w-4 h-4" />
-            Curated Collections
+            {translations['landing.curated'][language]}
           </motion.div>
           
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
-            Featured Collections
+            {translations['landing.featuredCollections'][language]}
           </h2>
           
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover our handpicked collections designed to elevate your style and express your unique personality
+            {translations['landing.featuredDesc'][language]}
           </p>
         </motion.div>
 
@@ -121,7 +124,7 @@ export default function FeaturedCollections() {
                           whileHover={{ opacity: 1, y: 0 }}
                           className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 hover:from-red-500 hover:to-pink-500 transition-colors duration-300"
                         >
-                          Shop Now
+                          {translations['landing.shopNow'][language]}
                           <ArrowRight className="w-4 h-4" />
                         </motion.button>
                       </div>
@@ -143,7 +146,7 @@ export default function FeaturedCollections() {
                         {collection.price}
                       </span>
                       <span className="text-sm text-gray-500">
-                        {collection.itemCount} items
+                        {collection.itemCount} {translations['landing.items'][language]}
                       </span>
                     </div>
                   </div>
@@ -165,7 +168,7 @@ export default function FeaturedCollections() {
             href="/collections"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 text-white px-8 py-3 rounded-full font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
           >
-            View All Collections
+            {translations['landing.viewAllCollections'][language]}
             <ArrowRight className="w-5 h-5" />
           </Link>
         </motion.div>

@@ -7,12 +7,14 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Suspense } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import LoadingPage from '@/components/LoadingPage';
 import { EMAIL_CONFIG } from '@/config/email';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 
 function LoginContent() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -195,10 +197,10 @@ function LoginContent() {
           </div>
 
           <h2 className="mt-6 text-center text-3xl font-extrabold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
-            Welcome back
+            {t('login.title')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to your account to continue shopping
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -237,7 +239,7 @@ function LoginContent() {
             <form className="space-y-6" onSubmit={handleLogin}>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
+                  {t('login.email')}
                 </label>
                 <div className="mt-1 relative">
                   <input
@@ -260,7 +262,7 @@ function LoginContent() {
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password
+                  {t('login.password')}
                 </label>
                 <div className="flex items-center justify-between">
                   <div className="mt-1 relative flex-grow">
@@ -280,7 +282,7 @@ function LoginContent() {
                     onClick={() => setForgotPasswordModal(true)}
                     className="ml-2 text-sm font-medium text-red-600 hover:text-red-500"
                   >
-                    Forgot?
+                    {t('login.forgot')}
                   </button>
                 </div>
               </div>
@@ -297,10 +299,10 @@ function LoginContent() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      Signing in...
+                      {t('login.signingIn')}
                     </div>
                   ) : (
-                    'Sign in'
+                    t('login.signIn')
                   )}
                 </button>
               </div>
@@ -313,7 +315,7 @@ function LoginContent() {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">
-                    New to our platform?
+                    {t('login.newHere')}
                   </span>
                 </div>
               </div>
@@ -323,7 +325,7 @@ function LoginContent() {
                   href="/signup"
                   className="w-full flex justify-center py-2.5 px-4 border-2 border-red-500 rounded-xl shadow-sm text-sm font-medium text-red-600 bg-transparent hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 transform hover:scale-[1.02]"
                 >
-                  Create an account
+                  {t('login.createAccount')}
                 </Link>
               </div>
             </div>
@@ -335,7 +337,7 @@ function LoginContent() {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">
-                    Need help? Contact us at{' '}
+                    {t('login.help')}{' '}
                     <a 
                       href={`mailto:${EMAIL_CONFIG.SUPPORT}`}
                       className="font-medium text-red-600 hover:text-red-500"
@@ -377,18 +379,18 @@ function LoginContent() {
               >
                 <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                   <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900">
-                    Reset Password
+                    {t('login.reset.title')}
                   </Dialog.Title>
                   <div className="mt-2">
                     <p className="text-sm text-gray-500">
-                      Enter your email address and we'll send you instructions to reset your password.
+                      {t('login.reset.instructions')}
                     </p>
                     <input
                       type="email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
                       className="mt-4 block w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-red-500 focus:ring-red-500"
-                      placeholder="Enter your email"
+                      placeholder={t('newsletter.placeholder')}
                     />
                     <div className="mt-4 text-xs text-gray-600 text-center space-y-2">
                       <p>It might take 4 to 6 minutes for the reset link to arrive in your inbox. Please be patient.</p>
@@ -402,14 +404,14 @@ function LoginContent() {
                       className="inline-flex justify-center rounded-md border border-transparent bg-red-100 px-4 py-2 text-sm font-medium text-red-900 hover:bg-red-200"
                       onClick={handleForgotPassword}
                     >
-                      Send Instructions
+                      {t('login.reset.send')}
                     </button>
                     <button
                       type="button"
                       className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                       onClick={() => setForgotPasswordModal(false)}
                     >
-                      Cancel
+                      {t('login.reset.cancel')}
                     </button>
                   </div>
                 </Dialog.Panel>

@@ -14,6 +14,7 @@ import { useUserDetails } from '@/hooks/useUserDetails';
 import SellerVerificationForm from '@/components/SellerVerificationForm';
 import { withSellerVerification } from '@/components/withSellerVerification';
 import { toast } from 'react-hot-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Product {
   id: string;
@@ -137,6 +138,7 @@ const PLAN_LIMITS: { [key: string]: SubscriptionLimits } = {
 };
 
 export default withSellerVerification(function DashboardPage() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -225,12 +227,12 @@ export default withSellerVerification(function DashboardPage() {
           if (!hasSettings) {
             toast.error(
               <div>
-                <p>Please set up your payment settings before adding products.</p>
+                <p>{t('dashboard.banner.paymentsRequired')}</p>
                 <Link 
                   href="/dashboard/payment-settings" 
                   className="text-green-600 hover:text-green-500 mt-2 block"
                 >
-                  Set up payment settings →
+                  {t('dashboard.actions.setupPayments')}
                 </Link>
               </div>,
               { duration: 5000 }
@@ -248,7 +250,7 @@ export default withSellerVerification(function DashboardPage() {
 
       } catch (error) {
         console.error('Error:', error);
-        setError('Failed to verify access permissions');
+        setError(t('dashboard.error.verifyPermissions'));
       } finally {
         setLoading(false);
       }
@@ -367,7 +369,7 @@ export default withSellerVerification(function DashboardPage() {
 
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      setError('Failed to load dashboard statistics');
+      setError(t('dashboard.error.verifyPermissions'));
     } finally {
       setLoading(false);
     }
@@ -488,16 +490,14 @@ export default withSellerVerification(function DashboardPage() {
             <QuestionMarkCircleIcon className="h-8 w-8 text-red-500" />
           </div>
           <div className="flex-1">
-            <h3 className="text-lg font-medium text-gray-900">Need Help?</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Having issues or questions? Our support team is here to help you.
-            </p>
+            <h3 className="text-lg font-medium text-gray-900">{t('dashboard.support.helpTitle')}</h3>
+            <p className="mt-1 text-sm text-gray-500">{t('dashboard.support.helpSubtitle')}</p>
             <div className="mt-4">
               <Link
                 href="/support"
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700"
               >
-                Get Support
+                {t('dashboard.support.getSupport')}
               </Link>
             </div>
           </div>
@@ -539,7 +539,7 @@ export default withSellerVerification(function DashboardPage() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-200">Current Plan</h3>
+                  <h3 className="text-sm font-medium text-gray-200">{t('dashboard.plan.current')}</h3>
                   <div className="flex items-center space-x-2">
                     <p className="text-xl font-bold text-white capitalize">{currentPlan}</p>
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -549,7 +549,7 @@ export default withSellerVerification(function DashboardPage() {
                           ? 'bg-gray-200 text-gray-800'
                           : 'bg-amber-600 text-amber-100'
                     }`}>
-                      {currentPlan === 'enterprise' ? 'GOLD' : currentPlan === 'pro' ? 'SILVER' : 'BRONZE'}
+                      {currentPlan === 'enterprise' ? t('dashboard.plan.gold') : currentPlan === 'pro' ? t('dashboard.plan.silver') : t('dashboard.plan.bronze')}
                     </span>
                   </div>
                 </div>
@@ -558,7 +558,7 @@ export default withSellerVerification(function DashboardPage() {
                 href="/dashboard/subscription"
                 className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white/10 text-white hover:bg-white/20 transition-colors"
               >
-                Upgrade Plan
+                {t('dashboard.plan.upgrade')}
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
@@ -570,9 +570,9 @@ export default withSellerVerification(function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-500">Products Used</h3>
+                <h3 className="text-sm font-medium text-gray-500">{t('dashboard.stats.productsUsed')}</h3>
                 <span className="text-xs text-gray-400">
-                  {Math.round((usageStats.totalProducts / (currentLimits.productLimit === Infinity ? usageStats.totalProducts + 5 : currentLimits.productLimit)) * 100)}% used
+                  {Math.round((usageStats.totalProducts / (currentLimits.productLimit === Infinity ? usageStats.totalProducts + 5 : currentLimits.productLimit)) * 100)}{t('dashboard.stats.usedSuffix')}
                 </span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
@@ -590,9 +590,9 @@ export default withSellerVerification(function DashboardPage() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-500">Storage Used</h3>
+                <h3 className="text-sm font-medium text-gray-500">{t('dashboard.stats.storageUsed')}</h3>
                 <span className="text-xs text-gray-400">
-                  {Math.round((usageStats.storageUsed / (currentLimits.storageLimit === Infinity ? usageStats.storageUsed + 5 : currentLimits.storageLimit * 1024)) * 100)}% used
+                  {Math.round((usageStats.storageUsed / (currentLimits.storageLimit === Infinity ? usageStats.storageUsed + 5 : currentLimits.storageLimit * 1024)) * 100)}{t('dashboard.stats.usedSuffix')}
                 </span>
               </div>
               <p className="text-2xl font-bold text-gray-900">
@@ -613,16 +613,16 @@ export default withSellerVerification(function DashboardPage() {
                     }}
                   />
                 </div>
-                <p className="text-xs text-gray-500">{usageStats.totalImages} images uploaded</p>
+                <p className="text-xs text-gray-500">{usageStats.totalImages} {t('dashboard.stats.imagesUploaded')}</p>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-500">Flash Sales</h3>
+                <h3 className="text-sm font-medium text-gray-500">{t('dashboard.stats.flashSales')}</h3>
                 {currentLimits.flashSalesLimit.isEnabled && currentLimits.flashSalesLimit.monthly !== -1 && (
                   <span className="text-xs text-gray-400">
-                    {Math.round((usageStats.flashSalesUsed / currentLimits.flashSalesLimit.monthly) * 100)}% used
+                    {Math.round((usageStats.flashSalesUsed / currentLimits.flashSalesLimit.monthly) * 100)}{t('dashboard.stats.usedSuffix')}
                   </span>
                 )}
               </div>
@@ -651,10 +651,10 @@ export default withSellerVerification(function DashboardPage() {
                       ? 'bg-green-100 text-green-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                    {currentLimits.flashSalesLimit.monthly === -1 ? 'Unlimited' : 'Not Available'}
+                    {currentLimits.flashSalesLimit.monthly === -1 ? t('dashboard.stats.unlimited') : t('dashboard.stats.notAvailable')}
                   </span>
                 )}
-                <p className="text-xs text-gray-500">This month</p>
+                <p className="text-xs text-gray-500">{t('dashboard.stats.thisMonth')}</p>
               </div>
             </div>
           </div>
@@ -664,12 +664,8 @@ export default withSellerVerification(function DashboardPage() {
         <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between text-white">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold sm:text-3xl">
-                Welcome back, {userDetails?.full_name || 'Store Owner'}
-              </h1>
-              <p className="mt-1 text-red-100">
-                Here's what's happening with your store today
-              </p>
+              <h1 className="text-2xl font-bold sm:text-3xl">{t('dashboard.welcome.greeting')} {userDetails?.full_name || 'Store Owner'}</h1>
+              <p className="mt-1 text-red-100">{t('dashboard.welcome.subtitle')}</p>
             </div>
             <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
               {hasPaymentSettings ? (
@@ -680,7 +676,7 @@ export default withSellerVerification(function DashboardPage() {
                 <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
                 </svg>
-                Add New Product
+                {t('dashboard.actions.addProduct')}
               </Link>
               ) : (
                 <Link
@@ -688,7 +684,7 @@ export default withSellerVerification(function DashboardPage() {
                   className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-yellow-500 text-white hover:bg-yellow-600 transition-all"
                 >
                   <CreditCardIcon className="-ml-1 mr-2 h-5 w-5" />
-                  Set Up Payment Settings
+                  {t('dashboard.actions.setupPayments')}
                 </Link>
               )}
             </div>
@@ -704,12 +700,12 @@ export default withSellerVerification(function DashboardPage() {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm text-yellow-200">
-                    You need to set up your payment settings before you can add products.
+                    {t('dashboard.banner.paymentsRequired')}
                     <Link 
                       href="/dashboard/payment-settings"
                       className="font-medium text-yellow-100 underline ml-2"
                     >
-                      Set up now
+                      {t('dashboard.banner.setupNow')}
                     </Link>
                   </p>
                 </div>
@@ -727,7 +723,7 @@ export default withSellerVerification(function DashboardPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-100">Total Products</p>
+                  <p className="text-sm text-red-100">{t('dashboard.cards.totalProducts')}</p>
                   <p className="text-2xl font-bold text-white">{stats.totalProducts}</p>
                 </div>
               </div>
@@ -741,7 +737,7 @@ export default withSellerVerification(function DashboardPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-100">Active Products</p>
+                  <p className="text-sm text-red-100">{t('dashboard.cards.activeProducts')}</p>
                   <p className="text-2xl font-bold text-white">{stats.activeProducts}</p>
                 </div>
               </div>
@@ -755,7 +751,7 @@ export default withSellerVerification(function DashboardPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-100">Total Sales</p>
+                  <p className="text-sm text-red-100">{t('dashboard.cards.totalSales')}</p>
                   <p className="text-2xl font-bold text-white">{stats.totalSales}</p>
                 </div>
               </div>
@@ -769,7 +765,7 @@ export default withSellerVerification(function DashboardPage() {
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-100">Total Revenue</p>
+                  <p className="text-sm text-red-100">{t('dashboard.cards.totalRevenue')}</p>
                   <p className="text-2xl font-bold text-white">
                     {formatCurrency(stats.totalRevenue || 0)}
                   </p>
@@ -785,9 +781,9 @@ export default withSellerVerification(function DashboardPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.recentOrders.title')}</h2>
                 <Link href="/dashboard/orders" className="text-sm font-medium text-red-600 hover:text-red-500">
-                  View all
+                  {t('dashboard.recentOrders.viewAll')}
                 </Link>
               </div>
               
@@ -800,7 +796,7 @@ export default withSellerVerification(function DashboardPage() {
                         {order.product?.title || 'Unknown Product'}
                       </p>
                       <p className="text-sm text-gray-500">
-                        by {order.user?.full_name || 'Unknown Customer'}
+                        {t('dashboard.recentOrders.by')} {order.user?.full_name || 'Unknown Customer'}
                       </p>
                     </div>
                     <div className="ml-4">
@@ -828,9 +824,9 @@ export default withSellerVerification(function DashboardPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium text-gray-900">Top Products</h2>
+                <h2 className="text-lg font-medium text-gray-900">{t('dashboard.topProducts.title')}</h2>
                 <Link href="/dashboard/products" className="text-sm font-medium text-red-600 hover:text-red-500">
-                  Manage products
+                  {t('dashboard.topProducts.manage')}
                 </Link>
               </div>
               
@@ -883,13 +879,13 @@ export default withSellerVerification(function DashboardPage() {
                 </div>
               ) : (
                 <div className="mt-6 text-center py-4 text-sm text-gray-500">
-                  No products available. {hasPaymentSettings ? (
+                  {t('dashboard.topProducts.noProducts')} {hasPaymentSettings ? (
                     <Link href="/dashboard/products/new" className="text-red-600 hover:text-red-500">
-                      Add your first product
+                      {t('dashboard.topProducts.addFirst')}
                     </Link>
                   ) : (
                     <Link href="/dashboard/payment-settings" className="text-yellow-600 hover:text-yellow-500">
-                      Set up payment settings first
+                      {t('dashboard.topProducts.setupPaymentsFirst')}
                     </Link>
                   )}
                 </div>
@@ -906,7 +902,7 @@ export default withSellerVerification(function DashboardPage() {
           {/* Coming soon badge */}
           <div className="absolute top-4 right-4 z-20">
             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-200 border border-red-500/30">
-              Coming Soon
+              {t('dashboard.ai.comingSoon')}
             </span>
           </div>
 
@@ -917,20 +913,12 @@ export default withSellerVerification(function DashboardPage() {
               </svg>
             </div>
             <div className="ml-6">
-              <h3 className="text-xl font-semibold">AI Business Assistant</h3>
-              <p className="mt-2 text-gray-300">
-                Our advanced AI tools are currently under development to help optimize your business operations and boost sales performance.
-              </p>
+              <h3 className="text-xl font-semibold">{t('dashboard.ai.title')}</h3>
+              <p className="mt-2 text-gray-300">{t('dashboard.ai.subtitle')}</p>
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-red-600/50 cursor-not-allowed">
-                  Generate Descriptions
-                </button>
-                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-blue-600/50 cursor-not-allowed">
-                  Optimize Pricing
-                </button>
-                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-purple-600/50 cursor-not-allowed">
-                  Market Analysis
-                </button>
+                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-red-600/50 cursor-not-allowed">{t('dashboard.ai.generateDescriptions')}</button>
+                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-blue-600/50 cursor-not-allowed">{t('dashboard.ai.optimizePricing')}</button>
+                <button disabled className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-xl text-sm font-medium bg-purple-600/50 cursor-not-allowed">{t('dashboard.ai.marketAnalysis')}</button>
               </div>
             </div>
           </div>
@@ -940,12 +928,12 @@ export default withSellerVerification(function DashboardPage() {
         <div className="mt-8 bg-white rounded-lg shadow overflow-hidden">
           <div className="px-6 py-5 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Recent Support Tickets</h3>
+              <h3 className="text-lg font-medium text-gray-900">{t('dashboard.support.recentTickets')}</h3>
               <Link
                 href="/support"
                 className="text-sm font-medium text-red-600 hover:text-red-500"
               >
-                View all tickets
+                {t('dashboard.support.viewAllTickets')}
               </Link>
             </div>
           </div>
@@ -983,9 +971,9 @@ export default withSellerVerification(function DashboardPage() {
               </div>
             ) : (
               <p className="text-sm text-gray-500 text-center py-4">
-                No support tickets yet.{' '}
+                {t('dashboard.support.noTickets')}{' '}
                 <Link href="/support" className="text-red-600 hover:text-red-500">
-                  Create one
+                  {t('dashboard.support.createOne')}
                 </Link>
               </p>
             )}

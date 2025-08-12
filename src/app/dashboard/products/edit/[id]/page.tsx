@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, use } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -61,6 +62,7 @@ const formatImageUrl = (url: string) => {
 };
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = useLanguage();
   const { id } = use(params);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -732,7 +734,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         }
       }
 
-      toast.success('Product updated successfully');
+     toast.success(t('dashboard.product.updatedSuccess'));
       router.push('/dashboard/products');
     } catch (error) {
       console.error('Error updating product:', error);
@@ -771,9 +773,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Edit Product</h3>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('dashboard.product.edit.header')}</h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              Update your product details and images
+              {t('dashboard.product.edit.subtitle')}
             </p>
           </div>
           <div className="px-4 py-5 sm:p-6">
@@ -790,9 +792,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                     </svg>
                   </div>
                   <div className="ml-3">
-                    <h3 className="text-sm font-medium text-green-800">Product updated successfully</h3>
+                    <h3 className="text-sm font-medium text-green-800">{t('dashboard.product.updatedSuccess')}</h3>
                     <div className="mt-2 text-sm text-green-700">
-                      <p>Redirecting to products page...</p>
+                      <p>{t('dashboard.product.redirectingToProducts')}</p>
                     </div>
                   </div>
                 </div>
@@ -802,11 +804,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 {error && <ErrorMessage message={error} />}
 
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
-                  <h4 className="text-base font-medium text-gray-900">Basic Information</h4>
+                  <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.basicInfo')}</h4>
                   <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                     <div className="sm:col-span-4">
                       <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                        Product Title <span className="text-red-500">*</span>
+                        {t('dashboard.product.title')} <span className="text-red-500">*</span>
                       </label>
                       <div className="mt-1">
                         <input
@@ -822,7 +824,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
                     <div className="sm:col-span-6">
                       <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                        Brief Description <span className="text-red-500">*</span>
+                        {t('dashboard.product.briefDescription')} <span className="text-red-500">*</span>
                       </label>
                       <div className="mt-1">
                         <textarea
@@ -843,7 +845,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
                     <div className="sm:col-span-3">
                       <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-                        Price (ETB) <span className="text-red-500">*</span>
+                        {t('dashboard.product.priceETB')} <span className="text-red-500">*</span>
                       </label>
                       <div className="mt-1 relative rounded-md shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -864,7 +866,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
                     <div className="sm:col-span-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Category <span className="text-red-500">*</span>
+                        {t('dashboard.product.category')} <span className="text-red-500">*</span>
                       </label>
                       {!showCustomCategory ? (
                         <div className="mt-1 flex items-center">
@@ -880,7 +882,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                               className={selectClasses}
                             required
                             >
-                              <option value="">Select a category</option>
+                              <option value="">{t('dashboard.product.selectCategory')}</option>
                               <optgroup label="Traditional Wear">
                               <option value="Habesha Kemis">Habesha Kemis</option>
                               <option value="Tilfi">Tilfi</option>
@@ -1041,7 +1043,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                                 }}
                                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                               >
-                                Cancel
+                                {t('dashboard.product.cancel')}
                               </button>
                             </div>
                           </div>
@@ -1085,7 +1087,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={deliveryOptionsRef}>
-                  <h4 className="text-base font-medium text-gray-900">Delivery Options</h4>
+                  <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.deliveryOptions')}</h4>
                   <div className="space-y-4">
                     {!deliveryOptions.delivery && !deliveryOptions.pickup && (
                       <p className="text-sm text-red-500">
@@ -1108,7 +1110,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                       />
                       <label htmlFor="delivery" className="text-sm text-gray-700">
-                        Home Delivery
+                        {t('dashboard.product.homeDelivery')}
                       </label>
                     </div>
 
@@ -1137,7 +1139,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
-                            Estimated Delivery Time
+                            {t('dashboard.product.estimatedDeliveryTime')}
                           </label>
                           <select
                             value={deliveryOptions.delivery_time}
@@ -1172,7 +1174,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                         className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                       />
                       <label htmlFor="pickup" className="text-sm text-gray-700">
-                        Store Pickup
+                        {t('dashboard.product.storePickup')}
                       </label>
                     </div>
 
@@ -1200,13 +1202,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                             className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                           />
                           <label htmlFor="useStoreAddress" className="text-sm text-gray-700">
-                            Use my store address
+                            {t('dashboard.product.useStoreAddress')}
                           </label>
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
-                            Pickup Location <span className="text-red-500">*</span>
+                            {t('dashboard.product.pickupLocation')} <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             ref={pickupLocationRef}
@@ -1239,7 +1241,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
-                  <h4 className="text-base font-medium text-gray-900">Product Description</h4>
+                  <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.descriptionSection')}</h4>
                   <div className="sm:col-span-6">
                     <label htmlFor="detailedDescription" className="block text-sm font-medium text-gray-700">
                       Detailed Description <span className="text-red-500">*</span>
@@ -1301,7 +1303,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={imageSectionRef}>
                   <div className="flex justify-between items-center">
-                    <h4 className="text-base font-medium text-gray-900">Product Images <span className="text-red-500">*</span></h4>
+                    <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.productImages')} <span className="text-red-500">*</span></h4>
                     <span className="text-sm text-gray-500">{existingImages.filter(img => !imagesToDelete.includes(img.image_url)).length + images.length}/8 images</span>
                   </div>
                   <div>
@@ -1879,13 +1881,13 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                     href="/dashboard/products"
                     className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                   >
-                    Cancel
+                    {t('dashboard.product.cancel')}
                   </Link>
                   <button
                     type="submit"
                     className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                   >
-                    Save Changes
+                    {t('dashboard.product.saveChanges')}
                   </button>
                 </div>
               </form>

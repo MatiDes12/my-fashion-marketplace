@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -25,6 +27,7 @@ const isPasswordStrong = (password: string) => {
 };
 
 export default function SignupPage() {
+  const { language } = useLanguage();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -414,10 +417,10 @@ export default function SignupPage() {
           </div>
 
           <h2 className="mt-6 text-center text-3xl font-extrabold bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
-            Create your account
+            {translations['signup.title'][language]}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Join our marketplace as a customer or business owner
+            {translations['signup.subtitle'][language]}
           </p>
         </div>
 
@@ -472,7 +475,7 @@ export default function SignupPage() {
                     onClick={() => setSignupMethod('email')}
                     aria-pressed={signupMethod === 'email'}
                   >
-                    Sign up with Email
+                    {translations['signup.method.email'][language]}
                   </button>
                   <button
                     type="button"
@@ -482,8 +485,8 @@ export default function SignupPage() {
                     aria-pressed={signupMethod === 'phone'}
                     disabled
                   >
-                    Sign up with Phone
-                    <span className="ml-2 inline-block bg-yellow-200 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full align-middle">Upcoming</span>
+                    {translations['signup.method.phone'][language]}
+                    <span className="ml-2 inline-block bg-yellow-200 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded-full align-middle">{translations['signup.method.upcoming'][language]}</span>
                   </button>
                 </div>
               </div>
@@ -493,7 +496,7 @@ export default function SignupPage() {
             {role === 'customer' && signupMethod === 'phone' ? (
               <div className="mb-6 text-center">
                 <div className="inline-block bg-yellow-100 text-yellow-800 px-4 py-2 rounded-xl font-semibold text-sm shadow border border-yellow-200">
-                  Phone signup is <span className="font-bold">coming soon</span>! Please use email signup for now.
+                  {translations['signup.phone.soon'][language]}
                 </div>
               </div>
             ) : (
@@ -501,7 +504,7 @@ export default function SignupPage() {
               <form className="space-y-6" onSubmit={handleSignup}>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    I want to
+                    {translations['signup.intent.label'][language]}
                   </label>
                   <div className="mt-2 grid grid-cols-2 gap-3">
                     <button
@@ -517,7 +520,7 @@ export default function SignupPage() {
                         <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                         </svg>
-                        Shop Products
+                        {translations['signup.intent.shop'][language]}
                       </span>
                     </button>
                     <button
@@ -533,14 +536,14 @@ export default function SignupPage() {
                         <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
-                        Sell Products
+                        {translations['signup.intent.sell'][language]}
                       </span>
                     </button>
                   </div>
                 </div>
                 <div>
                   <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                    Full Name
+                    {translations['signup.fullName'][language]}
                   </label>
                   <div className="mt-1 relative">
                     <input
@@ -556,7 +559,7 @@ export default function SignupPage() {
                 </div>
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email address
+                    {translations['signup.email'][language]}
                   </label>
                   <div className="mt-1 relative">
                     <input
@@ -578,7 +581,7 @@ export default function SignupPage() {
                 </div>
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                    Password
+                    {translations['signup.password'][language]}
                   </label>
                   <div className="mt-1 relative">
                     <input
@@ -732,41 +735,39 @@ export default function SignupPage() {
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.27-.48.74-.74 2.87-1.25 4.79-2.09 5.76-2.51 2.7-1.18 3.26-1.38 3.64-1.39.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
                     </svg>
-                    <span>Open Telegram Bot</span>
+                    <span>{translations['signup.telegram.openBot'][language]}</span>
                   </button>
                   
                   {/* Fallback link in case button doesn't work */}
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    Button not working? 
+                    {translations['signup.telegram.buttonHelp'][language]} 
                     <a 
                       href="https://t.me/Avrioxshop_bot" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 ml-1 underline"
                     >
-                      Click here to open bot
+                      {translations['signup.telegram.clickHere'][language]}
                     </a>
                   </p>
                   
                   {/* Instructions based on link method */}
                   {linkMethod === 'chatId' && (
                     <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs text-blue-800 font-medium mb-1">📝 How to get your Chat ID:</p>
+                      <p className="text-xs text-blue-800 font-medium mb-1">{translations['signup.telegram.chatId.howtoTitle'][language]}</p>
                       <ol className="text-xs text-blue-700 space-y-1">
-                        <li>1. Click "Open Telegram Bot" above to open the bot</li>
-                        <li>2. Send <strong>/start</strong> to the bot</li>
-                        <li>3. Send <strong>/myid</strong> to get your Chat ID</li>
-                        <li>4. Copy the Chat ID and paste it above</li>
+                        <li>{translations['signup.telegram.chatId.step1'][language]}</li>
+                        <li>{translations['signup.telegram.chatId.step2'][language]}</li>
+                        <li>{translations['signup.telegram.chatId.step3'][language]}</li>
+                        <li>{translations['signup.telegram.chatId.step4'][language]}</li>
                       </ol>
                     </div>
                   )}
                   
                   {linkMethod === 'username' && (
                     <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs text-blue-800 font-medium mb-1">📝 Next Step:</p>
-                      <p className="text-xs text-blue-700">
-                        After signing up, send <strong>"hello"</strong> to the bot to complete the connection
-                      </p>
+                      <p className="text-xs text-blue-800 font-medium mb-1">{translations['signup.telegram.username.next'][language]}</p>
+                      <p className="text-xs text-blue-700">{translations['signup.telegram.username.note'][language]}</p>
                     </div>
                   )}
                 </div>
@@ -783,10 +784,10 @@ export default function SignupPage() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Creating account...
+                        {translations['signup.submit.loading'][language]}
                       </div>
                     ) : (
-                      'Create account'
+                      translations['signup.submit'][language]
                     )}
                   </button>
                 </div>
@@ -800,7 +801,7 @@ export default function SignupPage() {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">
-                    Already have an account?
+                    {translations['signup.already'][language]}
                   </span>
                 </div>
               </div>
@@ -810,7 +811,7 @@ export default function SignupPage() {
                   href="/login"
                   className="w-full flex justify-center py-2.5 px-4 border-2 border-red-500 rounded-xl shadow-sm text-sm font-medium text-red-600 bg-transparent hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 transform hover:scale-[1.02]"
                 >
-                  Sign in instead
+                  {translations['signup.signinInstead'][language]}
                 </Link>
               </div>
             </div>

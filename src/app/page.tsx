@@ -19,6 +19,7 @@ import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import { Fragment } from 'react';
 import { EMAIL_CONFIG } from '@/config/email';
 import { FeaturedCollections, CategoryGrid, TestimonialsSection, NewsletterSection } from '@/components/landing';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getPlaceholderImage } from '@/utils/placeholderImages';
 import { Sparkles, ArrowRight, Users, TrendingUp } from 'lucide-react';
 
@@ -702,6 +703,7 @@ interface FlashSale {
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [popularProducts, setPopularProducts] = useState<PopularProduct[]>([]);
   const [featuredBrands, setFeaturedBrands] = useState<FeaturedSeller[]>([]);
   const [loading, setLoading] = useState(true);
@@ -711,7 +713,6 @@ export default function HomePage() {
   const [mostLikedProducts, setMostLikedProducts] = useState<PopularProduct[]>([]);
   const [notifyEmail, setNotifyEmail] = useState('');
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [showMobilePopup, setShowMobilePopup] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [heroProducts, setHeroProducts] = useState<PopularProduct[]>([]);
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
@@ -753,11 +754,7 @@ export default function HomePage() {
     }
   };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setShowMobilePopup(true);
-    }
-  }, []);
+  
 
   const fetchData = async () => {
     try {
@@ -989,22 +986,6 @@ export default function HomePage() {
 
   return (
     <>
-      {showMobilePopup && (
-        <div className="fixed top-0 left-0 w-full z-[9999] flex justify-center items-center px-2 py-3 bg-yellow-100 border-b border-yellow-300 shadow-lg animate-fadeIn">
-          <div className="flex flex-col items-center gap-2 w-full max-w-md mx-auto">
-            <span className="text-sm font-semibold text-yellow-800 text-center">
-              For better interaction and smooth experience, we recommend using a computer or laptop until the mobile version is fixed.<br/>
-              <span className="block mt-1 text-xs font-normal text-yellow-700">የተሻለ ተግባራዊነት እና ምቹ አገልግሎት ለማግኘት እስከ mobile እትክክል እስኪሻሽ ድረስ ኮምፒውተር/ላፕቶፕ መጠቀም ይመከራል።</span>
-            </span>
-            <button
-              className="mt-2 px-4 py-1.5 rounded bg-yellow-300 text-yellow-900 font-medium hover:bg-yellow-400 transition"
-              onClick={() => setShowMobilePopup(false)}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
       <div className="min-h-screen relative bg-gray-900 overflow-hidden w-full">
         
         {/* Enhanced Hero Section with Integrated Achievement Badges */}
@@ -1041,7 +1022,7 @@ export default function HomePage() {
                         transition={{ duration: 0.5, delay: 0.2 }}
                       >
                         <Sparkles className="w-3 h-3" />
-                        All‑in‑one Ethiopian Marketplace
+                        {language === 'am' ? 'አንድ ላይ የተሰበሰበ የኢትዮጵያ ገበያ' : 'All‑in‑one Ethiopian Marketplace'}
                       </motion.div>
                       
                   <motion.h1
@@ -1063,8 +1044,9 @@ export default function HomePage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
                   >
-                        Shop electronics, fashion, home & living, beauty and more from trusted Ethiopian sellers.
-                        Secure payments, fast delivery, and real customer support — all in one place.
+                        {language === 'am'
+                          ? 'ኤሌክትሮኒክስ፣ ፋሽን፣ ቤት እና ኑሮ፣ ውበት እና ሌሎችንም ከሚታመኑ የኢትዮጵያ ሻጮች ይግዙ። ደህንነታማ ክፍያ፣ ፈጣን ማቅረብ እና እውነተኛ የደንበኛ አገልግሎት — ሁሉም በአንድ ቦታ።'
+                          : 'Shop electronics, fashion, home & living, beauty and more from trusted Ethiopian sellers. Secure payments, fast delivery, and real customer support — all in one place.'}
                   </motion.p>
                     </div>
 
@@ -1079,7 +1061,7 @@ export default function HomePage() {
                       href="/products"
                         className="group inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-full font-semibold hover:from-pink-700 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                     >
-                      Start Shopping
+                        {language === 'am' ? 'ግብዣ ጀምር' : 'Start Shopping'}
                         <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                     </Link>
                       
@@ -1088,7 +1070,7 @@ export default function HomePage() {
                         href="/signup?role=owner"
                           className="inline-flex items-center justify-center px-8 py-3 bg-white/10 border border-white/20 text-white hover:bg-white/20 rounded-full font-semibold transition-all duration-300"
                       >
-                        Become a Seller
+                        {language === 'am' ? 'ሻጭ ይሁኑ' : 'Become a Seller'}
                       </Link>
                     )}
                   </motion.div>
@@ -1102,11 +1084,11 @@ export default function HomePage() {
                     >
                       <div className="flex items-center gap-2 text-white/80">
                         <Users className="w-5 h-5 text-pink-400" />
-                        <span className="text-sm">50K+ Active Users</span>
+                        <span className="text-sm">{language === 'am' ? '50,000+ ንቁ ተጠቃሚዎች' : '50K+ Active Users'}</span>
                       </div>
                       <div className="flex items-center gap-2 text-white/80">
                         <TrendingUp className="w-5 h-5 text-red-400" />
-                        <span className="text-sm">10K+ Products</span>
+                        <span className="text-sm">{language === 'am' ? '10,000+ ምርቶች' : '10K+ Products'}</span>
                       </div>
                     </motion.div>
                   </div>
@@ -1304,7 +1286,7 @@ export default function HomePage() {
         
         {/* Flash Sales Section */}
         {activeFlashSales.length > 0 && (
-          <section className="py-12 w-full bg-gradient-to-br from-red-500/5 via-pink-500/5 to-orange-500/5 relative overflow-hidden">
+          <section className="py-8 md:py-10 w-full bg-gradient-to-br from-red-500/5 via-pink-500/5 to-orange-500/5 relative overflow-hidden">
             {/* Background Elements */}
             <div className="absolute top-0 left-1/4 w-96 h-96 bg-red-400/10 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-pink-400/10 rounded-full blur-3xl"></div>
@@ -1321,7 +1303,7 @@ export default function HomePage() {
                       >
                         ⚡
                       </motion.div>
-                      Flash Sales
+                      {language === 'am' ? 'ፍላሽ ሽያጭ' : 'Flash Sales'}
                     </div>
                     {activeFlashSales.length > 0 && (
                       <div className="flex items-center gap-2 bg-white/80 backdrop-blur-xl rounded-lg px-4 py-2 shadow-sm border border-white/20">
@@ -1342,7 +1324,7 @@ export default function HomePage() {
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-2 text-gray-600">
                     <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium">Live Deals</span>
+                    <span className="text-sm font-medium">{language === 'am' ? 'በቀጥታ የሚሸጡ እቃዎች' : 'Live Deals'}</span>
             </div>
                   <div className="hidden md:flex items-center gap-3">
                   <button 
@@ -1376,7 +1358,7 @@ export default function HomePage() {
                 <div className="relative">
                   <div 
                     id="flash-scroll"
-                    className="flex gap-8 overflow-x-auto scrollbar-hide pb-6"
+                    className="flex gap-5 overflow-x-auto scrollbar-hide pb-4"
                     style={{ 
                       scrollbarWidth: 'none',
                       msOverflowStyle: 'none',
@@ -1392,8 +1374,8 @@ export default function HomePage() {
                         className="flex-none w-80 md:w-72 group"
                       >
                         <Link href={`/products/${flashProduct.product.id}`}>
-                           <div className="bg-white/90 backdrop-blur-xl rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 border border-white/20 group-hover:border-red-200 h-[320px] flex flex-col">
-                             <div className="relative h-36 overflow-hidden flex-shrink-0">
+                           <div className="bg-white/95 backdrop-blur-xl rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 border border-white/20 group-hover:border-red-200 hover:ring-1 hover:ring-red-200 min-h-[340px] flex flex-col">
+                             <div className="relative h-32 sm:h-36 overflow-hidden flex-shrink-0">
                               {flashProduct.product.product_images && flashProduct.product.product_images[0] ? (
                                 <img
                                   src={cleanImageUrl(flashProduct.product.product_images[0].image_url)}
@@ -1417,9 +1399,9 @@ export default function HomePage() {
                               )}
                               
                               {/* Enhanced Discount Badge */}
-                              <div className="absolute top-4 left-4">
+                                  <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
                                 <div className="relative">
-                                  <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg">
+                                      <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-[10px] sm:text-xs font-bold px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full shadow-lg">
                                     -{Math.round(((flashProduct.product.price - flashProduct.special_price) / flashProduct.product.price) * 100)}% OFF
                                   </div>
                                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
@@ -1427,8 +1409,8 @@ export default function HomePage() {
                             </div>
 
                               {/* Hot Deal Badge */}
-                              <div className="absolute top-4 right-4">
-                                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse">
+                                  <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
+                                    <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] sm:text-xs font-bold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full shadow-lg animate-pulse">
                                   🔥 HOT
                                 </div>
                             </div>
@@ -1444,7 +1426,7 @@ export default function HomePage() {
                               </div>
                             </div>
                             
-                            <div className="p-4 flex-1 flex flex-col justify-between">
+                            <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between min-h-0">
                               {/* Top Section - Title */}
                               <div>
                                 <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-red-600 transition-colors">
@@ -1452,39 +1434,40 @@ export default function HomePage() {
                                 </h3>
                                   </div>
                               
-                              {/* Bottom Section - Price, Progress, Timer */}
+                              {/* Bottom Section - Price, Badges, Timer */}
                               <div className="space-y-3">
-                                {/* Price Section */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-2xl font-bold text-red-600">
+                                {/* Price Section (single line for prices, save on its own line) */}
+                                <div>
+                                  <div className="flex items-baseline gap-2 min-w-0">
+                                    <span className="text-xl sm:text-2xl font-extrabold text-red-600">
                                       {formatETB(flashProduct.special_price)}
                                     </span>
-                                    <span className="text-sm text-gray-500 line-through">
+                                    <span className="text-xs sm:text-sm text-gray-500 line-through whitespace-nowrap">
                                       {formatETB(flashProduct.product.price)}
                                     </span>
-                                </div>
-                                  <div className="text-right">
-                                    <div className="text-xs text-gray-500">You save</div>
-                                    <div className="text-sm font-bold text-green-600">
-                                      {formatETB(flashProduct.product.price - flashProduct.special_price)}
-                              </div>
-                            </div>
+                                  </div>
+                                  <div className="mt-1 inline-flex items-center gap-1 bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-semibold">
+                                    <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M2.5 10a7.5 7.5 0 1113.035 5.303l1.081 1.081a.75.75 0 11-1.06 1.06l-1.082-1.08A7.5 7.5 0 012.5 10zm7.5-4a.75.75 0 00-1.5 0v3.25H5a.75.75 0 000 1.5h3.5V14a.75.75 0 001.5 0V10.75H14a.75.75 0 000-1.5h-3.5V6z"/></svg>
+                                    {(() => {
+                                      const save = flashProduct.product.price - flashProduct.special_price;
+                                      const percent = Math.round((save / flashProduct.product.price) * 100);
+                                      return `Save ${formatETB(save)} (${percent}%)`;
+                                    })()}
+                                  </div>
                                 </div>
 
-                                {/* Progress Bar */}
-                                <div>
-                                  <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                    <span>Sold: 45</span>
-                                    <span>Available: 15</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                    <div className="bg-gradient-to-r from-red-500 to-pink-500 h-1.5 rounded-full" style={{ width: '75%' }}></div>
-                    </div>
-                  </div>
+                                {/* Deal Highlights (no fake numbers) */}
+                                <div className="flex flex-wrap gap-2">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium bg-red-50 text-red-600">
+                                    🔥 Selling fast
+                                  </span>
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium bg-amber-50 text-amber-700">
+                                    ⏳ Limited time
+                                  </span>
+                                </div>
 
                                                                 {/* Timer for individual product */}
-                                <div className="flex items-center justify-center gap-2 bg-gray-50 rounded-lg p-2">
+                                <div className="flex items-center justify-between sm:justify-center gap-2 bg-gray-50 rounded-lg p-2">
                                   <span className="text-xs text-gray-600 font-medium">Ends in:</span>
                                   <CountdownTimer 
                                     endTime={flashProduct.parentSale?.end_time} 
@@ -1508,7 +1491,7 @@ export default function HomePage() {
                         className="flex-none w-80 md:w-72"
                       >
                         <Link href="/flash-sales">
-                          <div className="bg-gradient-to-br from-red-50 via-pink-50 to-orange-50 rounded-3xl border-2 border-dashed border-red-300 hover:border-red-500 transition-all duration-300 flex items-center justify-center group hover:shadow-xl transform hover:-translate-y-3" style={{ height: '320px' }}>
+                          <div className="bg-gradient-to-br from-red-50 via-pink-50 to-orange-50 rounded-3xl border-2 border-dashed border-red-300 hover:border-red-500 transition-all duration-300 flex items-center justify-center group hover:shadow-xl transform hover:-translate-y-3" style={{ height: '280px' }}>
                             <div className="text-center p-4">
                       <motion.div
                                 className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg"
@@ -1537,8 +1520,8 @@ export default function HomePage() {
                 </div>
 
                   {/* Enhanced Gradient Fade Effects */}
-                  <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-slate-50 via-white/50 to-transparent pointer-events-none z-10"></div>
-                  <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-slate-50 via-white/50 to-transparent pointer-events-none z-10"></div>
+                  <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-50 via-white/50 to-transparent pointer-events-none z-10"></div>
+                  <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 via-white/50 to-transparent pointer-events-none z-10"></div>
                 </div>
                   </div>
                 </div>
@@ -1561,9 +1544,9 @@ export default function HomePage() {
                 viewport={{ once: true }}
                 className="text-center mb-16"
               >
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Featured Brands</h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">{t('landing.featuredBrands.title')}</h2>
                 <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                  Discover amazing stores and trusted sellers on our platform
+                  {t('landing.featuredBrands.subtitle')}
                 </p>
               </motion.div>
 
@@ -1604,9 +1587,9 @@ export default function HomePage() {
                                   </svg>
                               )}
                             </div>
-                         <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-grow">
-                           {brand.store_settings.description || 'Verified seller on our platform'}
-                            </p>
+                          <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-grow">
+                            {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Verified seller on our platform')}
+                          </p>
                          <div className="flex justify-center mt-auto">
                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                              ⭐ Top Seller
@@ -1633,10 +1616,10 @@ export default function HomePage() {
                  className="flex items-center justify-between mb-12"
                >
                  <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Trending Products</h2>
-                   <p className="text-xl text-gray-600 max-w-2xl">
-                    Discover the most popular and trending products that everyone is loving right now
-                   </p>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">{t('landing.trending.title')}</h2>
+                <p className="text-xl text-gray-600 max-w-2xl">
+                  {t('landing.trending.subtitle')}
+                </p>
                   </div>
                  <div className="hidden md:flex items-center gap-4">
                 <button 
@@ -1709,10 +1692,10 @@ export default function HomePage() {
                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                                   </svg>
                                 </div>
-                           <h3 className="text-lg font-semibold text-gray-900 mb-2">View All Products</h3>
-                           <p className="text-gray-600 text-xs">
-                             Explore more
-                           </p>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('landing.viewAllProducts')}</h3>
+                            <p className="text-gray-600 text-xs">
+                              {t('landing.exploreMore')}
+                            </p>
                             </div>
                           </div>
                         </Link>
@@ -1744,13 +1727,13 @@ export default function HomePage() {
                   transition={{ duration: 0.6 }}
                 >
                   <div className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 text-white text-sm font-semibold px-4 py-2 rounded-full mb-6">
-                    📱 Coming Soon
-          </div>
+                    {t('landing.app.badge')}
+                  </div>
                   <h2 className="text-2xl md:text-3xl font-bold mb-4">
-                    Our mobile app is coming soon!
+                    {t('landing.app.title')}
                   </h2>
                   <p className="text-xl text-gray-300 mb-8">
-                    Get ready for a better shopping experience with our upcoming mobile app. Shop anytime, anywhere with enhanced features.
+                    {t('landing.app.subtitle')}
                   </p>
                   
                   {/* App Store Buttons */}

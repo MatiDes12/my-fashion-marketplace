@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { createClientComponent } from '@/lib/supabase';
 import Image from 'next/image';
@@ -486,6 +488,7 @@ const SafeImage = ({ image, alt, className = '' }: {
 };
 
 export default function ProductDetailPage() {
+  const { language, t } = useLanguage();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1473,12 +1476,12 @@ export default function ProductDetailPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Adding...
+                    {language === 'am' ? 'በመጨመር ላይ...' : 'Adding...'}
                   </span>
                 ) : availableQuantity === 0 ? (
-                  'Out of Stock'
+                  t('product.stock.out')
                 ) : (
-                  'Add to Cart'
+                  t('product.action.addToCart')
                 )}
                 </button>
 
@@ -1495,12 +1498,12 @@ export default function ProductDetailPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Processing...
+                    {language === 'am' ? 'በሂደት ላይ...' : 'Processing...'}
                   </span>
                 ) : availableQuantity === 0 ? (
-                  'Out of Stock'
+                  t('product.stock.out')
                 ) : (
-                  'Buy Now'
+                  t('product.action.buyNow')
                 )}
                 </button>
               </div>
@@ -1519,11 +1522,11 @@ export default function ProductDetailPage() {
                 onChange={(e) => setActiveTab(e.target.value as TabType)}
                 className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
               >
-                <option value="details">Details</option>
-                <option value="specifications">Specifications</option>
+                <option value="details">{translations['product.tabs.details'][language]}</option>
+                <option value="specifications">{translations['product.tabs.specs'][language]}</option>
                 <option value="features">Features</option>
-                <option value="shipping">Shipping & Returns</option>
-                <option value="reviews">Reviews</option>
+                <option value="shipping">{translations['product.tabs.shipping'][language]}</option>
+                <option value="reviews">{translations['product.tabs.reviews'][language]}</option>
               </select>
             </div>
 
@@ -1531,11 +1534,11 @@ export default function ProductDetailPage() {
             <div className="hidden sm:block">
               <nav className="-mb-px flex space-x-8" aria-label="Product details tabs">
                 {[
-                  { id: 'details', name: 'Details' },
-                  { id: 'specifications', name: 'Specifications' },
+                  { id: 'details', name: translations['product.tabs.details'][language] },
+                  { id: 'specifications', name: translations['product.tabs.specs'][language] },
                   { id: 'features', name: 'Features' },
-                  { id: 'shipping', name: 'Shipping & Returns' },
-                  { id: 'reviews', name: 'Reviews' }
+                  { id: 'shipping', name: translations['product.tabs.shipping'][language] },
+                  { id: 'reviews', name: translations['product.tabs.reviews'][language] }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1591,7 +1594,7 @@ export default function ProductDetailPage() {
 
                   {/* Description */}
                   <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Detailed Description</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{translations['product.description.title'][language]}</h3>
                     <div className="prose prose-sm max-w-none text-gray-500">
                   {product.detailed_description && (
                         <p className="whitespace-pre-line">{product.detailed_description}</p>
@@ -1625,7 +1628,7 @@ export default function ProductDetailPage() {
                 <div className="space-y-8">
               {/* Specifications */}
                   <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Technical Specifications</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{translations['product.specs.title'][language]}</h3>
                     <dl className="grid grid-cols-2 gap-4">
                       {Object.entries(product.specifications || {}).map(([key, value]) => (
                         <div key={key} className="col-span-1">
@@ -1874,7 +1877,7 @@ export default function ProductDetailPage() {
                 <div className="space-y-8">
                   {/* Shipping Information */}
                   <div className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Shipping Information</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">{translations['product.shipping.title'][language]}</h3>
                     <dl className="space-y-4">
                       {product.shipping_info && (
                         <>
@@ -1991,7 +1994,7 @@ export default function ProductDetailPage() {
 
                 {/* Reviews List */}
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Reviews</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{translations['product.reviews.title'][language]}</h3>
                   {product.reviews && product.reviews.length > 0 ? (
                     <>
                       {/* Filters */}
@@ -2341,7 +2344,7 @@ const RelatedProducts = ({ currentProductId, category }: { currentProductId: str
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
-      <h2 className="text-lg font-medium text-gray-900 mb-4">Related Products</h2>
+      <h2 className="text-lg font-medium text-gray-900 mb-4">{translations['product.related'][/* use global language via hook above if available */ 'en']}</h2>
       <div className="grid grid-cols-2 gap-4">
         {products.map((product) => (
           <Link 

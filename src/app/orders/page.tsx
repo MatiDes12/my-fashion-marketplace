@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Fragment } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -41,6 +42,7 @@ interface TrackingStep {
 }
 
 export default function OrdersPage() {
+  const { t } = useLanguage();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -472,15 +474,13 @@ export default function OrdersPage() {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-          <p className="mt-2 text-gray-600">
-            Track and manage your purchases
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('orders.title')}</h1>
+          <p className="mt-2 text-gray-600">{t('orders.subtitle')}</p>
         </div>
         
         <div className="mb-6">
           <div className="flex items-center space-x-4">
-            <label className="text-sm text-gray-600">Filter by status:</label>
+            <label className="text-sm text-gray-600">{t('orders.filterByStatus')}</label>
             <select
               value={orderStatus}
               onChange={(e) => {
@@ -489,12 +489,12 @@ export default function OrdersPage() {
               }}
               className="rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 sm:text-sm"
             >
-              <option value="all">All Orders</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="shipped">Shipped</option>
-              <option value="delivered">Delivered</option>
-              <option value="cancelled">Cancelled</option>
+              <option value="all">{t('orders.status.all')}</option>
+              <option value="pending">{t('orders.status.pending')}</option>
+              <option value="confirmed">{t('orders.status.confirmed')}</option>
+              <option value="shipped">{t('orders.status.shipped')}</option>
+              <option value="delivered">{t('orders.status.delivered')}</option>
+              <option value="cancelled">{t('orders.status.cancelled')}</option>
             </select>
           </div>
         </div>
@@ -512,15 +512,13 @@ export default function OrdersPage() {
             <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
-            <h3 className="mt-2 text-lg font-medium text-gray-900">No orders yet</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              You haven't placed any orders yet. Start shopping to see your orders here.
-            </p>
+            <h3 className="mt-2 text-lg font-medium text-gray-900">{t('orders.empty.title')}</h3>
+            <p className="mt-1 text-sm text-gray-500">{t('orders.empty.subtitle')}</p>
             <button
               onClick={() => router.push('/products')}
               className="mt-6 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
             >
-              Browse Products
+              {t('orders.empty.cta')}
             </button>
           </div>
         ) : (

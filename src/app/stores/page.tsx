@@ -5,6 +5,8 @@ import { createClientComponent } from '@/lib/supabase';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translations } from '@/utils/translations';
 import { cleanImageUrl } from '@/utils/url';
 import { Tab } from '@headlessui/react';
 
@@ -83,6 +85,7 @@ interface StoreMetrics {
 }
 
 export default function StoresPage() {
+  const { language } = useLanguage();
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClientComponent();
@@ -206,7 +209,7 @@ export default function StoresPage() {
   const categories: StoreCategory[] = [
     {
       name: 'all',
-      description: 'All Stores',
+      description: translations['stores.categories.all'][language],
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -215,7 +218,7 @@ export default function StoresPage() {
     },
     {
       name: 'trending',
-      description: 'Trending Stores',
+      description: translations['stores.categories.trending'][language],
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -224,7 +227,7 @@ export default function StoresPage() {
     },
     {
       name: 'new',
-      description: 'New Stores',
+      description: translations['stores.categories.new'][language],
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -233,7 +236,7 @@ export default function StoresPage() {
     },
     {
       name: 'featured',
-      description: 'Featured Stores',
+      description: translations['stores.categories.featured'][language],
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
@@ -287,13 +290,8 @@ export default function StoresPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Discover Ethiopian Brands
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Explore unique Ethiopian stores, from traditional crafts to modern fashion. 
-            Support local businesses and find your next favorite brand.
-          </p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">{translations['stores.title'][language]}</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">{translations['stores.subtitle'][language]}</p>
         </div>
 
         {/* Enhanced Search Bar */}
@@ -301,7 +299,7 @@ export default function StoresPage() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search by store name, description, or owner name..."
+              placeholder={translations['stores.search.placeholder'][language]}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 rounded-full border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-transparent"
@@ -317,7 +315,7 @@ export default function StoresPage() {
           </div>
           {searchQuery && (
             <p className="mt-2 text-sm text-gray-500 text-center">
-              Found {filteredSellers.length} store{filteredSellers.length !== 1 ? 's' : ''} matching "{searchQuery}"
+              {translations['stores.foundPrefix'][language]} {filteredSellers.length} {translations['stores.foundSuffix'][language]} "{searchQuery}"
             </p>
           )}
         </div>
@@ -455,7 +453,7 @@ export default function StoresPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900">No stores found</h3>
+            <h3 className="text-lg font-medium text-gray-900">{translations['stores.noStores'][language]}</h3>
             <p className="mt-2 text-gray-500">Try adjusting your search or filters</p>
           </div>
         )}

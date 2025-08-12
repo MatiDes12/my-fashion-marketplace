@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@/utils/currency';
 import { toast } from 'react-hot-toast';
 import { withSellerVerification } from '@/components/withSellerVerification';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type Product = {
   id: string;
@@ -116,6 +117,7 @@ const ProductImage = ({ imageUrl, title }: { imageUrl: string; title: string }) 
 };
 
 function ProductsPage() {
+  const { t } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryGroups, setCategoryGroups] = useState<CategoryGroup>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -174,7 +176,7 @@ function ProductsPage() {
       setCategoryGroups(groups);
     } catch (error) {
       console.error('Error fetching products:', error);
-      setError('Failed to load products');
+      setError(t('dashboard.error.verifyPermissions'));
     } finally {
       setLoading(false);
     }
@@ -387,14 +389,14 @@ function ProductsPage() {
 
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Products by Category</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('dashboard.products.header')}</h1>
           {hasPaymentSettings ? (
             canAddMoreProducts ? (
             <Link
               href="/dashboard/products/new"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
             >
-              Add New Product
+              {t('dashboard.actions.addProduct')}
             </Link>
             ) : (
               <div className="flex items-center space-x-4">
@@ -402,13 +404,13 @@ function ProductsPage() {
                   disabled
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-400 cursor-not-allowed"
                 >
-                  Product Limit Reached
+                  {t('dashboard.products.limitReached')}
                 </button>
                 <Link
                   href="/dashboard/subscription"
                   className="text-indigo-600 hover:text-indigo-500 text-sm font-medium"
                 >
-                  Upgrade Plan →
+                  {t('dashboard.plan.upgrade')}
                 </Link>
               </div>
             )
@@ -417,7 +419,7 @@ function ProductsPage() {
               href="/dashboard/payment-settings"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700"
             >
-              Set Up Payment Settings
+              {t('dashboard.actions.setupPayments')}
             </Link>
           )}
         </div>
@@ -431,13 +433,13 @@ function ProductsPage() {
                 </svg>
               </div>
               <div className="ml-3">
-                <p className="text-sm text-yellow-700">
-                  You need to set up your payment settings before you can add products.
+                  <p className="text-sm text-yellow-700">
+                  {t('dashboard.banner.paymentsRequired')}
                   <Link 
                     href="/dashboard/payment-settings"
                     className="font-medium text-yellow-700 underline ml-2"
                   >
-                    Set up now
+                    {t('dashboard.banner.setupNow')}
                   </Link>
                 </p>
               </div>
@@ -456,9 +458,9 @@ function ProductsPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm text-yellow-700">
-                  You're approaching your product limit. Consider upgrading your plan to add more products.
+                  {t('dashboard.products.approachingLimit')}
                   <Link href="/dashboard/subscription" className="ml-2 font-medium underline">
-                    Upgrade Now
+                    {t('dashboard.products.upgradeNow')}
                   </Link>
                 </p>
               </div>
@@ -478,7 +480,7 @@ function ProductsPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
-                All Products
+                {t('dashboard.products.tabs.all')}
               </button>
             <button
                 onClick={() => setActiveTab('categories')}
@@ -488,7 +490,7 @@ function ProductsPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
-                Categories
+                {t('dashboard.products.tabs.categories')}
             </button>
               <button
                 onClick={() => setActiveTab('out-of-stock')}
@@ -498,7 +500,7 @@ function ProductsPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm relative`}
               >
-                Out of Stock
+                {t('dashboard.products.tabs.outOfStock')}
                 {getOutOfStockProducts().length > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {getOutOfStockProducts().length}
@@ -520,7 +522,7 @@ function ProductsPage() {
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Search products..."
+                      placeholder={t('dashboard.products.searchPlaceholder')}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
@@ -540,10 +542,10 @@ function ProductsPage() {
                     onChange={(e) => setStockFilter(e.target.value)}
                     className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   >
-                    <option value="all">All Stock</option>
-                    <option value="in-stock">In Stock</option>
-                    <option value="low-stock">Low Stock</option>
-                    <option value="out-of-stock">Out of Stock</option>
+                    <option value="all">{t('dashboard.products.filter.all')}</option>
+                    <option value="in-stock">{t('dashboard.products.filter.in')}</option>
+                    <option value="low-stock">{t('dashboard.products.filter.low')}</option>
+                    <option value="out-of-stock">{t('dashboard.products.filter.out')}</option>
                   </select>
 
                   <select
@@ -551,10 +553,10 @@ function ProductsPage() {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="price-high">Price: High to Low</option>
-                    <option value="price-low">Price: Low to High</option>
+                    <option value="newest">{t('products.sort.newest')}</option>
+                    <option value="oldest">{t('dashboard.products.sort.oldest')}</option>
+                    <option value="price-high">{t('products.sort.price.high')}</option>
+                    <option value="price-low">{t('products.sort.price.low')}</option>
                   </select>
 
                   {/* View Toggle */}
@@ -608,7 +610,7 @@ function ProductsPage() {
                       </div>
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-400">No image</span>
+                       <span className="text-gray-400">{t('dashboard.products.noImage')}</span>
                       </div>
                     )}
                   </div>
@@ -625,9 +627,9 @@ function ProductsPage() {
                         product.quantity > 0 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {product.quantity > 10 ? 'In Stock' :
-                         product.quantity > 0 ? 'Low Stock' :
-                         'Out of Stock'}
+                        {product.quantity > 10 ? t('dashboard.products.inStock') :
+                         product.quantity > 0 ? t('dashboard.products.lowStock') :
+                         t('dashboard.products.outOfStock')}
                       </span>
                     </div>
 
@@ -637,11 +639,11 @@ function ProductsPage() {
                         {formatCurrency(product.price)}
                       </span>
                         <span className="text-sm text-gray-500">
-                          Quantity: {product.quantity}
+                          {t('dashboard.products.quantity')} {product.quantity}
                         </span>
                         {product.category && (
                           <span className="text-sm text-gray-500">
-                            Category: {product.category}
+                             {t('dashboard.products.category')} {product.category}
                           </span>
                         )}
                       </div>
@@ -649,7 +651,7 @@ function ProductsPage() {
                         href={`/dashboard/products/edit/${product.id}`}
                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
                       >
-                        Edit
+                        {t('dashboard.products.edit')}
                       </Link>
                     </div>
                   </div>
@@ -691,7 +693,7 @@ function ProductsPage() {
                             </div>
                           ) : (
                             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-gray-400">No image</span>
+                              <span className="text-gray-400">{t('dashboard.products.noImage')}</span>
                             </div>
                           )}
                         </div>
@@ -783,7 +785,7 @@ function ProductsPage() {
                               loading="lazy"
                             />
                             <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                              <span className="text-white text-lg font-bold">Out of Stock</span>
+                              <span className="text-white text-lg font-bold">{t('dashboard.products.outOfStock')}</span>
                             </div>
                           </div>
                         ) : (
@@ -809,12 +811,12 @@ function ProductsPage() {
                             href={`/dashboard/products/edit/${product.id}`}
                             className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
                           >
-                            Restock
+                             {t('dashboard.products.restock')}
                           </Link>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            Category: {product.category}
+                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                             {t('dashboard.products.category')} {product.category}
                           </span>
                         </div>
                       </div>
