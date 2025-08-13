@@ -1491,6 +1491,15 @@ export default function Navigation({ userDetails }: NavigationProps) {
             </svg>
           </button>
         )}
+        {/* Mobile Language Toggle */}
+        <button
+          aria-label="Language toggle"
+          onClick={() => setLanguage(language === 'en' ? ('am' as any) : ('en' as any))}
+          className="inline-flex items-center px-2 py-1 rounded-md border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          title={language === 'en' ? 'Switch to አማርኛ' : 'Switch to English'}
+        >
+          {language === 'en' ? 'EN' : 'AM'}
+        </button>
         
         <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
