@@ -34,6 +34,7 @@ interface FeaturedSeller {
     name: string;
     logo_url: string;
     description: string;
+      banner_url?: string;
   };
   top_product: {
     id: string;
@@ -793,7 +794,7 @@ export default function HomePage() {
         seller_id: brand.id,
         seller_name: brand.full_name,
         verification_status: brand.verification_status,
-        store_settings: brand.store_settings || { name: brand.full_name, logo_url: '', description: '' },
+        store_settings: brand.store_settings || { name: brand.full_name, logo_url: '', description: '', banner_url: '' },
         top_product: {
           id: '',
           title: 'Featured Product',
@@ -1534,7 +1535,7 @@ export default function HomePage() {
               </div>
 
         {/* Featured Brands */}
-          <section className="py-8 w-full bg-gradient-to-br from-slate-50 to-rose-50">
+          <section className="py-6 w-full bg-gradient-to-br from-slate-50 to-rose-50">
             <div className="w-full px-4 lg:px-12 xl:px-16">
               <div className="max-w-screen-2xl mx-auto">
               <motion.div
@@ -1542,7 +1543,7 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
                 viewport={{ once: true }}
-                className="text-center mb-16"
+                className="text-center mb-10"
               >
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">{t('landing.featuredBrands.title')}</h2>
                 <p className="text-xl text-gray-600 max-w-2xl mx-auto">
@@ -1550,7 +1551,7 @@ export default function HomePage() {
                 </p>
               </motion.div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 {featuredBrands.slice(0, 8).map((brand, index) => (
                     <motion.div
                       key={brand.seller_id}
@@ -1560,41 +1561,60 @@ export default function HomePage() {
                     viewport={{ once: true }}
                     className="group"
                   >
-                                         <Link href={`/stores/${brand.seller_id}`}>
-                       <div className="bg-white rounded-2xl p-6 text-center shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 h-[280px] flex flex-col">
-                         <div className="relative w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-4 border-red-200 group-hover:border-red-400 transition-colors">
-                            {brand.store_settings.logo_url ? (
-                              <Image
-                                src={cleanImageUrl(brand.store_settings.logo_url)}
-                                alt={brand.store_settings.name}
-                                fill
-                               className="object-cover"
-                               sizes="80px"
-                              />
-                            ) : (
-                             <div className="w-full h-full bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center text-white text-2xl font-bold">
-                               {brand.store_settings.name?.[0]?.toUpperCase() || '?'}
-                             </div>
-                            )}
-                          </div>
-                         <div className="flex items-center justify-center gap-2 mb-2">
-                           <h3 className="text-lg font-semibold text-gray-900 group-hover:text-red-600 transition-colors line-clamp-1">
-                                {brand.store_settings.name}
-                              </h3>
-                              {brand.verification_status === 'verified' && (
-                             <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                               <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                  </svg>
-                              )}
-                            </div>
-                          <p className="text-sm text-gray-500 mb-4 line-clamp-2 flex-grow">
-                            {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Verified seller on our platform')}
-                          </p>
-                         <div className="flex justify-center mt-auto">
-                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                             ⭐ Top Seller
-                           </span>
-                          </div>
+                         <Link href={`/stores/${brand.seller_id}`}>
+                       <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                         {/* Banner */}
+                         <div className="relative h-28">
+                           {brand.store_settings.banner_url ? (
+                             <img
+                               src={cleanImageUrl(brand.store_settings.banner_url)}
+                               alt="Store banner"
+                               className="absolute inset-0 w-full h-full object-cover"
+                               loading="lazy"
+                             />
+                           ) : (
+                             <div className="w-full h-full bg-gradient-to-r from-red-500 to-pink-500" />
+                           )}
+                         </div>
+
+                         {/* Logo overlapping banner */}
+                         <div className="relative -mt-12 px-3">
+                           <div className="relative w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-white shadow-lg">
+                             {brand.store_settings.logo_url ? (
+                               <Image
+                                 src={cleanImageUrl(brand.store_settings.logo_url)}
+                                 alt={brand.store_settings.name}
+                                 fill
+                                 className="object-cover"
+                                 sizes="80px"
+                               />
+                             ) : (
+                               <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white text-2xl font-bold">
+                                 {brand.store_settings.name?.[0]?.toUpperCase() || '?'}
+                               </div>
+                             )}
+                           </div>
+                         </div>
+                         <div className="px-3 pt-4 pb-6 text-center">
+                           <div className="flex items-center justify-center gap-2">
+                             <h3 className="text-base font-semibold text-gray-900 group-hover:text-red-600 transition-colors line-clamp-1">
+                               {brand.store_settings.name}
+                             </h3>
+                             {brand.verification_status === 'verified' && (
+                               <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                               </svg>
+                             )}
+                           </div>
+                           <p className="mt-2 text-sm text-gray-500 line-clamp-2">
+                             {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Verified seller on our platform')}
+                           </p>
+                           <div className="flex justify-center mt-4">
+                             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                               ⭐ Top Seller
+                             </span>
+                           </div>
+                         </div>
                         </div>
                       </Link>
                     </motion.div>

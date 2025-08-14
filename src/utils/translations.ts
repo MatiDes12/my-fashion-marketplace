@@ -112,6 +112,20 @@ export const translations: Translation = {
   'landing.viewAllCollections': { en: 'View All Collections', am: 'ሁሉንም ስብስቦች ይመልከቱ' },
   'landing.items': { en: 'items', am: 'ዕቃዎች' },
 
+  // Landing - Featured Collections (card texts)
+  'collections.clothing.title': { en: 'Clothing Collection', am: 'የልብስ ስብስብ' },
+  'collections.clothing.description': { en: 'Discover traditional Ethiopian wear and modern fashion pieces', am: 'ባህላዊ የኢትዮጵያ ልብስ እና ዘመናዊ የፋሽን እቃዎችን ያግኙ' },
+  'collections.clothing.priceFrom': { en: 'From ETB 500', am: 'ከ 500 ብር ጀምሮ' },
+  'collections.home.title': { en: 'Home & Living', am: 'ቤት እና ኑሮ' },
+  'collections.home.description': { en: 'Beautiful furniture and home decor for your space', am: 'ለቤትዎ ውብ መስኖ እና የቤት ማስተናገድ እቃዎች' },
+  'collections.home.priceFrom': { en: 'From ETB 1,200', am: 'ከ 1,200 ብር ጀምሮ' },
+  'collections.traditional.title': { en: 'Traditional Wear', am: 'ባህላዊ ልብስ' },
+  'collections.traditional.description': { en: 'Authentic Ethiopian traditional clothing and accessories', am: 'እውነተኛ የኢትዮጵያ ባህላዊ ልብሶች እና አክሰሰሪዎች' },
+  'collections.traditional.priceFrom': { en: 'From ETB 800', am: 'ከ 800 ብር ጀምሮ' },
+  'collections.badge.popular': { en: 'Popular', am: 'ታዋቂ' },
+  'collections.badge.new': { en: 'New', am: 'አዲስ' },
+  'collections.badge.heritage': { en: 'Heritage', am: 'ባህላዊ' },
+
   // Landing - Featured Brands
   'landing.featuredBrands.title': { en: 'Featured Brands', am: 'ተለይተው የቀረቡ ንግዶች' },
   'landing.featuredBrands.subtitle': { en: 'Discover amazing stores and trusted sellers on our platform', am: 'አስደናቂ መደብሮችን እና የሚታመኑ ሻጮችን በመድረካችን ላይ ያግኙ' },

@@ -19,41 +19,42 @@ interface Collection {
   href: string;
 }
 
-const collections: Collection[] = [
-  {
-    id: '1',
-    title: 'Clothing Collection',
-    description: 'Discover traditional Ethiopian wear and modern fashion pieces',
-    image: getPlaceholderImage('clothing'),
-    price: 'From ETB 500',
-    itemCount: 42,
-    badge: 'Popular',
-    href: '/collections/clothing'
-  },
-  {
-    id: '2',
-    title: 'Home & Living',
-    description: 'Beautiful furniture and home decor for your space',
-    image: getPlaceholderImage('home-living'),
-    price: 'From ETB 1,200',
-    itemCount: 28,
-    badge: 'New',
-    href: '/collections/home-living'
-  },
-  {
-    id: '3',
-    title: 'Traditional Wear',
-    description: 'Authentic Ethiopian traditional clothing and accessories',
-    image: getPlaceholderImage('traditional'),
-    price: 'From ETB 800',
-    itemCount: 18,
-    badge: 'Heritage',
-    href: '/collections/clothing?category=Traditional%20Wear'
-  }
-];
+// moved into component to localize by language
 
 export default function FeaturedCollections() {
   const { language } = useLanguage();
+  const collections: Collection[] = [
+    {
+      id: '1',
+      title: translations['collections.clothing.title'][language],
+      description: translations['collections.clothing.description'][language],
+      image: getPlaceholderImage('clothing'),
+      price: translations['collections.clothing.priceFrom'][language],
+      itemCount: 42,
+      badge: translations['collections.badge.popular'][language],
+      href: '/collections/clothing'
+    },
+    {
+      id: '2',
+      title: translations['collections.home.title'][language],
+      description: translations['collections.home.description'][language],
+      image: getPlaceholderImage('home-living'),
+      price: translations['collections.home.priceFrom'][language],
+      itemCount: 28,
+      badge: translations['collections.badge.new'][language],
+      href: '/collections/home-living'
+    },
+    {
+      id: '3',
+      title: translations['collections.traditional.title'][language],
+      description: translations['collections.traditional.description'][language],
+      image: getPlaceholderImage('traditional'),
+      price: translations['collections.traditional.priceFrom'][language],
+      itemCount: 18,
+      badge: translations['collections.badge.heritage'][language],
+      href: '/collections/clothing?category=Traditional%20Wear'
+    }
+  ];
   return (
     <section className="py-8 w-full bg-gradient-to-b from-slate-50 to-white">
       <div className="w-full px-4 lg:px-12 xl:px-16">
