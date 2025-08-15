@@ -12,7 +12,6 @@ import { getFlashSalePrices } from '@/utils/flashSales';
 import { Tab } from '@headlessui/react';
 import Head from 'next/head';
 
-
 // Add interfaces for store settings
 interface PaymentMethods {
   cash: boolean;
@@ -191,7 +190,7 @@ const DynamicHead = ({ store, owner }: { store: StoreSettings | null; owner: any
 export default function StorePage() {
   const { language } = useLanguage();
   const params = useParams();
-  const id = params?.id ? (Array.isArray(params.id) ? (params.id.length > 0 ? params.id[0] : null) : params.id) : null;
+  const slug = params?.slug ? (Array.isArray(params.slug) ? (params.slug.length > 0 ? params.slug[0] : null) : params.slug) : null;
   const router = useRouter();
   const [owner, setOwner] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
@@ -204,24 +203,72 @@ export default function StorePage() {
   const [store, setStore] = useState<StoreSettings | null>(null);
 
   useEffect(() => {
-    if (!id) {
-      console.error('No ID provided in URL');
-      setError('No store ID provided');
+    if (!slug) {
+      console.error('No slug provided in URL');
+      setError('No store slug provided');
       setLoading(false);
       return;
     }
     
-    console.log('Store ID from URL:', id);
-    fetchStoreData();
-  }, [id]);
+    console.log('Store slug from URL:', slug);
+    fetchStoreDataBySlug();
+  }, [slug]);
 
-  const fetchStoreData = async () => {
+  const fetchStoreDataBySlug = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Get the store data (which now includes payment methods)
-      const storeResponse = await fetch(`/api/stores/${id}`);
+      // First, try to find the store by slug
+      const { data: usersBySlug, error: slugError } = await supabase
+        .from('users')
+        .select(`
+          id,
+          full_name,
+          email,
+          store_settings,
+          verification_status,
+          role
+        `)
+        .eq('store_settings->>slug', slug)
+        .eq('role', 'owner')
+        .single();
+
+      let storeOwnerId = null;
+
+      if (usersBySlug && !slugError) {
+        // Found store by slug
+        storeOwnerId = usersBySlug.id;
+      } else {
+        // If not found by slug, try to treat slug as UUID (backward compatibility)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (slug && uuidRegex.test(slug)) {
+          const { data: usersByUUID, error: uuidError } = await supabase
+            .from('users')
+            .select(`
+              id,
+              full_name,
+              email,
+              store_settings,
+              verification_status,
+              role
+            `)
+            .eq('id', slug)
+            .eq('role', 'owner')
+            .single();
+
+          if (usersByUUID && !uuidError) {
+            storeOwnerId = usersByUUID.id;
+          }
+        }
+      }
+
+      if (!storeOwnerId) {
+        throw new Error(`Store not found. Slug: ${slug}`);
+      }
+
+      // Now fetch complete store data using the API
+      const storeResponse = await fetch(`/api/stores/${storeOwnerId}`);
       if (!storeResponse.ok) {
         const errorData = await storeResponse.json();
         throw new Error(errorData.message || 'Failed to fetch store data');
@@ -229,7 +276,7 @@ export default function StorePage() {
       
       const storeData = await storeResponse.json();
       if (!storeData.owner) {
-        throw new Error(`Store not found. ID: ${id}`);
+        throw new Error(`Store not found. ID: ${storeOwnerId}`);
       }
       
       // Check if the store has proper setup (store_settings)
@@ -296,6 +343,7 @@ export default function StorePage() {
         payment_methods: storeSettings.payment_methods || {},
         delivery_options: storeSettings.delivery_options || {},
         seo: storeSettings.seo || undefined,
+        slug: storeSettings.slug || undefined,
         ...storeSettings
       };
       

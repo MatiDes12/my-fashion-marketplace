@@ -16,6 +16,7 @@ import WishlistPopup from '@/components/WishlistPopup';
 interface Product {
   id: string;
   title: string;
+  slug?: string;
   description?: string;
   price: number;
   flash_sale_price?: number | null;
@@ -32,6 +33,7 @@ interface Product {
     email?: string;
     store_settings?: {
       name: string;
+      slug?: string;
       logo_url: string;
     };
   } | null;
@@ -178,17 +180,22 @@ export default function ProductCard({ product, showOwner = false, showActions = 
   const handleBuyNow = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`/products/${product.id}?action=buy`);
+    const productUrl = product.slug ? `/product/${product.slug}` : `/products/${product.id}`;
+    router.push(`${productUrl}?action=buy`);
   };
 
   const handleCardClick = () => {
-    router.push(`/products/${product.id}`);
+    const productUrl = product.slug ? `/product/${product.slug}` : `/products/${product.id}`;
+    router.push(productUrl);
   };
 
   const handleStoreClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push(`/stores/${product.owner_id}`);
+    const storeUrl = product.users?.store_settings?.slug 
+      ? `/store/${product.users.store_settings.slug}` 
+      : `/stores/${product.owner_id}`;
+    router.push(storeUrl);
   };
 
   const handleEditClick = (e: React.MouseEvent) => {

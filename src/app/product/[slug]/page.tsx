@@ -35,6 +35,7 @@ type Rating = {
 type Product = {
   id: string;
   title: string;
+  slug?: string;
   description: string;
   price: number;
   quantity: number;
@@ -104,6 +105,7 @@ type Product = {
     verification_status?: string;
     store_settings?: {
       name?: string;
+      slug?: string;
       description?: string;
       logo_url?: string;
       banner_url?: string;
@@ -169,6 +171,7 @@ type Product = {
 
 type StoreSettings = {
   name: string;
+  slug?: string;
   description: string;
   logo_url: string;
   banner_url: string;
@@ -240,77 +243,150 @@ const ContactSection = ({ seller }: { seller: any }) => {
   const isOpen = currentHours?.isOpen;
   
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-3 mb-4">
-      {/* Compact Seller Info */}
-      <div className="flex items-center gap-3 mb-2">
+    <div className="mt-8 mb-8 bg-white rounded-lg border border-gray-200 p-6">
+      {/* Seller Info */}
+      <div className="flex items-center mb-4">
         {storeSettings.logo_url && (
-          <Image
-            src={storeSettings.logo_url}
-            alt={storeSettings.name || 'Store logo'}
-            width={32}
-            height={32}
-            className="rounded-full"
-          />
+          <div className="mr-4">
+            <Image
+              src={storeSettings.logo_url}
+              alt={storeSettings.name || 'Store logo'}
+              width={64}
+              height={64}
+              className="rounded-full"
+            />
+          </div>
         )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <h3 className="text-sm font-medium truncate">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">
               {storeSettings.name || 'Store'}
             </h3>
             {seller?.verification_status === 'verified' && (
-              <svg className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
+              <div className="relative group">
+                <svg 
+                  className="w-5 h-5 text-blue-500" 
+                  viewBox="0 0 20 20" 
+                  fill="currentColor"
+                  aria-label="Verified Seller"
+                >
+                  <path 
+                    fillRule="evenodd" 
+                    d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" 
+                    clipRule="evenodd" 
+                  />
+                </svg>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                  Verified Seller
+                </div>
+              </div>
             )}
           </div>
-          <div className="text-xs text-gray-500 flex items-center gap-3">
-            <span className="flex items-center">
-              <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isOpen ? 'bg-green-600' : 'bg-red-600'}`}></span>
-              {isOpen ? 'Open' : 'Closed'}
-            </span>
-            {storeSettings.address && (
-              <span className="truncate">📍 {storeSettings.address.city}</span>
+          <p className="text-sm text-gray-500">
+            {isOpen ? (
+              <span className="text-green-600 flex items-center">
+                <span className="w-2 h-2 bg-green-600 rounded-full mr-2"></span>
+                Open now
+              </span>
+            ) : (
+              <span className="text-red-600 flex items-center">
+                <span className="w-2 h-2 bg-red-600 rounded-full mr-2"></span>
+                Closed
+              </span>
             )}
-          </div>
+          </p>
+          <p className="text-sm text-gray-500">Member since {memberSince}</p>
+          {showPhone && (phone || alternativePhone) && (
+            <p className="mt-2 text-green-600 font-medium">
+              📞 {phone || alternativePhone}
+              {alternativePhone && phone && phone !== alternativePhone && (
+                <span className="ml-2 text-gray-500">
+                  Alt: {alternativePhone}
+                </span>
+              )}
+            </p>
+          )}
+          {storeSettings.address && (
+            <p className="mt-1 text-sm text-gray-500">
+              📍 {storeSettings.address.city}, {storeSettings.address.subCity}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Compact Contact Buttons */}
-      <div className="flex gap-2 text-xs">
+      {/* Contact Buttons */}
+      <div className="flex gap-3 mb-6">
         <button
           onClick={() => setShowPhone(true)}
-          className="flex-1 px-2 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
         >
-          {showPhone ? 'Phone Shown' : 'Show Contact'}
+          {showPhone ? 'Phone Number Shown' : 'Show Contact'}
         </button>
         {storeSettings.features?.enableChat && (
           <button
-            onClick={() => toast.success('Opening chat...')}
-            className="flex-1 px-2 py-1.5 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            onClick={() => {
+              toast.success('Opening chat...'); // Changed from toast.info since it was causing an error
+            }}
+            className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
           >
             Start Chat
           </button>
         )}
       </div>
 
-      {/* Show phone if revealed */}
-      {showPhone && (phone || alternativePhone) && (
-        <div className="mt-2 p-2 bg-green-50 rounded text-xs text-green-700">
-          📞 {phone || alternativePhone}
+      {/* Working Hours */}
+      {storeSettings.workingHours && (
+        <div className="mb-6 text-sm text-gray-600">
+          <h4 className="font-medium mb-2">Working Hours</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(storeSettings.workingHours).map(([day, hours]: [string, any]) => (
+              hours.isOpen && (
+                <div key={day} className="flex justify-between">
+                  <span className="capitalize">{day}</span>
+                  <span>{hours.open} - {hours.close}</span>
+                </div>
+              )
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Minimal Safety Tips - Collapsible */}
-      <details className="mt-2">
-        <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1">
-          <span>⚠️ Safety Tips</span>
-        </summary>
-        <div className="mt-2 text-xs text-gray-500 space-y-1 pl-3 border-l-2 border-yellow-200">
-          <p>• Meet in public places</p>
-          <p>• Examine before payment</p>
-          <p>• Stay on platform</p>
-        </div>
-      </details>
+      {/* Safety Tips */}
+      <div className="bg-yellow-50 rounded-lg p-4">
+        <h4 className="font-medium text-yellow-800 mb-2">In-Person Shopping Tips</h4>
+        <ul className="text-sm text-yellow-700 space-y-2">
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Meet in a public location during daylight hours
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Meet with the seller at a safe public place
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Examine the item thoroughly before payment
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Keep communication within the platform
+          </li>
+          <li className="flex items-center">
+            <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            Only pay if you're satisfied
+          </li>
+        </ul>
+      </div>
     </div>
   );
 };
@@ -450,7 +526,7 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientComponent();
-  const idParam = params?.id as string;
+  const slug = params?.slug ? (Array.isArray(params.slug) ? (params.slug.length > 0 ? params.slug[0] : null) : params.slug) : null;
   const actionParam = searchParams?.get('action');
   
   // Fetch session user id on mount
@@ -460,50 +536,60 @@ export default function ProductDetailPage() {
     });
   }, []);
 
-  // Scroll to top when product ID changes
+  // Scroll to top when product slug changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [idParam]);
+  }, [slug]);
 
-  // Fetch product and like status
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  // Fetch product by slug or UUID
+  const fetchProductBySlug = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        if (!idParam) {
-          throw new Error('No product identifier provided');
-        }
+      if (!slug) {
+        throw new Error('No product identifier provided');
+      }
 
-        let productId = null;
+      let productId = null;
 
-        // First, try to find the product by slug
-        const { data: productBySlug, error: slugError } = await supabase
-          .from('products')
-          .select('id')
-          .eq('slug', idParam)
-          .eq('is_active', true)
-          .single();
+      // First, try to find the product by slug
+      const { data: productBySlug, error: slugError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('slug', slug)
+        .eq('is_active', true)
+        .single();
 
-        if (productBySlug && !slugError) {
-          // Found product by slug - redirect to new URL format
-          router.replace(`/product/${idParam}`);
-          return;
-        } else {
-          // If not found by slug, try to treat it as UUID (backward compatibility)
-          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-          if (uuidRegex.test(idParam)) {
-            productId = idParam;
-          } else {
-            throw new Error(`Product not found. ID: ${idParam}`);
+      if (productBySlug && !slugError) {
+        // Found product by slug
+        productId = productBySlug.id;
+      } else {
+        // If not found by slug, try to treat slug as UUID (backward compatibility)
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (slug && uuidRegex.test(slug)) {
+          const { data: productByUUID, error: uuidError } = await supabase
+            .from('products')
+            .select('id')
+            .eq('id', slug)
+            .eq('is_active', true)
+            .single();
+
+          if (productByUUID && !uuidError) {
+            productId = productByUUID.id;
           }
         }
-      
-      // First get the current user's session
+      }
+
+      if (!productId) {
+        throw new Error(`Product not found. Slug: ${slug}`);
+      }
+
+      // Get the current user's session
       const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+      const userId = session?.user?.id;
       
-      // Fetch product with all related data including ratings
+      // Fetch complete product with all related data including ratings
       const { data: product, error } = await supabase
         .from('products')
         .select(`
@@ -596,17 +682,17 @@ export default function ProductDetailPage() {
       setProduct(processedProduct);
       setAvailableQuantity(product.quantity);
 
-    // Check if user has liked this product
-    if (userId) {
-      const { data: likeData } = await supabase
+      // Check if user has liked this product
+      if (userId) {
+        const { data: likeData } = await supabase
           .from('likes')
           .select('id')
-        .eq('user_id', userId)
+          .eq('user_id', userId)
           .eq('product_id', productId)
           .single();
-      setIsLiked(!!likeData);
-    } else {
-      setIsLiked(false);
+        setIsLiked(!!likeData);
+      } else {
+        setIsLiked(false);
       }
 
     } catch (error) {
@@ -640,8 +726,8 @@ export default function ProductDetailPage() {
   };
 
   useEffect(() => {
-    if (idParam) {
-      fetchProduct();
+    if (slug) {
+      fetchProductBySlug();
     }
     
     // If action is 'buy', scroll to the buy section
@@ -650,7 +736,7 @@ export default function ProductDetailPage() {
         document.getElementById('buy-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
     }
-  }, [idParam, actionParam]);
+  }, [slug, actionParam]);
   
   const handleQuantityChange = (value: number) => {
     if (value >= 1 && value <= availableQuantity) {
@@ -1256,9 +1342,14 @@ export default function ProductDetailPage() {
                       />
                     )}
                     <div className="flex items-center gap-2 ml-2">
-                      <span className="text-sm font-medium text-gray-900">
+                      <Link 
+                        href={product.users?.store_settings?.slug 
+                          ? `/store/${product.users.store_settings.slug}` 
+                          : `/stores/${product.users?.id}`}
+                        className="text-sm font-medium text-gray-900 hover:text-green-600"
+                      >
                         {product.users?.store_settings?.name || 'Store'}
-                      </span>
+                      </Link>
                       {product.users?.verification_status === 'verified' && (
                         <div className="relative group">
                           <svg 
@@ -1543,7 +1634,7 @@ export default function ProductDetailPage() {
                 <option value="shipping">{translations['product.tabs.shipping'][language]}</option>
                 <option value="reviews">{translations['product.tabs.reviews'][language]}</option>
               </select>
-            </div>
+      </div>
 
             {/* Desktop Tabs */}
             <div className="hidden sm:block">
@@ -1696,7 +1787,7 @@ export default function ProductDetailPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Style Notes */}
                       {product.style_notes && (
-              <div>
+                        <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Style Notes</h4>
                           <p className="text-sm text-gray-900">{product.style_notes}</p>
                         </div>
@@ -1704,10 +1795,10 @@ export default function ProductDetailPage() {
                       
                       {/* Fit Information */}
                       {product.fit_info && (
-                  <div>
+                        <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Fit Information</h4>
                           <p className="text-sm text-gray-900">{product.fit_info}</p>
-                  </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1715,18 +1806,13 @@ export default function ProductDetailPage() {
                   {/* Available Options */}
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Available Options</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Sizes */}
-    
-                    </div>
-
+                    
                     {/* Variants */}
                     {product.available_variants && product.available_variants.length > 0 && (
                       <div className="mt-6">
                         <h4 className="text-sm font-medium text-gray-700 mb-4">Available Variants</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {product.available_variants.map((variant: any, index: number) => {
-                            // Extract all variant properties except quantity and sku
                             const variantProps = Object.entries(variant).filter(([key]) => 
                               !['quantity', 'sku'].includes(key)
                             );
@@ -1739,7 +1825,6 @@ export default function ProductDetailPage() {
                                 }`}
                               >
                                 <div className="space-y-2">
-                                  {/* Variant Properties */}
                                   {variantProps.map(([key, value]) => (
                                     <div key={key} className="flex justify-between items-center">
                                       <span className="text-sm text-gray-600 capitalize">
@@ -1751,7 +1836,6 @@ export default function ProductDetailPage() {
                                     </div>
                                   ))}
 
-                                  {/* Stock Status */}
                                   <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                                     <span className="text-sm text-gray-600">Stock:</span>
                                     <div className="flex items-center">
@@ -1773,7 +1857,6 @@ export default function ProductDetailPage() {
                                     </div>
                                   </div>
 
-                                  {/* SKU */}
                                   <div className="flex justify-between items-center text-xs text-gray-500">
                                     <span>SKU:</span>
                                     <span>{variant.sku}</span>
@@ -1786,7 +1869,6 @@ export default function ProductDetailPage() {
                       </div>
                     )}
 
-                    {/* If no variants but has sizes or colors, show those instead */}
                     {(!product.available_variants || product.available_variants.length === 0) && (
                       <>
                         {product.sizes && product.sizes.length > 0 && (
@@ -1828,9 +1910,8 @@ export default function ProductDetailPage() {
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Usage and Sustainability</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Occasions */}
                       {product.occasion && product.occasion.length > 0 && (
-                  <div>
+                        <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Perfect For</h4>
                           <div className="flex flex-wrap gap-2">
                             {product.occasion.map((occ, index) => (
@@ -1842,7 +1923,6 @@ export default function ProductDetailPage() {
                         </div>
                       )}
 
-                      {/* Seasons */}
                       {product.season && product.season.length > 0 && (
                         <div>
                           <h4 className="text-sm font-medium text-gray-500 mb-2">Ideal Seasons</h4>
@@ -1857,7 +1937,6 @@ export default function ProductDetailPage() {
                       )}
                     </div>
 
-                    {/* Sustainability Information */}
                     {product.sustainability_info && (
                       <div className="mt-6">
                         <h4 className="text-sm font-medium text-gray-500 mb-2">Sustainability</h4>
@@ -1890,7 +1969,6 @@ export default function ProductDetailPage() {
             {activeTab === 'shipping' && (
               <div className="bg-white rounded-lg shadow-sm p-8">
                 <div className="space-y-8">
-                  {/* Shipping Information */}
                   <div className="bg-gray-50 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">{translations['product.shipping.title'][language]}</h3>
                     <dl className="space-y-4">
@@ -1898,38 +1976,35 @@ export default function ProductDetailPage() {
                         <>
                           <div>
                             <dt className="text-sm font-medium text-gray-500">Processing Time</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
+                            <dd className="mt-1 text-sm text-gray-900">
                               {product.shipping_info.processing_time}
-                    </dd>
-                  </div>
-                  <div>
+                            </dd>
+                          </div>
+                          <div>
                             <dt className="text-sm font-medium text-gray-500">Return Policy</dt>
-                    <dd className="mt-1 text-sm text-gray-900">
+                            <dd className="mt-1 text-sm text-gray-900">
                               {product.shipping_info.return_policy || 'Contact seller for return policy'}
-                    </dd>
-                  </div>
+                            </dd>
+                          </div>
                         </>
                       )}
-                </dl>
-              </div>
+                    </dl>
+                  </div>
 
-                  {/* Warranty Information */}
                   {product.warranty_info && (
                     <div className="bg-gray-50 rounded-xl p-6">
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Warranty</h3>
                       <p className="text-sm text-gray-600">{product.warranty_info}</p>
-            </div>
+                    </div>
                   )}
-          </div>
+                </div>
               </div>
             )}
           
             {/* Reviews Tab */}
             {activeTab === 'reviews' && (
               <div className="bg-white rounded-lg shadow-sm p-8">
-                {/* Reviews Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                  {/* Left: Overall Rating */}
                   <div className="md:col-span-1 bg-gray-50 p-6 rounded-xl">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Rating</h3>
                     <div className="text-center">
@@ -1937,11 +2012,11 @@ export default function ProductDetailPage() {
                         {product.average_rating?.toFixed(1) || '0.0'}
                       </div>
                       <div className="flex justify-center mb-2">
-                      <ProductRating
-                        productId={product.id}
-                        initialRating={product.average_rating}
-                        readonly={true}
-                      />
+                        <ProductRating
+                          productId={product.id}
+                          initialRating={product.average_rating}
+                          readonly={true}
+                        />
                       </div>
                       <p className="text-sm text-gray-500">
                         Based on {product.total_ratings} reviews
@@ -1949,7 +2024,6 @@ export default function ProductDetailPage() {
                     </div>
                   </div>
 
-                  {/* Middle: Rating Distribution */}
                   <div className="md:col-span-1 bg-gray-50 p-6 rounded-xl">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Rating Distribution</h3>
                     <div className="space-y-3">
@@ -1981,7 +2055,6 @@ export default function ProductDetailPage() {
                     </div>
                   </div>
 
-                  {/* Right: Review CTA */}
                   <div className="md:col-span-1 bg-gray-50 p-6 rounded-xl flex flex-col justify-center">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Share Your Thoughts</h3>
                     <p className="text-sm text-gray-600 mb-4">
@@ -1996,185 +2069,50 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
 
-                {/* Review Form */}
                 <div id="review-form" className="bg-gray-50 rounded-xl p-6 mb-8">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Write a Review</h3>
                   <ReviewForm
                     productId={product.id}
                     initialRating={product.user_rating?.rating}
                     initialComment={product.user_rating?.comment}
-                    onSubmit={fetchProduct}
+                    onSubmit={fetchProductBySlug}
                   />
                 </div>
 
-                {/* Reviews List */}
                 <div className="space-y-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">{translations['product.reviews.title'][language]}</h3>
                   {product.reviews && product.reviews.length > 0 ? (
-                    <>
-                      {/* Filters */}
-                      <div className="flex items-center gap-4 mb-6">
-                        <select 
-                          value={reviewSortBy}
-                          onChange={(e) => setReviewSortBy(e.target.value)}
-                          className="rounded-md border-gray-300 text-sm"
-                        >
-                          <option value="recent">Most Recent</option>
-                          <option value="highest">Highest Rated</option>
-                          <option value="lowest">Lowest Rated</option>
-                        </select>
-                        <select 
-                          value={reviewFilter}
-                          onChange={(e) => setReviewFilter(e.target.value)}
-                          className="rounded-md border-gray-300 text-sm"
-                        >
-                          <option value="all">All Stars</option>
-                          <option value="5">5 Stars</option>
-                          <option value="4">4 Stars</option>
-                          <option value="3">3 Stars</option>
-                          <option value="2">2 Stars</option>
-                          <option value="1">1 Star</option>
-                        </select>
-                      </div>
-
-                      {/* Process and filter reviews */}
-                      {(() => {
-                        let filteredReviews = [...product.reviews];
-                        
-                        // Apply star filter
-                        if (reviewFilter !== 'all') {
-                          const starFilter = parseInt(reviewFilter);
-                          filteredReviews = filteredReviews.filter(review => 
-                            Math.round(review.rating) === starFilter
-                          );
-                        }
-                        
-                        // Apply sorting
-                        filteredReviews.sort((a, b) => {
-                          switch (reviewSortBy) {
-                            case 'highest':
-                              return b.rating - a.rating;
-                            case 'lowest':
-                              return a.rating - b.rating;
-                            case 'recent':
-                            default:
-                              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                          }
-                        });
-                        
-                        // Calculate pagination
-                        const totalPages = Math.ceil(filteredReviews.length / reviewsPerPage);
-                        const startIndex = (currentReviewPage - 1) * reviewsPerPage;
-                        const endIndex = startIndex + reviewsPerPage;
-                        const currentReviews = filteredReviews.slice(startIndex, endIndex);
-                        
-                        return (
-                          <>
-                            {/* Reviews Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {currentReviews.map((review: Review) => (
-                                <div key={review.id} className="bg-gray-50 rounded-xl p-6">
-                                  <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center">
-                                      <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white font-medium">
-                                        {review.user.full_name[0]}
-                                      </div>
-                                      <div className="ml-3">
-                                        <p className="text-sm font-medium text-gray-900">
-                                          {review.user.full_name}
-                                        </p>
-                                        <div className="flex items-center mt-1">
-                                          <ProductRating
-                                            productId={review.id}
-                                            initialRating={review.rating}
-                                            readonly={true}
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <time className="text-sm text-gray-500">
-                                      {new Date(review.created_at).toLocaleDateString()}
-                                    </time>
-                                  </div>
-                                  {review.comment && (
-                                    <p className="text-sm text-gray-600 mt-2">{review.comment}</p>
-                                  )}
-                                  <div className="mt-4 flex items-center gap-4">
-                                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905 0 .905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                                      </svg>
-                                      Helpful
-                                    </button>
-                                    <button className="text-sm text-gray-500 hover:text-gray-700">
-                                      Report
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                            
-                            {/* Pagination */}
-                            {totalPages > 1 && (
-                              <div className="mt-8 flex justify-center">
-                                <nav className="flex items-center gap-2">
-                                  <button 
-                                    onClick={() => setCurrentReviewPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentReviewPage === 1}
-                                    className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    Previous
-                                  </button>
-                                  
-                                  {/* Page numbers */}
-                                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => {
-                                    // Show first page, last page, current page, and pages around current
-                                    const shouldShow = 
-                                      pageNum === 1 || 
-                                      pageNum === totalPages || 
-                                      Math.abs(pageNum - currentReviewPage) <= 1;
-                                    
-                                    if (!shouldShow) {
-                                      if (pageNum === 2 || pageNum === totalPages - 1) {
-                                        return <span key={pageNum} className="px-2 text-gray-500">...</span>;
-                                      }
-                                      return null;
-                                    }
-                                    
-                                    return (
-                                      <button
-                                        key={pageNum}
-                                        onClick={() => setCurrentReviewPage(pageNum)}
-                                        className={`px-3 py-1 rounded-md ${
-                                          currentReviewPage === pageNum
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        {pageNum}
-                                      </button>
-                                    );
-                                  })}
-                                  
-                                  <button 
-                                    onClick={() => setCurrentReviewPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentReviewPage === totalPages}
-                                    className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    Next
-                                  </button>
-                                </nav>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {product.reviews.slice(0, 6).map((review: Review) => (
+                        <div key={review.id} className="bg-gray-50 rounded-xl p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center text-white font-medium">
+                                {review.user.full_name[0]}
                               </div>
-                            )}
-                            
-                            {/* Results info */}
-                            <div className="text-center text-sm text-gray-500">
-                              Showing {startIndex + 1}-{Math.min(endIndex, filteredReviews.length)} of {filteredReviews.length} reviews
+                              <div className="ml-3">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {review.user.full_name}
+                                </p>
+                                <div className="flex items-center mt-1">
+                                  <ProductRating
+                                    productId={review.id}
+                                    initialRating={review.rating}
+                                    readonly={true}
+                                  />
+                                </div>
+                              </div>
                             </div>
-                          </>
-                        );
-                      })()}
-                    </>
+                            <time className="text-sm text-gray-500">
+                              {new Date(review.created_at).toLocaleDateString()}
+                            </time>
+                          </div>
+                          {review.comment && (
+                            <p className="text-sm text-gray-600 mt-2">{review.comment}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="text-center py-12 bg-gray-50 rounded-xl">
                       <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2191,6 +2129,12 @@ export default function ProductDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Contact Section */}
+        <ContactSection seller={product.users} />
+
+        {/* Related Products */}
+        <RelatedProducts currentProductId={product.id} category={product.category} />
       </div>
     </div>
   );
@@ -2323,7 +2267,7 @@ const ReviewsList = ({ reviews }: { reviews: Review[] }) => {
   );
 };
 
-// Rename the local SimilarProducts component to RelatedProducts to avoid conflict
+// RelatedProducts component
 const RelatedProducts = ({ currentProductId, category }: { currentProductId: string, category?: string }) => {
   const [products, setProducts] = useState<any[]>([]);
   const supabase = createClientComponent();
@@ -2392,63 +2336,3 @@ const RelatedProducts = ({ currentProductId, category }: { currentProductId: str
     </div>
   );
 };
-
-// Add this new component to display JSON data in a readable format
-const JsonDataDisplay = ({ label, data }: { label: string; data: any }) => {
-  if (!data || (Array.isArray(data) && data.length === 0) || Object.keys(data).length === 0) {
-    return null;
-  }
-
-  const renderValue = (value: any) => {
-    if (typeof value === 'object' && value !== null) {
-      if (value.sku) { // Handle variant display
-        return (
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>Size: <span className="font-medium">{value.size}</span></div>
-              <div>Color: <span className="font-medium">{value.color}</span></div>
-              <div>SKU: <span className="font-medium">{value.sku}</span></div>
-              <div>Quantity: <span className="font-medium">{value.quantity}</span></div>
-            </div>
-          </div>
-        );
-      }
-      return (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-          {Object.entries(value).map(([key, val]) => (
-            <div key={key} className="col-span-1">
-              <span className="text-gray-600">{key.replace(/_/g, ' ')}: </span>
-              <span className="font-medium">{val as string}</span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return <span className="font-medium">{value}</span>;
-  };
-
-  return (
-    <div className="mb-6 bg-white rounded-lg">
-      <h4 className="text-sm font-medium text-gray-900 mb-2">{label}</h4>
-      <div className="space-y-2">
-        {Array.isArray(data) ? (
-          <div className="flex flex-wrap gap-2">
-            {data.map((item, index) => (
-              <div key={index} className="flex-none">
-                {typeof item === 'object' ? (
-                  renderValue(item)
-                ) : (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-                    {item}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          renderValue(data)
-        )}
-      </div>
-    </div>
-  );
-}; 

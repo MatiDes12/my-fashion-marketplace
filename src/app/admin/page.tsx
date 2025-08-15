@@ -125,6 +125,15 @@ export default function AdminDashboardPage() {
     if (stats.dailyRevenue.length > 0) {
       setRevenueData(stats.dailyRevenue);
       setTransactionData(stats.dailyRevenue);
+    } else {
+      // Provide fallback data when no transactions exist
+      const fallbackData = [{
+        date: new Date().toISOString().split('T')[0],
+        revenue: 0,
+        transactions: 0
+      }];
+      setRevenueData(fallbackData);
+      setTransactionData(fallbackData);
     }
   }, [stats.dailyRevenue]);
 
@@ -330,73 +339,84 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div style={{ height: 350 }}>
-            <ResponsiveLine
-              data={[{
-                id: "Platform Revenue",
-                data: revenueData.map(d => ({
-                  x: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                  y: d.revenue
-                }))
-              }]}
-              colors={['#10b981']}
-              margin={{ top: 20, right: 20, bottom: 80, left: 80 }}
-              enableArea={true}
-              areaBaselineValue={0}
-              areaOpacity={0.1}
-              pointSize={8}
-              pointColor="#ffffff"
-              pointBorderWidth={2}
-              pointBorderColor="#10b981"
-              yFormat={value => `ETB ${value.toLocaleString()}`}
-              curve="monotoneX"
-              useMesh={true}
-              axisBottom={{
-                tickSize: 5,
-                tickPadding: 8,
-                tickRotation: -45,
-                legend: 'Date',
-                legendOffset: 60,
-                legendPosition: 'middle'
-              }}
-              axisLeft={{
-                tickSize: 5,
-                tickPadding: 8,
-                tickRotation: 0,
-                legend: 'Revenue (ETB)',
-                legendOffset: -60,
-                legendPosition: 'middle',
-                format: (value) => `${value.toLocaleString()}`
-              }}
-              theme={{
-                axis: {
-                  ticks: {
-                    text: {
-                      fill: '#6B7280',
-                      fontSize: 11
+            {revenueData.length > 0 && revenueData.some(d => d.revenue > 0) ? (
+              <ResponsiveLine
+                data={[{
+                  id: "Platform Revenue",
+                  data: revenueData.map(d => ({
+                    x: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    y: d.revenue
+                  }))
+                }]}
+                colors={['#10b981']}
+                margin={{ top: 20, right: 20, bottom: 80, left: 80 }}
+                enableArea={true}
+                areaBaselineValue={0}
+                areaOpacity={0.1}
+                pointSize={8}
+                pointColor="#ffffff"
+                pointBorderWidth={2}
+                pointBorderColor="#10b981"
+                yFormat={value => `ETB ${value.toLocaleString()}`}
+                curve="monotoneX"
+                useMesh={true}
+                axisBottom={{
+                  tickSize: 5,
+                  tickPadding: 8,
+                  tickRotation: -45,
+                  legend: 'Date',
+                  legendOffset: 60,
+                  legendPosition: 'middle'
+                }}
+                axisLeft={{
+                  tickSize: 5,
+                  tickPadding: 8,
+                  tickRotation: 0,
+                  legend: 'Revenue (ETB)',
+                  legendOffset: -60,
+                  legendPosition: 'middle',
+                  format: (value) => `${value.toLocaleString()}`
+                }}
+                theme={{
+                  axis: {
+                    ticks: {
+                      text: {
+                        fill: '#6B7280',
+                        fontSize: 11
+                      }
+                    },
+                    legend: {
+                      text: {
+                        fill: '#374151',
+                        fontSize: 12,
+                        fontWeight: 600
+                      }
                     }
                   },
-                  legend: {
-                    text: {
-                      fill: '#374151',
-                      fontSize: 12,
-                      fontWeight: 600
+                  grid: {
+                    line: {
+                      stroke: '#E5E7EB',
+                      strokeWidth: 1
                     }
                   }
-                },
-                grid: {
-                  line: {
-                    stroke: '#E5E7EB',
-                    strokeWidth: 1
-                  }
-                }
-              }}
-              tooltip={({ point }) => (
-                <div className="bg-gray-800 text-white p-3 text-sm rounded-lg shadow-lg border border-gray-700">
-                  <div className="font-bold text-white mb-1">{point.data.xFormatted}</div>
-                  <div className="text-green-300">Revenue: {point.data.yFormatted}</div>
+                }}
+                tooltip={({ point }) => (
+                  <div className="bg-gray-800 text-white p-3 text-sm rounded-lg shadow-lg border border-gray-700">
+                    <div className="font-bold text-white mb-1">{point.data.xFormatted}</div>
+                    <div className="text-green-300">Revenue: {point.data.yFormatted}</div>
+                  </div>
+                )}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-gray-500">
+                <div className="text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                  <p className="mt-2 text-sm">No revenue data available</p>
                 </div>
-              )}
-            />
+              </div>
+            )}
           </div>
           {/* Revenue Chart Date Range Picker */}
           <div className="mt-4 pt-4 border-t border-gray-200">
@@ -417,14 +437,25 @@ export default function AdminDashboardPage() {
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Payment Methods Distribution</h2>
           <div style={{ height: 350 }}>
-            <PieChart
-              data={stats.paymentMethods.map(p => ({
-                id: p.method,
-                label: p.method,
-                value: p.amount
-              }))}
-              height={300}
-            />
+            {stats.paymentMethods.length > 0 ? (
+              <PieChart
+                data={stats.paymentMethods.map(p => ({
+                  id: p.method,
+                  label: p.method,
+                  value: p.amount
+                }))}
+                height={300}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <p className="mt-2 text-sm">No payment data available</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -437,12 +468,23 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <div style={{ height: 350 }}>
-            <BarChart
-              data={transactionData}
-              keys={['transactions']}
-              indexBy="date"
-              height={300}
-            />
+            {transactionData.length > 0 && transactionData.some(d => d.transactions > 0) ? (
+              <BarChart
+                data={transactionData}
+                keys={['transactions']}
+                indexBy="date"
+                height={300}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-gray-500">
+                <div className="text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <p className="mt-2 text-sm">No transaction data available</p>
+                </div>
+              </div>
+            )}
           </div>
           {/* Transaction Chart Date Range Picker */}
           <div className="mt-4 pt-4 border-t border-gray-200">
@@ -497,59 +539,73 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {stats.recentTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50 transition-colors duration-150">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="font-medium text-gray-900">#{transaction.id.slice(0, 8)}</div>
-                      <div className="text-gray-500">{new Date(transaction.created_at).toLocaleDateString()}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="text-gray-900 relative group">
-                        <span 
-                          className="truncate block max-w-[200px] cursor-help"
-                          data-tip={transaction.order?.product?.title || 'N/A'}
-                        >
-                          {transaction.order?.product?.title || 'N/A'}
-                        </span>
-                        <div className="opacity-0 bg-black text-white text-xs rounded py-1 px-2 absolute z-10 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap">
-                          {transaction.order?.product?.title || 'N/A'}
-                          <svg className="absolute text-black h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                {stats.recentTransactions.length > 0 ? (
+                  stats.recentTransactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50 transition-colors duration-150">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="font-medium text-gray-900">#{transaction.id.slice(0, 8)}</div>
+                        <div className="text-gray-500">{new Date(transaction.created_at).toLocaleDateString()}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="text-gray-900 relative group">
+                          <span 
+                            className="truncate block max-w-[200px] cursor-help"
+                            data-tip={transaction.order?.product?.title || 'N/A'}
+                          >
+                            {transaction.order?.product?.title || 'N/A'}
+                          </span>
+                          <div className="opacity-0 bg-black text-white text-xs rounded py-1 px-2 absolute z-10 group-hover:opacity-100 bottom-full left-1/2 transform -translate-x-1/2 mb-1 whitespace-nowrap">
+                            {transaction.order?.product?.title || 'N/A'}
+                            <svg className="absolute text-black h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                          </div>
                         </div>
+                        <div className="text-gray-500">Ref: {transaction.order?.payment_reference?.slice(0, 8) || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="text-gray-900">{transaction.customer_name || 'N/A'}</div>
+                        <div className="text-gray-500">{transaction.customer_email || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="font-medium text-gray-900">Total: {formatCurrency(transaction.total_amount)}</div>
+                        <div className="text-gray-500">Method: {transaction.payment_method}</div>
+                        <div className="text-gray-500">Status: {transaction.payment_status}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
+                          ${transaction.seller_payout_status === 'completed' ? 
+                            'bg-green-100 text-green-800' : 
+                            'bg-yellow-100 text-yellow-800'}`}>
+                          {transaction.seller_payout_status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="text-gray-900">
+                          {(() => {
+                            const storeSettings = transaction.seller?.store_settings as any;
+                            return storeSettings?.name || 'Unknown Store';
+                          })()}
+                        </div>
+                        <div className="text-gray-500">{transaction.seller?.email || 'No email'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="text-gray-900">Service: {formatCurrency(transaction.service_fee)}</div>
+                        <div className="text-gray-500">VAT: {formatCurrency(transaction.vat_amount)}</div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="text-gray-500">
+                        <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        <p className="text-lg font-medium">No transactions found</p>
+                        <p className="text-sm">Transactions will appear here once orders are placed and payments are processed.</p>
                       </div>
-                      <div className="text-gray-500">Ref: {transaction.order?.payment_reference?.slice(0, 8) || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="text-gray-900">{transaction.customer_name || 'N/A'}</div>
-                      <div className="text-gray-500">{transaction.customer_email || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="font-medium text-gray-900">Total: {formatCurrency(transaction.total_amount)}</div>
-                      <div className="text-gray-500">Method: {transaction.payment_method}</div>
-                      <div className="text-gray-500">Status: {transaction.payment_status}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                        ${transaction.seller_payout_status === 'completed' ? 
-                          'bg-green-100 text-green-800' : 
-                          'bg-yellow-100 text-yellow-800'}`}>
-                        {transaction.seller_payout_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="text-gray-900">
-                        {(() => {
-                          const storeSettings = transaction.seller?.store_settings as any;
-                          return storeSettings?.name || 'Unknown Store';
-                        })()}
-                      </div>
-                      <div className="text-gray-500">{transaction.seller?.email || 'No email'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="text-gray-900">Service: {formatCurrency(transaction.service_fee)}</div>
-                      <div className="text-gray-500">VAT: {formatCurrency(transaction.vat_amount)}</div>
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

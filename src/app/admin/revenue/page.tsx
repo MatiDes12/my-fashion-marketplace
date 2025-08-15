@@ -109,6 +109,15 @@ export default function RevenuePage() {
   useEffect(() => {
     if (stats.dailyRevenue.length > 0) {
       setRevenueChartData(stats.dailyRevenue);
+    } else {
+      // Provide fallback data when no transactions exist
+      const fallbackData = [{
+        date: new Date().toISOString().split('T')[0],
+        totalRevenue: 0,
+        platformRevenue: 0,
+        sellerPayouts: 0
+      }];
+      setRevenueChartData(fallbackData);
     }
   }, [stats.dailyRevenue]);
 
@@ -116,6 +125,9 @@ export default function RevenuePage() {
   useEffect(() => {
     if (stats.revenueByPaymentMethod.length > 0) {
       setPaymentMethodData(stats.revenueByPaymentMethod);
+    } else {
+      // Provide fallback data when no payment methods exist
+      setPaymentMethodData([]);
     }
   }, [stats.revenueByPaymentMethod]);
 
@@ -503,7 +515,9 @@ export default function RevenuePage() {
                     {count}
                   </p>
                   <p className="mt-1 text-sm text-gray-500">
-                    {((count / Object.values(stats.orderStatusCounts).reduce((a, b) => a + b, 0)) * 100).toFixed(1)}% of total
+                    {Object.values(stats.orderStatusCounts).reduce((a, b) => a + b, 0) > 0 ? 
+                      `${((count / Object.values(stats.orderStatusCounts).reduce((a, b) => a + b, 0)) * 100).toFixed(1)}% of total` : 
+                      '0% of total'}
                   </p>
                 </div>
                 <div className={`
@@ -581,98 +595,110 @@ export default function RevenuePage() {
               </div>
             </div>
             <div style={{ height: 350 }}>
-              <ResponsiveLine
-                data={[
-                  {
-                    id: "Total Revenue",
-                    data: revenueChartData.map(d => ({
-                      x: new Date(d.date).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                      }),
-                      y: d.totalRevenue
-                    }))
-                  },
-                  {
-                    id: "Service Revenue",
-                    data: revenueChartData.map(d => ({
-                      x: new Date(d.date).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                      }),
-                      y: d.platformRevenue
-                    }))
-                  },
-                  {
-                    id: "Seller Payouts",
-                    data: revenueChartData.map(d => ({
-                      x: new Date(d.date).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                      }),
-                      y: d.sellerPayouts
-                    }))
-                  }
-                ]}
-                colors={['#10b981', '#3b82f6', '#ef4444']}
-                margin={{ top: 20, right: 20, bottom: 80, left: 80 }}
-                enableArea={true}
-                areaBaselineValue={0}
-                areaOpacity={0.1}
-                pointSize={8}
-                pointColor="#ffffff"
-                pointBorderWidth={2}
-                pointBorderColor={{ from: 'serieColor' }}
-                yFormat={value => `ETB ${value.toLocaleString()}`}
-                curve="monotoneX"
-                useMesh={true}
-                axisBottom={{
-                  tickSize: 5,
-                  tickPadding: 8,
-                  tickRotation: -45,
-                  legend: 'Date',
-                  legendOffset: 60,
-                  legendPosition: 'middle'
-                }}
-                axisLeft={{
-                  tickSize: 5,
-                  tickPadding: 8,
-                  tickRotation: 0,
-                  legend: 'Revenue (ETB)',
-                  legendOffset: -60,
-                  legendPosition: 'middle',
-                  format: (value) => `${value.toLocaleString()}`
-                }}
-                theme={{
-                  axis: {
-                    ticks: {
-                      text: {
-                        fill: '#6B7280',
-                        fontSize: 11
+              {revenueChartData.length > 0 && revenueChartData.some(d => d.totalRevenue > 0 || d.platformRevenue > 0 || d.sellerPayouts > 0) ? (
+                <ResponsiveLine
+                  data={[
+                    {
+                      id: "Total Revenue",
+                      data: revenueChartData.map(d => ({
+                        x: new Date(d.date).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        }),
+                        y: d.totalRevenue
+                      }))
+                    },
+                    {
+                      id: "Service Revenue",
+                      data: revenueChartData.map(d => ({
+                        x: new Date(d.date).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        }),
+                        y: d.platformRevenue
+                      }))
+                    },
+                    {
+                      id: "Seller Payouts",
+                      data: revenueChartData.map(d => ({
+                        x: new Date(d.date).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric' 
+                        }),
+                        y: d.sellerPayouts
+                      }))
+                    }
+                  ]}
+                  colors={['#10b981', '#3b82f6', '#ef4444']}
+                  margin={{ top: 20, right: 20, bottom: 80, left: 80 }}
+                  enableArea={true}
+                  areaBaselineValue={0}
+                  areaOpacity={0.1}
+                  pointSize={8}
+                  pointColor="#ffffff"
+                  pointBorderWidth={2}
+                  pointBorderColor={{ from: 'serieColor' }}
+                  yFormat={value => `ETB ${value.toLocaleString()}`}
+                  curve="monotoneX"
+                  useMesh={true}
+                  axisBottom={{
+                    tickSize: 5,
+                    tickPadding: 8,
+                    tickRotation: -45,
+                    legend: 'Date',
+                    legendOffset: 60,
+                    legendPosition: 'middle'
+                  }}
+                  axisLeft={{
+                    tickSize: 5,
+                    tickPadding: 8,
+                    tickRotation: 0,
+                    legend: 'Revenue (ETB)',
+                    legendOffset: -60,
+                    legendPosition: 'middle',
+                    format: (value) => `${value.toLocaleString()}`
+                  }}
+                  theme={{
+                    axis: {
+                      ticks: {
+                        text: {
+                          fill: '#6B7280',
+                          fontSize: 11
+                        }
+                      },
+                      legend: {
+                        text: {
+                          fill: '#374151',
+                          fontSize: 12,
+                          fontWeight: 600
+                        }
                       }
                     },
-                    legend: {
-                      text: {
-                        fill: '#374151',
-                        fontSize: 12,
-                        fontWeight: 600
+                    grid: {
+                      line: {
+                        stroke: '#E5E7EB',
+                        strokeWidth: 1
                       }
                     }
-                  },
-                  grid: {
-                    line: {
-                      stroke: '#E5E7EB',
-                      strokeWidth: 1
-                    }
-                  }
-                }}
-                tooltip={({ point }) => (
-                  <div className="bg-gray-800 text-white p-3 text-sm rounded-lg shadow-lg border border-gray-700">
-                    <div className="font-bold text-white mb-1">{point.data.xFormatted}</div>
-                    <div className="text-green-300">{point.serieId}: {point.data.yFormatted}</div>
+                  }}
+                  tooltip={({ point }) => (
+                    <div className="bg-gray-800 text-white p-3 text-sm rounded-lg shadow-lg border border-gray-700">
+                      <div className="font-bold text-white mb-1">{point.data.xFormatted}</div>
+                      <div className="text-green-300">{point.serieId}: {point.data.yFormatted}</div>
+                    </div>
+                  )}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-[350px] text-gray-500">
+                  <div className="text-center">
+                    <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    <p className="mt-2 text-sm">No revenue data available</p>
+                    <p className="text-xs text-gray-400 mt-1">Revenue trends will appear here once transactions are processed</p>
                   </div>
-                )}
-              />
+                </div>
+              )}
             </div>
           </div>
           
@@ -719,7 +745,7 @@ export default function RevenuePage() {
                   {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0))}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {revenueChartData.length > 0 ? 
+                  {revenueChartData.length > 0 && revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) > 0 ? 
                     `${((revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}% of total` : 
                     'No data'}
                 </p>
@@ -734,7 +760,7 @@ export default function RevenuePage() {
                   {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0))}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {revenueChartData.length > 0 ? 
+                  {revenueChartData.length > 0 && revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) > 0 ? 
                     `${((revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}% of total` : 
                     'No data'}
                 </p>
@@ -757,7 +783,7 @@ export default function RevenuePage() {
             </div>
 
             {/* Additional Insights */}
-            {revenueChartData.length > 0 && (
+            {revenueChartData.length > 0 && revenueChartData.some(d => d.totalRevenue > 0) && (
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg p-4 border border-gray-200">
                   <h4 className="text-sm font-semibold text-gray-700 mb-2">Peak Performance</h4>
@@ -783,14 +809,18 @@ export default function RevenuePage() {
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">Platform Margin:</span>
                       <span className="font-medium text-green-600">
-                        {((revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}%
+                        {revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) > 0 ? 
+                          `${((revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}%` : 
+                          '0%'}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">Seller Share:</span>
-                      <span className="font-medium text-blue-600">
-                        {((revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}%
-                      </span>
+                                              <span className="font-medium text-blue-600">
+                          {revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) > 0 ? 
+                            `${((revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}%` : 
+                            '0%'}
+                        </span>
                     </div>
                   </div>
                 </div>
@@ -819,61 +849,73 @@ export default function RevenuePage() {
                 </div>
               </div>
               <div style={{ height: 280 }}>
-                <ResponsivePie
-                  data={paymentMethodData.map(p => ({
-                    id: p.method,
-                    label: p.method,
-                    value: p.amount,
-                    formattedValue: formatCurrency(p.amount)
-                  }))}
-                  margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
-                  innerRadius={0.6}
-                  padAngle={0.7}
-                  cornerRadius={3}
-                  activeOuterRadiusOffset={8}
-                  colors={{ scheme: 'nivo' }}
-                  borderWidth={1}
-                  borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
-                  arcLinkLabelsSkipAngle={10}
-                  arcLinkLabelsTextColor="#374151"
-                  arcLinkLabelsThickness={2}
-                  arcLinkLabelsColor={{ from: 'color' }}
-                  arcLabelsSkipAngle={10}
-                  arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
-                  motionConfig="wobbly"
-                  transitionMode="pushIn"
-                  legends={[
-                    {
-                      anchor: 'bottom',
-                      direction: 'row',
-                      justify: false,
-                      translateX: 0,
-                      translateY: 50,
-                      itemWidth: 80,
-                      itemHeight: 20,
-                      itemsSpacing: 10,
-                      symbolSize: 12,
-                      itemDirection: 'left-to-right'
-                    }
-                  ]}
-                  theme={{
-                    legends: {
-                      text: {
-                        fill: '#6B7280',
-                        fontSize: 11
+                {paymentMethodData.length > 0 && paymentMethodData.some(p => p.amount > 0) ? (
+                  <ResponsivePie
+                    data={paymentMethodData.map(p => ({
+                      id: p.method,
+                      label: p.method,
+                      value: p.amount,
+                      formattedValue: formatCurrency(p.amount)
+                    }))}
+                    margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                    innerRadius={0.6}
+                    padAngle={0.7}
+                    cornerRadius={3}
+                    activeOuterRadiusOffset={8}
+                    colors={{ scheme: 'nivo' }}
+                    borderWidth={1}
+                    borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
+                    arcLinkLabelsSkipAngle={10}
+                    arcLinkLabelsTextColor="#374151"
+                    arcLinkLabelsThickness={2}
+                    arcLinkLabelsColor={{ from: 'color' }}
+                    arcLabelsSkipAngle={10}
+                    arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+                    motionConfig="wobbly"
+                    transitionMode="pushIn"
+                    legends={[
+                      {
+                        anchor: 'bottom',
+                        direction: 'row',
+                        justify: false,
+                        translateX: 0,
+                        translateY: 50,
+                        itemWidth: 80,
+                        itemHeight: 20,
+                        itemsSpacing: 10,
+                        symbolSize: 12,
+                        itemDirection: 'left-to-right'
                       }
-                    }
-                  }}
-                  tooltip={({ datum }) => (
-                    <div className="bg-gray-800 text-white p-3 rounded-lg shadow-lg transform transition-all duration-200 scale-105">
-                      <div className="font-bold text-lg">{datum.label}</div>
-                      <div className="text-lg">{datum.formattedValue}</div>
-                      <div className="text-sm text-gray-300">
-                        {((datum.value / paymentMethodData.reduce((sum, p) => sum + p.amount, 0)) * 100).toFixed(1)}% of total
+                    ]}
+                    theme={{
+                      legends: {
+                        text: {
+                          fill: '#6B7280',
+                          fontSize: 11
+                        }
+                      }
+                    }}
+                    tooltip={({ datum }) => (
+                      <div className="bg-gray-800 text-white p-3 rounded-lg shadow-lg transform transition-all duration-200 scale-105">
+                        <div className="font-bold text-lg">{datum.label}</div>
+                        <div className="text-lg">{datum.formattedValue}</div>
+                        <div className="text-sm text-gray-300">
+                          {((datum.value / paymentMethodData.reduce((sum, p) => sum + p.amount, 0)) * 100).toFixed(1)}% of total
+                        </div>
                       </div>
+                    )}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-[280px] text-gray-500">
+                    <div className="text-center">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      <p className="mt-2 text-sm">No payment data available</p>
+                      <p className="text-xs text-gray-400 mt-1">Payment method distribution will appear here once transactions are processed</p>
                     </div>
-                  )}
-                />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -887,61 +929,73 @@ export default function RevenuePage() {
                 </div>
               </div>
               <div style={{ height: 280 }}>
-                <ResponsivePie
-                  data={paymentMethodData.map(p => ({
-                    id: p.method,
-                    label: p.method,
-                    value: p.serviceRevenue,
-                    formattedValue: formatCurrency(p.serviceRevenue)
-                  }))}
-                  margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
-                  innerRadius={0.6}
-                  padAngle={0.7}
-                  cornerRadius={3}
-                  activeOuterRadiusOffset={8}
-                  colors={{ scheme: 'category10' }}
-                  borderWidth={1}
-                  borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
-                  arcLinkLabelsSkipAngle={10}
-                  arcLinkLabelsTextColor="#374151"
-                  arcLinkLabelsThickness={2}
-                  arcLinkLabelsColor={{ from: 'color' }}
-                  arcLabelsSkipAngle={10}
-                  arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
-                  motionConfig="wobbly"
-                  transitionMode="pushIn"
-                  legends={[
-                    {
-                      anchor: 'bottom',
-                      direction: 'row',
-                      justify: false,
-                      translateX: 0,
-                      translateY: 50,
-                      itemWidth: 80,
-                      itemHeight: 20,
-                      itemsSpacing: 10,
-                      symbolSize: 12,
-                      itemDirection: 'left-to-right'
-                    }
-                  ]}
-                  theme={{
-                    legends: {
-                      text: {
-                        fill: '#6B7280',
-                        fontSize: 11
+                {paymentMethodData.length > 0 && paymentMethodData.some(p => p.serviceRevenue > 0) ? (
+                  <ResponsivePie
+                    data={paymentMethodData.map(p => ({
+                      id: p.method,
+                      label: p.method,
+                      value: p.serviceRevenue,
+                      formattedValue: formatCurrency(p.serviceRevenue)
+                    }))}
+                    margin={{ top: 20, right: 20, bottom: 60, left: 20 }}
+                    innerRadius={0.6}
+                    padAngle={0.7}
+                    cornerRadius={3}
+                    activeOuterRadiusOffset={8}
+                    colors={{ scheme: 'category10' }}
+                    borderWidth={1}
+                    borderColor={{ from: 'color', modifiers: [['darker', 0.2]] }}
+                    arcLinkLabelsSkipAngle={10}
+                    arcLinkLabelsTextColor="#374151"
+                    arcLinkLabelsThickness={2}
+                    arcLinkLabelsColor={{ from: 'color' }}
+                    arcLabelsSkipAngle={10}
+                    arcLabelsTextColor={{ from: 'color', modifiers: [['darker', 2]] }}
+                    motionConfig="wobbly"
+                    transitionMode="pushIn"
+                    legends={[
+                      {
+                        anchor: 'bottom',
+                        direction: 'row',
+                        justify: false,
+                        translateX: 0,
+                        translateY: 50,
+                        itemWidth: 80,
+                        itemHeight: 20,
+                        itemsSpacing: 10,
+                        symbolSize: 12,
+                        itemDirection: 'left-to-right'
                       }
-                    }
-                  }}
-                  tooltip={({ datum }) => (
-                    <div className="bg-gray-800 text-white p-3 rounded-lg shadow-lg transform transition-all duration-200 scale-105">
-                      <div className="font-bold text-lg">{datum.label}</div>
-                      <div className="text-lg">{datum.formattedValue}</div>
-                      <div className="text-sm text-gray-300">
-                        {((datum.value / paymentMethodData.reduce((sum, p) => sum + p.serviceRevenue, 0)) * 100).toFixed(1)}% of service revenue
+                    ]}
+                    theme={{
+                      legends: {
+                        text: {
+                          fill: '#6B7280',
+                          fontSize: 11
+                        }
+                      }
+                    }}
+                    tooltip={({ datum }) => (
+                      <div className="bg-gray-800 text-white p-3 rounded-lg shadow-lg transform transition-all duration-200 scale-105">
+                        <div className="font-bold text-lg">{datum.label}</div>
+                        <div className="text-lg">{datum.formattedValue}</div>
+                        <div className="text-sm text-gray-300">
+                          {((datum.value / paymentMethodData.reduce((sum, p) => sum + p.serviceRevenue, 0)) * 100).toFixed(1)}% of service revenue
+                        </div>
                       </div>
+                    )}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-[280px] text-gray-500">
+                    <div className="text-center">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="mt-2 text-sm">No service revenue data available</p>
+                      <p className="text-xs text-gray-400 mt-1">Service revenue distribution will appear here once transactions are processed</p>
                     </div>
-                  )}
-                />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -950,29 +1004,41 @@ export default function RevenuePage() {
           <div className="mt-8">
             <h3 className="text-lg font-semibold text-gray-900 mb-6">Payment Method Summary</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {paymentMethodData.map(method => (
-                <div key={method.method} className="bg-white rounded-xl p-5 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className="text-sm font-semibold text-gray-700 flex-1 pr-2">{method.method}</h4>
-                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+              {paymentMethodData.length > 0 ? (
+                paymentMethodData.map(method => (
+                  <div key={method.method} className="bg-white rounded-xl p-5 shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 hover:scale-105">
+                    <div className="flex items-start justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-700 flex-1 pr-2">{method.method}</h4>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1"></div>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs text-gray-500">Total Revenue</p>
+                        <p className="text-base font-bold text-gray-900">{formatCurrency(method.amount)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Service Revenue</p>
+                        <p className="text-sm font-semibold text-green-600">{formatCurrency(method.serviceRevenue)}</p>
+                      </div>
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-xs text-gray-500">
+                          {((method.amount / paymentMethodData.reduce((sum, p) => sum + p.amount, 0)) * 100).toFixed(1)}% of total
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs text-gray-500">Total Revenue</p>
-                      <p className="text-base font-bold text-gray-900">{formatCurrency(method.amount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Service Revenue</p>
-                      <p className="text-sm font-semibold text-green-600">{formatCurrency(method.serviceRevenue)}</p>
-                    </div>
-                    <div className="pt-2 border-t border-gray-100">
-                      <p className="text-xs text-gray-500">
-                        {((method.amount / paymentMethodData.reduce((sum, p) => sum + p.amount, 0)) * 100).toFixed(1)}% of total
-                      </p>
-                    </div>
+                ))
+              ) : (
+                <div className="col-span-full">
+                  <div className="bg-white rounded-xl p-8 shadow-md border border-gray-100 text-center">
+                    <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    <p className="text-lg font-medium text-gray-900 mb-2">No payment methods found</p>
+                    <p className="text-sm text-gray-500">Payment method summaries will appear here once transactions are processed</p>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -1013,25 +1079,39 @@ export default function RevenuePage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {stats.topSellers.map((seller) => (
-                  <tr key={seller.seller_id} className="hover:bg-gray-50 transition-colors duration-150">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {seller.seller_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(seller.total_sales)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(seller.total_payout)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {seller.transaction_count}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(seller.total_sales / seller.transaction_count)}
+                {stats.topSellers.length > 0 ? (
+                  stats.topSellers.map((seller) => (
+                    <tr key={seller.seller_id} className="hover:bg-gray-50 transition-colors duration-150">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {seller.seller_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatCurrency(seller.total_sales)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatCurrency(seller.total_payout)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {seller.transaction_count}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatCurrency(seller.total_sales / seller.transaction_count)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="text-gray-500">
+                        <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <p className="text-lg font-medium">No sellers found</p>
+                        <p className="text-sm">Top performing sellers will appear here once transactions are processed</p>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

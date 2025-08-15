@@ -15,6 +15,7 @@ import SellerVerificationForm from '@/components/SellerVerificationForm';
 import { withSellerVerification } from '@/components/withSellerVerification';
 import { toast } from 'react-hot-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import PaymentSetupBanner from '@/components/PaymentSetupBanner';
 
 interface Product {
   id: string;
@@ -214,6 +215,51 @@ export default withSellerVerification(function DashboardPage() {
 
         if (settingsError) {
           console.error('Error checking payment settings:', settingsError);
+          
+          // If no payment settings found (PGRST116 error or similar), show friendly message
+          if (settingsError.code === 'PGRST116' || settingsError.message?.includes('No rows found')) {
+            setHasPaymentSettings(false);
+            toast.error(
+              <div>
+                <div className="flex items-center">
+                  <CreditCardIcon className="h-5 w-5 text-red-500 mr-2" />
+                  <div>
+                    <p className="font-medium">Payment Setup Required</p>
+                    <p className="text-sm">Please set up your payment methods to start selling products.</p>
+                  </div>
+                </div>
+                <Link 
+                  href="/dashboard/payment-settings" 
+                  className="inline-flex items-center mt-3 px-3 py-1 rounded-md bg-red-600 text-white text-sm hover:bg-red-700 transition-colors"
+                >
+                  Set Up Payments Now
+                </Link>
+              </div>,
+              { 
+                duration: 8000,
+                style: {
+                  minWidth: '350px',
+                }
+              }
+            );
+          } else {
+            // Other database errors
+            toast.error(
+              <div>
+                <div className="flex items-center">
+                  <svg className="h-5 w-5 text-red-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="font-medium">Unable to check payment settings</p>
+                    <p className="text-sm">Please refresh the page or contact support if the issue persists.</p>
+                  </div>
+                </div>
+              </div>,
+              { duration: 5000 }
+            );
+            setHasPaymentSettings(false);
+          }
         } else {
           const hasSettings = settings?.telebirr_settings?.is_active || 
                              settings?.chapa_settings?.is_active || 
@@ -227,15 +273,26 @@ export default withSellerVerification(function DashboardPage() {
           if (!hasSettings) {
             toast.error(
               <div>
-                <p>{t('dashboard.banner.paymentsRequired')}</p>
+                <div className="flex items-center">
+                  <CreditCardIcon className="h-5 w-5 text-yellow-500 mr-2" />
+                  <div>
+                    <p className="font-medium">Payment Methods Not Configured</p>
+                    <p className="text-sm">Add payment methods to start accepting orders from customers.</p>
+                  </div>
+                </div>
                 <Link 
                   href="/dashboard/payment-settings" 
-                  className="text-green-600 hover:text-green-500 mt-2 block"
+                  className="inline-flex items-center mt-3 px-3 py-1 rounded-md bg-yellow-600 text-white text-sm hover:bg-yellow-700 transition-colors"
                 >
-                  {t('dashboard.actions.setupPayments')}
+                  Configure Payment Methods
                 </Link>
               </div>,
-              { duration: 5000 }
+              { 
+                duration: 6000,
+                style: {
+                  minWidth: '350px',
+                }
+              }
             );
           }
         }
@@ -660,6 +717,19 @@ export default withSellerVerification(function DashboardPage() {
           </div>
         </div>
 
+        {/* Payment Setup Alert - Show if no payment methods configured */}
+        {!hasPaymentSettings && (
+          <div className="mb-6">
+            <PaymentSetupBanner
+              variant="error"
+              title="🚨 Payment Setup Required"
+              description="Your store is not ready to accept orders yet. Please configure at least one payment method to start selling your products to customers."
+              actionText="Set Up Payment Methods Now"
+              className="animate-pulse border-2"
+            />
+          </div>
+        )}
+
         {/* Welcome Section with Quick Stats */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-2xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between text-white">
@@ -691,25 +761,14 @@ export default withSellerVerification(function DashboardPage() {
           </div>
           
           {!hasPaymentSettings && (
-            <div className="mt-4 bg-yellow-50/10 backdrop-blur-sm border border-yellow-200/20 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-200" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-yellow-200">
-                    {t('dashboard.banner.paymentsRequired')}
-                    <Link 
-                      href="/dashboard/payment-settings"
-                      className="font-medium text-yellow-100 underline ml-2"
-                    >
-                      {t('dashboard.banner.setupNow')}
-                    </Link>
-                  </p>
-                </div>
-              </div>
+            <div className="mt-4">
+              <PaymentSetupBanner
+                variant="warning"
+                title={t('dashboard.banner.paymentsRequired')}
+                description="You need to configure at least one payment method to start selling products and accepting customer orders."
+                actionText={t('dashboard.banner.setupNow')}
+                className="bg-yellow-500/10 backdrop-blur-sm border-yellow-200/20 text-yellow-100"
+              />
             </div>
           )}
           

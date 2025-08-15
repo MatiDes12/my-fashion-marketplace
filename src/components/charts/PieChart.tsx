@@ -12,6 +12,24 @@ interface PieChartProps {
 }
 
 export function PieChart({ data, height = 400 }: PieChartProps) {
+  // Check if data is empty or has no valid data points
+  const hasValidData = data && data.length > 0 && data.some(item => item.value > 0);
+
+  if (!hasValidData) {
+    return (
+      <div style={{ height }} className="flex items-center justify-center text-gray-500">
+        <div className="text-center">
+          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+          </svg>
+          <p className="text-lg font-medium">No data available</p>
+          <p className="text-sm">Chart will display when data is available</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ height }}>
       <ResponsivePie

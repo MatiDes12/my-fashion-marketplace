@@ -30,11 +30,12 @@ interface FeaturedSeller {
   seller_id: string;
   seller_name: string;
   verification_status: string;
+  verification?: any;
   store_settings: {
     name: string;
     logo_url: string;
     description: string;
-      banner_url?: string;
+    banner_url?: string;
   };
   top_product: {
     id: string;
@@ -777,34 +778,137 @@ export default function HomePage() {
 
   const fetchFeaturedBrands = async () => {
     try {
+      // First get verified users with their products and ratings/likes
       const { data: brands, error } = await supabase
         .from('users')
         .select(`
           id,
           full_name,
           store_settings,
-          verification_status
+          verification_status,
+          products (
+            id,
+            ratings (
+              id,
+              rating
+            ),
+            likes (
+              id
+            )
+          )
         `)
         .eq('verification_status', 'verified')
-        .limit(8);
+        .eq('role', 'owner');
 
       if (error) throw error;
 
-      const processedBrands = brands?.map(brand => ({
-        seller_id: brand.id,
-        seller_name: brand.full_name,
-        verification_status: brand.verification_status,
-        store_settings: brand.store_settings || { name: brand.full_name, logo_url: '', description: '', banner_url: '' },
-        top_product: {
-          id: '',
-          title: 'Featured Product',
-          price: 0,
-          images: [],
-          like_count: 0
-        }
-      })) || [];
+      // Get public business names from the view
+      const { data: businessNames, error: businessNamesError } = await supabase
+        .from('public_business_names')
+        .select('*');
 
-      setFeaturedBrands(processedBrands);
+      if (businessNamesError) {
+        console.error('Error fetching business names:', businessNamesError);
+      }
+
+      console.log('Public business names from view:', businessNames);
+
+      const processedBrands = brands?.map(brand => {
+        // Find business name for this user
+        const businessNameData = businessNames?.find(bn => bn.user_id === brand.id);
+        
+        // Calculate ratings and likes metrics
+        const products = brand.products || [];
+        const allRatings = products.flatMap(product => product.ratings || []);
+        const allLikes = products.flatMap(product => product.likes || []);
+        
+        const totalRatings = allRatings.length;
+        const totalLikes = allLikes.length;
+        const avgRating = totalRatings > 0 
+          ? allRatings.reduce((sum, rating) => sum + rating.rating, 0) / totalRatings 
+          : 0;
+        
+        // Calculate combined score: (average rating * weight) + (total likes * weight) + (total ratings * weight)
+        const ratingWeight = 0.4;
+        const likesWeight = 0.3;
+        const ratingsCountWeight = 0.3;
+        
+        const combinedScore = (avgRating * ratingWeight) + 
+                             (totalLikes * likesWeight) + 
+                             (totalRatings * ratingsCountWeight);
+
+        // Priority logic: Store setup takes priority, then business name from verification
+        const hasStoreSetup = brand.store_settings && 
+                             (brand.store_settings.name || 
+                              brand.store_settings.description || 
+                              brand.store_settings.logo_url || 
+                              brand.store_settings.banner_url);
+
+        const displayName = hasStoreSetup 
+          ? (brand.store_settings?.name || businessNameData?.business_name || brand.full_name)
+          : (businessNameData?.business_name || brand.full_name);
+
+        console.log('Processing brand:', {
+          userId: brand.id,
+          fullName: brand.full_name,
+          hasStoreSetup: hasStoreSetup,
+          avgRating: avgRating,
+          totalLikes: totalLikes,
+          totalRatings: totalRatings,
+          combinedScore: combinedScore,
+          displayName: displayName
+        });
+
+        return {
+          seller_id: brand.id,
+          seller_name: brand.full_name,
+          verification_status: brand.verification_status,
+          verification: businessNameData ? { business_name: businessNameData.business_name } : null,
+          hasStoreSetup: hasStoreSetup,
+          avgRating: avgRating,
+          totalLikes: totalLikes,
+          totalRatings: totalRatings,
+          combinedScore: combinedScore,
+          store_settings: {
+            name: displayName,
+            logo_url: brand.store_settings?.logo_url || '',
+            description: brand.store_settings?.shortDescription || 
+                        brand.store_settings?.description || 
+                        (businessNameData ? `${businessNameData.business_name} - Verified Business` : 'Verified seller on our platform'),
+            banner_url: brand.store_settings?.banner_url || ''
+          },
+          top_product: {
+            id: '',
+            title: 'Featured Product',
+            price: 0,
+            images: [],
+            like_count: 0
+          }
+        };
+      }) || [];
+
+      // Sort by priority: 
+      // 1. Stores with setup come first
+      // 2. Then by combined score (ratings + likes)
+      // 3. Then by name alphabetically
+      const sortedBrands = processedBrands
+        .sort((a, b) => {
+          // First priority: stores with setup
+          if (a.hasStoreSetup && !b.hasStoreSetup) return -1;
+          if (!a.hasStoreSetup && b.hasStoreSetup) return 1;
+          
+          // Second priority: combined score
+          if (a.combinedScore !== b.combinedScore) {
+            return b.combinedScore - a.combinedScore;
+          }
+          
+          // Third priority: alphabetical by name
+          return a.store_settings.name.localeCompare(b.store_settings.name);
+        })
+        .slice(0, 10); // Top 10 only
+
+      console.log('Sorted top 10 brands:', sortedBrands);
+      setFeaturedBrands(sortedBrands);
     } catch (error) {
       console.error('Error fetching featured brands:', error);
     }
@@ -1551,18 +1655,33 @@ export default function HomePage() {
                 </p>
               </motion.div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {featuredBrands.slice(0, 8).map((brand, index) => (
-                    <motion.div
-                      key={brand.seller_id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                    className="group"
-                  >
+              <div className="relative">
+                <div 
+                  id="featured-brands-scroll"
+                  className="flex gap-6 overflow-x-auto scrollbar-hide pb-4"
+                  style={{ 
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                  }}
+                >
+                  {featuredBrands
+                    .sort((a, b) => {
+                      // Sort by verification status first, then by name
+                      if (a.verification_status === 'verified' && b.verification_status !== 'verified') return -1;
+                      if (a.verification_status !== 'verified' && b.verification_status === 'verified') return 1;
+                      return a.store_settings.name.localeCompare(b.store_settings.name);
+                    })
+                    .slice(0, 12).map((brand, index) => (
+                                          <motion.div
+                        key={brand.seller_id}
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: index * 0.1 }}
+                        viewport={{ once: true }}
+                        className="group flex-none w-80"
+                      >
                          <Link href={`/stores/${brand.seller_id}`}>
-                       <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                       <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 h-[280px] flex flex-col">
                          {/* Banner */}
                          <div className="relative h-28">
                            {brand.store_settings.banner_url ? (
@@ -1595,31 +1714,84 @@ export default function HomePage() {
                              )}
                            </div>
                          </div>
-                         <div className="px-3 pt-4 pb-6 text-center">
-                           <div className="flex items-center justify-center gap-2">
-                             <h3 className="text-base font-semibold text-gray-900 group-hover:text-red-600 transition-colors line-clamp-1">
-                               {brand.store_settings.name}
-                             </h3>
-                             {brand.verification_status === 'verified' && (
-                               <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                               </svg>
-                             )}
-                           </div>
-                           <p className="mt-2 text-sm text-gray-500 line-clamp-2">
-                             {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Verified seller on our platform')}
-                           </p>
-                           <div className="flex justify-center mt-4">
-                             <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                               ⭐ Top Seller
-                             </span>
-                           </div>
-                         </div>
+                                                   <div className="px-3 pt-4 pb-6 text-center flex-1 flex flex-col">
+                            <div className="flex items-center justify-center gap-2">
+                              <h3 className="text-base font-semibold text-gray-900 group-hover:text-red-600 transition-colors line-clamp-1">
+                                {brand.store_settings.name}
+                              </h3>
+                              {brand.verification_status === 'verified' && (
+                                <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                            
+                            {/* Show verification status or description - with flex-grow to fill space */}
+                            <div className="flex-grow flex flex-col justify-center">
+                              {brand.verification?.business_name ? (
+                                <div className="text-center">
+                                  <p className="text-xs text-green-600">✓ Verified Business</p>
+                                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                                    {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Trusted verified seller')}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500 line-clamp-2">
+                                  {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Verified seller on our platform')}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <div className="flex justify-center mt-auto">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                ⭐ Top Seller
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      </Link>
-                    </motion.div>
-                  ))}
+                                              </Link>
+                      </motion.div>
+                    ))}
                 </div>
+
+                {/* Navigation Controls */}
+                <div className="flex justify-between items-center mt-4">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    <span className="text-sm font-medium">Featured Stores</span>
+                  </div>
+                  <div className="hidden md:flex items-center gap-3">
+                    <button 
+                      onClick={() => {
+                        const container = document.getElementById('featured-brands-scroll');
+                        container?.scrollBy({ left: -320, behavior: 'smooth' });
+                      }}
+                      className="group p-3 rounded-full bg-white/80 backdrop-blur-sm border border-red-200 hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
+                      aria-label="Scroll left"
+                    >
+                      <svg className="w-5 h-5 text-red-600 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const container = document.getElementById('featured-brands-scroll');
+                        container?.scrollBy({ left: 320, behavior: 'smooth' });
+                      }}
+                      className="group p-3 rounded-full bg-white/80 backdrop-blur-sm border border-red-200 hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
+                      aria-label="Scroll right"
+                    >
+                      <svg className="w-5 h-5 text-red-600 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Gradient Fade Effects */}
+                <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-50 to-transparent pointer-events-none"></div>
+                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none"></div>
+              </div>
               </div>
               </div>
           </section>

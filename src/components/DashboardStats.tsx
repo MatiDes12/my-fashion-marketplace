@@ -97,8 +97,18 @@ export const fetchDashboardStats = async (dateRange?: { start: Date | null; end:
     return acc;
   }, [] as DashboardStats['dailyRevenue']).sort((a: {date: string}, b: {date: string}) => a.date.localeCompare(b.date)) || [];
 
+  // Ensure we have at least one data point for charts
+  if (dailyRevenue.length === 0) {
+    const today = new Date().toISOString().split('T')[0];
+    dailyRevenue.push({
+      date: today,
+      revenue: 0,
+      transactions: 0
+    });
+  }
+
   // Calculate payment method stats
-  const paymentMethods = transactions?.reduce((acc, t) => {
+  let paymentMethods = transactions?.reduce((acc, t) => {
     const existing = acc.find((p: { method: string }) => p.method === t.payment_method);
     if (existing) {
       existing.count += 1;
@@ -112,6 +122,11 @@ export const fetchDashboardStats = async (dateRange?: { start: Date | null; end:
     }
     return acc;
   }, [] as DashboardStats['paymentMethods']) || [];
+
+  // Ensure paymentMethods is always an array
+  if (!Array.isArray(paymentMethods)) {
+    paymentMethods = [];
+  }
 
   // Get other stats
   const { count: userCount } = await supabase

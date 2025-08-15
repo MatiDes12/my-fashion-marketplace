@@ -33,6 +33,7 @@ interface Owner {
 interface Product {
   id: string;
   title: string;
+  slug?: string;
   category?: string;
   product_images?: Array<{ image_url: string }>;
   owner?: Owner;
@@ -70,6 +71,7 @@ interface FlashSale {
 interface SearchResult {
   id: string;
   title: string;
+  slug?: string;
   category: string;
   store_name?: string;
   image_url?: string;
@@ -726,6 +728,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
         .select(`
           id,
           title,
+          slug,
           category,
           product_images (
             image_url
@@ -745,6 +748,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
         const formattedResults = (products as unknown as {
           id: string;
           title: string;
+          slug?: string;
           category: string;
           product_images: { image_url: string }[];
           owner: { id: string; store_settings: { name: string } };
@@ -760,6 +764,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
         .map(product => ({
           id: product.id,
           title: product.title,
+          slug: product.slug,
           category: product.category || 'Uncategorized',
             store_name: product.owner?.store_settings?.name,
           image_url: product.product_images?.[0]?.image_url
@@ -1010,7 +1015,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
                           // Regular product link
                           <Link
                             key={result.id}
-                            href={`/products/${result.id}`}
+                            href={result.slug ? `/product/${result.slug}` : `/products/${result.id}`}
                             className="flex items-center px-4 py-2 hover:bg-gray-50"
                             onClick={(e) => handleResultClick(e, result)}
                           >

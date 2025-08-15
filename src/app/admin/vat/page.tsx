@@ -76,6 +76,32 @@ export default function VATReportPage() {
 
       if (error) throw error;
 
+      // Ensure we have at least one data point for charts when no transactions exist
+      if (!transactions || transactions.length === 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const emptyDailyVAT = [{
+          date: today,
+          vat: 0,
+          taxableAmount: 0
+        }];
+        
+        setStats({
+          totalVAT: 0,
+          monthlyVAT: 0,
+          quarterlyVAT: 0,
+          yearlyVAT: 0,
+          vatByCategory: [
+            { category: 'Platform Fees', amount: 0 },
+            { category: 'Service Fees', amount: 0 },
+            { category: 'Delivery Fees', amount: 0 },
+            { category: 'Product Sales', amount: 0 }
+          ],
+          dailyVAT: emptyDailyVAT,
+          vatBySeller: []
+        });
+        return;
+      }
+
       // Calculate daily VAT
       const dailyVAT = transactions?.reduce((acc, t) => {
         const date = new Date(t.created_at).toISOString().split('T')[0];
@@ -206,6 +232,7 @@ export default function VATReportPage() {
         {/* VAT Trend */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-lg font-medium text-gray-900 mb-4">VAT Collection Trend</h2>
+                  {stats.dailyVAT.length > 0 && stats.dailyVAT.some(d => d.vat > 0 || d.taxableAmount > 0) ? (
           <LineChart
             data={[
               {
@@ -225,11 +252,23 @@ export default function VATReportPage() {
             ]}
             height={300}
           />
+        ) : (
+          <div className="flex items-center justify-center h-[300px] text-gray-500">
+            <div className="text-center">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="mt-2 text-sm">No VAT data available</p>
+              <p className="text-xs text-gray-400 mt-1">VAT trends will appear here once transactions are processed</p>
+            </div>
+          </div>
+        )}
         </div>
 
         {/* VAT by Category */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-lg font-medium text-gray-900 mb-4">VAT by Category</h2>
+                  {stats.vatByCategory.length > 0 && stats.vatByCategory.some(c => c.amount > 0) ? (
           <PieChart
             data={stats.vatByCategory.map(c => ({
               id: c.category,
@@ -238,6 +277,17 @@ export default function VATReportPage() {
             }))}
             height={300}
           />
+        ) : (
+          <div className="flex items-center justify-center h-[300px] text-gray-500">
+            <div className="text-center">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <p className="mt-2 text-sm">No VAT category data available</p>
+              <p className="text-xs text-gray-400 mt-1">VAT by category will appear here once transactions are processed</p>
+            </div>
+          </div>
+        )}
         </div>
       </div>
 
@@ -247,34 +297,46 @@ export default function VATReportPage() {
           <div className="px-4 py-5 sm:px-6">
             <h3 className="text-lg font-medium text-gray-900">VAT by Seller</h3>
           </div>
-          <DataTable
-            data={stats.vatBySeller}
-            columns={[
-              {
-                header: 'Seller',
-                accessor: 'seller_name',
-              },
-              {
-                header: 'VAT Collected',
-                accessor: 'total_vat',
-                cell: (row) => formatCurrency(row.total_vat)
-              },
-              {
-                header: 'Taxable Amount',
-                accessor: 'taxable_amount',
-                cell: (row) => formatCurrency(row.taxable_amount)
-              },
-              {
-                header: 'Transactions',
-                accessor: 'transaction_count',
-              },
-              {
-                header: 'Average VAT/Transaction',
-                accessor: 'avg_vat',
-                cell: (row) => formatCurrency(row.total_vat / row.transaction_count)
-              }
-            ]}
-          />
+          {stats.vatBySeller.length > 0 ? (
+            <DataTable
+              data={stats.vatBySeller}
+              columns={[
+                {
+                  header: 'Seller',
+                  accessor: 'seller_name',
+                },
+                {
+                  header: 'VAT Collected',
+                  accessor: 'total_vat',
+                  cell: (row) => formatCurrency(row.total_vat)
+                },
+                {
+                  header: 'Taxable Amount',
+                  accessor: 'taxable_amount',
+                  cell: (row) => formatCurrency(row.taxable_amount)
+                },
+                {
+                  header: 'Transactions',
+                  accessor: 'transaction_count',
+                },
+                {
+                  header: 'Average VAT/Transaction',
+                  accessor: 'avg_vat',
+                  cell: (row) => formatCurrency(row.total_vat / row.transaction_count)
+                }
+              ]}
+            />
+          ) : (
+            <div className="px-4 py-12 text-center">
+              <div className="text-gray-500">
+                <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <p className="text-lg font-medium">No VAT data by seller found</p>
+                <p className="text-sm">VAT by seller data will appear here once transactions are processed</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

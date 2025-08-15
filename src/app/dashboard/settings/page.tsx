@@ -31,6 +31,7 @@ type DeliveryOptions = {
 
 type StoreData = {
   name: string;
+  slug: string;
   email: string;
   phone: string;
   description: string;
@@ -100,6 +101,30 @@ interface PaymentMethods {
   chapa: boolean;
 }
 
+// Utility function to generate a URL-friendly slug from store name
+const generateSlug = (name: string): string => {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/^-+|-+$/g, ''); // Remove leading and trailing hyphens
+};
+
+// Function to check if slug is available (simplified for client-side)
+const checkSlugAvailability = async (slug: string, currentUserId: string): Promise<boolean> => {
+  // For now, return true to avoid the chunk loading error
+  // We'll implement proper checking when saving the form
+  return true;
+};
+
+// Function to generate unique slug (simplified)
+const generateUniqueSlug = async (baseName: string, currentUserId: string): Promise<string> => {
+  // Just generate the basic slug for now
+  // Uniqueness will be checked on the server side when saving
+  return generateSlug(baseName);
+};
+
 export default function StoreSettingsPage() {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -110,6 +135,7 @@ export default function StoreSettingsPage() {
   const [bucketMissing, setBucketMissing] = useState(false);
   const [storeData, setStoreData] = useState<StoreData>({
     name: '',
+    slug: '',
     email: '',
     phone: '',
     description: '',
@@ -214,22 +240,31 @@ export default function StoreSettingsPage() {
 
         setSession(currentSession);
         
-        // Fetch both user data and payment settings
+        // Fetch user data, payment settings, and seller verification data
         const [
           { data: userData, error: userError },
-          { data: paymentSettings, error: paymentError }
+          { data: paymentSettings, error: paymentError },
+          { data: verificationData, error: verificationError }
         ] = await Promise.all([
           supabase
             .from('users')
-            .select('role, store_settings')
+            .select('role, store_settings, email, full_name')
             .eq('id', currentSession.user.id)
             .single(),
           supabase
             .from('payment_settings')
             .select('*')
             .eq('user_id', currentSession.user.id)
+            .single(),
+          supabase
+            .from('seller_verification')
+            .select('*')
+            .eq('user_id', currentSession.user.id)
+            .eq('status', 'approved')
             .single()
         ]);
+        
+        console.log('Verification data loaded:', verificationData);
         
         if (userError) {
           console.error('Error fetching user data:', userError);
@@ -256,23 +291,63 @@ export default function StoreSettingsPage() {
           }
         };
         
-        if (userData?.store_settings) {
+        // Pre-populate with verification data if available, then override with store settings if they exist
+        const baseData = {
+          name: verificationData?.business_name || userData?.store_settings?.name || '',
+          email: verificationData?.business_email || userData?.email || '',
+          phone: verificationData?.business_phone || userData?.store_settings?.phone || '',
+          address: {
+            city: verificationData?.region || userData?.store_settings?.address?.city || '',
+            subCity: verificationData?.kifle_ketema || userData?.store_settings?.address?.subCity || '',
+            wereda: verificationData?.woreda || userData?.store_settings?.address?.wereda || '',
+            kebele: verificationData?.kebele || userData?.store_settings?.address?.kebele || '',
+            houseNo: verificationData?.house_no || userData?.store_settings?.address?.houseNo || '',
+            landmark: userData?.store_settings?.address?.landmark || '',
+            mapLink: userData?.store_settings?.address?.mapLink || '',
+          }
+        };
+
+        setStoreData(prev => ({
+          ...prev,
+          // Base data from verification
+          ...baseData,
+          // Override with existing store settings if they exist
+          ...(userData?.store_settings || {}),
+          // Ensure we keep the pre-populated data if store settings don't have these fields
+          name: userData?.store_settings?.name || baseData.name,
+          slug: userData?.store_settings?.slug || '',
+          email: userData?.store_settings?.email || baseData.email,
+          phone: userData?.store_settings?.phone || baseData.phone,
+          address: {
+            ...baseData.address,
+            ...(userData?.store_settings?.address || {})
+          },
+          // Payment and other settings
+          payment_methods: mergedPaymentMethods,
+          delivery_options: {
+            ...prev.delivery_options,
+            ...(userData?.store_settings?.delivery_options || {}),
+          },
+          currentLogo: userData?.store_settings?.logo_url || '',
+          currentBanner: userData?.store_settings?.banner_url || '',
+        }));
+
+        // Generate slug if it doesn't exist (simplified)
+        const currentName = userData?.store_settings?.name || baseData.name;
+        const currentSlug = userData?.store_settings?.slug;
+        
+        if (currentName && !currentSlug) {
           setStoreData(prev => ({
             ...prev,
-            ...userData.store_settings,
-            payment_methods: mergedPaymentMethods,
-            delivery_options: {
-              ...prev.delivery_options,
-              ...userData.store_settings.delivery_options,
-            },
-            address: {
-              ...prev.address,
-              ...userData.store_settings.address,
-            },
-            currentLogo: userData.store_settings.logo_url || '',
-            currentBanner: userData.store_settings.banner_url || '',
+            slug: generateSlug(currentName)
           }));
         }
+
+        console.log('Store data populated with verification info:', {
+          verificationData,
+          baseData,
+          finalStoreData: storeData
+        });
       } catch (error) {
         console.error('Error loading store settings:', error);
         setError(t('settings.errors.loadFailed'));
@@ -303,8 +378,16 @@ export default function StoreSettingsPage() {
     } else {
       setStoreData(prev => ({
         ...prev,
-      [name]: value
+        [name]: value
       }));
+      
+      // Auto-generate slug when store name changes (simplified)
+      if (name === 'name' && value.trim()) {
+        setStoreData(prev => ({
+          ...prev,
+          slug: generateSlug(value)
+        }));
+      }
     }
   };
 
@@ -345,6 +428,87 @@ export default function StoreSettingsPage() {
     }));
   };
 
+  // SEO Helper functions
+  const generateSEOContent = () => {
+    const storeName = storeData.name || 'My Store';
+    const description = storeData.shortDescription || storeData.description || '';
+    const businessName = storeData.name;
+    
+    // Generate meta title
+    const metaTitle = `${storeName} - Premium Products & Fast Delivery | Ethiopian Marketplace`;
+    
+    // Generate meta description
+    const metaDescription = description 
+      ? `Shop at ${storeName}. ${description.substring(0, 120)}... Fast delivery across Ethiopia. Trusted seller with quality products.`
+      : `Discover quality products at ${storeName}. Fast delivery across Ethiopia. Trusted verified seller with excellent customer service.`;
+    
+    // Generate keywords based on store info
+    const baseKeywords = [
+      storeName.toLowerCase(),
+      'ethiopian store',
+      'online shopping ethiopia',
+      'fast delivery',
+      'quality products',
+      'trusted seller'
+    ];
+    
+    // Add business-specific keywords if available
+    if (businessName && businessName !== storeName) {
+      baseKeywords.push(businessName.toLowerCase());
+    }
+    
+    const keywords = baseKeywords.join(', ');
+    
+    setStoreData(prev => ({
+      ...prev,
+      seo: {
+        metaTitle: metaTitle.substring(0, 60), // Keep under 60 chars
+        metaDescription: metaDescription.substring(0, 160), // Keep under 160 chars
+        keywords: keywords
+      }
+    }));
+  };
+
+  const seoPresets = [
+    {
+      name: 'General Store',
+      title: '{storeName} - Quality Products & Fast Delivery in Ethiopia',
+      description: 'Shop quality products at {storeName}. Fast delivery across Ethiopia. Verified seller with excellent customer service and competitive prices.',
+      keywords: 'ethiopian store, online shopping ethiopia, quality products, fast delivery, {storeName}'
+    },
+    {
+      name: 'Fashion Store',
+      title: '{storeName} - Ethiopian Fashion & Style | Trendy Clothes',
+      description: 'Discover the latest fashion trends at {storeName}. Shop clothing, accessories, and style essentials. Fast delivery across Ethiopia.',
+      keywords: 'ethiopian fashion, clothes ethiopia, fashion store, style, trendy clothes, {storeName}'
+    },
+    {
+      name: 'Electronics Store',
+      title: '{storeName} - Electronics & Technology | Ethiopian Tech Store',
+      description: 'Buy electronics and technology products at {storeName}. Phones, computers, gadgets with warranty. Fast delivery in Ethiopia.',
+      keywords: 'electronics ethiopia, technology store, phones, computers, gadgets, {storeName}'
+    },
+    {
+      name: 'Beauty Store',
+      title: '{storeName} - Beauty & Personal Care | Ethiopian Beauty Store',
+      description: 'Discover beauty and personal care products at {storeName}. Cosmetics, skincare, and beauty essentials. Trusted Ethiopian seller.',
+      keywords: 'beauty products ethiopia, cosmetics, skincare, personal care, beauty store, {storeName}'
+    }
+  ];
+
+  const applySEOPreset = (preset: typeof seoPresets[0]) => {
+    const storeName = storeData.name || 'My Store';
+    
+    setStoreData(prev => ({
+      ...prev,
+      seo: {
+        metaTitle: preset.title.replace('{storeName}', storeName),
+        metaDescription: preset.description.replace('{storeName}', storeName),
+        keywords: preset.keywords.replace('{storeName}', storeName.toLowerCase())
+      }
+    }));
+  };
+
   const handleCheckboxChange = (
     category: 'delivery_options' | 'payment_methods',
     name: string
@@ -379,6 +543,47 @@ export default function StoreSettingsPage() {
       if (!session) {
         router.push('/login');
         return;
+      }
+
+      // Validate and sanitize slug
+      if (storeData.slug) {
+        // Ensure slug is properly formatted
+        const sanitizedSlug = generateSlug(storeData.slug);
+        if (sanitizedSlug !== storeData.slug) {
+          // Update the slug to the sanitized version
+          setStoreData(prev => ({ ...prev, slug: sanitizedSlug }));
+          storeData.slug = sanitizedSlug;
+        }
+
+        // Check for minimum length
+        if (sanitizedSlug.length < 3) {
+          throw new Error('Store URL must be at least 3 characters long.');
+        }
+
+        // Validate slug uniqueness (only if we have a valid session)
+        if (session.user?.id) {
+          const { data: existingStores, error: slugError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('store_settings->>slug', sanitizedSlug)
+            .neq('id', session.user.id);
+
+          if (slugError) {
+            console.error('Error checking slug availability:', slugError);
+            throw new Error('Unable to validate store URL. Please try again.');
+          }
+
+          if (existingStores && existingStores.length > 0) {
+            throw new Error(`The store URL "${sanitizedSlug}" is already taken. Please choose a different one.`);
+          }
+        }
+      } else {
+        // Generate slug from store name if not provided
+        if (storeData.name) {
+          const generatedSlug = generateSlug(storeData.name);
+          setStoreData(prev => ({ ...prev, slug: generatedSlug }));
+          storeData.slug = generatedSlug;
+        }
       }
 
       // Get user's email if store email is not provided
@@ -662,13 +867,14 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                           {/* Store Name */}
                               <div className="sm:col-span-1">
                             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                                  {t('settings.storeName')}
+                                  {t('settings.storeName')} *
                             </label>
                             <div className="mt-1">
                               <input
                                 type="text"
                                 name="name"
                                 id="name"
+                                required
                                 value={storeData.name}
                                 onChange={handleInputChange}
                                 className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
@@ -677,36 +883,96 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                 </div>
                               </div>
 
-                              {/* Store Email */}
+                              {/* Store URL Slug */}
                               <div className="sm:col-span-1">
-                                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                  {t('settings.storeEmail')}
+                                <label htmlFor="slug" className="block text-sm font-medium text-gray-700">
+                                  Store URL *
                                 </label>
                                 <div className="mt-1">
-                                  <input
-                                    type="email"
-                                    name="email"
-                                    id="email"
-                                    value={storeData.email}
-                                    onChange={handleInputChange}
-                                    className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                                    placeholder={t('settings.storeEmail.placeholder')}
-                                  />
+                                  <div className="flex rounded-md shadow-sm">
+                                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                                      avrioxshop.com/store/
+                                    </span>
+                                    <input
+                                      type="text"
+                                      name="slug"
+                                      id="slug"
+                                      required
+                                      minLength={3}
+                                      value={storeData.slug}
+                                      onChange={handleInputChange}
+                                      className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md focus:ring-green-500 focus:border-green-500 sm:text-sm border-gray-300"
+                                      placeholder="your-store-name"
+                                      pattern="^[a-zA-Z0-9\-]{3,}$"
+                                      title="Only letters, numbers, and hyphens allowed (minimum 3 characters)"
+                                    />
+                                  </div>
+                                  <p className="mt-1 text-xs text-gray-500">
+                                    🔗 This will be your store's web address. Only letters, numbers, and hyphens allowed (minimum 3 characters).
+                                    <br />
+                                    <span className="text-amber-600">⚠️ Uniqueness will be validated when you save the form.</span>
+                                    {storeData.slug && storeData.slug.length < 3 && (
+                                      <>
+                                        <br />
+                                        <span className="text-red-600">❌ Too short! URL must be at least 3 characters long.</span>
+                                      </>
+                                    )}
+                                  </p>
                                 </div>
                               </div>
                             </div>
                           </div>
 
+                          {/* Store Email - Move to new row */}
+                          <div className="sm:col-span-3">
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                              {t('settings.storeEmail')} *
+                            </label>
+                            <div className="mt-1">
+                              <input
+                                type="email"
+                                name="email"
+                                id="email"
+                                required
+                                value={storeData.email}
+                                onChange={handleInputChange}
+                                className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                placeholder={t('settings.storeEmail.placeholder')}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Phone - Move to new row */}
+                          <div className="sm:col-span-3">
+                            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                              {t('settings.phone')} *
+                            </label>
+                            <div className="mt-1">
+                              <input
+                                type="tel"
+                                name="phone"
+                                id="phone"
+                                required
+                                value={storeData.phone}
+                                onChange={handleInputChange}
+                                className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                placeholder={t('settings.phone.placeholder')}
+                              />
+                            </div>
+                          </div>
+
+
                           {/* Short Description */}
                           <div className="sm:col-span-6">
                             <label htmlFor="shortDescription" className="block text-sm font-medium text-gray-700">
-                              {t('settings.shortDescription')}
+                              {t('settings.shortDescription')} *
                             </label>
                             <div className="mt-1">
                               <input
                                 type="text"
                                 name="shortDescription"
                                 id="shortDescription"
+                                required
                                 value={storeData.shortDescription}
                                 onChange={handleInputChange}
                                 placeholder={t('settings.shortDescription.placeholder')}
@@ -719,13 +985,14 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                           {/* Full Description */}
                           <div className="sm:col-span-6">
                             <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                              {t('settings.fullDescription')}
+                              {t('settings.fullDescription')} *
                             </label>
                             <div className="mt-1">
                               <textarea
                                 name="description"
                                 id="description"
                                 rows={4}
+                                required
                                 value={storeData.description}
                                 onChange={handleInputChange}
                                 placeholder={t('settings.fullDescription.placeholder')}
@@ -745,7 +1012,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                             {/* Logo Upload */}
                             <div className="sm:col-span-3">
-                              <label className="block text-sm font-medium text-gray-700">{t('settings.branding.logo')}</label>
+                              <label className="block text-sm font-medium text-gray-700">{t('settings.branding.logo')} *</label>
                               <div className="mt-1 flex items-center">
                                 {storeData.currentLogo ? (
                                   <div className="relative h-32 w-32">
@@ -768,6 +1035,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     <input
                                       type="file"
                                       id="logo"
+                                      required={!storeData.currentLogo}
                                       onChange={(e) => handleFileChange(e, 'logo')}
                                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
                                       accept="image/*"
@@ -780,7 +1048,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                             {/* Banner Upload */}
                             <div className="sm:col-span-3">
-                              <label className="block text-sm font-medium text-gray-700">{t('settings.branding.banner')}</label>
+                              <label className="block text-sm font-medium text-gray-700">{t('settings.branding.banner')} *</label>
                               <div className="mt-1 flex items-center">
                                 {storeData.currentBanner ? (
                                   <div className="relative h-32 w-full">
@@ -803,6 +1071,7 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                     <input
                                       type="file"
                                       id="bannerImage"
+                                      required={!storeData.currentBanner}
                                       onChange={(e) => handleFileChange(e, 'bannerImage')}
                                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
                                       accept="image/*"
@@ -1109,14 +1378,43 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
 
                         <div className="pt-8">
                           <div>
-                            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('settings.seo.title')}</h3>
-                            <p className="mt-1 text-sm text-gray-500">{t('settings.seo.subtitle')}</p>
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">SEO Settings</h3>
+                            <p className="mt-1 text-sm text-gray-500">Optimize your store for search engines to attract more customers</p>
+                          </div>
+
+                          {/* Quick Setup Options */}
+                          <div className="mt-6">
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                              <h4 className="text-sm font-medium text-blue-900 mb-3">🚀 Quick SEO Setup</h4>
+                              <div className="flex flex-wrap gap-2 mb-4">
+                                <button
+                                  type="button"
+                                  onClick={generateSEOContent}
+                                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                >
+                                  ✨ Auto-Generate SEO
+                                </button>
+                                {seoPresets.map((preset) => (
+                                  <button
+                                    key={preset.name}
+                                    type="button"
+                                    onClick={() => applySEOPreset(preset)}
+                                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                  >
+                                    {preset.name}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="text-xs text-blue-700">
+                                💡 Choose a preset that matches your store type, or use Auto-Generate for a personalized SEO setup
+                              </p>
                             </div>
+                          </div>
 
                           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                             <div className="sm:col-span-6">
-                                <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-700">
-                                  {t('settings.seo.metaTitle')}
+                              <label htmlFor="metaTitle" className="block text-sm font-medium text-gray-700">
+                                Page Title <span className="text-gray-500">(appears in search results)</span>
                               </label>
                               <div className="mt-1">
                                 <input
@@ -1125,14 +1423,24 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   id="metaTitle"
                                   value={storeData.seo.metaTitle}
                                   onChange={handleInputChange}
+                                  maxLength={60}
                                   className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                  placeholder="Your Store Name - What You Sell | Ethiopian Marketplace"
                                 />
+                                <div className="mt-1 flex justify-between">
+                                  <p className="text-xs text-gray-500">
+                                    Recommended: Keep under 60 characters for best search results
+                                  </p>
+                                  <span className={`text-xs ${storeData.seo.metaTitle.length > 60 ? 'text-red-500' : 'text-gray-500'}`}>
+                                    {storeData.seo.metaTitle.length}/60
+                                  </span>
+                                </div>
                               </div>
-                              </div>
+                            </div>
 
                             <div className="sm:col-span-6">
-                                <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700">
-                                  {t('settings.seo.metaDescription')}
+                              <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700">
+                                Store Description <span className="text-gray-500">(appears under title in search)</span>
                               </label>
                               <div className="mt-1">
                                 <textarea
@@ -1141,14 +1449,24 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   rows={3}
                                   value={storeData.seo.metaDescription}
                                   onChange={handleInputChange}
+                                  maxLength={160}
                                   className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                  placeholder="Describe what customers can find in your store. Mention fast delivery, quality products, and your location in Ethiopia."
                                 />
-                            </div>
+                                <div className="mt-1 flex justify-between">
+                                  <p className="text-xs text-gray-500">
+                                    This text appears in Google search results. Make it compelling!
+                                  </p>
+                                  <span className={`text-xs ${storeData.seo.metaDescription.length > 160 ? 'text-red-500' : 'text-gray-500'}`}>
+                                    {storeData.seo.metaDescription.length}/160
+                                  </span>
+                                </div>
+                              </div>
                             </div>
 
                             <div className="sm:col-span-6">
-                                <label htmlFor="keywords" className="block text-sm font-medium text-gray-700">
-                                  {t('settings.seo.keywords')}
+                              <label htmlFor="keywords" className="block text-sm font-medium text-gray-700">
+                                Search Keywords <span className="text-gray-500">(what customers search for)</span>
                               </label>
                               <div className="mt-1">
                                 <input
@@ -1157,11 +1475,34 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                                   id="keywords"
                                   value={storeData.seo.keywords}
                                   onChange={handleInputChange}
-                                  placeholder={t('settings.seo.keywords.placeholder')}
                                   className="shadow-sm focus:ring-green-500 focus:border-green-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                  placeholder="ethiopian store, online shopping, your products, fast delivery"
                                 />
+                                <p className="mt-1 text-xs text-gray-500">
+                                  📝 Separate keywords with commas. Include: your store name, product types, "ethiopian store", "fast delivery"
+                                </p>
                               </div>
                             </div>
+
+                            {/* SEO Preview */}
+                            {(storeData.seo.metaTitle || storeData.seo.metaDescription) && (
+                              <div className="sm:col-span-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  🔍 Google Search Preview
+                                </label>
+                                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                  <div className="text-blue-600 text-lg hover:underline cursor-pointer">
+                                    {storeData.seo.metaTitle || storeData.name || 'Your Store Name'}
+                                  </div>
+                                  <div className="text-green-700 text-sm">
+                                    avrioxshop.com/store/{storeData.slug || 'your-store-name'}
+                                  </div>
+                                  <div className="text-gray-600 text-sm mt-1">
+                                    {storeData.seo.metaDescription || 'Your store description will appear here...'}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1404,15 +1745,15 @@ ADD COLUMN store_settings JSONB DEFAULT NULL;`}
                     <div className="pt-5">
                       <div className="flex justify-end space-x-3">
                         <Link
-                          href={session?.user?.id ? `/stores/${session.user.id}` : '#'}
+                          href={storeData.slug ? `/store/${storeData.slug}` : (session?.user?.id ? `/stores/${session.user.id}` : '#')}
                           target="_blank"
                           className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
-                            session?.user?.id 
+                            (storeData.slug || session?.user?.id)
                               ? 'bg-blue-600 hover:bg-blue-700' 
                               : 'bg-gray-400 cursor-not-allowed'
                           } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
                           onClick={(e) => {
-                            if (!session?.user?.id) {
+                            if (!storeData.slug && !session?.user?.id) {
                               e.preventDefault();
                             }
                           }}
