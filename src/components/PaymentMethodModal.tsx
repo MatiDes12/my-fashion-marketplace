@@ -47,6 +47,11 @@ interface PaymentSettings {
   mpesa_settings?: {
     is_active: boolean;
   };
+  stripe_settings?: {
+    is_active: boolean;
+    account_id?: string;
+    email?: string;
+  };
 }
 
 interface Product {
@@ -153,6 +158,13 @@ const paymentMethods: PaymentMethod[] = [
     logo: '/images/payment-methods/mpesa-logo.png',
     isAvailable: false,
     description: 'Coming soon - Pay with M-PESA mobile money'
+  },
+  {
+    id: 'STRIPE',
+    name: 'Credit/Debit Card (USD)',
+    logo: '/images/payment-methods/stripe-logo.svg',
+    isAvailable: true,
+    description: 'Pay with international credit/debit cards in USD'
   },
 ];
 
@@ -361,9 +373,9 @@ export default function PaymentMethodModal({
 
     console.log('Payment Settings:', paymentSettings); // Add this for debugging
 
-    // Return all payment methods, but mark only Cash and Chapa as available
+    // Return all payment methods, but mark only Cash, Chapa, and Stripe as available
     return paymentMethods.filter(method => 
-      method.id === 'CASH' || method.id === 'CHAPA'
+      method.id === 'CASH' || method.id === 'CHAPA' || method.id === 'STRIPE'
     );
   };
 
@@ -599,6 +611,16 @@ export default function PaymentMethodModal({
       return;
     }
 
+    if (selectedMethod === 'STRIPE') {
+      try {
+        await handleStripePayment();
+      } catch (error) {
+        console.error('Payment error:', error);
+        setError(error instanceof Error ? error.message : 'Payment failed');
+      }
+      return;
+    }
+
       /* Commented out Telebirr payment handling
     if (selectedMethod === 'TELEBIRR') {
       try {
@@ -771,6 +793,140 @@ export default function PaymentMethodModal({
       console.error('Payment error:', error);
       setError(error instanceof Error ? error.message : 'Payment failed');
     } finally {
+      setIsButtonDisabled(false);
+    }
+  };
+
+  const handleStripePayment = async () => {
+    try {
+      if (!userDetails?.email) {
+        throw new Error('Please login to continue with payment');
+      }
+
+      setLocalProcessing(true);
+      setIsButtonDisabled(true);
+      
+      // Import Stripe utilities (only currency conversion for client-side)
+      const { convertETBToUSD } = await import('@/lib/stripe');
+      
+      const totalAmountETB = sellers.reduce((sum, seller) => sum + seller.total, 0);
+      const totalAmountUSD = convertETBToUSD(totalAmountETB);
+      const txRef = `stripe-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+      
+      const supabase = createClientComponent();
+
+      // Get customer's store settings
+      const { data: customerData, error: customerError } = await supabase
+        .from('users')
+        .select('store_settings')
+        .eq('id', userDetails.id)
+        .single();
+
+      if (customerError) {
+        console.error('Error fetching customer data:', customerError);
+      }
+
+      const customerPhone = customerData?.store_settings?.phone || null;
+
+      // Clean up expired orders first
+      const { error: cleanupError } = await supabase
+        .from('temporary_orders')
+        .delete()
+        .lt('expires_at', new Date().toISOString());
+
+      if (cleanupError) {
+        console.error('Error cleaning up expired orders:', cleanupError);
+      }
+
+      // Store order data in temporary_orders table
+      for (const seller of sellers) {
+        for (const product of seller.products) {
+          const itemSubtotal = product.quantity * product.price;
+          const serviceFee = itemSubtotal * 0.03;
+          const itemDeliveryFee = seller.deliveryFee || 0;
+          const itemTotal = itemSubtotal + itemDeliveryFee;
+
+          // Create temporary order for this product
+          const { error: tempOrderError } = await supabase
+            .from('temporary_orders')
+            .insert({
+              tx_ref: txRef,
+              user_id: userDetails.id,
+              product_id: product.id,
+              quantity: product.quantity,
+              total_price: itemTotal,
+              platform_fee: 0,
+              service_fee: serviceFee,
+              ethiopia_tax: 0,
+              delivery_fee: itemDeliveryFee,
+              delivery_method: product.delivery_method === 'delivery' ? 'home_delivery' : 'store_pickup',
+              delivery_address: product.delivery_address,
+              selected_size: product.selected_size,
+              selected_color: product.selected_color,
+              selected_variant_sku: product.selected_variant_sku,
+              customer_phone: customerPhone,
+              seller_id: product.owner.id,
+              expires_at: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes expiry
+            });
+
+          if (tempOrderError) {
+            console.error('Error creating temporary order:', tempOrderError);
+            throw tempOrderError;
+          }
+        }
+      }
+
+      // Initialize Stripe payment
+      const response = await fetch('/api/payments/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount_usd: totalAmountUSD,
+          amount_etb: totalAmountETB,
+          email: userDetails.email,
+          full_name: userDetails.full_name,
+          tx_ref: txRef,
+          success_url: `${window.location.origin}/api/payments/stripe/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${window.location.origin}/checkout?cancelled=true`,
+          metadata: {
+            tx_ref: txRef,
+            user_id: userDetails.id,
+            original_amount_etb: totalAmountETB.toString()
+          }
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.sessionId) {
+        // Load Stripe.js and redirect to checkout
+        const { loadStripe } = await import('@stripe/stripe-js');
+        const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+        
+        if (stripe) {
+          // Close modal before redirecting
+          onClose();
+          
+          // Redirect to Stripe Checkout
+          const { error } = await stripe.redirectToCheckout({
+            sessionId: data.sessionId
+          });
+          
+          if (error) {
+            throw new Error(error.message);
+          }
+        } else {
+          throw new Error('Failed to load Stripe');
+        }
+      } else {
+        throw new Error(data.message || 'Payment initialization failed');
+      }
+
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Payment failed');
+    } finally {
+      setLocalProcessing(false);
       setIsButtonDisabled(false);
     }
   };
@@ -1021,9 +1177,18 @@ export default function PaymentMethodModal({
                     <div className="border-t pt-4 mt-4">
                       <div className="flex justify-between font-medium text-lg">
                         <span>Grand Total</span>
-                        <span>ETB {sellers.reduce((sum, seller) => 
-                          sum + seller.subtotal + seller.deliveryFee, 0
-                        ).toFixed(2)}</span>
+                        <div className="text-right">
+                          <span>ETB {sellers.reduce((sum, seller) => 
+                            sum + seller.subtotal + seller.deliveryFee, 0
+                          ).toFixed(2)}</span>
+                          {selectedMethod === 'STRIPE' && (
+                            <div className="text-sm text-gray-500 font-normal">
+                              ≈ ${(sellers.reduce((sum, seller) => 
+                                sum + seller.subtotal + seller.deliveryFee, 0
+                              ) * 0.018).toFixed(2)} USD
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

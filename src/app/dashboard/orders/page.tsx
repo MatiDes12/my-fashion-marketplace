@@ -94,6 +94,11 @@ const getBasePaymentRef = (order: any) => {
     return order.payment_reference;
   }
   
+  // For Stripe payments, use the payment_reference as is
+  if (order.payment_reference.startsWith('cs_test_') || order.payment_reference.startsWith('cs_live_')) {
+    return order.payment_reference;
+  }
+  
   // For Chapa payments, use the payment_reference as is
   return order.payment_reference;
 };
@@ -165,12 +170,19 @@ function useDeviceType() {
 // Helper function to extract short reference
 const getShortReference = (paymentRef: string | undefined) => {
   if (!paymentRef) return '';
+  
   // Extract the third part (the short ID) for CASH payments
   const parts = paymentRef.split('-');
   if (paymentRef.startsWith('CASH-') && parts.length >= 4) {
     return parts[2]; // Get third part (index 2)
   }
-  // For non-CASH payments, return the full reference
+  
+  // For Stripe payments, extract last 15 characters
+  if (paymentRef.startsWith('cs_test_') || paymentRef.startsWith('cs_live_')) {
+    return paymentRef.slice(-15); // Get last 15 characters
+  }
+  
+  // For non-CASH/non-Stripe payments, return the full reference
   return paymentRef;
 };
 
@@ -780,9 +792,15 @@ export default function OrdersPage() {
         order_status: firstOrder.order_status,
         is_cash_payment: ref.startsWith('CASH-'),
         tx_ref: firstOrder.tx_ref || '',
-        receipt_url: ref.startsWith('CASH-') 
-          ? `/api/receipts/cash/${ref}` 
-          : firstOrder.receipt_url || ''
+        receipt_url: (() => {
+          if (ref.startsWith('CASH-')) {
+            return `/api/receipts/cash/${ref}`;
+          } else if (ref.startsWith('cs_test_') || ref.startsWith('cs_live_')) {
+            return `/api/receipts/stripe/${firstOrder.tx_ref || ref}`;
+          } else {
+            return firstOrder.receipt_url || '';
+          }
+        })()
       };
     });
 
@@ -1430,7 +1448,12 @@ export default function OrdersPage() {
                     <tr key={group.payment_reference} className="group hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">
-                          {group.is_cash_payment ? 'Cash Payment' : 'Chapa Payment'}
+                          {(() => {
+                            const paymentRef = group.payment_reference;
+                            if (paymentRef?.startsWith('CASH-')) return 'Cash Payment';
+                            if (paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_')) return 'Stripe Payment';
+                            return 'Chapa Payment';
+                          })()}
                           </div>
                         <div className="text-sm text-gray-500">
                           Ref: {getShortReference(group.payment_reference)}
@@ -1868,7 +1891,12 @@ export default function OrdersPage() {
                     <div>
                     <p className="text-sm font-medium text-gray-500">Payment Method</p>
                     <p className="mt-1 text-sm text-gray-900">
-                      {selectedOrder.payment_reference?.startsWith('CASH-') ? 'CASH' : 'CHAPA'}
+                      {(() => {
+                        const paymentRef = selectedOrder.payment_reference;
+                        if (paymentRef?.startsWith('CASH-')) return 'CASH';
+                        if (paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_')) return 'STRIPE';
+                        return 'CHAPA';
+                      })()}
                     </p>
                     </div>
                     <div>

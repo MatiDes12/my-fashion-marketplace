@@ -14,9 +14,9 @@ export async function GET(request: Request) {
       throw new Error('Missing transaction reference');
     }
 
-    // Check if this is a cash payment
-    if (tx_ref.startsWith('CASH-')) {
-      // For cash payments, just fetch the order status from our database
+    // Check if this is a cash payment or Stripe payment
+    if (tx_ref.startsWith('CASH-') || tx_ref.startsWith('stripe-')) {
+      // For cash/Stripe payments, just fetch the order status from our database
       const { data: order, error } = await supabase
         .from('orders')
         .select('*')

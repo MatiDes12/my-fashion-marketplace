@@ -53,6 +53,12 @@ interface MpesaSettings {
   phone_number?: string;
 }
 
+interface StripeSettings {
+  is_active: boolean;
+  account_id?: string;
+  email?: string;
+}
+
 interface PaymentSettings {
   id?: string;
   user_id?: string;
@@ -62,6 +68,7 @@ interface PaymentSettings {
   amole_settings: AmoleSettings;
   chapa_settings: ChapaSettings;
   mpesa_settings: MpesaSettings;
+  stripe_settings: StripeSettings;
 }
 
 type ToastType = 'success' | 'error' | 'loading' | 'blank' | 'custom';
@@ -420,6 +427,126 @@ const MpesaSettings = ({
   );
 };
 
+// Add Stripe settings component
+const StripeSettings = ({ 
+  settings,
+  onChange
+}: { 
+  settings: StripeSettings;
+  onChange: (stripe_settings: StripeSettings) => void;
+}) => {
+  return (
+    <div className="space-y-6 p-4 bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
+        <div className="flex items-center space-x-4">
+          <h3 className="text-lg font-medium text-gray-900">Stripe Settings</h3>
+          <div className="flex items-center">
+            <Switch
+              id="stripe-active"
+              checked={settings.is_active}
+              onCheckedChange={(checked: boolean) => {
+                onChange({
+                  ...settings,
+                  is_active: checked
+                });
+              }}
+              className="bg-gray-200 data-[state=checked]:bg-indigo-600"
+            />
+            <label htmlFor="stripe-active" className="ml-2 text-sm text-gray-700">
+              Enable Stripe Payments
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {settings.is_active && (
+        <div className="grid grid-cols-1 gap-6 mt-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-blue-800">
+                  Stripe Connect Required
+                </h3>
+                <div className="mt-2 text-sm text-blue-700">
+                  <p>To receive payments via Stripe, you need to connect your Stripe account. 
+                  This allows us to process international credit card payments in USD and transfer 
+                  funds directly to your bank account.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Stripe Account ID</label>
+            <input
+              type="text"
+              value={settings.account_id || ''}
+              onChange={(e) => onChange({ ...settings, account_id: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              placeholder="acct_xxxxxxxxxxxxxxxx (Connect your Stripe account)"
+              readOnly
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              This will be automatically filled when you connect your Stripe account.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email Address</label>
+            <input
+              type="email"
+              value={settings.email || ''}
+              onChange={(e) => onChange({ ...settings, email: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              placeholder="Enter your email for Stripe account"
+            />
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Currency Conversion
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>Prices will be automatically converted from ETB to USD for international customers. 
+                  Current rate: 1 ETB ≈ 0.018 USD</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <button
+              type="button"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={() => {
+                // TODO: Implement Stripe Connect onboarding
+                toast.error('Stripe Connect integration coming soon!');
+              }}
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Connect Stripe Account
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PaymentMethodCard = ({ 
   title, 
   description, 
@@ -508,6 +635,11 @@ const PaymentSettingsPage = () => {
       is_active: false,
       account_number: '',
       phone_number: ''
+    },
+    stripe_settings: { 
+      is_active: false,
+      account_id: '',
+      email: ''
     }
   });
 
@@ -569,6 +701,11 @@ const PaymentSettingsPage = () => {
               is_active: false,
               account_number: '',
               phone_number: ''
+            },
+            stripe_settings: { 
+              is_active: false,
+              account_id: '',
+              email: ''
             }
           };
 
@@ -694,6 +831,18 @@ const PaymentSettingsPage = () => {
             isActive={activeTab === 'chapa'}
             onClick={() => setActiveTab('chapa')}
           />
+
+          <PaymentMethodCard
+            title="Stripe"
+            description="Accept international credit/debit card payments (USD)"
+            icon={
+              <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            }
+            isActive={activeTab === 'stripe'}
+            onClick={() => setActiveTab('stripe')}
+          />
         </div>
 
         {/* Settings Panel */}
@@ -730,6 +879,12 @@ const PaymentSettingsPage = () => {
             className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
           >
             M-PESA
+          </TabsTrigger>
+          <TabsTrigger 
+            value="stripe" 
+            className="px-4 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm"
+          >
+            Stripe
           </TabsTrigger>
         </TabsList>
 
@@ -826,6 +981,13 @@ const PaymentSettingsPage = () => {
             <MpesaSettings 
               settings={settings.mpesa_settings}
               onChange={(mpesa_settings) => setSettings({ ...settings, mpesa_settings })}
+            />
+          </TabsContent>
+
+          <TabsContent value="stripe">
+            <StripeSettings 
+              settings={settings.stripe_settings}
+              onChange={(stripe_settings) => setSettings({ ...settings, stripe_settings })}
             />
           </TabsContent>
         </div>

@@ -57,9 +57,16 @@ export const PAYMENT_METHODS = {
     logo: '/images/payment-methods/mpesa-logo.png',
     isAvailable: false, // Will be set dynamically
   },
+  STRIPE: {
+    id: 'STRIPE',
+    name: 'Credit/Debit Card (USD)',
+    description: 'Pay with international credit/debit cards via Stripe',
+    logo: '/images/payment-methods/stripe-logo.svg',
+    isAvailable: true, // Stripe is always available
+  },
 } as const;
 
-export type PaymentMethodType = 'CASH' | 'TELEBIRR' | 'CBE' | 'AMOLE' | 'CHAPA' | 'MPESA';
+export type PaymentMethodType = 'CASH' | 'TELEBIRR' | 'CBE' | 'AMOLE' | 'CHAPA' | 'MPESA' | 'STRIPE';
 
 export const REGIONS = [
   'አዲስ አበባ', // Addis Ababa

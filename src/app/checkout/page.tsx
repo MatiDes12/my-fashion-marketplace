@@ -757,9 +757,14 @@ export default function CheckoutPage() {
                   <div className="border-t border-gray-200 pt-4 mt-4">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold text-gray-900">Total</span>
-                      <span className="text-2xl font-bold text-gray-900">
-                        ETB {fees.total.toFixed(2)}
-                      </span>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-gray-900">
+                          ETB {fees.total.toFixed(2)}
+                        </div>
+                        <div className="text-sm text-gray-500 font-normal">
+                          ≈ ${(fees.total * 0.018).toFixed(2)} USD
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
