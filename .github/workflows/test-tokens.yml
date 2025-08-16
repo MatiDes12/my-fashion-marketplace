@@ -61,6 +61,34 @@ jobs:
         npx snyk test --severity-threshold=high || echo "Snyk test completed"
         echo "✅ Snyk connection successful"
 
+  test-stripe:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Test Stripe Configuration
+      run: |
+        echo "Testing Stripe configuration..."
+        if [ -n "${{ secrets.STRIPE_SECRET_KEY }}" ] && [ -n "${{ secrets.STRIPE_PUBLISHABLE_KEY }}" ]; then
+          echo "✅ Stripe secret key configured (${STRIPE_SECRET_KEY:0:12}...)"
+          echo "✅ Stripe publishable key configured (${STRIPE_PUBLISHABLE_KEY:0:12}...)"
+          if [ -n "${{ secrets.STRIPE_WEBHOOK_SECRET }}" ]; then
+            echo "✅ Stripe webhook secret configured (${STRIPE_WEBHOOK_SECRET:0:10}...)"
+          else
+            echo "⚠️ Stripe webhook secret not configured"
+          fi
+          echo "✅ Stripe configuration complete"
+        else
+          echo "❌ Stripe keys not configured"
+          echo "Please add STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY secrets"
+          exit 1
+        fi
+      env:
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+        STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
   test-datadog:
     runs-on: ubuntu-latest
     steps:
@@ -119,6 +147,10 @@ jobs:
         TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
         CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
         CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+        STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+        STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
         NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
         NODE_ENV: production
       run: npm run build
@@ -131,7 +163,7 @@ jobs:
 
   summary:
     runs-on: ubuntu-latest
-    needs: [test-vercel, test-supabase, test-snyk, test-datadog, test-build]
+    needs: [test-vercel, test-supabase, test-snyk, test-stripe, test-datadog, test-build]
     if: always()
     steps:
     - name: Generate Test Summary
@@ -146,6 +178,9 @@ jobs:
         echo "" >> test-summary.md
         echo "### Snyk Security" >> test-summary.md
         echo "- Status: ${{ needs.test-snyk.result }}" >> test-summary.md
+        echo "" >> test-summary.md
+        echo "### Stripe Payments" >> test-summary.md
+        echo "- Status: ${{ needs.test-stripe.result }}" >> test-summary.md
         echo "" >> test-summary.md
         echo "### Datadog Monitoring" >> test-summary.md
         echo "- Status: ${{ needs.test-datadog.result }}" >> test-summary.md
@@ -168,13 +203,14 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          const jobs = ['test-vercel', 'test-supabase', 'test-snyk', 'test-datadog', 'test-build'];
+          const jobs = ['test-vercel', 'test-supabase', 'test-snyk', 'test-stripe', 'test-datadog', 'test-build'];
           let summary = '## 🔍 CI/CD Setup Test Results\n\n';
           
           const results = {
             'test-vercel': '${{ needs.test-vercel.result }}',
             'test-supabase': '${{ needs.test-supabase.result }}',
             'test-snyk': '${{ needs.test-snyk.result }}',
+            'test-stripe': '${{ needs.test-stripe.result }}',
             'test-datadog': '${{ needs.test-datadog.result }}',
             'test-build': '${{ needs.test-build.result }}'
           };
