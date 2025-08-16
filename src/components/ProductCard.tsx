@@ -12,6 +12,7 @@ import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import ProductRating from '@/components/ProductRating';
 import WishlistPopup from '@/components/WishlistPopup';
+import LoginModal from '@/components/LoginModal';
 
 interface Product {
   id: string;
@@ -64,6 +65,8 @@ export default function ProductCard({ product, showOwner = false, showActions = 
   const [loading, setLoading] = useState(false);
   const [likesLoading, setLikesLoading] = useState(false);
   const [showWishlistPopup, setShowWishlistPopup] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalType, setLoginModalType] = useState<'rate' | 'like' | 'cart' | 'generic'>('generic');
   const router = useRouter();
   const supabase = createClientComponent();
 
@@ -116,8 +119,8 @@ export default function ProductCard({ product, showOwner = false, showActions = 
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        toast.error('Please login to like products');
-        router.push('/login');
+        setLoginModalType('like');
+        setShowLoginModal(true);
         return;
       }
 
@@ -263,6 +266,13 @@ export default function ProductCard({ product, showOwner = false, showActions = 
 
   return (
     <>
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType={loginModalType}
+      />
+      
       {/* Wishlist Popup */}
       <WishlistPopup
         isOpen={showWishlistPopup}

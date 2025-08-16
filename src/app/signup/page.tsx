@@ -387,7 +387,14 @@ export default function SignupPage() {
       }
       setMessage('Signup successful! You are now logged in.');
       setTimeout(() => {
-        router.push('/');
+        // Check for stored redirect URL from LoginModal
+        const storedRedirect = localStorage.getItem('redirectAfterLogin');
+        if (storedRedirect) {
+          localStorage.removeItem('redirectAfterLogin');
+          router.push(storedRedirect);
+        } else {
+          router.push('/');
+        }
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to verify OTP');

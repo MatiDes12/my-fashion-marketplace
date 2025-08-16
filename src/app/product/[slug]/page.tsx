@@ -14,6 +14,7 @@ import { getFlashSalePrices } from '@/utils/flashSales';
 import ProductRating from '@/components/ProductRating';
 import Link from 'next/link';
 import WishlistPopup from '@/components/WishlistPopup';
+import LoginModal from '@/components/LoginModal';
 
 type ProductImage = {
   id: string;
@@ -510,6 +511,8 @@ export default function ProductDetailPage() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null); // Track user id for like check
   const [showWishlistPopup, setShowWishlistPopup] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalType, setLoginModalType] = useState<'rate' | 'like' | 'cart' | 'generic'>('generic');
   
   // Review pagination state
   const [currentReviewPage, setCurrentReviewPage] = useState(1);
@@ -748,8 +751,8 @@ export default function ProductDetailPage() {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      toast.error('Please sign in to like products');
-      router.push('/login');
+      setLoginModalType('like');
+      setShowLoginModal(true);
       return;
     }
     
@@ -855,8 +858,8 @@ export default function ProductDetailPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        toast.error('Please sign in to add items to cart');
-        router.push('/login');
+        setLoginModalType('cart');
+        setShowLoginModal(true);
         return;
       }
 
@@ -1199,6 +1202,13 @@ export default function ProductDetailPage() {
           }}
         />
       )}
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType={loginModalType}
+      />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <nav className="flex mb-8" aria-label="Breadcrumb">
@@ -1617,6 +1627,9 @@ export default function ProductDetailPage() {
           </div>
         </div>
         
+        {/* Related Products */}
+        <RelatedProducts currentProductId={product.id} category={product.category} />
+
         {/* Additional Details Section - Full width below */}
         <div className="mt-12">
           {/* Tabs Section */}
@@ -2130,11 +2143,6 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Contact Section */}
-        <ContactSection seller={product.users} />
-
-        {/* Related Products */}
-        <RelatedProducts currentProductId={product.id} category={product.category} />
       </div>
     </div>
   );
@@ -2150,6 +2158,7 @@ const ReviewForm = ({ productId, initialRating, initialComment, onSubmit }: {
   const [rating, setRating] = useState(initialRating || 0);
   const [comment, setComment] = useState(initialComment || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const supabase = createClientComponent();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2157,7 +2166,7 @@ const ReviewForm = ({ productId, initialRating, initialComment, onSubmit }: {
     
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      toast.error('Please login to submit a review');
+      setShowLoginModal(true);
       return;
     }
 
@@ -2188,41 +2197,49 @@ const ReviewForm = ({ productId, initialRating, initialComment, onSubmit }: {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Your Rating</label>
-        <div className="mt-1">
-          <ProductRating
-            productId={productId}
-            initialRating={rating}
-            onRatingSubmit={(newRating) => setRating(newRating)}
-          />
-        </div>
-      </div>
+    <>
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType="rate"
+      />
       
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Your Review</label>
-        <div className="mt-1">
-          <textarea
-            rows={4}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
-            placeholder="Share your experience with this product..."
-          />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Your Rating</label>
+          <div className="mt-1">
+            <ProductRating
+              productId={productId}
+              initialRating={rating}
+              onRatingSubmit={(newRating) => setRating(newRating)}
+            />
+          </div>
         </div>
-      </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Your Review</label>
+          <div className="mt-1">
+            <textarea
+              rows={4}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+              placeholder="Share your experience with this product..."
+            />
+          </div>
+        </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting || rating === 0}
-        className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-          isSubmitting || rating === 0 ? 'opacity-50 cursor-not-allowed' : ''
-        }`}
-      >
-        {isSubmitting ? 'Submitting...' : 'Submit Review'}
-      </button>
-    </form>
+        <button
+          type="submit"
+          disabled={isSubmitting || rating === 0}
+          className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+            isSubmitting || rating === 0 ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Review'}
+        </button>
+      </form>
+    </>
   );
 };
 
@@ -2289,7 +2306,7 @@ const RelatedProducts = ({ currentProductId, category }: { currentProductId: str
         .eq('category', category)
         .eq('is_active', true)
         .neq('id', currentProductId)
-        .limit(4);
+        .limit(6);
 
       if (!error && data) {
         setProducts(data);
@@ -2303,33 +2320,48 @@ const RelatedProducts = ({ currentProductId, category }: { currentProductId: str
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3">
-      <h2 className="text-sm font-medium text-gray-900 mb-3">Related Products</h2>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-medium text-gray-900">Related Products</h2>
+        <Link 
+          href="/products" 
+          className="text-xs text-green-600 hover:text-green-700 font-medium"
+        >
+          View All →
+        </Link>
+      </div>
+      
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
         {products.map((product) => (
           <Link 
             href={`/products/${product.id}`}
             key={product.id}
-            className="group block"
+            className="group block bg-gray-50 rounded-md p-1.5 hover:bg-gray-100 transition-colors"
           >
-            <div className="aspect-square w-full overflow-hidden rounded bg-gray-100">
+            <div className="aspect-square w-full overflow-hidden rounded bg-white mb-1.5">
               {product.product_images?.[0]?.image_url ? (
                 <Image
                   src={product.product_images[0].image_url}
                   alt={product.title}
-                  width={120}
-                  height={120}
-                  className="h-full w-full object-cover group-hover:opacity-75 transition-opacity"
+                  width={60}
+                  height={60}
+                  className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
               ) : (
                 <div className="h-full w-full bg-gray-200 flex items-center justify-center">
-                  <span className="text-gray-400 text-xs">No image</span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
                 </div>
               )}
             </div>
-            <h3 className="mt-1 text-xs text-gray-700 line-clamp-2">{product.title}</h3>
-            <p className="text-xs font-medium text-gray-900">
-              ETB {product.price.toFixed(2)}
-            </p>
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-medium text-gray-900 line-clamp-1 group-hover:text-green-600 transition-colors">
+                {product.title}
+              </h3>
+              <p className="text-xs font-semibold text-green-600">
+                ETB {product.price.toFixed(2)}
+              </p>
+            </div>
           </Link>
         ))}
       </div>

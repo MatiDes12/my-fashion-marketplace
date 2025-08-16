@@ -269,6 +269,14 @@ export default function OrdersPage() {
     }
   };
   
+  // Display label mapping (keep underlying status values unchanged)
+  const getDisplayStatus = (status: string, deliveryMethod?: string) => {
+    if (status === 'shipped' && deliveryMethod === 'store_pickup') {
+      return 'ready for pickup';
+    }
+    return status;
+  };
+  
   const handleDownloadReceipt = async (receiptUrl: string, orderRef: string) => {
     try {
       if (!receiptUrl) {
@@ -547,7 +555,10 @@ export default function OrdersPage() {
                     </div>
                     <div className="mt-2 sm:mt-0">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(orderGroup.order_status)}`}>
-                        {orderGroup.order_status.charAt(0).toUpperCase() + orderGroup.order_status.slice(1)}
+                        {(() => {
+                          const label = getDisplayStatus(orderGroup.order_status, orderGroup.orders?.[0]?.delivery_method);
+                          return label.charAt(0).toUpperCase() + label.slice(1);
+                        })()}
                       </span>
                     </div>
                   </div>
@@ -787,7 +798,7 @@ export default function OrdersPage() {
                             <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
                             <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-5h2a1 1 0 00.9-.5l1.08-1.5-3.7-3.7A1 1 0 0010.46 4H3z" />
                           </svg>
-                          Shipped on {formatDate(orderGroup.orders[0].updated_at)}
+                          {orderGroup.orders[0].delivery_method === 'store_pickup' ? 'Ready for pickup' : 'Shipped'} on {formatDate(orderGroup.orders[0].updated_at)}
                         </span>
                       ) : (
                         <span>

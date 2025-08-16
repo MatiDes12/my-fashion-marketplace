@@ -5,6 +5,7 @@ import { createClientComponent } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
+import LoginModal from '@/components/LoginModal';
 
 interface WishlistPopupProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export default function WishlistPopup({
 }: WishlistPopupProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalType, setLoginModalType] = useState<'rate' | 'like' | 'cart' | 'generic'>('generic');
   const supabase = createClientComponent();
   const router = useRouter();
 
@@ -36,8 +39,8 @@ export default function WishlistPopup({
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Please sign in to add items to wishlist');
-        router.push('/login');
+        setLoginModalType('like');
+        setShowLoginModal(true);
         return;
       }
 
@@ -74,8 +77,8 @@ export default function WishlistPopup({
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Please sign in to like products');
-        router.push('/login');
+        setLoginModalType('like');
+        setShowLoginModal(true);
         return;
       }
 
@@ -106,8 +109,16 @@ export default function WishlistPopup({
   if (!isOpen || !mounted) return null;
 
   const popupContent = (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-center justify-center p-4" 
+    <>
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType={loginModalType}
+      />
+      
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-50 z-[99999] flex items-center justify-center p-4" 
       style={{ 
         position: 'fixed', 
         top: 0, 
@@ -189,8 +200,9 @@ export default function WishlistPopup({
             <strong>Like:</strong> Show appreciation and track favorites
           </p>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 
   // Use portal to render at document body level

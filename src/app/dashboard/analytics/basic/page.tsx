@@ -221,8 +221,19 @@ export default function AnalyticsPage() {
     // Calculate payout efficiency
     const completedPayouts = revenueData?.filter(item => item.seller_payout_status === 'completed') || [];
     const pendingPayouts = revenueData?.filter(item => item.seller_payout_status === 'pending') || [];
-    const totalEligible = completedPayouts.length + pendingPayouts.length;
-    const totalPaid = completedPayouts.length;
+
+    // Only count transactions for orders that are completed (delivered or picked up) AND paid
+    const completedOrderIds = new Set(
+      (ordersData || [])
+        .filter(o => o.order_status === 'delivered' || o.order_status === 'picked up')
+        .map(o => o.id)
+    );
+    const eligibleTransactions = (revenueData || []).filter(tx => 
+      tx.payment_status === 'paid' && completedOrderIds.has(tx.order_id)
+    );
+
+    const totalEligible = eligibleTransactions.length;
+    const totalPaid = eligibleTransactions.filter(tx => tx.seller_payout_status === 'completed').length;
     const payoutRate = totalEligible > 0 ? (totalPaid / totalEligible) * 100 : 0;
 
     // Calculate average payout time (simplified - using order completion to payout)
@@ -242,8 +253,8 @@ export default function AnalyticsPage() {
 
     // Process payout status distribution
     const payoutStatusCounts = {
-      completed: completedPayouts.length,
-      pending: pendingPayouts.length,
+      completed: eligibleTransactions.filter(tx => tx.seller_payout_status === 'completed').length,
+      pending: eligibleTransactions.filter(tx => tx.seller_payout_status === 'pending').length,
       notEligible: (revenueData?.length || 0) - totalEligible
     };
 
@@ -259,7 +270,7 @@ export default function AnalyticsPage() {
 
     // Process orders by status - match exactly with database schema
     const ordersByStatus = {
-      labels: ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'],
+      labels: ['Pending', 'Confirmed', 'Shipped/Ready pickup', 'Delivered', 'Cancelled'],
       data: Array(5).fill(0) // Initialize array with zeros
     };
 

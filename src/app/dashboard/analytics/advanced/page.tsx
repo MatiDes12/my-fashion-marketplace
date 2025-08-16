@@ -287,7 +287,7 @@ export default function AnalyticsPage() {
 
     // Process orders by status - match exactly with database schema
     const ordersByStatus = {
-      labels: ['Pending', 'Confirmed', 'Shipped', 'Completed', 'Cancelled'],
+      labels: ['Pending', 'Confirmed', 'Shipped/Ready pickup', 'Completed', 'Cancelled'],
       data: Array(5).fill(0) // Initialize array with zeros
     };
 
@@ -332,7 +332,17 @@ export default function AnalyticsPage() {
       data: Array.from(paymentMethodsMap.values())
     };
 
-    // Calculate summary metrics
+    // Calculate summary metrics with eligibility strictly on completed orders
+    const completedOrderIds = new Set(
+      (ordersData || [])
+        .filter(o => o.order_status === 'delivered' || o.order_status === 'picked up')
+        .map(o => o.id)
+    );
+
+    const eligibleTransactions = (revenueData || []).filter(tx => 
+      tx.payment_status === 'paid' && completedOrderIds.has(tx.order_id)
+    );
+
     const summary = {
       totalOrders: ordersData?.length || 0,
       totalRevenue: revenueData?.reduce((sum, item) => {
@@ -340,28 +350,12 @@ export default function AnalyticsPage() {
       }, 0) || 0,
       averageOrderValue: revenueData?.length ? 
         (revenueData.reduce((sum, item) => sum + (item.seller_payout_amount || 0), 0) / revenueData.length) : 0,
-      pendingPayouts: revenueData?.reduce((sum, item) => {
-        // Only count as pending payout if:
-        // 1. seller_payout_status is 'pending'
-        // 2. payment_status is 'paid' (customer has paid)
-        // 3. Find the corresponding order and check if it's completed (delivered or picked up)
-        if (item.seller_payout_status === 'pending' && item.payment_status === 'paid') {
-          const order = ordersData?.find(o => o.id === item.order_id);
-          if (order && (order.order_status === 'delivered' || order.order_status === 'picked up')) {
-            return sum + (item.seller_payout_amount || 0);
-          }
-        }
-        return sum;
-      }, 0) || 0,
-      completedPayouts: revenueData?.reduce((sum, item) => {
-        // Count as completed payout if:
-        // 1. seller_payout_status is 'completed' (admin has paid)
-        // 2. payment_status is 'paid' (customer has paid)
-        if (item.seller_payout_status === 'completed' && item.payment_status === 'paid') {
-          return sum + (item.seller_payout_amount || 0);
-        }
-        return sum;
-      }, 0) || 0
+      pendingPayouts: eligibleTransactions.reduce((sum, item) => {
+        return sum + (item.seller_payout_status === 'pending' ? (item.seller_payout_amount || 0) : 0);
+      }, 0),
+      completedPayouts: eligibleTransactions.reduce((sum, item) => {
+        return sum + (item.seller_payout_status === 'completed' ? (item.seller_payout_amount || 0) : 0);
+      }, 0)
     };
 
     // Debug logging

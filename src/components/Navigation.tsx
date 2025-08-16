@@ -13,6 +13,7 @@ import CartIcon from './CartIcon';
 import { getActiveFlashSale, getAllActiveFlashSales } from '@/utils/flashSales';
 import CountdownTimer from './CountdownTimer';
 import { UserDetails } from '@/hooks/useUserDetails';
+import LoginModal from '@/components/LoginModal';
 import { cleanImageUrl } from '@/utils/url';
 import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import { toast } from 'react-hot-toast';
@@ -135,6 +136,8 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const [currentFlashSaleIndex, setCurrentFlashSaleIndex] = useState(0);
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalType, setLoginModalType] = useState<'rate' | 'like' | 'cart' | 'generic'>('generic');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -836,7 +839,14 @@ export default function Navigation({ userDetails }: NavigationProps) {
 
   return (
     <>
-    <nav 
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType={loginModalType}
+      />
+      
+      <nav 
       ref={navRef}
       className={`
         fixed top-0 left-0 right-0 z-[90] bg-white shadow-sm
@@ -1168,8 +1178,8 @@ export default function Navigation({ userDetails }: NavigationProps) {
               onClick={(e) => {
                 if (!user) {
                   e.preventDefault();
-                  toast.error('Please login to access your cart');
-                  router.push('/login?returnUrl=/cart');
+                  setLoginModalType('cart');
+                  setShowLoginModal(true);
                 }
               }}
             >

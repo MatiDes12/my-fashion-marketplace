@@ -284,6 +284,30 @@ export default function AdminTransactionsPage() {
         .eq('id', transactionId);
 
       if (updateError) throw updateError;
+
+      // Notify seller via Telegram if they are linked
+      try {
+        const sellerId = (transaction as any)?.seller_id;
+        if (sellerId) {
+          const payload = {
+            type: 'seller_notification',
+            userId: String(sellerId),
+            data: {
+              type: 'payout_transfer',
+              message: 'Your payout has been transferred to your account.',
+              amount: (transaction as any)?.seller_payout_amount || 0,
+              order_id: (transaction as any)?.order_id || ''
+            }
+          };
+          await fetch('/api/telegram/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+      } catch (notifyErr) {
+        console.warn('[TELEGRAM] Failed to send payout transfer notification:', notifyErr);
+      }
       
       toast.success('Payment transferred to seller successfully');
       setShowTransferModal(false);

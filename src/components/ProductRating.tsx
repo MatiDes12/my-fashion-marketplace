@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
 import { StarIcon } from '@heroicons/react/24/solid';
 import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline';
+import LoginModal from '@/components/LoginModal';
 
 interface RatingProps {
   productId: string;
@@ -24,6 +25,7 @@ export default function ProductRating({
   const [hover, setHover] = useState<number>(0);
   const [userRating, setUserRating] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const supabase = createClientComponent();
 
   useEffect(() => {
@@ -57,8 +59,7 @@ export default function ProductRating({
   const handleRating = async (value: number) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      // Handle not logged in state - maybe redirect to login or show modal
-      alert('Please login to rate products');
+      setShowLoginModal(true);
       return;
     }
 
@@ -88,7 +89,15 @@ export default function ProductRating({
   };
 
   return (
-    <div className="flex items-center space-x-1">
+    <>
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType="rate"
+      />
+      
+      <div className="flex items-center space-x-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
@@ -112,6 +121,7 @@ export default function ProductRating({
           Your rating: {userRating}
         </span>
       )}
-    </div>
+      </div>
+    </>
   );
 } 

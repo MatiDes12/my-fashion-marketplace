@@ -112,6 +112,14 @@ function LoginContent() {
       setUser(session.user);
 
       // Handle redirects based on role and verification status
+      // Check for stored redirect URL from LoginModal
+      const storedRedirect = localStorage.getItem('redirectAfterLogin');
+      if (storedRedirect) {
+        localStorage.removeItem('redirectAfterLogin');
+        router.push(storedRedirect);
+        return;
+      }
+
       if (userData?.role === 'admin') {
         router.push(returnUrl || '/admin');
       } else if (userData?.role === 'owner') {

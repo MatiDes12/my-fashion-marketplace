@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import { cleanImageUrl } from '@/utils/url';
 import Link from 'next/link';
 import { getFlashSalePrices } from '@/utils/flashSales';
+import LoginModal from '@/components/LoginModal';
 import { Suspense } from 'react';
 import LoadingPage from '@/components/LoadingPage';
 import { PRODUCT_CATEGORIES } from '@/utils/constants';
@@ -148,6 +149,8 @@ function ProductsContent() {
   const [productsPerPage] = useState(100);
   const [likedProducts, setLikedProducts] = useState<Set<string>>(new Set());
   const [isLikeLoading, setIsLikeLoading] = useState<Record<string, boolean>>({});
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginModalType, setLoginModalType] = useState<'rate' | 'like' | 'cart' | 'generic'>('generic');
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get('search') || '';
   const router = useRouter();
@@ -381,8 +384,8 @@ function ProductsContent() {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      toast.error('Please sign in to like products');
-      router.push('/login');
+      setLoginModalType('like');
+      setShowLoginModal(true);
       return;
     }
     
@@ -474,7 +477,12 @@ function ProductsContent() {
 
   return (
     <>
-      
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType={loginModalType}
+      />
 
       {/* Wishlist Popup */}
       {selectedProductForWishlist && (

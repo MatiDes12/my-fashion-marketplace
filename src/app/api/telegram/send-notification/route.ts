@@ -21,6 +21,9 @@ export async function POST(request: Request) {
       case 'order_created':
         await bot.sendOrderNotification(userId, data);
         break;
+      case 'order_confirmation':
+        await bot.sendOrderConfirmation(userId, data);
+        break;
       case 'payment_success':
       case 'payment_failed':
         await bot.sendPaymentNotification(userId, data);

@@ -22,6 +22,7 @@ import { FeaturedCollections, CategoryGrid, TestimonialsSection, NewsletterSecti
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getPlaceholderImage } from '@/utils/placeholderImages';
 import { Sparkles, ArrowRight, Users, TrendingUp, Send } from 'lucide-react';
+import LoginModal from '@/components/LoginModal';
 
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect width="100" height="100" fill="%23f3f4f6"/%3E%3Ctext x="50" y="50" font-family="Arial" font-size="12" fill="%239ca3af" text-anchor="middle" dy=".3em"%3ELoading...%3C/text%3E%3C/svg%3E';
 
@@ -31,6 +32,11 @@ interface FeaturedSeller {
   seller_name: string;
   verification_status: string;
   verification?: any;
+  hasStoreSetup?: boolean | string;
+  avgRating: number;
+  totalLikes: number;
+  totalRatings: number;
+  combinedScore: number;
   store_settings: {
     name: string;
     logo_url: string;
@@ -143,6 +149,8 @@ interface FlashSale {
     const [selectedSize, setSelectedSize] = useState<string | null>(null);
     const [selectedColor, setSelectedColor] = useState<string | null>(null);
     const [validationError, setValidationError] = useState<string | null>(null);
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const [loginModalType, setLoginModalType] = useState<'rate' | 'like' | 'cart' | 'generic'>('generic');
     const router = useRouter();
     const supabase = createClientComponent();
 
@@ -213,8 +221,8 @@ interface FlashSale {
       e.stopPropagation(); // Prevent card click navigation
       
       if (!user) {
-        toast.error('Please login to add items to your cart');
-        router.push('/login');
+        setLoginModalType('cart');
+        setShowLoginModal(true);
         return;
       }
 
@@ -232,8 +240,8 @@ interface FlashSale {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          toast.error('Please login to add items to your cart');
-          router.push('/login');
+          setLoginModalType('cart');
+          setShowLoginModal(true);
           return;
         }
 
@@ -324,12 +332,20 @@ interface FlashSale {
   };
 
   return (
-    <div
-      className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group h-[500px] flex flex-col cursor-pointer"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={handleCardClick}
-    >
+    <>
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        actionType={loginModalType}
+      />
+      
+      <div
+        className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group h-[500px] flex flex-col cursor-pointer"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={handleCardClick}
+      >
       {/* Product Image */}
       <div className="relative h-72 overflow-hidden">
         <img
@@ -697,10 +713,11 @@ interface FlashSale {
               </button>
     </div>
   </div>
+          </div>
+        )}
       </div>
-      )}
-  </div>
-);
+    </>
+  );
   };
 
 export default function HomePage() {
@@ -888,21 +905,33 @@ export default function HomePage() {
       }) || [];
 
       // Sort by priority: 
-      // 1. Stores with setup come first
-      // 2. Then by combined score (ratings + likes)
-      // 3. Then by name alphabetically
+      // 1. Total engagement (likes + ratings) from highest to lowest
+      // 2. Average rating as tiebreaker
+      // 3. Stores with setup get slight boost
+      // 4. Then by name alphabetically as final tiebreaker
       const sortedBrands = processedBrands
         .sort((a, b) => {
-          // First priority: stores with setup
+          // Calculate total engagement
+          const engagementA = a.totalLikes + a.totalRatings;
+          const engagementB = b.totalLikes + b.totalRatings;
+          
+
+          
+          // Primary sort: by total engagement (highest to lowest)
+          if (engagementA !== engagementB) {
+            return engagementB - engagementA;
+          }
+          
+          // Secondary sort: by average rating (highest to lowest)
+          if (a.avgRating !== b.avgRating) {
+            return b.avgRating - a.avgRating;
+          }
+          
+          // Tertiary sort: stores with setup
           if (a.hasStoreSetup && !b.hasStoreSetup) return -1;
           if (!a.hasStoreSetup && b.hasStoreSetup) return 1;
           
-          // Second priority: combined score
-          if (a.combinedScore !== b.combinedScore) {
-            return b.combinedScore - a.combinedScore;
-          }
-          
-          // Third priority: alphabetical by name
+          // Final sort: alphabetical by name
           return a.store_settings.name.localeCompare(b.store_settings.name);
         })
         .slice(0, 10); // Top 10 only
@@ -1090,7 +1119,7 @@ export default function HomePage() {
   if (error) return <ErrorMessage message={error} />;
 
   return (
-    <>
+    <>      
       <div className="min-h-screen relative bg-gray-900 overflow-hidden w-full">
         
         {/* Enhanced Hero Section with Integrated Achievement Badges */}
@@ -1647,12 +1676,42 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
                 viewport={{ once: true }}
-                className="text-center mb-10"
+                className="flex items-center justify-between mb-10"
               >
+                <div className="text-center md:text-left">
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">{t('landing.featuredBrands.title')}</h2>
-                <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                  <p className="text-xl text-gray-600 max-w-2xl">
                   {t('landing.featuredBrands.subtitle')}
                 </p>
+                </div>
+
+                {/* Navigation Controls - Moved to top right */}
+                <div className="hidden md:flex items-center gap-3">
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('featured-brands-scroll');
+                      container?.scrollBy({ left: -320, behavior: 'smooth' });
+                    }}
+                    className="group p-3 rounded-full bg-white/80 backdrop-blur-sm border border-red-200 hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
+                    aria-label="Scroll left"
+                  >
+                    <svg className="w-5 h-5 text-red-600 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('featured-brands-scroll');
+                      container?.scrollBy({ left: 320, behavior: 'smooth' });
+                    }}
+                    className="group p-3 rounded-full bg-white/80 backdrop-blur-sm border border-red-200 hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
+                    aria-label="Scroll right"
+                  >
+                    <svg className="w-5 h-5 text-red-600 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
               </motion.div>
 
               <div className="relative">
@@ -1665,22 +1724,16 @@ export default function HomePage() {
                   }}
                 >
                   {featuredBrands
-                    .sort((a, b) => {
-                      // Sort by verification status first, then by name
-                      if (a.verification_status === 'verified' && b.verification_status !== 'verified') return -1;
-                      if (a.verification_status !== 'verified' && b.verification_status === 'verified') return 1;
-                      return a.store_settings.name.localeCompare(b.store_settings.name);
-                    })
                     .slice(0, 12).map((brand, index) => (
-                                          <motion.div
-                        key={brand.seller_id}
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: index * 0.1 }}
-                        viewport={{ once: true }}
+                    <motion.div
+                      key={brand.seller_id}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: index * 0.1 }}
+                    viewport={{ once: true }}
                         className="group flex-none w-80"
-                      >
-                         <Link href={`/stores/${brand.seller_id}`}>
+                  >
+                                         <Link href={`/stores/${brand.seller_id}`}>
                        <div className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 h-[280px] flex flex-col">
                          {/* Banner */}
                          <div className="relative h-28">
@@ -1699,20 +1752,20 @@ export default function HomePage() {
                          {/* Logo overlapping banner */}
                          <div className="relative -mt-12 px-3">
                            <div className="relative w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-white shadow-lg">
-                             {brand.store_settings.logo_url ? (
-                               <Image
-                                 src={cleanImageUrl(brand.store_settings.logo_url)}
-                                 alt={brand.store_settings.name}
-                                 fill
-                                 className="object-cover"
-                                 sizes="80px"
-                               />
-                             ) : (
+                            {brand.store_settings.logo_url ? (
+                              <Image
+                                src={cleanImageUrl(brand.store_settings.logo_url)}
+                                alt={brand.store_settings.name}
+                                fill
+                               className="object-cover"
+                               sizes="80px"
+                              />
+                            ) : (
                                <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white text-2xl font-bold">
-                                 {brand.store_settings.name?.[0]?.toUpperCase() || '?'}
-                               </div>
-                             )}
-                           </div>
+                               {brand.store_settings.name?.[0]?.toUpperCase() || '?'}
+                             </div>
+                            )}
+                          </div>
                          </div>
                                                    <div className="px-3 pt-4 pb-6 text-center flex-1 flex flex-col">
                             <div className="flex items-center justify-center gap-2">
@@ -1721,9 +1774,46 @@ export default function HomePage() {
                               </h3>
                               {brand.verification_status === 'verified' && (
                                 <svg className="w-4 h-4 text-blue-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
+                               <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                  </svg>
                               )}
+                            </div>
+                            
+                            {/* Metrics Display - Likes and Ratings */}
+                            <div className="mt-2 mb-3">
+                              <div className="flex items-center justify-center gap-3 text-xs">
+                                {/* Average Rating - Always show */}
+                                <div className={`flex items-center gap-1 ${brand.avgRating > 0 ? 'text-yellow-500' : 'text-gray-400'}`}>
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                  </svg>
+                                  <span className="font-medium">
+                                    {brand.avgRating > 0 ? brand.avgRating.toFixed(1) : '0.0'}
+                                  </span>
+                                </div>
+                                
+                                {/* Total Likes - Always show */}
+                                <div className={`flex items-center gap-1 ${brand.totalLikes > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                                  </svg>
+                                  <span className="font-medium">
+                                    {brand.totalLikes}
+                                  </span>
+                                </div>
+                                
+                                {/* Total Reviews - Always show */}
+                                <div className={`flex items-center gap-1 ${brand.totalRatings > 0 ? 'text-blue-500' : 'text-gray-400'}`}>
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                  </svg>
+                                  <span className="font-medium">
+                                    {brand.totalRatings}
+                                  </span>
+                                </div>
+                              </div>
+                              
+
                             </div>
                             
                             {/* Show verification status or description - with flex-grow to fill space */}
@@ -1737,61 +1827,35 @@ export default function HomePage() {
                                 </div>
                               ) : (
                                 <p className="text-sm text-gray-500 line-clamp-2">
-                                  {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Verified seller on our platform')}
-                                </p>
+                            {brand.store_settings.description || (language === 'am' ? 'በመድረካችን ላይ የተረጋገጠ ሻጭ' : 'Verified seller on our platform')}
+                          </p>
                               )}
                             </div>
                             
-                            <div className="flex justify-center mt-auto">
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                ⭐ Top Seller
-                              </span>
+                         <div className="flex justify-center mt-auto">
+                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                             ⭐ Top Seller
+                           </span>
                             </div>
                           </div>
                         </div>
-                                              </Link>
-                      </motion.div>
-                    ))}
+                      </Link>
+                    </motion.div>
+                  ))}
                 </div>
 
-                {/* Navigation Controls */}
-                <div className="flex justify-between items-center mt-4">
+                {/* Status Indicator */}
+                <div className="flex justify-center items-center mt-4">
                   <div className="flex items-center gap-2 text-gray-600">
                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                     <span className="text-sm font-medium">Featured Stores</span>
-                  </div>
-                  <div className="hidden md:flex items-center gap-3">
-                    <button 
-                      onClick={() => {
-                        const container = document.getElementById('featured-brands-scroll');
-                        container?.scrollBy({ left: -320, behavior: 'smooth' });
-                      }}
-                      className="group p-3 rounded-full bg-white/80 backdrop-blur-sm border border-red-200 hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
-                      aria-label="Scroll left"
-                    >
-                      <svg className="w-5 h-5 text-red-600 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => {
-                        const container = document.getElementById('featured-brands-scroll');
-                        container?.scrollBy({ left: 320, behavior: 'smooth' });
-                      }}
-                      className="group p-3 rounded-full bg-white/80 backdrop-blur-sm border border-red-200 hover:bg-red-50 hover:border-red-300 transition-all duration-200 shadow-lg"
-                      aria-label="Scroll right"
-                    >
-                      <svg className="w-5 h-5 text-red-600 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
                   </div>
                 </div>
 
                 {/* Gradient Fade Effects */}
                 <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-50 to-transparent pointer-events-none"></div>
                 <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none"></div>
-              </div>
+                </div>
               </div>
               </div>
           </section>

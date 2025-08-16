@@ -7,9 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import { formatCurrency } from '@/utils/currency';
 import { toast } from 'react-hot-toast';
-import PickupCodeDisplay from '@/components/PickupCodeDisplay';
 import { Html5Qrcode } from 'html5-qrcode';
-import { XMarkIcon } from '@heroicons/react/24/outline';
 
 interface User {
   id: string;
@@ -187,6 +185,14 @@ const getSizeAndColorFromSku = (sku: string | undefined) => {
     return `${size}-${color}`;
   }
   return sku; // Return full SKU if not enough parts
+};
+
+// Display label mapping (keep underlying status unchanged)
+const getDisplayStatus = (status: string, deliveryMethod?: string) => {
+  if (status === 'shipped' && deliveryMethod === 'store_pickup') {
+    return 'ready for pickup';
+  }
+  return status;
 };
 
 export default function OrdersPage() {
@@ -593,6 +599,36 @@ export default function OrdersPage() {
 
       if (orderError) throw orderError;
 
+      // If we generated a pickup code for a store pickup order, notify the customer via Telegram
+      if (pickupCode && selectedOrder.user_id) {
+        try {
+          const payload = {
+            type: 'order_confirmation',
+            userId: String(selectedOrder.user_id),
+            data: {
+              orderId: String(selectedOrder.id),
+              productName: (selectedOrder as any)?.product?.title || undefined,
+              amount: selectedOrder.total_price,
+              orderStatus: newStatus,
+              paymentStatus: orderUpdate?.payment_status || selectedOrder.payment_status || 'pending',
+              deliveryMethod: selectedOrder.delivery_method,
+              pickupCode,
+              customerName: (selectedOrder as any)?.user?.full_name || undefined,
+              customerEmail: (selectedOrder as any)?.user?.email || undefined,
+              createdAt: new Date().toISOString(),
+            },
+          };
+          await fetch('/api/telegram/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          console.log('[TELEGRAM] Sent pickup code via order confirmation:', payload);
+        } catch (notifyErr) {
+          console.warn('[TELEGRAM] Failed to send pickup code notification:', notifyErr);
+        }
+      }
+
       // If status is delivered or picked up, update the transaction
       if (isMarkingDelivered || isMarkingPickedUp) {
         console.log('Updating transaction for order:', selectedOrder.id, 'Status:', newStatus);
@@ -671,7 +707,7 @@ export default function OrdersPage() {
       setSelectedOrder(null);
 
       if (pickupCode) {
-        toast.success(`Order confirmed! Pickup code: ${pickupCode}`);
+        toast.success('Order confirmed! Pickup code has been sent to the customer.');
       } else {
       toast.success(`Order status updated to ${newStatus}`);
       }
@@ -1494,6 +1530,7 @@ export default function OrdersPage() {
                             // If all orders have the same status, show just one badge
                             if (uniqueStatuses.length === 1) {
                               const status = uniqueStatuses[0];
+                              const label = getDisplayStatus(status, group.orders?.[0]?.delivery_method);
                               return (
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                   status === 'delivered' || status === 'picked up'
@@ -1504,7 +1541,7 @@ export default function OrdersPage() {
                                     ? 'bg-blue-100 text-blue-800'
                                     : 'bg-yellow-100 text-yellow-800'
                                 }`}>
-                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                  {label.charAt(0).toUpperCase() + label.slice(1)}
                         </span>
                               );
                             }
@@ -1543,7 +1580,10 @@ export default function OrdersPage() {
                                       : 'bg-yellow-100 text-yellow-800'
                                   }`}
                                 >
-                                  {count > 1 ? `${count}× ` : ''}{status.charAt(0).toUpperCase() + status.slice(1)}
+                                  {(() => {
+                                    const label = getDisplayStatus(status, group.orders?.[0]?.delivery_method);
+                                    return `${count > 1 ? `${count}× ` : ''}${label.charAt(0).toUpperCase() + label.slice(1)}`;
+                                  })()}
                                 </span>
                               ));
                           })()}
@@ -1713,6 +1753,11 @@ export default function OrdersPage() {
                         }
                       };
 
+                      const displayLabel =
+                        status === 'shipped' && selectedOrder?.delivery_method === 'store_pickup'
+                          ? 'ready for pickup'
+                          : status;
+
                       return (
                       <button
                         key={status}
@@ -1731,7 +1776,7 @@ export default function OrdersPage() {
                             : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                        {displayLabel.charAt(0).toUpperCase() + displayLabel.slice(1)}
                       </button>
                       );
                     })}
@@ -2020,16 +2065,7 @@ export default function OrdersPage() {
                   </div>
                 )}
 
-      {/* Add Pickup Code Display in Order Details */}
-      {selectedOrder?.pickup_code && (
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-          <PickupCodeDisplay
-            code={selectedOrder.pickup_code}
-            verified={selectedOrder.pickup_code_verified}
-            verifiedAt={selectedOrder.pickup_code_verified_at}
-          />
-              </div>
-      )}
+      {/* Pickup code is intentionally hidden on the seller dashboard to prevent exposure */}
 
       {/* Add QR Code Scanner for Pickup Verification */}
       {isPickupVerifyModalOpen && !(showScanner && deviceType === 'mobile') && (
