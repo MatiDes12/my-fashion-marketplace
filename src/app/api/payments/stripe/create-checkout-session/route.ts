@@ -36,6 +36,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if Stripe is properly initialized
+    if (!stripe) {
+      return NextResponse.json(
+        { success: false, message: 'Stripe is not configured' },
+        { status: 500 }
+      );
+    }
+
     // Convert amount to cents for Stripe
     const amountInCents = formatAmountForStripe(amount_usd);
 
