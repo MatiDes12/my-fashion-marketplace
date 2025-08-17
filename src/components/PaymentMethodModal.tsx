@@ -10,6 +10,7 @@ import { PAYMENT_METHODS } from '@/utils/constants';
 import { getTelebirrConfig, TelebirrPayment } from '@/lib/telebirr';
 import { useUserDetails } from '@/hooks/useUserDetails';
 import { createClientComponent } from '@/lib/supabase';
+import { convertETBToUSD } from '@/utils/currency';
 import { isMobile } from '@/utils/deviceDetection';
 import { useRouter } from 'next/navigation';
 import { MpesaService } from '@/lib/mpesa';
@@ -162,7 +163,7 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: 'STRIPE',
     name: 'Credit/Debit Card (USD)',
-    logo: '/images/payment-methods/stripe-logo.svg',
+    logo: '/images/payment-methods/stripe-logo.png',
     isAvailable: true,
     description: 'Pay with international credit/debit cards in USD'
   },
@@ -1183,9 +1184,9 @@ export default function PaymentMethodModal({
                           ).toFixed(2)}</span>
                           {selectedMethod === 'STRIPE' && (
                             <div className="text-sm text-gray-500 font-normal">
-                              ≈ ${(sellers.reduce((sum, seller) => 
+                              ≈ ${convertETBToUSD(sellers.reduce((sum, seller) => 
                                 sum + seller.subtotal + seller.deliveryFee, 0
-                              ) * 0.018).toFixed(2)} USD
+                              ))} USD
                             </div>
                           )}
                         </div>

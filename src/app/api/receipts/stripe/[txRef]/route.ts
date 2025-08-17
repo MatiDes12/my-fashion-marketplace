@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { convertUSDToETB } from '@/lib/stripe';
+import { convertETBToUSD, EXCHANGE_RATES } from '@/utils/currency';
 
 export async function GET(
   request: Request,
@@ -66,8 +67,8 @@ export async function GET(
     const stripeSessionId = firstTransaction?.stripe_session_id;
     const totalAmountETB = orders.reduce((sum, order) => sum + (order.total_price || 0), 0);
     const totalAmountUSD = firstTransaction?.total_amount ? 
-      totalAmountETB * 0.018 : // Convert ETB to USD for display
-      totalAmountETB * 0.018;
+      convertETBToUSD(totalAmountETB) : // Convert ETB to USD for display
+      convertETBToUSD(totalAmountETB);
 
     // Function to format item display with transaction data
     const formatItemDisplay = (order: any) => {
@@ -375,16 +376,16 @@ export async function GET(
 
             <div class="stripe-info">
               <div style="text-align: center; margin-bottom: 8px;">
-                <span class="stripe-logo">💳 Stripe Payment</span>
+                <span class="stripe-logo">STRIPE Payment</span>
               </div>
               <div class="currency-info">
-                • Payment processed in USD: $${totalAmountUSD.toFixed(2)}
+                Payment processed in USD: $${totalAmountUSD.toFixed(2)}
               </div>
               <div class="currency-info">
-                • Converted from ETB: ${totalAmountETB.toFixed(2)} (Rate: 1 ETB = $0.018)
+                Converted from ETB: ${totalAmountETB.toFixed(2)} (Rate: 1 ETB = $${EXCHANGE_RATES.ETB_TO_USD})
               </div>
               <div class="currency-info" style="margin-top: 5px;">
-                ✅ Payment completed securely via Stripe
+                Payment completed securely via Stripe
               </div>
             </div>
                 
@@ -423,7 +424,7 @@ export async function GET(
             <div class="divider"></div>
 
             <div class="status-section">
-              <div>PAYMENT STATUS: ✅ COMPLETED</div>
+              <div>PAYMENT STATUS: COMPLETED</div>
               <div>ORDER STATUS: CONFIRMED</div>
               <div>Payment processed securely via Stripe</div>
             </div>

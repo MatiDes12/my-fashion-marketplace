@@ -12,6 +12,7 @@ import { normalizeUrl } from '@/utils/url';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { EXCHANGE_RATES } from '@/utils/currency';
 
 // Define interfaces for each payment method
 interface TelebirrSettings {
@@ -520,7 +521,7 @@ const StripeSettings = ({
                 </h3>
                 <div className="mt-2 text-sm text-yellow-700">
                   <p>Prices will be automatically converted from ETB to USD for international customers. 
-                  Current rate: 1 ETB ≈ 0.018 USD</p>
+                  Current rate: 1 ETB ≈ ${EXCHANGE_RATES.ETB_TO_USD} USD</p>
                 </div>
               </div>
             </div>

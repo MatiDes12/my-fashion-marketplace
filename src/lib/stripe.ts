@@ -18,8 +18,8 @@ export const getStripePromise = () => {
 
 // Currency conversion rates (you might want to fetch these from an API)
 const CURRENCY_RATES = {
-  ETB_TO_USD: 0.018, // 1 ETB = 0.018 USD (approximate)
-  USD_TO_ETB: 55.56, // 1 USD = 55.56 ETB (approximate)
+  ETB_TO_USD: 0.0071, // 1 ETB = 0.0071 USD (current rate)
+  USD_TO_ETB: 140.85, // 1 USD = 140.85 ETB (current rate)
 };
 
 // Convert ETB to USD for Stripe payments

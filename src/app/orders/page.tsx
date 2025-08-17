@@ -12,6 +12,7 @@ import { ArrowDownTrayIcon, TruckIcon, MapPinIcon, CheckCircleIcon, ClockIcon } 
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { convertETBToUSD } from '@/utils/currency';
 import PickupCodeDisplay from '@/components/PickupCodeDisplay';
 import DeliveryMap from '@/components/DeliveryMap';
 
@@ -105,6 +106,11 @@ export default function OrdersPage() {
         return order.payment_reference;
       }
       
+      // For Stripe payments, use the payment_reference as is
+      if (order.payment_reference.startsWith('cs_test_') || order.payment_reference.startsWith('cs_live_')) {
+        return order.payment_reference;
+      }
+      
       // For Chapa payments, use the payment_reference as is
       return order.payment_reference;
     };
@@ -124,9 +130,15 @@ export default function OrdersPage() {
           payment_reference: basePaymentRef,
           is_cash_payment: basePaymentRef.startsWith('CASH-'),
           tx_ref: order.tx_ref,
-          receipt_url: basePaymentRef.startsWith('CASH-') 
-            ? `/api/receipts/cash/${basePaymentRef}` 
-            : order.receipt_url
+          receipt_url: (() => {
+            if (basePaymentRef.startsWith('CASH-')) {
+              return `/api/receipts/cash/${basePaymentRef}`;
+            } else if (basePaymentRef.startsWith('cs_test_') || basePaymentRef.startsWith('cs_live_')) {
+              return `/api/receipts/stripe/${order.tx_ref || basePaymentRef}`;
+            } else {
+              return order.receipt_url;
+            }
+          })()
         };
       }
       acc[basePaymentRef].orders.push(order);
@@ -537,20 +549,47 @@ export default function OrdersPage() {
                   <div className="flex flex-wrap items-center justify-between">
                     <div>
                       <h2 className="text-lg font-medium text-gray-900">
-                        {orderGroup.is_cash_payment ? (
-                          <>Cash Payment #{orderGroup.payment_reference.split('-')[2]}</>
-                        ) : (
-                          <>Chapa Payment #{orderGroup.payment_reference.substring(0, 8)}</>
-                        )}
+                        {(() => {
+                          const paymentRef = orderGroup.payment_reference;
+                          if (paymentRef?.startsWith('CASH-')) {
+                            return <>Cash Payment #{paymentRef.split('-')[2]}</>;
+                          } else if (paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_')) {
+                            return <>Stripe Payment #{paymentRef.slice(-16)}</>;
+                          } else {
+                            return <>Chapa Payment #{paymentRef?.substring(0, 8)}</>;
+                          }
+                        })()}
                       </h2>
                       <p className="mt-1 text-sm text-gray-500">
                         Placed on {formatDate(orderGroup.created_at)}
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
-                        Total Amount: ETB {orderGroup.total.toFixed(2)}
+                        {(() => {
+                          const paymentRef = orderGroup.payment_reference;
+                          const isStripe = paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_');
+                          const totalETB = orderGroup.total.toFixed(2);
+                          const totalUSD = convertETBToUSD(orderGroup.total);
+                          
+                          if (isStripe) {
+                            return (
+                              <>
+                                Total Amount: ETB {totalETB} (${totalUSD} USD)
+                                <br />
+                                <span className="text-xs text-blue-600">Paid in USD via Stripe</span>
+                              </>
+                            );
+                          } else {
+                            return `Total Amount: ETB ${totalETB}`;
+                          }
+                        })()}
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
-                        Payment Method: {orderGroup.is_cash_payment ? 'Cash on Delivery/Pickup' : 'Chapa'}
+                        Payment Method: {(() => {
+                          const paymentRef = orderGroup.payment_reference;
+                          if (paymentRef?.startsWith('CASH-')) return 'Cash on Delivery/Pickup';
+                          if (paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_')) return 'Credit/Debit Card (Stripe)';
+                          return 'Chapa';
+                        })()}
                       </p>
                     </div>
                     <div className="mt-2 sm:mt-0">
@@ -610,11 +649,37 @@ export default function OrdersPage() {
                       </div>
                                   <div className="flex items-center text-sm text-gray-600">
                                     <span className="font-medium w-20">Price:</span>
-                                    <span>ETB {order.product?.price}</span>
+                                    <span>
+                                      {(() => {
+                                        const paymentRef = orderGroup.payment_reference;
+                                        const isStripe = paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_');
+                                        const priceETB = order.product?.price;
+                                        const priceUSD = convertETBToUSD(priceETB);
+                                        
+                                        if (isStripe && priceETB) {
+                                          return `ETB ${priceETB} ($${priceUSD} USD)`;
+                                        } else {
+                                          return `ETB ${priceETB}`;
+                                        }
+                                      })()}
+                                    </span>
                                   </div>
                                   <div className="flex items-center text-sm text-gray-600">
                                     <span className="font-medium w-20">Total:</span>
-                                    <span className="font-semibold text-gray-900">ETB {order.total_price?.toFixed(2) || '0.00'}</span>
+                                    <span className="font-semibold text-gray-900">
+                                      {(() => {
+                                        const paymentRef = orderGroup.payment_reference;
+                                        const isStripe = paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_');
+                                        const totalETB = order.total_price?.toFixed(2) || '0.00';
+                                        const totalUSD = convertETBToUSD(order.total_price || 0);
+                                        
+                                        if (isStripe) {
+                                          return `ETB ${totalETB} ($${totalUSD} USD)`;
+                                        } else {
+                                          return `ETB ${totalETB}`;
+                                        }
+                                      })()}
+                                    </span>
                                   </div>
                                   {order.selected_variant_sku && (
                                     <div className="flex items-center text-sm text-gray-600">

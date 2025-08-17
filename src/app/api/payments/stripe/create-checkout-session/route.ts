@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, formatAmountForStripe } from '@/lib/stripe';
+import { EXCHANGE_RATES } from '@/utils/currency';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
@@ -14,7 +15,8 @@ export async function POST(request: NextRequest) {
       tx_ref, 
       success_url, 
       cancel_url, 
-      metadata 
+      metadata,
+      order_details // New field for detailed order information
     } = body;
 
     // Validate required fields
@@ -47,6 +49,17 @@ export async function POST(request: NextRequest) {
     // Convert amount to cents for Stripe
     const amountInCents = formatAmountForStripe(amount_usd);
 
+    // Create detailed product description
+    const orderSummary = order_details ? 
+      order_details.map((item: any) => 
+        `${item.product_name} (${item.quantity}x @ ETB ${item.price})${item.variant ? ` - ${item.variant}` : ''}`
+      ).join(', ') : 
+      'Fashion Marketplace Order';
+
+    const fullDescription = order_details ? 
+      `Items: ${orderSummary}. Total: ${amount_etb} ETB converted to USD at rate 1 ETB = $${EXCHANGE_RATES.ETB_TO_USD}` :
+      `Order payment converted from ${amount_etb} ETB`;
+
     // Create Stripe checkout session
     const session_stripe = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -57,11 +70,14 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: 'Fashion Marketplace Order',
-              description: `Order payment converted from ${amount_etb} ETB`,
+              name: order_details && order_details.length === 1 ? 
+                `${order_details[0].product_name}${order_details[0].variant ? ` (${order_details[0].variant})` : ''}` :
+                `Fashion Marketplace Order (${order_details?.length || 1} items)`,
+              description: fullDescription,
               metadata: {
                 original_amount_etb: amount_etb.toString(),
                 tx_ref: tx_ref,
+                item_count: order_details?.length.toString() || '1',
               },
             },
             unit_amount: amountInCents,

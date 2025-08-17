@@ -10,6 +10,7 @@ import { getFlashSalePrices } from '@/utils/flashSales';
 import PaymentMethodModal from '@/components/PaymentMethodModal';
 import { PaymentSettings as IPaymentSettings } from '@/types/cart';
 import { PAYMENT_METHODS } from '@/utils/constants';
+import { convertETBToUSD } from '@/utils/currency';
 import { getTelebirrConfig, createOrder, applyFabricToken } from '@/lib/telebirr';
 import React from 'react';
 
@@ -762,7 +763,7 @@ export default function CheckoutPage() {
                           ETB {fees.total.toFixed(2)}
                         </div>
                         <div className="text-sm text-gray-500 font-normal">
-                          ≈ ${(fees.total * 0.018).toFixed(2)} USD
+                          ≈ ${convertETBToUSD(fees.total)} USD
                         </div>
                       </div>
                     </div>

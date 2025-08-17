@@ -4,6 +4,7 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { generateUniquePickupCode } from '@/utils/pickupCode';
 import { checkRateLimit } from '@/lib/rateLimiter';
+import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
 
 export async function GET(request: NextRequest) {
   try {
@@ -200,6 +201,90 @@ export async function GET(request: NextRequest) {
 
       if (transactionError) {
         console.error('Error creating transaction:', transactionError);
+      }
+
+      // Send Telegram notifications for Stripe payment confirmation
+      try {
+        const config = await getTelegramConfig();
+        const bot = new TelegramBot(config);
+        
+        // Get user details for notification
+        const { data: user } = await supabase
+          .from('users')
+          .select('full_name, email')
+          .eq('id', tempOrder.user_id)
+          .single();
+
+        // Get product details
+        const { data: product } = await supabase
+          .from('products')
+          .select('title, price')
+          .eq('id', tempOrder.product_id)
+          .single();
+
+        const paymentData = {
+          orderId: order.id,
+          txRef: txRef,
+          amount: itemTotal,
+          paymentMethod: 'STRIPE',
+          status: 'paid',
+          customerName: session.customer_details?.name || user?.full_name || 'Customer',
+          customerEmail: session.customer_details?.email || user?.email || 'N/A',
+          productName: product?.title || 'Product',
+          receiptUrl: receiptUrl,
+          orderStatus: 'confirmed',
+          createdAt: order.created_at,
+          reference: sessionId
+        };
+
+        await bot.sendPaymentNotification(tempOrder.user_id, paymentData);
+        console.log('[STRIPE SUCCESS] Telegram payment notification sent for order:', order.id);
+        
+        // Also send order confirmation notification
+        const orderData = {
+          orderId: order.id,
+          productName: product?.title || 'Product',
+          quantity: tempOrder.quantity,
+          amount: itemTotal,
+          orderStatus: 'confirmed',
+          paymentStatus: 'paid',
+          customerName: session.customer_details?.name || user?.full_name || 'Customer',
+          customerEmail: session.customer_details?.email || user?.email || 'N/A',
+          deliveryMethod: tempOrder.delivery_method,
+          deliveryAddress: tempOrder.delivery_address,
+          pickupCode: pickupCode,
+          createdAt: order.created_at
+        };
+        
+        await bot.sendOrderConfirmation(tempOrder.user_id, orderData);
+        console.log('[STRIPE SUCCESS] Telegram order confirmation sent for order:', order.id);
+
+        // Send receipt notification
+        const receiptData = {
+          orderId: order.id,
+          txRef: txRef,
+          amount: itemTotal,
+          subtotal: itemSubtotal,
+          serviceFee: serviceFee,
+          deliveryFee: tempOrder.delivery_fee,
+          paymentMethod: 'STRIPE',
+          customerName: session.customer_details?.name || user?.full_name || 'Customer',
+          customerEmail: session.customer_details?.email || user?.email || 'N/A',
+          customerPhone: tempOrder.customer_phone || 'N/A',
+          productName: product?.title || 'Product',
+          quantity: tempOrder.quantity,
+          deliveryMethod: tempOrder.delivery_method,
+          deliveryAddress: tempOrder.delivery_address,
+          pickupCode: pickupCode,
+          receiptUrl: receiptUrl,
+          createdAt: order.created_at
+        };
+        
+        await bot.sendReceipt(tempOrder.user_id, receiptData);
+        console.log('[STRIPE SUCCESS] Telegram receipt sent for order:', order.id);
+      } catch (telegramError) {
+        console.error('[STRIPE SUCCESS] Error sending Telegram notification:', telegramError);
+        // Don't fail the order creation if Telegram notification fails
       }
 
       // Update product quantities manually

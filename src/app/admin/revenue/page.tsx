@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClientComponent } from '@/lib/supabase';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, convertETBToUSD } from '@/utils/currency';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { PieChart } from '@/components/charts/PieChart';
 import { BarChart } from '@/components/charts/BarChart';
@@ -446,24 +446,28 @@ export default function RevenuePage() {
           value={formatCurrency(stats.totalRevenue)}
           subtext="Gross transaction volume"
           trend={+12}
+          usdValue={convertETBToUSD(stats.totalRevenue)}
         />
         <StatCard
           title="Platform Revenue"
           value={formatCurrency(stats.platformRevenue)}
           subtext="Net platform earnings"
           trend={+8}
+          usdValue={convertETBToUSD(stats.platformRevenue)}
         />
         <StatCard
           title="Seller Payouts"
           value={formatCurrency(stats.sellerPayouts)}
           subtext="Total seller earnings"
           trend={+15}
+          usdValue={convertETBToUSD(stats.sellerPayouts)}
         />
         <StatCard
           title="All Pending Payouts"
           value={formatCurrency(stats.allPendingPayouts)}
           subtext="All non-transferred money"
           trend={+3}
+          usdValue={convertETBToUSD(stats.allPendingPayouts)}
         />
       </div>
 
@@ -474,18 +478,21 @@ export default function RevenuePage() {
           value={formatCurrency(stats.vatCollected)}
           subtext="To be remitted to tax authority"
           trend={+5}
+          usdValue={convertETBToUSD(stats.vatCollected)}
         />
         <StatCard
           title="Service Fees"
           value={formatCurrency(stats.serviceFees)}
           subtext="Platform service charges"
           trend={+3}
+          usdValue={convertETBToUSD(stats.serviceFees)}
         />
         <StatCard
           title="Delivery Fees"
           value={formatCurrency(stats.deliveryFees)}
           subtext="Total delivery charges"
           trend={+7}
+          usdValue={convertETBToUSD(stats.deliveryFees)}
         />
       </div>
 
@@ -728,9 +735,14 @@ export default function RevenuePage() {
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span className="text-xs text-gray-600">Total Revenue</span>
                 </div>
-                <p className="text-lg font-bold text-gray-900">
-                  {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0))}
-                </p>
+                <div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0))}
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    ${convertETBToUSD(revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0))} USD
+                  </p>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                   {revenueChartData.length > 0 ? `${revenueChartData.length} days` : 'No data'}
                 </p>
@@ -741,9 +753,14 @@ export default function RevenuePage() {
                   <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                   <span className="text-xs text-gray-600">Service Revenue</span>
                 </div>
-                <p className="text-lg font-bold text-gray-900">
-                  {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0))}
-                </p>
+                <div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0))}
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    ${convertETBToUSD(revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0))} USD
+                  </p>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                   {revenueChartData.length > 0 && revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) > 0 ? 
                     `${((revenueChartData.reduce((sum, d) => sum + d.platformRevenue, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}% of total` : 
@@ -756,9 +773,14 @@ export default function RevenuePage() {
                   <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                   <span className="text-xs text-gray-600">Seller Payouts</span>
                 </div>
-                <p className="text-lg font-bold text-gray-900">
-                  {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0))}
-                </p>
+                <div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {formatCurrency(revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0))}
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    ${convertETBToUSD(revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0))} USD
+                  </p>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                   {revenueChartData.length > 0 && revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) > 0 ? 
                     `${((revenueChartData.reduce((sum, d) => sum + d.sellerPayouts, 0) / revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0)) * 100).toFixed(1)}% of total` : 
@@ -771,11 +793,18 @@ export default function RevenuePage() {
                   <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                   <span className="text-xs text-gray-600">Avg Daily Revenue</span>
                 </div>
-                <p className="text-lg font-bold text-gray-900">
-                  {revenueChartData.length > 0 ? 
-                    formatCurrency(revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) / revenueChartData.length) : 
-                    formatCurrency(0)}
-                </p>
+                <div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {revenueChartData.length > 0 ? 
+                      formatCurrency(revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) / revenueChartData.length) : 
+                      formatCurrency(0)}
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    ${revenueChartData.length > 0 ? 
+                      convertETBToUSD(revenueChartData.reduce((sum, d) => sum + d.totalRevenue, 0) / revenueChartData.length) : 
+                      '0.00'} USD
+                  </p>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
                   {revenueChartData.length > 0 ? `Based on ${revenueChartData.length} days` : 'No data'}
                 </p>
@@ -790,15 +819,25 @@ export default function RevenuePage() {
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">Highest Daily Revenue:</span>
-                      <span className="font-medium text-gray-900">
-                        {formatCurrency(Math.max(...revenueChartData.map(d => d.totalRevenue)))}
-                      </span>
+                      <div className="text-right">
+                        <div className="font-medium text-gray-900">
+                          {formatCurrency(Math.max(...revenueChartData.map(d => d.totalRevenue)))}
+                        </div>
+                        <div className="text-blue-600">
+                          ${convertETBToUSD(Math.max(...revenueChartData.map(d => d.totalRevenue)))} USD
+                        </div>
+                      </div>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">Lowest Daily Revenue:</span>
-                      <span className="font-medium text-gray-900">
-                        {formatCurrency(Math.min(...revenueChartData.map(d => d.totalRevenue)))}
-                      </span>
+                      <div className="text-right">
+                        <div className="font-medium text-gray-900">
+                          {formatCurrency(Math.min(...revenueChartData.map(d => d.totalRevenue)))}
+                        </div>
+                        <div className="text-blue-600">
+                          ${convertETBToUSD(Math.min(...revenueChartData.map(d => d.totalRevenue)))} USD
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1014,11 +1053,21 @@ export default function RevenuePage() {
                     <div className="space-y-2">
                       <div>
                         <p className="text-xs text-gray-500">Total Revenue</p>
-                        <p className="text-base font-bold text-gray-900">{formatCurrency(method.amount)}</p>
+                        <div>
+                          <p className="text-base font-bold text-gray-900">{formatCurrency(method.amount)}</p>
+                          {method.method === 'STRIPE' && (
+                            <p className="text-xs text-blue-600">${convertETBToUSD(method.amount)} USD</p>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Service Revenue</p>
-                        <p className="text-sm font-semibold text-green-600">{formatCurrency(method.serviceRevenue)}</p>
+                        <div>
+                          <p className="text-sm font-semibold text-green-600">{formatCurrency(method.serviceRevenue)}</p>
+                          {method.method === 'STRIPE' && (
+                            <p className="text-xs text-green-500">${convertETBToUSD(method.serviceRevenue)} USD</p>
+                          )}
+                        </div>
                       </div>
                       <div className="pt-2 border-t border-gray-100">
                         <p className="text-xs text-gray-500">
@@ -1086,16 +1135,25 @@ export default function RevenuePage() {
                         {seller.seller_name}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(seller.total_sales)}
+                        <div>
+                          <div>{formatCurrency(seller.total_sales)}</div>
+                          <div className="text-xs text-blue-600">${convertETBToUSD(seller.total_sales)} USD</div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(seller.total_payout)}
+                        <div>
+                          <div>{formatCurrency(seller.total_payout)}</div>
+                          <div className="text-xs text-green-600">${convertETBToUSD(seller.total_payout)} USD</div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {seller.transaction_count}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(seller.total_sales / seller.transaction_count)}
+                        <div>
+                          <div>{formatCurrency(seller.total_sales / seller.transaction_count)}</div>
+                          <div className="text-xs text-blue-600">${convertETBToUSD(seller.total_sales / seller.transaction_count)} USD</div>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1121,11 +1179,12 @@ export default function RevenuePage() {
   );
 }
 
-function StatCard({ title, value, subtext, trend }: { 
+function StatCard({ title, value, subtext, trend, usdValue }: { 
   title: string; 
   value: string; 
   subtext: string;
   trend: number;
+  usdValue?: number;
 }) {
   const getIcon = (title: string) => {
     switch (title.toLowerCase()) {
@@ -1186,7 +1245,12 @@ function StatCard({ title, value, subtext, trend }: {
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-600 mb-2 truncate">{title}</p>
-            <p className="text-2xl font-bold text-gray-900 mb-2 truncate">{value}</p>
+            <div className="mb-2">
+              <p className="text-2xl font-bold text-gray-900 truncate">{value}</p>
+              {usdValue && usdValue > 0 && (
+                <p className="text-sm text-blue-600 truncate">${usdValue.toFixed(2)} USD</p>
+              )}
+            </div>
             <p className="text-sm text-gray-500 mb-2 truncate">{subtext}</p>
             <div className={`flex items-center text-sm font-medium ${
               trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-gray-500'
