@@ -415,16 +415,8 @@ export default function CheckoutPage() {
 
         if (transactionError) throw transactionError;
 
-        // Update product quantity
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({
-            quantity: item.quantity
-          })
-          .eq('id', item.product_id)
-          .neq('quantity', 0);
-
-        if (updateError) throw updateError;
+        // Note: Product quantities will be updated server-side after payment confirmation
+        // No need to update here to avoid double-decrementing
       }
 
       // Clear the cart

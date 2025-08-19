@@ -53,6 +53,16 @@ export async function reverseGeocode(lat: number, lng: number) {
     };
   } catch (error) {
     console.error('Reverse geocoding error:', error);
-    return null;
+    
+    // Return a fallback response with coordinates if geocoding fails
+    return {
+      city: 'Addis Ababa',
+      subCity: '',
+      wereda: '',
+      kebele: '',
+      houseNo: '',
+      landmark: '',
+      fullAddress: `Location at ${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    };
   }
 } 

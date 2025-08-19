@@ -118,13 +118,13 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://*.vercel-scripts.com https://*.jsdelivr.net",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://*.vercel-scripts.com https://*.jsdelivr.net https://js.stripe.com",
               "script-src-elem 'self' 'unsafe-inline' https://*.vercel-scripts.com https://*.jsdelivr.net",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' blob: data: https: https://*.supabase.co https://*.jawg.io https://unpkg.com",
               "media-src 'self' blob: data:",
-              "connect-src 'self' https://*.supabase.co https://va.vercel-scripts.com https://*.vercel-scripts.com https://*.jsdelivr.net wss://*.supabase.co https://*.jawg.io https://*.pusher.com wss://*.pusher.com https://sockjs-*.pusher.com",
-              "frame-src 'self'",
+              "connect-src 'self' https://*.supabase.co https://va.vercel-scripts.com https://*.vercel-scripts.com https://*.jsdelivr.net wss://*.supabase.co https://*.jawg.io https://*.pusher.com wss://*.pusher.com https://sockjs-*.pusher.com https://nominatim.openstreetmap.org https://*.stripe.com https://api.stripe.com",
+              "frame-src 'self' https://checkout.stripe.com https://js.stripe.com",
               "font-src 'self' https: data:",
               "worker-src 'self' blob:",
               "child-src 'self' blob:"

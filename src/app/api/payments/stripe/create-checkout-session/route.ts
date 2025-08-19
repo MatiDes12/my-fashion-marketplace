@@ -27,15 +27,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate user authentication
+    // Check if this is a shared cart order
+    const isSharedCart = metadata?.is_shared_cart === 'true';
+    
+    // Validate user authentication (skip for shared cart orders)
     const supabase = createServerComponentClient({ cookies });
     const { data: { session } } = await supabase.auth.getSession();
     
-    if (!session) {
+    if (!session && !isSharedCart) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
       );
+    }
+    
+    // For shared cart orders, get the user_id from temporary orders
+    let actualUserId = session?.user?.id;
+    if (isSharedCart && metadata?.tx_ref) {
+      const { data: tempOrders } = await supabase
+        .from('temporary_orders')
+        .select('user_id')
+        .eq('tx_ref', metadata.tx_ref)
+        .limit(1);
+      
+      if (tempOrders && tempOrders.length > 0) {
+        actualUserId = tempOrders[0].user_id;
+      }
     }
 
     // Check if Stripe is properly initialized
@@ -59,6 +76,13 @@ export async function POST(request: NextRequest) {
     const fullDescription = order_details ? 
       `Items: ${orderSummary}. Total: ${amount_etb} ETB converted to USD at rate 1 ETB = $${EXCHANGE_RATES.ETB_TO_USD}` :
       `Order payment converted from ${amount_etb} ETB`;
+
+    console.log('Creating Stripe checkout session with metadata:', {
+      tx_ref: tx_ref,
+      user_id: actualUserId || 'guest',
+      original_amount_etb: amount_etb.toString(),
+      metadata: metadata
+    });
 
     // Create Stripe checkout session
     const session_stripe = await stripe.checkout.sessions.create({
@@ -87,7 +111,7 @@ export async function POST(request: NextRequest) {
       ],
       metadata: {
         tx_ref: tx_ref,
-        user_id: session.user.id,
+        user_id: actualUserId || 'guest',
         original_amount_etb: amount_etb.toString(),
         ...metadata,
       },

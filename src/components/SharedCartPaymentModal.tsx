@@ -84,6 +84,20 @@ export default function SharedCartPaymentModal({
 
   const handleStripePayment = async () => {
     try {
+      // Check if Stripe publishable key is configured
+      const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+      if (!stripePublishableKey) {
+        console.error('Stripe publishable key not found');
+        throw new Error('Stripe is not configured. Please contact support.');
+      }
+      
+      console.log('Stripe publishable key found:', stripePublishableKey.substring(0, 10) + '...');
+      console.log('Environment check:', {
+        hasKey: !!stripePublishableKey,
+        keyLength: stripePublishableKey.length,
+        isDevelopment: process.env.NODE_ENV === 'development'
+      });
+
       // Import Stripe utilities
       const { convertETBToUSD } = await import('@/lib/stripe');
       
@@ -137,24 +151,71 @@ export default function SharedCartPaymentModal({
       const data = await response.json();
       
       if (data.success && data.sessionId) {
-        // Load Stripe.js and redirect to checkout
-        const { loadStripe } = await import('@stripe/stripe-js');
-        const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-        
-        if (stripe) {
-          // Close modal before redirecting
-          onClose();
+        try {
+          // Try multiple approaches to load Stripe
+          let stripe = null;
           
-          // Redirect to Stripe Checkout
-          const { error } = await stripe.redirectToCheckout({
-            sessionId: data.sessionId
-          });
-          
-          if (error) {
-            throw new Error(error.message);
+          // Approach 1: Try using the utility function
+          try {
+            const { getStripePromise } = await import('@/lib/stripe');
+            stripe = await getStripePromise();
+          } catch (error) {
+            console.log('Utility function approach failed, trying direct import...');
           }
-        } else {
-          throw new Error('Failed to load Stripe');
+          
+          // Approach 2: Try direct import if utility function fails
+          if (!stripe) {
+            try {
+              const { loadStripe } = await import('@stripe/stripe-js');
+              stripe = await loadStripe(stripePublishableKey);
+            } catch (error) {
+              console.log('Direct import approach failed:', error);
+            }
+          }
+          
+          // Approach 3: Try with a different loading strategy
+          if (!stripe) {
+            try {
+              // Force reload the Stripe script
+              const script = document.createElement('script');
+              script.src = 'https://js.stripe.com/v3/';
+              script.async = true;
+              document.head.appendChild(script);
+              
+              await new Promise((resolve, reject) => {
+                script.onload = resolve;
+                script.onerror = reject;
+                setTimeout(reject, 5000);
+              });
+              
+              const { loadStripe } = await import('@stripe/stripe-js');
+              stripe = await loadStripe(stripePublishableKey);
+            } catch (error) {
+              console.log('Script reload approach failed:', error);
+            }
+          }
+          
+          if (stripe) {
+            // Close modal before redirecting
+            onClose();
+            
+            // Redirect to Stripe Checkout
+            const { error } = await stripe.redirectToCheckout({
+              sessionId: data.sessionId
+            });
+            
+            if (error) {
+              throw new Error(error.message);
+            }
+          } else {
+            // Final fallback: redirect directly to Stripe checkout URL
+            console.log('Attempting direct redirect to Stripe checkout...');
+            window.location.href = data.url || `https://checkout.stripe.com/pay/${data.sessionId}`;
+            return;
+          }
+        } catch (stripeError) {
+          console.error('All Stripe loading approaches failed:', stripeError);
+          throw new Error('Stripe payment is currently unavailable. Please use Chapa payment or contact support.');
         }
       } else {
         throw new Error(data.message || 'Payment initialization failed');
@@ -162,6 +223,12 @@ export default function SharedCartPaymentModal({
 
     } catch (error) {
       console.error('Stripe payment error:', error);
+      
+      // If Stripe fails, suggest alternative payment methods
+      if (error instanceof Error && error.message.includes('Stripe')) {
+        throw new Error('Stripe payment is temporarily unavailable. Please try Chapa payment or contact support.');
+      }
+      
       throw error;
     }
   };
@@ -219,7 +286,14 @@ export default function SharedCartPaymentModal({
         // Redirect to Chapa checkout
         window.location.href = data.data.checkout_url;
       } else {
-        throw new Error(data.message || 'Payment initialization failed');
+        // Handle different error scenarios
+        if (data.error) {
+          throw new Error(data.error);
+        } else if (data.message) {
+          throw new Error(data.message);
+        } else {
+          throw new Error('Payment initialization failed. Please try again.');
+        }
       }
 
     } catch (error) {

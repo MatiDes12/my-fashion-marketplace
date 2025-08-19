@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { generateUniquePickupCode } from '@/utils/pickupCode';
 import { checkRateLimit } from '@/lib/rateLimiter';
 import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
+
+// Create a Supabase client with service role (like Chapa does)
+const supabaseService = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,8 +61,17 @@ export async function GET(request: NextRequest) {
 
     const txRef = session.metadata?.tx_ref;
     const userId = session.metadata?.user_id;
+    const isSharedCart = session.metadata?.is_shared_cart === 'true';
+
+    console.log('Stripe success callback - Session metadata:', {
+      txRef,
+      userId,
+      isSharedCart,
+      allMetadata: session.metadata
+    });
 
     if (!txRef || !userId) {
+      console.error('Missing required metadata:', { txRef, userId });
       return NextResponse.redirect(
         new URL('/checkout?error=invalid_session_data', request.url)
       );
@@ -57,16 +79,18 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServerComponentClient({ cookies });
 
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user || user.id !== userId) {
-      return NextResponse.redirect(
-        new URL('/login?error=unauthorized_payment', request.url)
-      );
+    // Verify user authentication (skip for shared cart orders)
+    if (!isSharedCart) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user || user.id !== userId) {
+        return NextResponse.redirect(
+          new URL('/login?error=unauthorized_payment', request.url)
+        );
+      }
     }
 
     // Check if orders have already been created for this session
-    const { data: existingOrders } = await supabase
+    const { data: existingOrders } = await supabaseService
       .from('orders')
       .select('id')
       .eq('payment_reference', sessionId)
@@ -79,12 +103,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get temporary orders
-    const { data: tempOrders, error: tempOrderError } = await supabase
+    // Get temporary orders (like Chapa does - use service role client to bypass RLS)
+    console.log('Fetching temporary orders with tx_ref:', txRef);
+    
+    const { data: tempOrders, error: tempOrderError } = await supabaseService
       .from('temporary_orders')
       .select('*')
       .eq('tx_ref', txRef)
-      .eq('user_id', userId);
+      .gt('expires_at', new Date().toISOString()); // Only get non-expired orders
+    
+    console.log('Temporary orders query result:', {
+      tempOrders: tempOrders?.length || 0,
+      error: tempOrderError,
+      query: `tx_ref = '${txRef}'`
+    });
 
     if (tempOrderError || !tempOrders || tempOrders.length === 0) {
       console.error('Error fetching temporary orders:', tempOrderError);
@@ -96,7 +128,7 @@ export async function GET(request: NextRequest) {
     // Create actual orders from temporary orders
     for (const tempOrder of tempOrders) {
       // Check for active flash sale for this product
-      const { data: flashSaleData } = await supabase
+      const { data: flashSaleData } = await supabaseService
         .from('flash_sale_products')
         .select(`
           special_price,
@@ -143,7 +175,7 @@ export async function GET(request: NextRequest) {
       const sharedCartId = tempOrder.metadata?.shared_cart_id;
 
       // Create order
-      const { data: order, error: orderError } = await supabase
+      const { data: order, error: orderError } = await supabaseService
         .from('orders')
         .insert({
           user_id: tempOrder.user_id,
@@ -181,7 +213,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Create transaction record
-      const { error: transactionError } = await supabase
+      const { error: transactionError } = await supabaseService
         .from('transactions')
         .insert({
           order_id: order.id,
@@ -222,14 +254,14 @@ export async function GET(request: NextRequest) {
         const bot = new TelegramBot(config);
         
         // Get user details for notification
-        const { data: user } = await supabase
+        const { data: user } = await supabaseService
           .from('users')
           .select('full_name, email')
           .eq('id', tempOrder.user_id)
           .single();
 
         // Get product details
-        const { data: product } = await supabase
+        const { data: product } = await supabaseService
           .from('products')
           .select('title, price')
           .eq('id', tempOrder.product_id)
@@ -301,7 +333,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Update product quantities manually
-      const { data: currentProduct, error: fetchError } = await supabase
+      const { data: currentProduct, error: fetchError } = await supabaseService
         .from('products')
         .select('quantity, available_variants')
         .eq('id', tempOrder.product_id)
@@ -324,7 +356,7 @@ export async function GET(request: NextRequest) {
           });
         }
 
-        await supabase
+        await supabaseService
           .from('products')
           .update({
             quantity: newQuantity,
@@ -336,7 +368,7 @@ export async function GET(request: NextRequest) {
         // Remove cart items for this product if quantity becomes 0
         if (newQuantity === 0) {
           console.log('[STRIPE SUCCESS] Product quantity is 0, removing cart items for product_id:', tempOrder.product_id);
-          const { error: cartDeleteError } = await supabase
+          const { error: cartDeleteError } = await supabaseService
             .from('cart_items')
             .delete()
             .eq('product_id', tempOrder.product_id);
@@ -351,11 +383,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Clear temporary orders
-    await supabase
+    await supabaseService
       .from('temporary_orders')
       .delete()
-      .eq('tx_ref', txRef)
-      .eq('user_id', userId);
+      .eq('tx_ref', txRef);
 
     // Handle shared cart cleanup if applicable
     const firstTempOrder = tempOrders[0];
@@ -367,7 +398,7 @@ export async function GET(request: NextRequest) {
       
       // Mark shared cart as used
       if (sharedCartId) {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseService
           .from('shared_carts')
           .update({
             is_used: true,
@@ -389,7 +420,7 @@ export async function GET(request: NextRequest) {
         console.log('[STRIPE SUCCESS] Removing shared cart items with shared_cart_id:', sharedCartId);
         
         // First, let's check what items exist with shared_cart_id
-        const { data: existingSharedItems, error: checkSharedError } = await supabase
+        const { data: existingSharedItems, error: checkSharedError } = await supabaseService
           .from('cart_items')
           .select('id, product_id, quantity')
           .eq('shared_cart_id', sharedCartId);
@@ -405,7 +436,7 @@ export async function GET(request: NextRequest) {
         console.log('[STRIPE SUCCESS] Purchased product IDs:', purchasedProductIds);
 
         // Remove items by shared_cart_id first
-        const { data: deletedSharedItems, error: deleteSharedError } = await supabase
+        const { data: deletedSharedItems, error: deleteSharedError } = await supabaseService
           .from('cart_items')
           .delete()
           .eq('shared_cart_id', sharedCartId)
@@ -420,11 +451,11 @@ export async function GET(request: NextRequest) {
         // Also remove any cart items for the same products (in case they weren't properly tagged)
         if (purchasedProductIds.length > 0) {
           console.log('[STRIPE SUCCESS] Removing any remaining cart items for purchased products');
-          const { data: deletedProductItems, error: deleteProductError } = await supabase
+          const { data: deletedProductItems, error: deleteProductError } = await supabaseService
             .from('cart_items')
             .delete()
             .in('product_id', purchasedProductIds)
-            .eq('user_id', userId)
+            .eq('user_id', tempOrders[0].user_id)
             .select();
 
           if (deleteProductError) {
@@ -437,10 +468,10 @@ export async function GET(request: NextRequest) {
     } else {
       // Clear user's cart (only for regular orders, not shared cart orders)
       console.log('[STRIPE SUCCESS] Clearing regular cart for user_id:', userId);
-      const { error: cartError } = await supabase
+      const { error: cartError } = await supabaseService
         .from('cart_items')
         .delete()
-        .eq('user_id', userId);
+        .eq('user_id', tempOrders[0].user_id);
 
       if (cartError) {
         console.error('[STRIPE SUCCESS] Error clearing regular cart:', cartError);

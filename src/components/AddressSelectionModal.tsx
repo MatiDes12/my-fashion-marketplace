@@ -27,6 +27,7 @@ interface AddressSelectionModalProps {
   currentAddress?: Address;
   onAddressSelect: (address: Address) => void;
   userRole?: 'owner' | 'customer';
+  isGuest?: boolean; // New prop to indicate if this is a guest user
 }
 
 // Dynamic import of MapComponent
@@ -47,7 +48,8 @@ export default function AddressSelectionModal({
   onClose,
   currentAddress,
   onAddressSelect,
-  userRole
+  userRole,
+  isGuest = false
 }: AddressSelectionModalProps) {
   const [address, setAddress] = useState<Address>(currentAddress || {
     city: '',
@@ -70,15 +72,23 @@ export default function AddressSelectionModal({
     setIsLoading(true);
 
     try {
-      const supabase = createClientComponent();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) throw new Error('Not authenticated');
-
       const addressData = {
         ...address,
         ...(userRole === 'owner' ? { mapLink } : {})
       };
+
+      // If this is a guest user, just pass the address data without saving to database
+      if (isGuest) {
+        onAddressSelect(addressData);
+        onClose();
+        return;
+      }
+
+      // For authenticated users, save to database
+      const supabase = createClientComponent();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) throw new Error('Not authenticated');
 
       // Get current store_settings
       const { data: userData } = await supabase
@@ -158,7 +168,13 @@ export default function AddressSelectionModal({
       }
       
       toast.dismiss();
-      toast.success('Address details updated');
+      
+      // Check if we got a fallback response (coordinates only)
+      if (addressDetails.fullAddress.includes('Location at')) {
+        toast.success('Location selected. Please fill in address details manually.');
+      } else {
+        toast.success('Address details updated');
+      }
     } else {
       toast.dismiss();
       toast.error('Could not get address details. Please fill in manually.');

@@ -1,10 +1,20 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Create a Supabase client with service role to bypass RLS
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
     
     const { 
       shareCode, 
@@ -44,11 +54,28 @@ export async function POST(request: NextRequest) {
     const cartItems = sharedCart.cart_data.items;
     const originalUserId = sharedCart.user_id;
 
-    // Clean up expired temporary orders first
+    // Check if temporary orders already exist for this tx_ref
+    const { data: existingTempOrders } = await supabase
+      .from('temporary_orders')
+      .select('id')
+      .eq('tx_ref', txRef);
+
+    if (existingTempOrders && existingTempOrders.length > 0) {
+      console.log('Temporary orders already exist for tx_ref:', txRef);
+      return NextResponse.json({
+        success: true,
+        message: 'Temporary shared cart orders already exist',
+        txRef,
+        shareCode,
+        paymentMethod
+      });
+    }
+
+    // Clean up expired temporary orders first (but be less aggressive)
     const { error: cleanupError } = await supabase
       .from('temporary_orders')
       .delete()
-      .lt('expires_at', new Date().toISOString());
+      .lt('expires_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()); // Only delete orders expired more than 5 minutes ago
 
     if (cleanupError) {
       console.error('Error cleaning up expired orders:', cleanupError);
@@ -101,7 +128,8 @@ export async function POST(request: NextRequest) {
             share_code: shareCode,
             purchaser_email: purchaserEmail,
             purchaser_name: purchaserName,
-            shared_cart_id: sharedCart.id
+            shared_cart_id: sharedCart.id,
+            user_id: originalUserId // Include the original user's ID for Stripe metadata
           }
         });
 

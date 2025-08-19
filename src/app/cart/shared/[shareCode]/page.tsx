@@ -437,6 +437,7 @@ export default function SharedCartPage() {
           setDeliveryAddress(address);
           setShowAddressModal(false);
         }}
+        isGuest={true} // This is a guest user for shared cart purchases
       />
     </div>
   );

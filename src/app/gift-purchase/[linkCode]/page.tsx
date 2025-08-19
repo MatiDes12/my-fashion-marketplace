@@ -465,6 +465,7 @@ export default function GiftPurchasePage() {
           setDeliveryAddress(address);
           setShowAddressModal(false);
         }}
+        isGuest={true} // This is a guest user for gift purchases
       />
     </div>
   );

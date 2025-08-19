@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { convertUSDToETB } from '@/lib/stripe';
 import { convertETBToUSD, EXCHANGE_RATES } from '@/utils/currency';
+
+// Create a Supabase client with service role for shared cart orders
+const supabaseService = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export async function GET(
   request: Request,
@@ -13,10 +26,11 @@ export async function GET(
     const redirectUrl = searchParams.get('redirect');
     
     const resolvedParams = await params;
+    console.log('Receipt API - Looking for orders with tx_ref:', resolvedParams.txRef);
     const supabase = createRouteHandlerClient({ cookies });
     
-    // Get all orders with this tx_ref (Stripe transactions usually have the same tx_ref for multiple orders)
-    const { data: orders, error: ordersError } = await supabase
+    // First, try to get orders with the regular client
+    let { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select(`
         *,
@@ -36,9 +50,80 @@ export async function GET(
         transaction:transactions(*)
       `)
       .eq('tx_ref', resolvedParams.txRef);
+    
+    // If no orders found, try with service role client (for shared cart orders)
+    if (!orders?.length) {
+      console.log('No orders found with regular client, trying service role client for shared cart orders');
+      const { data: serviceOrders, error: serviceOrdersError } = await supabaseService
+        .from('orders')
+        .select(`
+          *,
+          product:products(
+            id,
+            title,
+            price,
+            owner_id,
+            available_variants,
+            owner:users!products_owner_id_fkey(
+              id,
+              full_name,
+              store_settings
+            )
+          ),
+          user:users!orders_user_id_fkey(*),
+          transaction:transactions(*)
+        `)
+        .eq('tx_ref', resolvedParams.txRef);
+      
+      if (serviceOrdersError) {
+        console.error('Service role client error:', serviceOrdersError);
+        throw serviceOrdersError;
+      }
+      
+      orders = serviceOrders;
+      ordersError = serviceOrdersError;
+      
+      // If still no orders found, try searching by payment_reference (Stripe session ID)
+      if (!orders?.length) {
+        console.log('No orders found by tx_ref, trying payment_reference');
+        const { data: sessionOrders, error: sessionOrdersError } = await supabaseService
+          .from('orders')
+          .select(`
+            *,
+            product:products(
+              id,
+              title,
+              price,
+              owner_id,
+              available_variants,
+              owner:users!products_owner_id_fkey(
+                id,
+                full_name,
+                store_settings
+              )
+            ),
+            user:users!orders_user_id_fkey(*),
+            transaction:transactions(*)
+          `)
+          .eq('payment_reference', resolvedParams.txRef);
+        
+        if (sessionOrdersError) {
+          console.error('Session orders error:', sessionOrdersError);
+          throw sessionOrdersError;
+        }
+        
+        orders = sessionOrders;
+        ordersError = sessionOrdersError;
+      }
+    }
       
     if (ordersError) throw ordersError;
-    if (!orders?.length) throw new Error('No orders found');
+    if (!orders?.length) {
+      console.error('No orders found for tx_ref:', resolvedParams.txRef);
+      throw new Error('No orders found');
+    }
+    
+    console.log('Found orders:', orders.length, 'orders for tx_ref:', resolvedParams.txRef);
 
     // Group orders by seller with null check
     const ordersBySellerMap = orders.reduce((acc: any, order) => {

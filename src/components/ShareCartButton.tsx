@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { ShareIcon, EnvelopeIcon, PaperAirplaneIcon, LinkIcon } from '@heroicons/react/24/outline';
+import { isMobile, copyToClipboard } from '@/utils/clipboard';
 
 interface ShareCartButtonProps {
   cartItemsCount: number;
@@ -11,6 +12,8 @@ interface ShareCartButtonProps {
 export default function ShareCartButton({ cartItemsCount }: ShareCartButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
   const [recipientEmail, setRecipientEmail] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [message, setMessage] = useState('Check out my shopping cart!');
@@ -49,8 +52,24 @@ export default function ShareCartButton({ cartItemsCount }: ShareCartButtonProps
           toast.success('Opening Telegram...');
         } else {
           // Copy link to clipboard
-          await navigator.clipboard.writeText(data.shareUrl);
-          toast.success('Share link copied to clipboard!');
+          setShareUrl(data.shareUrl);
+          
+          // Check if we're on a mobile device
+          if (isMobile()) {
+            // On mobile, show the link modal instead of trying to copy
+            setShowLinkModal(true);
+            setShowModal(false);
+          } else {
+            // On desktop, try to copy to clipboard
+            const success = await copyToClipboard(data.shareUrl);
+            if (success) {
+              toast.success('Share link copied to clipboard!');
+            } else {
+              // If clipboard fails, show the link modal
+              setShowLinkModal(true);
+              setShowModal(false);
+            }
+          }
         }
         
         setShowModal(false);
@@ -89,9 +108,25 @@ export default function ShareCartButton({ cartItemsCount }: ShareCartButtonProps
       const data = await response.json();
 
       if (response.ok) {
-        await navigator.clipboard.writeText(data.shareUrl);
-        toast.success('Share link copied to clipboard!');
-        setShowModal(false);
+        setShareUrl(data.shareUrl);
+        
+        // Check if we're on a mobile device
+        if (isMobile()) {
+          // On mobile, show the link modal instead of trying to copy
+          setShowLinkModal(true);
+          setShowModal(false);
+        } else {
+          // On desktop, try to copy to clipboard
+          const success = await copyToClipboard(data.shareUrl);
+          if (success) {
+            toast.success('Share link copied to clipboard!');
+            setShowModal(false);
+          } else {
+            // If clipboard fails, show the link modal
+            setShowLinkModal(true);
+            setShowModal(false);
+          }
+        }
       } else {
         toast.error(data.error || 'Failed to generate share link');
       }
@@ -253,6 +288,90 @@ export default function ShareCartButton({ cartItemsCount }: ShareCartButtonProps
                       {shareMethod === 'link' && 'Copy Link'}
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Link Display Modal */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Share Link</h3>
+              <button
+                onClick={() => setShowLinkModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">Copy this link to share your cart:</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button
+                    onClick={async () => {
+                      const success = await copyToClipboard(shareUrl);
+                      if (success) {
+                        toast.success('Link copied!');
+                      } else {
+                        toast.error('Failed to copy link');
+                      }
+                    }}
+                    className="px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+                
+                {/* Native Share Button for Mobile */}
+                {typeof navigator !== 'undefined' && navigator.share && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.share({
+                          title: 'Shared Shopping Cart',
+                          text: 'Check out my shopping cart!',
+                          url: shareUrl,
+                        });
+                      } catch (error) {
+                        if ((error as Error).name !== 'AbortError') {
+                          toast.error('Failed to share');
+                        }
+                      }
+                    }}
+                    className="w-full mt-3 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Share via Device
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Tip:</strong> You can also share this link directly through your device's share menu.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowLinkModal(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Close
                 </button>
               </div>
             </div>

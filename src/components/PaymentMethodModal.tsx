@@ -473,14 +473,8 @@ export default function PaymentMethodModal({
             const itemTotal = Number((itemSubtotal + itemDeliveryFee).toFixed(2));
             const sellerPayoutAmount = Number((itemTotal - serviceFee).toFixed(2));
 
-              // Update product quantities first
-              await updateProductQuantities(
-                product.id,
-                product.quantity,
-              product.selected_size,
-              product.selected_color,
-              product.selected_variant_sku
-              );
+              // Note: Product quantities will be updated server-side after payment confirmation
+              // No need to update here to avoid double-decrementing
             
             // Add debug logging
             console.log('Creating order with delivery method:', product.delivery_method);
@@ -641,13 +635,8 @@ export default function PaymentMethodModal({
           throw new Error(data.error || 'Failed to initialize payment');
         }
 
-        // After successful payment (in both CHAPA and TELEBIRR cases)
-        // Update product quantities
-        for (const seller of sellers) {
-          for (const product of seller.products) {
-            await updateProductQuantity(product.id, product.quantity);
-          }
-        }
+        // Note: Product quantities will be updated server-side after payment confirmation
+        // No need to update here to avoid double-decrementing
         
         // Clear cart after successful payment
         if (userDetails?.id) {
