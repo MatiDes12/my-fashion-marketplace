@@ -164,7 +164,7 @@ const CustomerEditDialog = ({
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog 
         as="div" 
-        className="relative z-50"
+        className="relative z-[100]"
         onClose={onClose}
       >
         <Transition.Child

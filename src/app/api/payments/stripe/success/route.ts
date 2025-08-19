@@ -135,6 +135,13 @@ export async function GET(request: NextRequest) {
                     // Create receipt URL for Stripe payment
       const receiptUrl = `/api/receipts/stripe/${txRef}`;
 
+      // Check if this is a shared cart order
+      const isSharedCart = tempOrder.metadata?.is_shared_cart;
+      const shareCode = tempOrder.metadata?.share_code;
+      const purchaserEmail = tempOrder.metadata?.purchaser_email;
+      const purchaserName = tempOrder.metadata?.purchaser_name;
+      const sharedCartId = tempOrder.metadata?.shared_cart_id;
+
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -157,7 +164,13 @@ export async function GET(request: NextRequest) {
           selected_size: tempOrder.selected_size,
           selected_color: tempOrder.selected_color,
           selected_variant_sku: tempOrder.selected_variant_sku,
-          pickup_code: pickupCode
+          pickup_code: pickupCode,
+          // Add shared cart fields if applicable
+          ...(isSharedCart && {
+            purchased_by: purchaserEmail,
+            purchased_by_name: purchaserName,
+            shared_cart_id: sharedCartId
+          })
         })
         .select()
         .single();
@@ -319,6 +332,21 @@ export async function GET(request: NextRequest) {
             updated_at: new Date().toISOString()
           })
           .eq('id', tempOrder.product_id);
+
+        // Remove cart items for this product if quantity becomes 0
+        if (newQuantity === 0) {
+          console.log('[STRIPE SUCCESS] Product quantity is 0, removing cart items for product_id:', tempOrder.product_id);
+          const { error: cartDeleteError } = await supabase
+            .from('cart_items')
+            .delete()
+            .eq('product_id', tempOrder.product_id);
+
+          if (cartDeleteError) {
+            console.error('[STRIPE SUCCESS] Error removing cart items for out-of-stock product:', cartDeleteError);
+          } else {
+            console.log('[STRIPE SUCCESS] Successfully removed cart items for out-of-stock product');
+          }
+        }
       }
     }
 
@@ -329,11 +357,97 @@ export async function GET(request: NextRequest) {
       .eq('tx_ref', txRef)
       .eq('user_id', userId);
 
-    // Clear user's cart
-    await supabase
-      .from('cart_items')
-      .delete()
-      .eq('user_id', userId);
+    // Handle shared cart cleanup if applicable
+    const firstTempOrder = tempOrders[0];
+    if (firstTempOrder?.metadata?.is_shared_cart) {
+      const shareCode = firstTempOrder.metadata.share_code;
+      const sharedCartId = firstTempOrder.metadata.shared_cart_id;
+      
+      console.log('[STRIPE SUCCESS] Processing shared cart cleanup for shared_cart_id:', sharedCartId);
+      
+      // Mark shared cart as used
+      if (sharedCartId) {
+        const { error: updateError } = await supabase
+          .from('shared_carts')
+          .update({
+            is_used: true,
+            used_at: new Date().toISOString(),
+            used_by_email: firstTempOrder.metadata.purchaser_email,
+            used_by_name: firstTempOrder.metadata.purchaser_name
+          })
+          .eq('id', sharedCartId);
+
+        if (updateError) {
+          console.error('[STRIPE SUCCESS] Error marking shared cart as used:', updateError);
+        } else {
+          console.log('[STRIPE SUCCESS] Successfully marked shared cart as used');
+        }
+      }
+
+      // Remove shared cart items from original user's cart
+      if (sharedCartId) {
+        console.log('[STRIPE SUCCESS] Removing shared cart items with shared_cart_id:', sharedCartId);
+        
+        // First, let's check what items exist with shared_cart_id
+        const { data: existingSharedItems, error: checkSharedError } = await supabase
+          .from('cart_items')
+          .select('id, product_id, quantity')
+          .eq('shared_cart_id', sharedCartId);
+
+        if (checkSharedError) {
+          console.error('[STRIPE SUCCESS] Error checking existing shared cart items:', checkSharedError);
+        } else {
+          console.log('[STRIPE SUCCESS] Found shared cart items to remove:', existingSharedItems?.length || 0, 'items');
+        }
+
+        // Get all product IDs from the shared cart purchase
+        const purchasedProductIds = tempOrders.map(order => order.product_id);
+        console.log('[STRIPE SUCCESS] Purchased product IDs:', purchasedProductIds);
+
+        // Remove items by shared_cart_id first
+        const { data: deletedSharedItems, error: deleteSharedError } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('shared_cart_id', sharedCartId)
+          .select();
+
+        if (deleteSharedError) {
+          console.error('[STRIPE SUCCESS] Error removing shared cart items:', deleteSharedError);
+        } else {
+          console.log('[STRIPE SUCCESS] Successfully removed shared cart items:', deletedSharedItems?.length || 0, 'items');
+        }
+
+        // Also remove any cart items for the same products (in case they weren't properly tagged)
+        if (purchasedProductIds.length > 0) {
+          console.log('[STRIPE SUCCESS] Removing any remaining cart items for purchased products');
+          const { data: deletedProductItems, error: deleteProductError } = await supabase
+            .from('cart_items')
+            .delete()
+            .in('product_id', purchasedProductIds)
+            .eq('user_id', userId)
+            .select();
+
+          if (deleteProductError) {
+            console.error('[STRIPE SUCCESS] Error removing product cart items:', deleteProductError);
+          } else {
+            console.log('[STRIPE SUCCESS] Successfully removed product cart items:', deletedProductItems?.length || 0, 'items');
+          }
+        }
+      }
+    } else {
+      // Clear user's cart (only for regular orders, not shared cart orders)
+      console.log('[STRIPE SUCCESS] Clearing regular cart for user_id:', userId);
+      const { error: cartError } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('user_id', userId);
+
+      if (cartError) {
+        console.error('[STRIPE SUCCESS] Error clearing regular cart:', cartError);
+      } else {
+        console.log('[STRIPE SUCCESS] Successfully cleared regular cart');
+      }
+    }
 
     // Redirect to receipt page with auto-redirect to orders
     return NextResponse.redirect(

@@ -156,6 +156,13 @@ export async function GET(request: Request) {
             ? await generateUniquePickupCode()
             : null;
 
+        // Check if this is a shared cart order
+        const isSharedCart = tempOrder.metadata?.is_shared_cart;
+        const shareCode = tempOrder.metadata?.share_code;
+        const purchaserEmail = tempOrder.metadata?.purchaser_email;
+        const purchaserName = tempOrder.metadata?.purchaser_name;
+        const sharedCartId = tempOrder.metadata?.shared_cart_id;
+
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -177,7 +184,13 @@ export async function GET(request: Request) {
             selected_size: tempOrder.selected_size,
             selected_color: tempOrder.selected_color,
               selected_variant_sku: tempOrder.selected_variant_sku,
-              pickup_code: pickupCode
+              pickup_code: pickupCode,
+              // Add shared cart fields if applicable
+              ...(isSharedCart && {
+                purchased_by: purchaserEmail,
+                purchased_by_name: purchaserName,
+                shared_cart_id: sharedCartId
+              })
           })
           .select()
           .single();
@@ -325,10 +338,59 @@ export async function GET(request: Request) {
           
           await bot.sendReceipt(tempOrder.user_id, receiptData);
           console.log('[CHAPA CALLBACK] Telegram receipt sent for order:', order.id);
-        } catch (telegramError) {
-          console.error('[CHAPA CALLBACK] Error sending Telegram notification:', telegramError);
-          // Don't fail the order creation if Telegram notification fails
-        }
+                  } catch (telegramError) {
+            console.error('[CHAPA CALLBACK] Error sending Telegram notification:', telegramError);
+            // Don't fail the order creation if Telegram notification fails
+          }
+
+          // Update product quantities manually
+          const { data: currentProduct, error: fetchError } = await supabase
+            .from('products')
+            .select('quantity, available_variants')
+            .eq('id', tempOrder.product_id)
+            .single();
+
+          if (!fetchError && currentProduct) {
+            const newQuantity = Math.max(0, (currentProduct.quantity || 0) - tempOrder.quantity);
+            let newVariants = currentProduct.available_variants;
+
+            // Update variant quantity if applicable
+            if (tempOrder.selected_variant_sku && Array.isArray(newVariants)) {
+              newVariants = newVariants.map((variant: any) => {
+                if (variant.sku === tempOrder.selected_variant_sku) {
+                  return {
+                    ...variant,
+                    quantity: Math.max(0, (variant.quantity || 0) - tempOrder.quantity)
+                  };
+                }
+                return variant;
+              });
+            }
+
+            await supabase
+              .from('products')
+              .update({
+                quantity: newQuantity,
+                available_variants: newVariants,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', tempOrder.product_id);
+
+            // Remove cart items for this product if quantity becomes 0
+            if (newQuantity === 0) {
+              console.log('[CHAPA CALLBACK] Product quantity is 0, removing cart items for product_id:', tempOrder.product_id);
+              const { error: cartDeleteError } = await supabase
+                .from('cart_items')
+                .delete()
+                .eq('product_id', tempOrder.product_id);
+
+              if (cartDeleteError) {
+                console.error('[CHAPA CALLBACK] Error removing cart items for out-of-stock product:', cartDeleteError);
+              } else {
+                console.log('[CHAPA CALLBACK] Successfully removed cart items for out-of-stock product');
+              }
+            }
+          }
 
           console.log('[CHAPA CALLBACK] Successfully processed order for product:', tempOrder.product_id);
         } catch (error) {
@@ -348,14 +410,96 @@ export async function GET(request: Request) {
         console.error('[CHAPA CALLBACK] Error deleting temporary orders:', deleteError);
       }
 
-      // Clear cart items for the user
-      const { error: cartError } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('user_id', tempOrders[0].user_id);
+      // Handle shared cart cleanup if applicable
+      const firstTempOrder = tempOrders[0];
+      if (firstTempOrder?.metadata?.is_shared_cart) {
+        const shareCode = firstTempOrder.metadata.share_code;
+        const sharedCartId = firstTempOrder.metadata.shared_cart_id;
+        
+        console.log('[CHAPA CALLBACK] Processing shared cart cleanup for shared_cart_id:', sharedCartId);
+        
+        // Mark shared cart as used
+        if (sharedCartId) {
+          const { error: updateError } = await supabase
+            .from('shared_carts')
+            .update({
+              is_used: true,
+              used_at: new Date().toISOString(),
+              used_by_email: firstTempOrder.metadata.purchaser_email,
+              used_by_name: firstTempOrder.metadata.purchaser_name
+            })
+            .eq('id', sharedCartId);
 
-      if (cartError) {
-        console.error('[CHAPA CALLBACK] Error clearing cart:', cartError);
+          if (updateError) {
+            console.error('[CHAPA CALLBACK] Error marking shared cart as used:', updateError);
+          } else {
+            console.log('[CHAPA CALLBACK] Successfully marked shared cart as used');
+          }
+        }
+
+        // Remove shared cart items from original user's cart
+        if (sharedCartId) {
+          console.log('[CHAPA CALLBACK] Removing shared cart items with shared_cart_id:', sharedCartId);
+          
+          // First, let's check what items exist with shared_cart_id
+          const { data: existingSharedItems, error: checkSharedError } = await supabase
+            .from('cart_items')
+            .select('id, product_id, quantity')
+            .eq('shared_cart_id', sharedCartId);
+
+          if (checkSharedError) {
+            console.error('[CHAPA CALLBACK] Error checking existing shared cart items:', checkSharedError);
+          } else {
+            console.log('[CHAPA CALLBACK] Found shared cart items to remove:', existingSharedItems?.length || 0, 'items');
+          }
+
+          // Get all product IDs from the shared cart purchase
+          const purchasedProductIds = tempOrders.map(order => order.product_id);
+          console.log('[CHAPA CALLBACK] Purchased product IDs:', purchasedProductIds);
+
+          // Remove items by shared_cart_id first
+          const { data: deletedSharedItems, error: deleteSharedError } = await supabase
+            .from('cart_items')
+            .delete()
+            .eq('shared_cart_id', sharedCartId)
+            .select();
+
+          if (deleteSharedError) {
+            console.error('[CHAPA CALLBACK] Error removing shared cart items:', deleteSharedError);
+          } else {
+            console.log('[CHAPA CALLBACK] Successfully removed shared cart items:', deletedSharedItems?.length || 0, 'items');
+          }
+
+          // Also remove any cart items for the same products (in case they weren't properly tagged)
+          if (purchasedProductIds.length > 0) {
+            console.log('[CHAPA CALLBACK] Removing any remaining cart items for purchased products');
+            const { data: deletedProductItems, error: deleteProductError } = await supabase
+              .from('cart_items')
+              .delete()
+              .in('product_id', purchasedProductIds)
+              .eq('user_id', tempOrders[0].user_id)
+              .select();
+
+            if (deleteProductError) {
+              console.error('[CHAPA CALLBACK] Error removing product cart items:', deleteProductError);
+            } else {
+              console.log('[CHAPA CALLBACK] Successfully removed product cart items:', deletedProductItems?.length || 0, 'items');
+            }
+          }
+        }
+      } else {
+        // Clear cart items for the user (only for regular orders, not shared cart orders)
+        console.log('[CHAPA CALLBACK] Clearing regular cart for user_id:', tempOrders[0].user_id);
+        const { error: cartError } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('user_id', tempOrders[0].user_id);
+
+        if (cartError) {
+          console.error('[CHAPA CALLBACK] Error clearing regular cart:', cartError);
+        } else {
+          console.log('[CHAPA CALLBACK] Successfully cleared regular cart');
+        }
       }
 
       console.log('[CHAPA CALLBACK] Successfully processed all orders and transactions');

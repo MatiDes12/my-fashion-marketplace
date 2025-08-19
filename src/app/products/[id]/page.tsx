@@ -15,6 +15,7 @@ import ProductRating from '@/components/ProductRating';
 import Link from 'next/link';
 import WishlistPopup from '@/components/WishlistPopup';
 import LoginModal from '@/components/LoginModal';
+// import GiftPurchaseButton from '@/components/GiftPurchaseButton';
 
 type ProductImage = {
   id: string;
@@ -1532,6 +1533,19 @@ export default function ProductDetailPage() {
                 )}
                 </button>
               </div>
+
+              {/* Gift Purchase Button */}
+              {/* <div className="mt-4">
+                <GiftPurchaseButton
+                  productId={product.id}
+                  productTitle={product.title}
+                  productPrice={product.flash_sale_price || product.price}
+                  quantity={quantity}
+                  selectedSize={selectedSize}
+                  selectedColor={selectedColor}
+                  selectedVariantSku={selectedVariant?.sku}
+                />
+              </div> */}
             </div>
           </div>
         </div>

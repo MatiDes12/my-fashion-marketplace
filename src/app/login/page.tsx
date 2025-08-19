@@ -361,7 +361,7 @@ function LoginContent() {
       </div>
 
       <Transition appear show={forgotPasswordModal} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setForgotPasswordModal(false)}>
+        <Dialog as="div" className="relative z-[100]" onClose={() => setForgotPasswordModal(false)}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"

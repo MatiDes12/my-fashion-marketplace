@@ -84,15 +84,33 @@ export default function OrdersPage() {
             full_name,
             store_settings
           )
+        ),
+        transaction:transactions!transactions_order_id_fkey(
+          payment_method,
+          payment_status
         )
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (error) throw new Error('Failed to fetch orders');
     
+
+    
     // Helper function to get the base payment reference
     const getBasePaymentRef = (order: any) => {
       if (!order.payment_reference) return null;
+      
+      // For shared cart orders, use the tx_ref which contains the base reference
+      if (order.payment_reference.startsWith('SHARED-')) {
+        // Extract the base SHARED reference from tx_ref
+        const txRefParts = order.tx_ref?.split('-') || [];
+        if (txRefParts.length >= 3) {
+          // Get the base SHARED reference: SHARED-timestamp-random
+          return `${txRefParts[0]}-${txRefParts[1]}-${txRefParts[2]}`;
+        }
+        // Fallback to payment_reference if tx_ref parsing fails
+        return order.payment_reference;
+      }
       
       // For cash payments, use the tx_ref which contains the base reference
       if (order.payment_reference.startsWith('CASH-')) {
@@ -551,7 +569,12 @@ export default function OrdersPage() {
                       <h2 className="text-lg font-medium text-gray-900">
                         {(() => {
                           const paymentRef = orderGroup.payment_reference;
-                          if (paymentRef?.startsWith('CASH-')) {
+                          if (paymentRef?.startsWith('SHARED-')) {
+                            // Get the last part of the tx_ref for shared cart orders
+                            const txRef = orderGroup.tx_ref;
+                            const lastPart = txRef?.split('-').pop() || paymentRef.split('-')[2];
+                            return <>Shared Cart Payment #{lastPart}</>;
+                          } else if (paymentRef?.startsWith('CASH-')) {
                             return <>Cash Payment #{paymentRef.split('-')[2]}</>;
                           } else if (paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_')) {
                             return <>Stripe Payment #{paymentRef.slice(-16)}</>;
@@ -565,8 +588,10 @@ export default function OrdersPage() {
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
                         {(() => {
-                          const paymentRef = orderGroup.payment_reference;
-                          const isStripe = paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_');
+                          // Get the actual payment method from the first order's transaction
+                          const firstOrder = orderGroup.orders?.[0];
+                          const paymentMethod = firstOrder?.transaction?.payment_method;
+                          const isStripe = paymentMethod === 'STRIPE';
                           const totalETB = orderGroup.total.toFixed(2);
                           const totalUSD = convertETBToUSD(orderGroup.total);
                           
@@ -585,9 +610,35 @@ export default function OrdersPage() {
                       </p>
                       <p className="mt-1 text-sm text-gray-500">
                         Payment Method: {(() => {
+                          // Get the actual payment method from the first order's transaction
+                          const firstOrder = orderGroup.orders?.[0];
+                          const paymentMethod = firstOrder?.transaction?.payment_method;
+                          
+
+                          
+                          if (paymentMethod === 'CASH') return 'Cash on Delivery/Pickup';
+                          if (paymentMethod === 'STRIPE') return 'Credit/Debit Card (Stripe)';
+                          if (paymentMethod === 'CHAPA') return 'Chapa';
+                          
+                          // Fallback to payment reference logic if transaction data is not available
                           const paymentRef = orderGroup.payment_reference;
-                          if (paymentRef?.startsWith('CASH-')) return 'Cash on Delivery/Pickup';
+                          if (paymentRef?.startsWith('SHARED-')) {
+                            // For shared cart orders, only Chapa and Stripe are available
+                            if (firstOrder?.payment_reference?.startsWith('cs_test_') || firstOrder?.payment_reference?.startsWith('cs_live_')) return 'Credit/Debit Card (Stripe)';
+                            // If it's a shared cart but not stripe, it's chapa
+                            return 'Chapa';
+                          } else if (paymentRef?.startsWith('CASH-')) return 'Cash on Delivery/Pickup';
                           if (paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_')) return 'Credit/Debit Card (Stripe)';
+                          return 'Chapa';
+                          
+                          // Ultimate fallback - check if we can determine from the tx_ref pattern
+                          if (paymentRef?.startsWith('SHARED-')) {
+                            // For shared cart orders, only check for Stripe pattern
+                            if (firstOrder?.tx_ref?.includes('cs_test_') || firstOrder?.tx_ref?.includes('cs_live_')) return 'Credit/Debit Card (Stripe)';
+                            return 'Chapa';
+                          }
+                          if (firstOrder?.tx_ref?.includes('CASH-')) return 'Cash on Delivery/Pickup';
+                          if (firstOrder?.tx_ref?.includes('cs_test_') || firstOrder?.tx_ref?.includes('cs_live_')) return 'Credit/Debit Card (Stripe)';
                           return 'Chapa';
                         })()}
                       </p>
@@ -639,6 +690,16 @@ export default function OrdersPage() {
                             {order.product?.title || 'Product Unavailable'}
                           </button>
                         </h3>
+                        
+                        {/* Shared Cart Note */}
+                        {order.purchased_by && order.purchased_by_name && (
+                          <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800">
+                              <span className="font-medium">🎁 Gift Purchase:</span> This item was purchased for you by{' '}
+                              <span className="font-semibold">{order.purchased_by_name}</span> ({order.purchased_by})
+                            </p>
+                          </div>
+                        )}
                               
                               {/* Product Specifications */}
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
@@ -651,8 +712,9 @@ export default function OrdersPage() {
                                     <span className="font-medium w-20">Price:</span>
                                     <span>
                                       {(() => {
-                                        const paymentRef = orderGroup.payment_reference;
-                                        const isStripe = paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_');
+                                        // Get the actual payment method from the order's transaction
+                                        const paymentMethod = order.transaction?.payment_method;
+                                        const isStripe = paymentMethod === 'STRIPE';
                                         const priceETB = order.product?.price;
                                         const priceUSD = convertETBToUSD(priceETB);
                                         
@@ -668,8 +730,9 @@ export default function OrdersPage() {
                                     <span className="font-medium w-20">Total:</span>
                                     <span className="font-semibold text-gray-900">
                                       {(() => {
-                                        const paymentRef = orderGroup.payment_reference;
-                                        const isStripe = paymentRef?.startsWith('cs_test_') || paymentRef?.startsWith('cs_live_');
+                                        // Get the actual payment method from the order's transaction
+                                        const paymentMethod = order.transaction?.payment_method;
+                                        const isStripe = paymentMethod === 'STRIPE';
                                         const totalETB = order.total_price?.toFixed(2) || '0.00';
                                         const totalUSD = convertETBToUSD(order.total_price || 0);
                                         
@@ -981,7 +1044,7 @@ export default function OrdersPage() {
       </div>
 
       <Transition.Root show={isDetailsModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={setIsDetailsModalOpen}>
+        <Dialog as="div" className="relative z-[100]" onClose={setIsDetailsModalOpen}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -1072,7 +1135,7 @@ export default function OrdersPage() {
 
       {/* Pickup Code Modal */}
       <Transition.Root show={isPickupCodeModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={setIsPickupCodeModalOpen}>
+        <Dialog as="div" className="relative z-[100]" onClose={setIsPickupCodeModalOpen}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"

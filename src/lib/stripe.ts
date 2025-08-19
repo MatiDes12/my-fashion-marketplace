@@ -24,7 +24,7 @@ const CURRENCY_RATES = {
 
 // Convert ETB to USD for Stripe payments
 export const convertETBToUSD = (amountInETB: number): number => {
-  return Math.round(amountInETB * CURRENCY_RATES.ETB_TO_USD * 100) / 100; // Round to 2 decimal places
+  return amountInETB * CURRENCY_RATES.ETB_TO_USD; // Don't round here, let Stripe handle precision
 };
 
 // Convert USD back to ETB for display purposes

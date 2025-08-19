@@ -190,6 +190,89 @@ interface FlashSale {
     const originalPrice = hasFlashSale ? product.price : null;
     const displayPrice = hasFlashSale ? product.flash_sale_price : product.price;
 
+    // Function to check if a variant is in stock
+    const isVariantInStock = (size?: string, color?: string) => {
+      if (!product.available_variants || product.available_variants.length === 0) {
+        // If no variants data, use the main product quantity
+        return product.quantity > 0;
+      }
+      
+      // If checking for a specific size and color combination
+      if (size && color) {
+        const variant = product.available_variants.find((v: any) => 
+          v.size === size && v.color === color
+        );
+        return variant ? variant.quantity > 0 : false;
+      }
+      
+      // If checking for a specific size only
+      if (size && !color) {
+        const variantsWithSize = product.available_variants.filter((v: any) => v.size === size);
+        return variantsWithSize.some((v: any) => v.quantity > 0);
+      }
+      
+      // If checking for a specific color only
+      if (color && !size) {
+        const variantsWithColor = product.available_variants.filter((v: any) => v.color === color);
+        return variantsWithColor.some((v: any) => v.quantity > 0);
+      }
+      
+      // If no specific size or color, check if any variant is in stock
+      return product.available_variants.some((v: any) => v.quantity > 0);
+    };
+
+    // Function to get variant quantity for specific combination
+    const getVariantQuantity = (size?: string, color?: string) => {
+      if (!product.available_variants || product.available_variants.length === 0) {
+        return product.quantity;
+      }
+      
+      // If checking for a specific size and color combination
+      if (size && color) {
+        const variant = product.available_variants.find((v: any) => 
+          v.size === size && v.color === color
+        );
+        return variant ? variant.quantity : 0;
+      }
+      
+      // If checking for a specific size only, show all available combinations for that size
+      if (size && !color) {
+        const variantsWithSize = product.available_variants.filter((v: any) => v.size === size);
+        return variantsWithSize;
+      }
+      
+      // If checking for a specific color only, show all available combinations for that color
+      if (color && !size) {
+        const variantsWithColor = product.available_variants.filter((v: any) => v.color === color);
+        return variantsWithColor;
+      }
+      
+      // If no specific size or color, return all variants
+      return product.available_variants;
+    };
+
+    // Function to get available combinations for a size
+    const getAvailableCombinationsForSize = (size: string) => {
+      if (!product.available_variants || product.available_variants.length === 0) {
+        return [];
+      }
+      
+      return product.available_variants
+        .filter((v: any) => v.size === size && v.quantity > 0)
+        .map((v: any) => `${v.color}: ${v.quantity}`);
+    };
+
+    // Function to get available combinations for a color
+    const getAvailableCombinationsForColor = (color: string) => {
+      if (!product.available_variants || product.available_variants.length === 0) {
+        return [];
+      }
+      
+      return product.available_variants
+        .filter((v: any) => v.color === color && v.quantity > 0)
+        .map((v: any) => `${v.size}: ${v.quantity}`);
+    };
+
     // Handler to navigate to product detail page
     const handleCardClick = (e: React.MouseEvent) => {
       // Prevent navigation if clicking on interactive elements
@@ -273,11 +356,12 @@ interface FlashSale {
           toast.success('Cart updated! Quantity increased.');
         } else {
           // Add new item to cart
+          const cartPrice = hasFlashSale ? product.flash_sale_price! : product.price;
           console.log('Adding new item to cart with data:', {
             user_id: session.user.id,
             product_id: product.id,
             quantity: 1,
-            price: product.price,
+            price: cartPrice,
             delivery_fee: 0,
             selected_size: selectedSize,
             selected_color: selectedColor,
@@ -290,7 +374,7 @@ interface FlashSale {
               user_id: session.user.id,
               product_id: product.id,
               quantity: 1,
-              price: product.price, // Required field
+              price: cartPrice, // Use flash sale price if available
               delivery_fee: 0, // Default delivery fee
               selected_size: selectedSize,
               selected_color: selectedColor,
@@ -600,8 +684,13 @@ interface FlashSale {
               )}
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900 line-clamp-2">{product.title}</h4>
-                <p className="text-lg font-bold text-gray-900">{formatETB(product.price)}</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold text-red-600">{formatETB(displayPrice || 0)}</p>
+                  {originalPrice && (
+                    <p className="text-sm text-gray-500 line-through">{formatETB(originalPrice)}</p>
+                  )}
+                </div>
+              </div>
                   </div>
 
             {/* Size Selector */}
@@ -614,25 +703,42 @@ interface FlashSale {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {availableSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => {
-                        setSelectedSize(size);
-                        setValidationError(null);
-                      }}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg border ${
-                        selectedSize === size
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : validationError && !selectedSize
-                          ? 'bg-white border-red-300 text-gray-900 hover:bg-gray-50'
-                          : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
-                      }`}
-                    >
-                      {size}
-                    </button>
-            ))}
-          </div>
+                  {availableSizes.map((size) => {
+                    const isInStock = isVariantInStock(size);
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => {
+                          if (isInStock) {
+                            setSelectedSize(size);
+                            setValidationError(null);
+                          }
+                        }}
+                        disabled={!isInStock}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border text-center ${
+                          selectedSize === size
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : !isInStock
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                            : validationError && !selectedSize
+                            ? 'bg-white border-red-300 text-gray-900 hover:bg-gray-50'
+                            : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
+                        }`}
+                      >
+                        {size}
+                        {!isInStock ? (
+                          <span className="ml-1 text-xs">(Out of Stock)</span>
+                        ) : (
+                          <div className="mt-1 text-xs text-gray-500">
+                            {getAvailableCombinationsForSize(size).map((combo, index) => (
+                              <div key={index}>{combo}</div>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
         </div>
             )}
 
@@ -646,24 +752,41 @@ interface FlashSale {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {availableColors.map((color) => (
-                  <button
-                      key={color}
-                      onClick={() => {
-                        setSelectedColor(color);
-                        setValidationError(null);
-                      }}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg border ${
-                        selectedColor === color
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : validationError && !selectedColor
-                          ? 'bg-white border-red-300 text-gray-900 hover:bg-gray-50'
-                          : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
-                      }`}
-                    >
-                      {color}
-                  </button>
-                  ))}
+                  {availableColors.map((color) => {
+                    const isInStock = isVariantInStock(undefined, color);
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          if (isInStock) {
+                            setSelectedColor(color);
+                            setValidationError(null);
+                          }
+                        }}
+                        disabled={!isInStock}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg border text-center ${
+                          selectedColor === color
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : !isInStock
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                            : validationError && !selectedColor
+                            ? 'bg-white border-red-300 text-gray-900 hover:bg-gray-50'
+                            : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
+                        }`}
+                      >
+                        {color}
+                        {!isInStock ? (
+                          <span className="ml-1 text-xs">(Out of Stock)</span>
+                        ) : (
+                          <div className="mt-1 text-xs text-gray-500">
+                            {getAvailableCombinationsForColor(color).map((combo, index) => (
+                              <div key={index}>{combo}</div>
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
           </div>
             )}
@@ -693,6 +816,15 @@ interface FlashSale {
                   if (availableColors.length > 0 && !selectedColor) {
                     setValidationError('Please select a color');
                     return;
+                  }
+
+                  // Check if selected variant is in stock
+                  if (selectedSize || selectedColor) {
+                    const isSelectedVariantInStock = isVariantInStock(selectedSize || undefined, selectedColor || undefined);
+                    if (!isSelectedVariantInStock) {
+                      setValidationError('Selected variant is out of stock');
+                      return;
+                    }
                   }
 
                   // Close modal and add to cart
@@ -993,6 +1125,10 @@ export default function HomePage() {
 
       if (likedError) throw likedError;
 
+      // Get flash sale prices for these products
+      const productIds = (likedProducts || []).map(product => product.id);
+      const flashSalePrices = await getFlashSalePrices(productIds);
+
       const processedLikedProducts = (likedProducts || [])
         .map(product => {
           // Calculate real average rating
@@ -1001,11 +1137,15 @@ export default function HomePage() {
             ? ratings.reduce((sum, rating) => sum + rating.rating, 0) / ratings.length 
           : 0;
 
+        // Check if this product has a flash sale price
+        const flashSalePrice = flashSalePrices[product.id];
+
         return {
           ...product,
             users: Array.isArray(product.users) ? product.users[0] : product.users,
             like_count: product.likes?.length || 0,
           average_rating: averageRating,
+            flash_sale_price: flashSalePrice, // Add flash sale price if available
             sizes: Array.isArray(product.sizes) ? product.sizes : [],
             colors: Array.isArray(product.colors) ? product.colors : [],
             available_variants: Array.isArray(product.available_variants) ? product.available_variants : [],
@@ -1021,7 +1161,7 @@ export default function HomePage() {
         })
         .sort((a, b) => b.like_count - a.like_count);
 
-      console.log('Processed liked products:', processedLikedProducts.slice(0, 2)); // Debug log
+      console.log('Processed liked products with flash sales:', processedLikedProducts.slice(0, 2)); // Debug log
       setMostLikedProducts(processedLikedProducts);
     } catch (error) {
       console.error('Error fetching popular products:', error);

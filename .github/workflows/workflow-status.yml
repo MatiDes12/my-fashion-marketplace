@@ -1,23 +1,14 @@
 name: Workflow Status Monitor
 
 on:
-  workflow_run:
-    workflows: 
-      - "Next.js CI/CD"
-      - "CodeQL Security Analysis"
-      - "E2E Tests"
-      - "Code Quality"
-      - "Optimization & Performance Checks"
-      - "Deploy to Production"
-      - "Deploy to Staging"
-      - "Database Migrations"
-      - "Dependency Updates"
-      - "Datadog Synthetic Tests"
+  push:
     branches:
-      - master
       - main
-    types:
-      - completed
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 permissions:
@@ -26,7 +17,6 @@ permissions:
 jobs:
   workflow-status:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion != 'skipped'
     steps:
     - name: Check workflow status
       uses: actions/github-script@v7

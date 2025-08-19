@@ -63,6 +63,10 @@ interface Order {
   pickup_code?: string;
   pickup_code_verified?: boolean;
   pickup_code_verified_at?: string;
+  // Shared cart fields
+  purchased_by?: string;
+  purchased_by_name?: string;
+  shared_cart_id?: string;
 }
 
 // Add new interface for grouped orders
@@ -262,7 +266,7 @@ export default function OrdersPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
-  const [isCameraAvailable, setIsCameraAvailable] = useState(true);
+  const [isCameraAvailable, setIsCameraAvailable] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivId = 'qr-reader';
   const deviceType = useDeviceType();
@@ -970,37 +974,7 @@ export default function OrdersPage() {
     });
   }, [groupedOrders]);
 
-  // Add camera availability check
-  useEffect(() => {
-    // Check if camera is available
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          stream.getTracks().forEach(track => track.stop());
-          setIsCameraAvailable(true);
-        })
-        .catch(err => {
-          console.error('Camera check failed:', err);
-          setIsCameraAvailable(false);
-          if (err instanceof Error) {
-            if (err.name === 'NotAllowedError') {
-              setScannerError('Camera access was denied. Please check your browser permissions.');
-            } else if (err.name === 'NotFoundError') {
-              setScannerError('No camera found. Please ensure your device has a camera.');
-            } else if (err.name === 'NotReadableError') {
-              setScannerError('Camera is in use by another application. Please close other apps using the camera.');
-      } else {
-              setScannerError('Failed to access camera. Please try manual code entry.');
-            }
-          } else {
-            setScannerError('Failed to access camera. Please try manual code entry.');
-          }
-        });
-    } else {
-      setIsCameraAvailable(false);
-      setScannerError('Camera API not available. Please use manual code entry.');
-    }
-  }, []);
+  // Remove automatic camera availability check - will be checked only when user wants to scan
 
   // Update the scanner initialization effect
   useEffect(() => {
@@ -1039,6 +1013,10 @@ export default function OrdersPage() {
         } else {
           setScannerError('Failed to start scanner. Please try manual entry or check if your device has a camera.');
         }
+        // Reset states on error
+        setIsScanning(false);
+        setShowScanner(false);
+        setIsCameraAvailable(false);
       });
     }
 
@@ -1063,6 +1041,8 @@ export default function OrdersPage() {
       scannerRef.current = null;
       // Return to pickup code entry modal
       setIsScanning(false);
+      // Reset camera availability state
+      setIsCameraAvailable(false);
     }
   };
 
@@ -1139,6 +1119,9 @@ export default function OrdersPage() {
       setSelectedOrder(null);
       setPickupCode('');
       setIsScanning(false);
+      setShowScanner(false);
+      setIsCameraAvailable(false);
+      setScannerError(null);
       setSelectedImage(null);
       setImagePreview(null);
 
@@ -1166,6 +1149,8 @@ export default function OrdersPage() {
         // Keep the pickup verify modal open but hide scanner
         setShowScanner(false);
         setIsScanning(false);
+        setIsCameraAvailable(false);
+        setScannerError(null);
       }
     } finally {
       setVerifyingPickup(false);
@@ -1179,7 +1164,14 @@ export default function OrdersPage() {
     setPickupError(null);
     
     try {
-      // Check if camera is available
+      // Check if camera API is available
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
+        setScannerError('Camera API not available. Please use manual entry.');
+        setIsCameraAvailable(false);
+        return;
+      }
+
+      // Check if camera devices exist
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cameras = devices.filter(device => device.kind === 'videoinput');
       
@@ -1189,20 +1181,46 @@ export default function OrdersPage() {
         return;
       }
 
-      setShowScanner(true);
+      // For mobile devices, automatically request camera access
+      if (deviceType === 'mobile') {
+        try {
+          // Request camera access
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          stream.getTracks().forEach(track => track.stop()); // Stop the stream immediately
+          setIsCameraAvailable(true);
+          setShowScanner(true);
+        } catch (err) {
+          console.error('Camera access failed:', err);
+          setIsCameraAvailable(false);
+          if (err instanceof Error) {
+            if (err.name === 'NotAllowedError') {
+              setScannerError('Camera access was denied. Please allow camera access in your browser settings.');
+            } else if (err.name === 'NotFoundError') {
+              setScannerError('No camera found. Please ensure your device has a camera.');
+            } else if (err.name === 'NotReadableError') {
+              setScannerError('Camera is in use by another application. Please close other apps using the camera.');
+            } else {
+              setScannerError('Failed to access camera. Please try manual entry.');
+            }
+          } else {
+            setScannerError('Failed to access camera. Please try manual entry.');
+          }
+        }
+      } else {
+        // For desktop/tablet, just check availability and show scanner
+        // Camera access will be requested when the scanner actually starts
+        setIsCameraAvailable(true);
+        setShowScanner(true);
+      }
     } catch (error) {
-      console.error('Error accessing camera:', error);
-      setScannerError('Failed to access camera. Please check camera permissions or use manual entry.');
+      console.error('Error checking camera:', error);
+      setScannerError('Failed to check camera availability. Please use manual entry.');
       setIsCameraAvailable(false);
     }
   };
 
   // Update the scan button click handler
   const handleScanButtonClick = () => {
-    if (!isCameraAvailable) {
-      setScannerError('Camera is not available on this device. Please use manual entry.');
-      return;
-    }
     startScanner();
   };
 
@@ -1211,6 +1229,8 @@ export default function OrdersPage() {
     await safeStopScanner();
     // Ensure we return to the pickup code entry modal
     setIsPickupVerifyModalOpen(true);
+    // Reset camera availability state
+    setIsCameraAvailable(false);
   };
 
   return (
@@ -1494,6 +1514,17 @@ export default function OrdersPage() {
                                         Delivery: {order.delivery_method.replace('_', ' ')}
                                       </div>
                                     )}
+                                    {/* Shared Cart Indicator for Individual Orders */}
+                                    {(order.purchased_by || order.shared_cart_id) && (
+                                      <div className="text-xs text-purple-600 font-medium">
+                                        🎁 Gift Purchase
+                                        {order.purchased_by_name && (
+                                          <span className="text-gray-500 ml-1">
+                                            (Paid by {order.purchased_by_name})
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex space-x-2">
                                     <button
@@ -1532,6 +1563,22 @@ export default function OrdersPage() {
                         )}
                         {!group.orders[0].user && (
                           <div className="text-sm text-gray-500">User ID: {group.orders[0].user_id}</div>
+                        )}
+                        {/* Shared Cart Indicator */}
+                        {group.orders.some(order => order.purchased_by || order.shared_cart_id) && (
+                          <div className="mt-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                              Gift Purchase
+                            </span>
+                            {group.orders[0].purchased_by_name && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Paid by: {group.orders[0].purchased_by_name}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </td>
                         <td className="px-6 py-4">
@@ -1906,6 +1953,24 @@ export default function OrdersPage() {
                         g.payment_reference === getBasePaymentRef(selectedOrder))?.orders.length || 1}
                     </p>
                     </div>
+                    {/* Shared Cart Indicator in Group Summary */}
+                    {groupedOrders.find(g => g.payment_reference === getBasePaymentRef(selectedOrder))?.orders.some(order => order.purchased_by || order.shared_cart_id) && (
+                      <div className="md:col-span-3 mt-4">
+                        <div className="flex items-center">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            Gift Purchase Group
+                          </span>
+                          {groupedOrders.find(g => g.payment_reference === getBasePaymentRef(selectedOrder))?.orders[0].purchased_by_name && (
+                            <span className="ml-3 text-sm text-gray-600">
+                              Paid by: {groupedOrders.find(g => g.payment_reference === getBasePaymentRef(selectedOrder))?.orders[0].purchased_by_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     </div>
                     </div>
 
@@ -1969,6 +2034,29 @@ export default function OrdersPage() {
                                 )}
                                 {!order.user && (
                                   <p>User ID: {order.user_id}</p>
+                                )}
+                                {/* Shared Cart Information */}
+                                {(order.purchased_by || order.shared_cart_id) && (
+                                  <div className="mt-2 pt-2 border-t border-gray-200">
+                                    <div className="flex items-center">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mr-2">
+                                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                        Gift Purchase
+                                      </span>
+                                    </div>
+                                    {order.purchased_by_name && (
+                                      <p className="text-sm text-gray-600 mt-1">
+                                        <strong>Paid by:</strong> {order.purchased_by_name}
+                                      </p>
+                                    )}
+                                    {order.purchased_by && (
+                                      <p className="text-sm text-gray-600">
+                                        <strong>Payer email:</strong> {order.purchased_by}
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
                           </div>
                           </div>
@@ -2112,6 +2200,9 @@ export default function OrdersPage() {
                 setPickupCode('');
                 setPickupError(null);
                 setIsScanning(false);
+                setShowScanner(false);
+                setIsCameraAvailable(false);
+                setScannerError(null);
               }}
               className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-600 rounded-full text-xl font-bold focus:outline-none"
               aria-label="Close"

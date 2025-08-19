@@ -12,9 +12,16 @@ import AddressSelectionModal from '@/components/AddressSelectionModal';
 import StoreLocationMap from '@/components/StoreLocationMap';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 
+import ShareCartButton from '@/components/ShareCartButton';
+// import GiftWrappingModal from '@/components/GiftWrappingModal';
+
 interface CartItem {
   id: string;
   delivery_method: 'delivery' | 'pickup';
+  saved_for_later?: boolean;
+  // gift_wrapping?: boolean;
+  // gift_message?: string;
+  // gift_wrapping_fee?: number;
   product: {
     id: string;
     title: string;
@@ -84,6 +91,9 @@ export default function CartPage() {
   const [selectedDeliveryMethods, setSelectedDeliveryMethods] = useState<Record<string, 'delivery' | 'pickup'>>({});
   const [activeProductId, setActiveProductId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'customer' | null>(null);
+  // const [showGiftWrappingModal, setShowGiftWrappingModal] = useState(false);
+  // const [activeGiftWrappingItem, setActiveGiftWrappingItem] = useState<string | null>(null);
+  const [showSavedItems, setShowSavedItems] = useState(false);
   
   const router = useRouter();
   const supabase = createClientComponent();
@@ -266,21 +276,104 @@ export default function CartPage() {
       setIsUpdating(prev => ({ ...prev, [itemId]: false }));
     }
   };
+
+  const moveToSaved = async (itemId: string) => {
+    setIsUpdating(prev => ({ ...prev, [itemId]: true }));
+    
+    try {
+      const response = await fetch('/api/cart/save-for-later', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cartItemId: itemId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update local state
+        setCartItems(prev => 
+          prev.map(item => 
+            item.id === itemId 
+              ? { ...item, saved_for_later: true }
+              : item
+          )
+        );
+        
+        toast.success('Item moved to saved for later');
+        
+        // Trigger cart count update in the header
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+      } else {
+        toast.error(data.error || 'Failed to move item to saved');
+      }
+    } catch (error) {
+      console.error('Error moving item to saved:', error);
+      toast.error('Failed to move item to saved');
+    } finally {
+      setIsUpdating(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  const moveToCart = async (itemId: string) => {
+    setIsUpdating(prev => ({ ...prev, [itemId]: true }));
+    
+    try {
+      const response = await fetch('/api/cart/save-for-later', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cartItemId: itemId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Update local state
+        setCartItems(prev => 
+          prev.map(item => 
+            item.id === itemId 
+              ? { ...item, saved_for_later: false }
+              : item
+          )
+        );
+        
+        toast.success('Item moved to cart');
+        
+        // Trigger cart count update in the header
+        window.dispatchEvent(new CustomEvent('cart-updated'));
+      } else {
+        toast.error(data.error || 'Failed to move item to cart');
+      }
+    } catch (error) {
+      console.error('Error moving item to cart:', error);
+      toast.error('Failed to move item to cart');
+    } finally {
+      setIsUpdating(prev => ({ ...prev, [itemId]: false }));
+    }
+  };
   
   const proceedToCheckout = () => {
     setIsCheckingOut(true);
     router.push('/checkout');
   };
   
-  // Calculate cart totals with smart delivery fee calculation
+  // Separate active cart items from saved items
+  const activeCartItems = cartItems.filter(item => !item.saved_for_later);
+  const savedItems = cartItems.filter(item => item.saved_for_later);
+
+  // Calculate cart totals with smart delivery fee calculation (only for active items)
   const calculateFees = () => {
     let subtotal = 0;
     let deliveryFee = 0;
     let serviceFee = 0;
     let vat = 0;
+    // let giftWrappingFee = 0;
 
     // Group items by seller for smart delivery fee calculation
-    const sellerGroups = cartItems.reduce((acc, item) => {
+    const sellerGroups = activeCartItems.reduce((acc, item) => {
       if (!item.product?.owner?.id) return acc;
       
       const sellerId = item.product.owner.id;
@@ -289,13 +382,18 @@ export default function CartPage() {
       }
       acc[sellerId].push(item);
       return acc;
-    }, {} as Record<string, typeof cartItems>);
+    }, {} as Record<string, typeof activeCartItems>);
 
-    // Calculate subtotal and smart delivery fee
+    // Calculate subtotal, smart delivery fee, and gift wrapping fees
     Object.values(sellerGroups).forEach(sellerItems => {
       sellerItems.forEach(item => {
         const itemSubtotal = item.quantity * (item.flash_sale_price || item.product.price);
         subtotal += itemSubtotal;
+        
+        // Add gift wrapping fee
+        // if (item.gift_wrapping_fee) {
+        //   giftWrappingFee += item.gift_wrapping_fee;
+        // }
       });
 
       // Smart delivery fee calculation for each seller
@@ -316,13 +414,14 @@ export default function CartPage() {
     vat = 0;
 
     // Calculate total
-    const total = subtotal + deliveryFee + serviceFee + vat;
+    const total = subtotal + deliveryFee + serviceFee + vat; // + giftWrappingFee;
 
     return {
       subtotal,
       deliveryFee,
       serviceFee,
       vat,
+      // giftWrappingFee,
       total
     };
   };
@@ -380,7 +479,7 @@ export default function CartPage() {
   // Calculate original delivery fee (without smart calculation) for comparison
   const calculateOriginalDeliveryFee = () => {
     let originalFee = 0;
-    cartItems.forEach(item => {
+    activeCartItems.forEach(item => {
       if (selectedDeliveryMethods[item.id] === 'delivery') {
         originalFee += (item.product.delivery_fee || 0);
       }
@@ -594,15 +693,29 @@ export default function CartPage() {
         {/* Cart Header - Make it stack on mobile */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">Shopping Cart</h1>
-          <button
-            onClick={() => router.push('/products')}
-            className="inline-flex items-center text-green-600 hover:text-green-700 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-            </svg>
-            Continue Shopping
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <ShareCartButton cartItemsCount={activeCartItems.length} />
+            {savedItems.length > 0 && (
+              <button
+                onClick={() => setShowSavedItems(!showSavedItems)}
+                className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                Saved for Later ({savedItems.length})
+              </button>
+            )}
+            <button
+              onClick={() => router.push('/products')}
+              className="inline-flex items-center text-green-600 hover:text-green-700 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+              Continue Shopping
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -613,7 +726,7 @@ export default function CartPage() {
           <div className="bg-red-50 p-8 rounded-xl shadow-sm">
             <ErrorMessage message={error} />
           </div>
-        ) : cartItems.length === 0 ? (
+        ) : activeCartItems.length === 0 && savedItems.length === 0 ? (
           <div className="text-center py-32 bg-white rounded-xl shadow-sm">
             <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -631,13 +744,39 @@ export default function CartPage() {
               Start Shopping
             </button>
           </div>
+        ) : activeCartItems.length === 0 && savedItems.length > 0 ? (
+          <div className="text-center py-32 bg-white rounded-xl shadow-sm">
+            <div className="bg-blue-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="h-12 w-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-semibold text-gray-900 mb-2">Your cart is empty</h3>
+            <p className="text-gray-500 mb-8">
+              You have {savedItems.length} item{savedItems.length === 1 ? '' : 's'} saved for later.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => setShowSavedItems(true)}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+              >
+                View Saved Items
+              </button>
+              <button
+                onClick={() => router.push('/products')}
+                className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-full shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              >
+                Continue Shopping
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start space-y-8 lg:space-y-0">
             {/* Cart Items Section */}
             <div className="lg:col-span-8">
               <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                 <ul role="list" className="divide-y divide-gray-100">
-                  {cartItems.map((item) => (
+                  {activeCartItems.map((item) => (
                     <li key={item.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
                       <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                         {/* Product Image */}
@@ -748,12 +887,37 @@ export default function CartPage() {
                                 Max quantity reached
                               </span>
                             )}
-                              <button
-                                onClick={() => removeItem(item.id)}
-                                className="text-sm font-medium text-red-600 hover:text-red-700"
-                              >
-                                Remove
-                              </button>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => moveToSaved(item.id)}
+                                  disabled={isUpdating[item.id]}
+                                  className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-gray-50 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {isUpdating[item.id] ? (
+                                    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                                    </svg>
+                                  )}
+                                  Save for Later
+                                </button>
+                                {/* <button
+                                  onClick={() => {
+                                    setActiveGiftWrappingItem(item.id);
+                                    setShowGiftWrappingModal(true);
+                                  }}
+                                  className="text-sm font-medium text-purple-600 hover:text-purple-700"
+                                >
+                                  Gift Wrap
+                                </button> */}
+                                <button
+                                  onClick={() => removeItem(item.id)}
+                                  className="text-sm font-medium text-red-600 hover:text-red-700"
+                                >
+                                  Remove
+                                </button>
+                              </div>
                             </div>
                             {/* Subtotal - Right align on desktop */}
                             <div className="text-left sm:text-right">
@@ -939,6 +1103,14 @@ export default function CartPage() {
                         }] 
                       : []
                     ),
+                    // ...(fees.giftWrappingFee > 0 
+                    //   ? [{ 
+                    //       label: 'Gift Wrapping', 
+                    //       value: fees.giftWrappingFee,
+                    //       className: 'text-gray-600'
+                    //     }] 
+                    //   : []
+                    // ),
                     { 
                       label: 'Service Fee (0%)',
                       value: fees.serviceFee,
@@ -1007,6 +1179,108 @@ export default function CartPage() {
             </div>
           </div>
         )}
+
+        {/* Saved for Later Side Panel */}
+        {savedItems.length > 0 && (
+          <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out z-50 overflow-y-auto"
+               style={{ transform: showSavedItems ? 'translateX(0)' : 'translateX(100%)' }}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Saved for Later</h2>
+                <button
+                  onClick={() => setShowSavedItems(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {savedItems.map((item) => (
+                  <div key={item.id} className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex gap-3">
+                      {/* Product Image */}
+                      <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                        {item.product.images && item.product.images.length > 0 ? (
+                          <img
+                            src={item.product.images[0].image_url}
+                            alt={item.product.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                          {item.product.title}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          ETB {(item.flash_sale_price || item.product.price).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Qty: {item.quantity}
+                        </p>
+                        {item.selected_size && (
+                          <p className="text-xs text-gray-400">
+                            Size: {item.selected_size}
+                          </p>
+                        )}
+                        {item.selected_color && (
+                          <p className="text-xs text-gray-400">
+                            Color: {item.selected_color}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={() => moveToCart(item.id)}
+                        disabled={isUpdating[item.id]}
+                        className="flex-1 bg-green-600 text-white text-sm font-medium py-2 px-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {isUpdating[item.id] ? (
+                          <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                        ) : (
+                          'Move to Cart'
+                        )}
+                      </button>
+                      <button
+                        onClick={() => removeItem(item.id)}
+                        disabled={isUpdating[item.id]}
+                        className="px-3 py-2 text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Saved Items Toggle Button */}
+        {savedItems.length > 0 && (
+          <button
+            onClick={() => setShowSavedItems(!showSavedItems)}
+            className="fixed bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-colors z-40"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+          </button>
+        )}
       </div>
       <AddressSelectionModal
         isOpen={showAddressModal}
@@ -1030,6 +1304,36 @@ export default function CartPage() {
           setActiveProductId(null);
         }}
       />
+
+      {/* Gift Wrapping Modal */}
+      {/* {activeGiftWrappingItem && (
+        <GiftWrappingModal
+          isOpen={showGiftWrappingModal}
+          onClose={() => {
+            setShowGiftWrappingModal(false);
+            setActiveGiftWrappingItem(null);
+          }}
+          cartItemId={activeGiftWrappingItem}
+          currentGiftWrapping={cartItems.find(item => item.id === activeGiftWrappingItem)?.gift_wrapping || false}
+          currentGiftMessage={cartItems.find(item => item.id === activeGiftWrappingItem)?.gift_message || ''}
+          currentWrappingFee={cartItems.find(item => item.id === activeGiftWrappingItem)?.gift_wrapping_fee || 0}
+          onUpdate={(giftWrapping, giftMessage, wrappingFee) => {
+            setCartItems(prev => 
+              prev.map(item => 
+                item.id === activeGiftWrappingItem 
+                  ? { 
+                      ...item, 
+                      gift_wrapping: giftWrapping,
+                      gift_message: giftMessage,
+                      gift_wrapping_fee: wrappingFee,
+                      subtotal: (item.quantity * (item.flash_sale_price || item.product.price)) + wrappingFee
+                    }
+                  : item
+              )
+            );
+          }}
+        />
+      )} */}
     </div>
   );
 } 

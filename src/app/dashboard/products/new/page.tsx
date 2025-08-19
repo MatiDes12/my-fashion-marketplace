@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
 import { createClientComponent } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -13,7 +12,6 @@ import { withSubscriptionLimits } from '@/components/withSubscriptionLimits';
 import { toast } from 'react-hot-toast';
 
 function NewProductPage() {
-  const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -205,9 +203,6 @@ function NewProductPage() {
   const categoryRef = useRef<HTMLSelectElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
   const imageSectionRef = useRef<HTMLDivElement>(null);
-  const deliveryOptionsRef = useRef<HTMLDivElement>(null);
-  const deliveryCheckboxRef = useRef<HTMLInputElement>(null);
-  const pickupLocationRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,7 +220,6 @@ function NewProductPage() {
     if (showCustomCategory && !customCategory) missing.category = true;
     if (!quantity) missing.quantity = true;
     if (images.length < 2) missing.images = true;
-    if (!deliveryOptions.delivery && !deliveryOptions.pickup) missing.deliveryOptions = true;
     if (deliveryOptions.pickup && !pickupLocation) missing.pickupLocation = true;
 
     if (Object.keys(missing).length > 0) {
@@ -238,17 +232,6 @@ function NewProductPage() {
       else if (missing.category && categoryRef.current) categoryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       else if (missing.quantity && quantityRef.current) quantityRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       else if (missing.images && imageSectionRef.current) imageSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      else if (missing.deliveryOptions && deliveryOptionsRef.current) {
-        deliveryOptionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (!deliveryOptions.delivery && deliveryCheckboxRef.current) {
-          deliveryCheckboxRef.current.focus();
-        }
-        toast.error('Please select at least one delivery option');
-      } else if (missing.pickupLocation && deliveryOptionsRef.current) {
-        deliveryOptionsRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (pickupLocationRef.current) pickupLocationRef.current.focus();
-        toast.error('Please provide a pickup location when store pickup is selected');
-      }
         return;
       }
 
@@ -447,7 +430,7 @@ function NewProductPage() {
       files = Array.from(e.target.files);
     }
     if (files.length + images.length > 8) {
-      setImageError(t('dashboard.product.maxImages'));
+      setImageError('Maximum 8 images allowed.');
         return;
       }
     setImages(prev => [...prev, ...files]);
@@ -469,9 +452,9 @@ function NewProductPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">{t('dashboard.product.new.header')}</h3>
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Add New Product</h3>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              {t('dashboard.product.new.subtitle')}
+              Fill in the details below to create a new product listing
             </p>
       </div>
       
@@ -498,11 +481,11 @@ function NewProductPage() {
                 
                 {/* Basic Information Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
-                  <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.basicInfo')}</h4>
+                  <h4 className="text-base font-medium text-gray-900">Basic Information</h4>
                 <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                   <div className="sm:col-span-4 relative">
                     <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                      {t('dashboard.product.title')} <span className="text-red-500">*</span>
+                      Product Title <span className="text-red-500">*</span>
                     </label>
                     <div className="mt-1">
                       <input
@@ -517,7 +500,7 @@ function NewProductPage() {
                       />
                       {missingFields.title && (
                         <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
-                           {t('dashboard.product.validation.titleRequired')}
+                          Please enter a product title
                         </div>
                       )}
                     </div>
@@ -525,7 +508,7 @@ function NewProductPage() {
 
                   <div className="sm:col-span-3 relative">
                     <label htmlFor="category" className="block text-sm font-medium text-gray-700">
-                      {t('dashboard.product.category')} <span className="text-red-500">*</span>
+                      Category <span className="text-red-500">*</span>
                     </label>
                     <div className="mt-1">
                       {!showCustomCategory ? (
@@ -545,7 +528,7 @@ function NewProductPage() {
                             className={selectClasses + (missingFields.category ? ' border-red-500' : '')}
                             required={!showCustomCategory}
                           >
-                             <option value="">{t('dashboard.product.selectCategory')}</option>
+                            <option value="">Select a category</option>
                             
                               {/* Traditional Wear */}
                             <optgroup label="Traditional Wear">
@@ -713,12 +696,12 @@ function NewProductPage() {
                               </optgroup>
                             )}
                             
-                             <option value="custom">{t('dashboard.product.addCustomCategory')}</option>
+                            <option value="custom">+ Add custom category</option>
                           </select>
                           {missingFields.category && (
-                             <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
-                               {t('dashboard.product.validation.categoryRequired')}
-                             </div>
+                            <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                              Please select a category
+                            </div>
                           )}
                         </>
                       ) : (
@@ -740,7 +723,7 @@ function NewProductPage() {
                                 disabled={isSavingCustomCategory || !customCategory.trim()}
                                 className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
                               >
-                               {isSavingCustomCategory ? t('dashboard.product.saving') : t('dashboard.product.saveCategory')}
+                                {isSavingCustomCategory ? 'Saving...' : 'Save Category'}
                               </button>
                               <button
                                 type="button"
@@ -748,16 +731,16 @@ function NewProductPage() {
                                   setShowCustomCategory(false);
                                   setCustomCategory('');
                                 }}
-                                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                               >
-                                {t('dashboard.product.cancel')}
+                                Cancel
                               </button>
                             </div>
                           </div>
                           {missingFields.category && (
-                             <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
-                               {t('dashboard.product.validation.customCategoryRequired')}
-                             </div>
+                            <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
+                              Please enter a category
+                            </div>
                           )}
                         </>
                       )}
@@ -771,7 +754,7 @@ function NewProductPage() {
 
                 {/* Description Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
-                  <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.descriptionSection')}</h4>
+                  <h4 className="text-base font-medium text-gray-900">Product Description</h4>
                   <div className="space-y-6">
                     <div className="relative">
                       <label htmlFor="description" className="block text-sm font-medium text-gray-700">
@@ -791,12 +774,12 @@ function NewProductPage() {
                         />
                         {missingFields.description && (
                           <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
-                           {t('dashboard.product.validation.descriptionRequired')}
+                            Please enter a brief description
                           </div>
                         )}
                       </div>
                       <p className="mt-2 text-sm text-gray-500">
-                        {t('dashboard.product.summaryHint')}
+                        A brief summary of your product (max 200 characters)
                       </p>
                     </div>
 
@@ -811,36 +794,36 @@ function NewProductPage() {
                           value={detailedDescription}
                           onChange={(e) => setDetailedDescription(e.target.value)}
                           className={inputClasses}
-                          placeholder={t('dashboard.product.detailsPlaceholder')}
+                          placeholder="Provide comprehensive details about your product..."
                           required
                         />
                       </div>
                       <div className="mt-2 bg-white p-4 rounded-md border border-gray-200">
-                        <h5 className="text-sm font-medium text-gray-700 mb-2">{t('dashboard.product.includeInfoTitle')}</h5>
+                        <h5 className="text-sm font-medium text-gray-700 mb-2">Include information about:</h5>
                         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                           <li className="flex items-center">
                             <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            {t('dashboard.product.include.materials')}
+                            Materials and fabric composition
                           </li>
                           <li className="flex items-center">
                             <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            {t('dashboard.product.include.size')}
+                            Size and measurements
                           </li>
                           <li className="flex items-center">
                             <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            {t('dashboard.product.include.care')}
+                            Care instructions
                           </li>
                           <li className="flex items-center">
                             <svg className="h-4 w-4 mr-2 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            {t('dashboard.product.include.features')}
+                            Special features
                           </li>
                         </ul>
                       </div>
@@ -850,11 +833,11 @@ function NewProductPage() {
 
                 {/* Pricing and Inventory Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6">
-                  <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.pricingInventory')}</h4>
+                  <h4 className="text-base font-medium text-gray-900">Pricing & Inventory</h4>
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="relative">
                       <label className="block text-sm font-medium text-gray-700">
-                        {t('dashboard.product.priceETB')} <span className="text-red-500">*</span>
+                        Price (ETB) <span className="text-red-500">*</span>
                       </label>
                         <input
                           type="number"
@@ -862,20 +845,20 @@ function NewProductPage() {
                           value={price}
                           onChange={(e) => setPrice(e.target.value)}
                           className={inputClasses + (missingFields.price ? ' border-red-500' : '')}
-                        placeholder={t('dashboard.product.enterPrice')}
+                        placeholder="Enter price"
                           required
                         min="0"
                         step="0.01"
                         />
                         {missingFields.price && (
                           <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
-                            {t('dashboard.product.validation.priceRequired')}
+                            Please enter a price
                     </div>
                         )}
                     </div>
                     <div className="relative">
                       <label className="block text-sm font-medium text-gray-700">
-                        {t('dashboard.product.quantityInStock')} <span className="text-red-500">*</span>
+                        Quantity <span className="text-red-500">*</span>
                     </label>
                       <input
                         type="number"
@@ -883,13 +866,13 @@ function NewProductPage() {
                         value={quantity}
                         onChange={(e) => setQuantity(e.target.value)}
                         className={inputClasses + (missingFields.quantity ? ' border-red-500' : '')}
-                        placeholder={t('dashboard.product.availableQuantityPlaceholder')}
+                        placeholder="Available quantity"
                         required
                         min="0"
                       />
                       {missingFields.quantity && (
                         <div className="absolute left-0 mt-1 text-xs text-red-600 bg-white border border-red-200 rounded px-2 py-1 shadow z-10 animate-bounce">
-                          {t('dashboard.product.validation.quantityRequired')}
+                          Please enter a quantity
                         </div>
                       )}
                     </div>
@@ -1566,12 +1549,12 @@ function NewProductPage() {
                 {/* Images Section */}
                 <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={imageSectionRef}>
                   <div className="flex justify-between items-center">
-                    <h4 className="text-base font-medium text-gray-900">{t('dashboard.product.productImages')} <span className="text-red-500">*</span></h4>
-                    <span className="text-sm text-gray-500">{images.length}/8 {t('dashboard.product.imagesCountSuffix')}</span>
+                    <h4 className="text-base font-medium text-gray-900">Product Images <span className="text-red-500">*</span></h4>
+                    <span className="text-sm text-gray-500">{images.length}/8 images</span>
                   </div>
                   <div>
                     <label htmlFor="images" className="block text-sm font-medium text-gray-700">
-                      {t('dashboard.product.uploadRange')}
+                      Upload 2-8
                     </label>
                     <p className="mt-1 text-sm text-gray-500">
                       Upload <span className="font-semibold">2-8 high-quality images</span> of your product. Include different angles and details.
@@ -1701,19 +1684,13 @@ function NewProductPage() {
                 )}
 
                 {/* Delivery Options Section */}
-                <div className="bg-gray-50 rounded-lg p-6 space-y-6" ref={deliveryOptionsRef}>
+                <div className="bg-gray-50 rounded-lg p-6 space-y-6">
                   <h4 className="text-base font-medium text-gray-900">Delivery Options</h4>
                   <div className="space-y-4">
-                    {!deliveryOptions.delivery && !deliveryOptions.pickup && (
-                      <p className="text-sm text-red-500">
-                        {t('dashboard.product.deliverySelectOne')}
-                      </p>
-                    )}
                     <div className="flex items-center space-x-3">
                       <input
                         type="checkbox"
                         id="delivery"
-                        ref={deliveryCheckboxRef}
                         checked={deliveryOptions.delivery}
                         onChange={(e) => setDeliveryOptions(prev => ({
                           ...prev,
@@ -1722,7 +1699,7 @@ function NewProductPage() {
                         className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                       />
                       <label htmlFor="delivery" className="text-sm text-gray-700">
-                        {t('dashboard.product.homeDelivery')}
+                        Home Delivery
                       </label>
                     </div>
 
@@ -1730,7 +1707,7 @@ function NewProductPage() {
                       <div className="ml-7 space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
-                            {t('dashboard.product.deliveryFee')}
+                            Delivery Fee (ETB)
                           </label>
                           <div className="relative rounded-lg">
                             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -1771,7 +1748,7 @@ function NewProductPage() {
                         className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                       />
                       <label htmlFor="pickup" className="text-sm text-gray-700">
-                        {t('dashboard.product.storePickup')}
+                        Store Pickup
                       </label>
                     </div>
 
@@ -1793,16 +1770,15 @@ function NewProductPage() {
                             className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                           />
                           <label htmlFor="useStoreAddress" className="text-sm text-gray-700">
-                            {t('dashboard.product.useStoreAddress')}
+                            Use my store address
                           </label>
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
-                            {t('dashboard.product.pickupLocation')} <span className="text-red-500">*</span>
+                            Pickup Location <span className="text-red-500">*</span>
                           </label>
                           <textarea
-                            ref={pickupLocationRef}
                             value={pickupLocation}
                             onChange={(e) => setPickupLocation(e.target.value)}
                             placeholder={useStoreAddress ? storeAddress : "Enter pickup address and instructions"}
@@ -1822,7 +1798,7 @@ function NewProductPage() {
 
                     {!deliveryOptions.delivery && !deliveryOptions.pickup && (
                       <p className="text-sm text-red-500 mt-2">
-                        {t('dashboard.product.deliverySelectOne')}
+                        Please select at least one delivery option
                       </p>
                     )}
                   </div>
@@ -1835,7 +1811,7 @@ function NewProductPage() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
-                          {t('dashboard.product.estimatedDeliveryTime')}
+                          Estimated Delivery Time
                         </label>
                         <select
                           value={deliveryTime}
@@ -1859,7 +1835,7 @@ function NewProductPage() {
                       href="/dashboard/products"
                     className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                     >
-                      {t('dashboard.product.cancel')}
+                      Cancel
                     </Link>
                     <button
                       type="submit"
@@ -1872,10 +1848,10 @@ function NewProductPage() {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                        {t('dashboard.product.creating')}
+                        Creating...
                       </span>
                       ) : (
-                        t('dashboard.product.create')
+                        'Create Product'
                       )}
                     </button>
                 </div>
