@@ -1182,15 +1182,23 @@ export default function CartPage() {
 
         {/* Saved for Later Side Panel */}
         {savedItems.length > 0 && (
-          <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out z-50 overflow-y-auto"
-               style={{ transform: showSavedItems ? 'translateX(0)' : 'translateX(100%)' }}>
+          <>
+            {/* Backdrop */}
+            {showSavedItems && (
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-50 z-[9998]"
+                onClick={() => setShowSavedItems(false)}
+              />
+            )}
+            <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out z-[999999] overflow-y-auto"
+                 style={{ transform: showSavedItems ? 'translateX(0)' : 'translateX(100%)' }}>
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Saved for Later</h2>
-                <button
-                  onClick={() => setShowSavedItems(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
+                             <div className="flex items-center justify-between mb-6">
+                 <h2 className="text-xl font-semibold text-gray-900">Saved for Later</h2>
+                 <button
+                   onClick={() => setShowSavedItems(false)}
+                   className="text-gray-400 hover:text-gray-600 relative z-[9999999] p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                 >
                   <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -1264,17 +1272,18 @@ export default function CartPage() {
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+                                 ))}
+               </div>
+             </div>
+           </div>
+           </>
+         )}
 
         {/* Saved Items Toggle Button */}
         {savedItems.length > 0 && (
           <button
             onClick={() => setShowSavedItems(!showSavedItems)}
-            className="fixed bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-colors z-40"
+            className="fixed bottom-6 right-6 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-colors z-[999999]"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
