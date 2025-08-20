@@ -146,6 +146,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
   const [isNavigating, setIsNavigating] = useState(false);
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
   const [scroll, setScroll] = useState<ScrollDirection>({
     lastScrollY: 0,
     direction: 'up'
@@ -593,6 +594,11 @@ export default function Navigation({ userDetails }: NavigationProps) {
     setIsMenuOpen(false);
   };
 
+  const handleDropdownLinkClick = () => {
+    setIsMobileDropdownOpen(false);
+    closeMenu();
+  };
+
   const handleCategoryClick = async (category: string) => {
     const formattedCategory = category === 'All' ? 'all' : category.toLowerCase();
     
@@ -816,6 +822,10 @@ export default function Navigation({ userDetails }: NavigationProps) {
     const handleClickOutside = (event: MouseEvent) => {
       if (!(event.target as Element).closest('.category-dropdown')) {
         setIsDropdownOpen(false);
+      }
+      // Close mobile account dropdown when clicking outside
+      if (!(event.target as Element).closest('.mobile-account-dropdown')) {
+        setIsMobileDropdownOpen(false);
       }
     };
 
@@ -1677,7 +1687,7 @@ export default function Navigation({ userDetails }: NavigationProps) {
           <div className="px-4 py-6 min-h-screen">
             {/* User section */}
             {user ? (
-              <div className="mb-6">
+              <div className="mobile-account-dropdown mb-6">
                 <div className="flex items-center p-4 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100">
                   <div className="flex-shrink-0 h-12 w-12 relative">
                     {userDetails?.avatar_url ? (
@@ -1690,16 +1700,88 @@ export default function Navigation({ userDetails }: NavigationProps) {
                     ) : (
                       <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white text-xl font-bold">
                         {userDetails?.full_name?.[0] || user.email?.[0]?.toUpperCase()}
-            </div>
+                      </div>
                     )}
-          </div>
-                  <div className="ml-4">
+                  </div>
+                  <div className="ml-4 flex-1">
                     <p className="text-sm font-medium text-gray-900">
                       {userDetails?.full_name || 'User'}
                     </p>
                     <p className="text-xs text-gray-500">{user.email}</p>
                   </div>
+                  {/* Mobile Account Dropdown Toggle */}
+                  <button
+                    onClick={() => setIsMobileDropdownOpen(!isMobileDropdownOpen)}
+                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <svg className={`w-5 h-5 transition-transform duration-200 ${isMobileDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
                 </div>
+                
+                {/* Mobile Account Dropdown Menu */}
+                {isMobileDropdownOpen && (
+                  <div className="mobile-account-dropdown mt-2 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                    <div className="py-1">
+                      <Link 
+                        href="/orders" 
+                        onClick={handleDropdownLinkClick}
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <svg className="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                        {t('nav.myOrders')}
+                      </Link>
+
+                      <Link 
+                        href="/profile" 
+                        onClick={handleDropdownLinkClick}
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                      >
+                        <svg className="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {t('nav.profileSettings')}
+                      </Link>
+
+                      {/* Chat/Support Link - Only for customers */}
+                      {userDetails?.role === 'customer' && (
+                        <Link 
+                          href="/chat" 
+                          onClick={handleDropdownLinkClick}
+                          className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <div className="relative">
+                            <svg className="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <NotificationBadge 
+                              count={unreadCount} 
+                              className="absolute -top-1 -right-1" 
+                              size="sm" 
+                            />
+                          </div>
+                          {t('nav.customerSupport')}
+                        </Link>
+                      )}
+
+                      {isOwner && (
+                        <Link 
+                          href="/dashboard" 
+                          onClick={handleDropdownLinkClick}
+                          className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <svg className="w-4 h-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                          </svg>
+                          {t('nav.dashboard')}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3 mb-6">
