@@ -7,7 +7,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorMessage from '@/components/ErrorMessage';
 import SharedCartPaymentModal from '@/components/SharedCartPaymentModal';
 import AddressSelectionModal from '@/components/AddressSelectionModal';
-import { ShareIcon, UserIcon, CalendarIcon, GiftIcon } from '@heroicons/react/24/outline';
+import { ShareIcon, UserIcon, CalendarIcon, GiftIcon, ArrowLeftIcon, ShoppingBagIcon, TruckIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
 
 interface SharedCartItem {
   productId: string;
@@ -19,9 +20,6 @@ interface SharedCartItem {
   selected_variant_sku?: string;
   delivery_method?: string;
   delivery_address?: any;
-  // gift_wrapping?: boolean;
-  // gift_message?: string;
-  // gift_wrapping_fee?: number;
   image?: string;
   seller?: string;
 }
@@ -126,11 +124,10 @@ export default function SharedCartPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-16 sm:pt-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex justify-center">
-            <LoadingSpinner />
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your shared cart...</p>
         </div>
       </div>
     );
@@ -138,10 +135,20 @@ export default function SharedCartPage() {
 
   if (error || !sharedCart) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-16 sm:pt-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="bg-red-50 p-8 rounded-xl shadow-sm">
-            <ErrorMessage message={error || 'Shared cart not found'} />
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center p-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShareIcon className="h-8 w-8 text-red-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Oops!</h1>
+            <p className="text-gray-600 mb-6">{error || 'Shared cart not found'}</p>
+            <button
+              onClick={() => router.push('/')}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go Home
+            </button>
           </div>
         </div>
       </div>
@@ -149,259 +156,283 @@ export default function SharedCartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pt-16 sm:pt-24">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-            <ShareIcon className="h-8 w-8 text-green-600" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Header with back button */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-gray-200/50 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeftIcon className="h-5 w-5 mr-2" />
+              Back to Home
+            </button>
+            <div className="flex items-center space-x-2">
+              <ShareIcon className="h-6 w-6 text-blue-600" />
+              <span className="font-semibold text-gray-900">Shared Cart</span>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Shared Shopping Cart</h1>
-          <p className="text-gray-600">
-            {sharedCart.cart_data.sender.name} has shared their cart with you!
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-6 shadow-lg">
+            <ShareIcon className="h-10 w-10 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+            Someone Shared Their Cart With You! 🎁
+          </h1>
+          <p className="text-xl text-gray-600 mb-6">
+            <span className="font-semibold text-blue-600">{sharedCart.cart_data.sender.name}</span> has carefully selected these items for you
           </p>
-        </div>
-
-        {/* Cart Info */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <UserIcon className="h-5 w-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">From</p>
-                  <p className="font-medium text-gray-900">{sharedCart.cart_data.sender.name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <CalendarIcon className="h-5 w-5 text-gray-400" />
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">Expires</p>
-                  <p className="font-medium text-gray-900">{formatDate(sharedCart.expires_at)}</p>
-                </div>
-              </div>
+          
+          {/* Cart Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <UserIcon className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">From</p>
+              <p className="font-semibold text-gray-900">{sharedCart.cart_data.sender.name}</p>
             </div>
-            <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                ⏰ {getTimeRemaining(sharedCart.expires_at)}
-              </p>
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <ShoppingBagIcon className="h-6 w-6 text-green-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Items</p>
+              <p className="font-semibold text-gray-900">{sharedCart.cart_data.totalItems}</p>
+            </div>
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <CalendarIcon className="h-6 w-6 text-orange-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">Expires</p>
+              <p className="font-semibold text-gray-900">{formatDate(sharedCart.expires_at)}</p>
             </div>
           </div>
 
-          {/* Cart Items */}
-          <div className="p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Cart Items ({sharedCart.cart_data.totalItems})</h2>
-            
-            <div className="space-y-4">
-              {sharedCart.cart_data.items.map((item, index) => (
-                <div key={index} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
-                  {/* Product Image */}
-                  <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <GiftIcon className="h-6 w-6 text-gray-400" />
+          {/* Expiry Warning */}
+          <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl p-4 max-w-md mx-auto">
+            <p className="text-orange-800 font-medium">
+              ⏰ {getTimeRemaining(sharedCart.expires_at)}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Cart Items */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-6 border-b border-gray-100">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <ShoppingBagIcon className="h-6 w-6 mr-2 text-blue-600" />
+                  Selected Items ({sharedCart.cart_data.totalItems})
+                </h2>
+              </div>
+              
+              <div className="p-6">
+                <div className="space-y-4">
+                  {sharedCart.cart_data.items.map((item, index) => (
+                    <div key={index} className="flex gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                      {/* Product Image */}
+                      <div className="w-24 h-24 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                            <GiftIcon className="h-8 w-8 text-gray-400" />
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {/* Product Info */}
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">{item.title}</h3>
-                    <p className="text-sm text-gray-600">ETB {item.price.toFixed(2)}</p>
-                    <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
-                    {item.selected_size && (
-                      <p className="text-sm text-gray-500">Size: {item.selected_size}</p>
-                    )}
-                    {item.selected_color && (
-                      <p className="text-sm text-gray-500">Color: {item.selected_color}</p>
-                    )}
-                    {/* {item.gift_wrapping && (
-                      <p className="text-sm text-green-600">🎁 Gift Wrapped</p>
-                    )} */}
-                    {item.seller && (
-                      <p className="text-sm text-gray-500">Seller: {item.seller}</p>
-                    )}
-                  </div>
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 text-lg mb-1">{item.title}</h3>
+                        <p className="text-blue-600 font-medium">ETB {item.price.toFixed(2)}</p>
+                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
+                          <span>Qty: {item.quantity}</span>
+                          {item.selected_size && <span>Size: {item.selected_size}</span>}
+                          {item.selected_color && <span>Color: {item.selected_color}</span>}
+                        </div>
+                        {item.seller && (
+                          <p className="text-sm text-gray-500 mt-1">Seller: {item.seller}</p>
+                        )}
+                      </div>
 
-                  {/* Item Total */}
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">
-                      ETB {(item.price * item.quantity).toFixed(2)}
+                      {/* Item Total */}
+                      <div className="text-right">
+                        <p className="font-bold text-lg text-gray-900">
+                          ETB {(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Message */}
+                {sharedCart.cart_data.message && (
+                  <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                    <p className="text-blue-900">
+                      <span className="font-semibold">💌 Message from {sharedCart.cart_data.sender.name}:</span><br />
+                      "{sharedCart.cart_data.message}"
                     </p>
-                    {/* {item.gift_wrapping_fee && item.gift_wrapping_fee > 0 && (
-                      <p className="text-sm text-gray-500">
-                        +ETB {item.gift_wrapping_fee.toFixed(2)} wrapping
-                      </p>
-                    )} */}
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-
-            {/* Message */}
-            {sharedCart.cart_data.message && (
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <span className="font-medium">Message from {sharedCart.cart_data.sender.name}:</span><br />
-                  "{sharedCart.cart_data.message}"
-                </p>
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Purchase Form */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
-          <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Complete Your Purchase</h3>
-            
-            <div className="space-y-6">
-              {/* Purchaser Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="purchaserName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Your Name *
-                  </label>
-                  <input
-                    type="text"
-                    id="purchaserName"
-                    value={purchaserName}
-                    onChange={(e) => setPurchaserName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="purchaserEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                    Your Email *
-                  </label>
-                  <input
-                    type="email"
-                    id="purchaserEmail"
-                    value={purchaserEmail}
-                    onChange={(e) => setPurchaserEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  />
-                </div>
+          {/* Right Column - Purchase Form */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-24">
+              <div className="p-6 border-b border-gray-100">
+                <h3 className="text-xl font-bold text-gray-900">Complete Your Purchase</h3>
               </div>
-
-              {/* Delivery Method */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Delivery Method
-                </label>
-                <div className="space-y-3">
-                  <label className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      name="deliveryMethod"
-                      value="delivery"
-                      checked={deliveryMethod === 'delivery'}
-                      onChange={(e) => setDeliveryMethod(e.target.value as 'delivery' | 'pickup')}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-sm text-gray-700">Home Delivery</span>
-                  </label>
-                  <label className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      name="deliveryMethod"
-                      value="pickup"
-                      checked={deliveryMethod === 'pickup'}
-                      onChange={(e) => setDeliveryMethod(e.target.value as 'delivery' | 'pickup')}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500"
-                    />
-                    <span className="text-sm text-gray-700">Store Pickup</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Delivery Address for Home Delivery */}
-              {deliveryMethod === 'delivery' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Delivery Address
-                  </label>
-                  {deliveryAddress ? (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-900">{deliveryAddress.city}</p>
-                      <p className="text-sm text-gray-600">{deliveryAddress.subCity}</p>
-                      <p className="text-sm text-gray-600">
-                        Wereda {deliveryAddress.wereda}, Kebele {deliveryAddress.kebele}
-                      </p>
-                      {deliveryAddress.houseNo && (
-                        <p className="text-sm text-gray-600">House No: {deliveryAddress.houseNo}</p>
-                      )}
-                      <button
-                        onClick={() => setShowAddressModal(true)}
-                        className="text-sm text-green-600 hover:text-green-700 mt-2"
-                      >
-                        Change Address
-                      </button>
+              
+              <div className="p-6">
+                <div className="space-y-6">
+                  {/* Purchaser Details */}
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="purchaserName" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Your Name *
+                      </label>
+                      <input
+                        type="text"
+                        id="purchaserName"
+                        value={purchaserName}
+                        onChange={(e) => setPurchaserName(e.target.value)}
+                        placeholder="Enter your full name"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                        required
+                      />
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowAddressModal(true)}
-                      className="w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
-                    >
-                      + Add Delivery Address
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Price Breakdown */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Price Breakdown</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="text-gray-900">ETB {sharedCart.cart_data.totalValue.toFixed(2)}</span>
+                    <div>
+                      <label htmlFor="purchaserEmail" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Your Email *
+                      </label>
+                      <input
+                        type="email"
+                        id="purchaserEmail"
+                        value={purchaserEmail}
+                        onChange={(e) => setPurchaserEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                        required
+                      />
+                    </div>
                   </div>
-                  {/* <div className="flex justify-between">
-                    <span className="text-gray-600">Gift Wrapping:</span>
-                    <span className="text-gray-900">
-                      ETB {sharedCart.cart_data.items.reduce((sum, item) => sum + (item.gift_wrapping_fee || 0), 0).toFixed(2)}
-                    </span>
-                  </div> */}
+
+                  {/* Delivery Method */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Delivery Method
+                    </label>
+                    <div className="space-y-3">
+                      <label className="flex items-center p-3 border border-gray-200 rounded-xl hover:border-blue-300 cursor-pointer transition-colors">
+                        <input
+                          type="radio"
+                          name="deliveryMethod"
+                          value="delivery"
+                          checked={deliveryMethod === 'delivery'}
+                          onChange={(e) => setDeliveryMethod(e.target.value as 'delivery' | 'pickup')}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="ml-3 flex items-center">
+                          <TruckIcon className="h-5 w-5 text-blue-600 mr-2" />
+                          <span className="text-gray-700">Home Delivery</span>
+                        </div>
+                      </label>
+                      <label className="flex items-center p-3 border border-gray-200 rounded-xl hover:border-blue-300 cursor-pointer transition-colors">
+                        <input
+                          type="radio"
+                          name="deliveryMethod"
+                          value="pickup"
+                          checked={deliveryMethod === 'pickup'}
+                          onChange={(e) => setDeliveryMethod(e.target.value as 'delivery' | 'pickup')}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                                                 <div className="ml-3 flex items-center">
+                           <BuildingStorefrontIcon className="h-5 w-5 text-green-600 mr-2" />
+                           <span className="text-gray-700">Store Pickup</span>
+                         </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Delivery Address for Home Delivery */}
                   {deliveryMethod === 'delivery' && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Delivery Fee:</span>
-                      <span className="text-gray-900">ETB 300.00</span>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Delivery Address
+                      </label>
+                      {deliveryAddress ? (
+                        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                          <p className="text-sm text-gray-900 font-medium">{deliveryAddress.city}</p>
+                          <p className="text-sm text-gray-600">{deliveryAddress.subCity}</p>
+                          <p className="text-sm text-gray-600">
+                            Wereda {deliveryAddress.wereda}, Kebele {deliveryAddress.kebele}
+                          </p>
+                          {deliveryAddress.houseNo && (
+                            <p className="text-sm text-gray-600">House No: {deliveryAddress.houseNo}</p>
+                          )}
+                          <button
+                            onClick={() => setShowAddressModal(true)}
+                            className="text-sm text-blue-600 hover:text-blue-700 font-medium mt-2"
+                          >
+                            Change Address
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowAddressModal(true)}
+                          className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                        >
+                          + Add Delivery Address
+                        </button>
+                      )}
                     </div>
                   )}
-                  <div className="border-t border-gray-200 pt-2">
-                    <div className="flex justify-between font-semibold">
-                      <span className="text-gray-900">Total:</span>
-                      <span className="text-gray-900">
-                                              ETB {(
-                        sharedCart.cart_data.totalValue + 
-                        // sharedCart.cart_data.items.reduce((sum, item) => sum + (item.gift_wrapping_fee || 0), 0) +
-                        (deliveryMethod === 'delivery' ? 300 : 0)
-                      ).toFixed(2)}
-                      </span>
+
+                  {/* Price Breakdown */}
+                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-xl border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Price Breakdown</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="text-gray-900 font-medium">ETB {sharedCart.cart_data.totalValue.toFixed(2)}</span>
+                      </div>
+                      {deliveryMethod === 'delivery' && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Delivery Fee:</span>
+                          <span className="text-gray-900 font-medium">ETB 300.00</span>
+                        </div>
+                      )}
+                      <div className="border-t border-gray-200 pt-2">
+                        <div className="flex justify-between font-bold text-lg">
+                          <span className="text-gray-900">Total:</span>
+                          <span className="text-blue-600">
+                            ETB {(
+                              sharedCart.cart_data.totalValue + 
+                              (deliveryMethod === 'delivery' ? 300 : 0)
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Purchase Button */}
+                  <button
+                    onClick={() => setShowPaymentModal(true)}
+                    disabled={!purchaserName || !purchaserEmail || (deliveryMethod === 'delivery' && !deliveryAddress)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    Complete Purchase
+                  </button>
                 </div>
               </div>
-
-              {/* Purchase Button */}
-              <button
-                onClick={() => setShowPaymentModal(true)}
-                disabled={!purchaserName || !purchaserEmail || (deliveryMethod === 'delivery' && !deliveryAddress)}
-                className="w-full bg-green-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Complete Purchase
-              </button>
             </div>
           </div>
         </div>
@@ -415,11 +446,10 @@ export default function SharedCartPage() {
           onPaymentComplete={handlePaymentComplete}
           totalAmount={
             sharedCart.cart_data.totalValue + 
-            // sharedCart.cart_data.items.reduce((sum, item) => sum + (item.gift_wrapping_fee || 0), 0) +
             (deliveryMethod === 'delivery' ? 300 : 0)
           }
           subtotal={sharedCart.cart_data.totalValue}
-          giftWrappingFee={0} // sharedCart.cart_data.items.reduce((sum, item) => sum + (item.gift_wrapping_fee || 0), 0)}
+          giftWrappingFee={0}
           shareCode={shareCode}
           purchaserEmail={purchaserEmail}
           purchaserName={purchaserName}
@@ -437,7 +467,7 @@ export default function SharedCartPage() {
           setDeliveryAddress(address);
           setShowAddressModal(false);
         }}
-        isGuest={true} // This is a guest user for shared cart purchases
+        isGuest={true}
       />
     </div>
   );

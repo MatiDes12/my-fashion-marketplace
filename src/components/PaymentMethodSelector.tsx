@@ -48,15 +48,15 @@ export default function PaymentMethodSelector({ onSelect, selected, paymentSetti
                   const parent = target.parentElement;
                   
                   if (parent) {
-                    // Special handling for Stripe logo - try SVG fallback first
+                    // Special handling for Stripe logo - try original logo as fallback
                     if (method.id === 'STRIPE') {
-                      // Try to load the SVG fallback
+                      // Try to load the original Stripe logo as fallback
                       const img = document.createElement('img') as HTMLImageElement;
                       img.onload = () => {
-                        target.src = '/images/payment-methods/stripe.svg';
+                        target.src = '/images/payment-methods/Stripe-logo.png';
                       };
                       img.onerror = () => {
-                        // If SVG also fails, show generic payment icon
+                        // If original logo also fails, show generic payment icon
                         target.style.display = 'none';
                         parent.innerHTML = `
                           <div class="w-10 h-10 flex items-center justify-center bg-gray-100 rounded">
@@ -66,7 +66,7 @@ export default function PaymentMethodSelector({ onSelect, selected, paymentSetti
                           </div>
                         `;
                       };
-                      img.src = '/images/payment-methods/stripe.svg';
+                      img.src = '/images/payment-methods/Stripe-logo.png';
                     } else {
                       // For other payment methods, show generic payment icon
                       target.style.display = 'none';
