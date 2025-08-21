@@ -163,7 +163,7 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: 'STRIPE',
     name: 'Credit/Debit Card (USD)',
-    logo: '/images/payment-methods/Stripe-logo.png',
+    logo: '/images/payment-methods/Stripe-Emblem.png',
     isAvailable: true,
     description: 'Pay with international credit/debit cards in USD'
   },
@@ -1210,18 +1210,40 @@ export default function PaymentMethodModal({
                                 fill
                                 className="object-contain"
                                 onError={(e) => {
-                                  // Fallback to a generic payment icon if image fails to load
                                   const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
                                   const parent = target.parentElement;
+                                  
                                   if (parent) {
-                                    parent.innerHTML = `
-                                      <div class="w-full h-full flex items-center justify-center bg-gray-100 rounded">
-                                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                                        </svg>
-                                      </div>
-                                    `;
+                                    // Special handling for Stripe logo - try SVG fallback first
+                                    if (method.id === 'STRIPE') {
+                                      // Try to load the SVG fallback
+                                      const img = document.createElement('img') as HTMLImageElement;
+                                      img.onload = () => {
+                                        target.src = '/images/payment-methods/stripe.svg';
+                                      };
+                                      img.onerror = () => {
+                                        // If SVG also fails, show generic payment icon
+                                        target.style.display = 'none';
+                                        parent.innerHTML = `
+                                          <div class="w-full h-full flex items-center justify-center bg-gray-100 rounded">
+                                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                            </svg>
+                                          </div>
+                                        `;
+                                      };
+                                      img.src = '/images/payment-methods/stripe.svg';
+                                    } else {
+                                      // For other payment methods, show generic payment icon
+                                      target.style.display = 'none';
+                                      parent.innerHTML = `
+                                        <div class="w-full h-full flex items-center justify-center bg-gray-100 rounded">
+                                          <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                          </svg>
+                                        </div>
+                                      `;
+                                    }
                                   }
                                 }}
                               />
