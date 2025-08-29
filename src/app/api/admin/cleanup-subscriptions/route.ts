@@ -22,16 +22,53 @@ export async function POST(request: Request) {
       return new Response('Unauthorized - Admin access required', { status: 403 });
     }
 
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // 1 day ago
-
-    let cleanupStats = {
+    let results = {
+      expiredCount: 0,
       pendingRemoved: 0,
       failedRemoved: 0,
       totalRemoved: 0
     };
 
-    // Clean up pending subscriptions older than 1 hour
+    // 1. EXPIRE SUBSCRIPTIONS - Find and expire completed subscriptions past their end date
+    const { data: expiredSubs, error: expiredError } = await supabase
+      .from('subscription_orders')
+      .select('id, user_id, plan_id, subscription_end_date')
+      .eq('status', 'completed')
+      .lt('subscription_end_date', new Date().toISOString());
+
+    if (expiredError) {
+      console.error('Failed to fetch expired subscriptions:', expiredError);
+    } else if (expiredSubs && expiredSubs.length > 0) {
+      // Update subscription status to expired
+      const { error: updateError } = await supabase
+        .from('subscription_orders')
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
+        .eq('status', 'completed')
+        .lt('subscription_end_date', new Date().toISOString());
+
+      if (updateError) {
+        console.error('Failed to update expired subscriptions:', updateError);
+      } else {
+        results.expiredCount = expiredSubs.length;
+        console.log(`Expired ${expiredSubs.length} subscriptions`);
+      }
+
+      // Downgrade users to basic plan
+      const userIds = expiredSubs.map(sub => sub.user_id);
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({ subscription_plan: 'basic' })
+        .in('id', userIds);
+
+      if (userUpdateError) {
+        console.error('Failed to downgrade users to basic plan:', userUpdateError);
+      } else {
+        console.log(`Downgraded ${userIds.length} users to basic plan`);
+      }
+    }
+
+    // 2. CLEANUP PENDING SUBSCRIPTIONS - Remove pending subscriptions older than 1 hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: pendingSubs, error: pendingError } = await supabase
       .from('subscription_orders')
       .select('id, user_id, plan_id, tx_ref, created_at')
@@ -50,12 +87,13 @@ export async function POST(request: Request) {
       if (deletePendingError) {
         console.error('Failed to delete pending subscriptions:', deletePendingError);
       } else {
-        cleanupStats.pendingRemoved = pendingSubs.length;
+        results.pendingRemoved = pendingSubs.length;
         console.log(`Cleaned up ${pendingSubs.length} pending subscriptions older than 1 hour`);
       }
     }
 
-    // Clean up failed subscriptions older than 1 day
+    // 3. CLEANUP FAILED SUBSCRIPTIONS - Remove failed subscriptions older than 1 day
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: failedSubs, error: failedError } = await supabase
       .from('subscription_orders')
       .select('id, user_id, plan_id, tx_ref, created_at')
@@ -74,26 +112,33 @@ export async function POST(request: Request) {
       if (deleteFailedError) {
         console.error('Failed to delete failed subscriptions:', deleteFailedError);
       } else {
-        cleanupStats.failedRemoved = failedSubs.length;
+        results.failedRemoved = failedSubs.length;
         console.log(`Cleaned up ${failedSubs.length} failed subscriptions older than 1 day`);
       }
     }
 
-    cleanupStats.totalRemoved = cleanupStats.pendingRemoved + cleanupStats.failedRemoved;
+    results.totalRemoved = results.pendingRemoved + results.failedRemoved;
 
-    if (cleanupStats.totalRemoved === 0) {
+    // Generate summary message
+    const summary = [
+      results.expiredCount > 0 ? `${results.expiredCount} subscriptions expired` : null,
+      results.pendingRemoved > 0 ? `${results.pendingRemoved} pending subscriptions cleaned up` : null,
+      results.failedRemoved > 0 ? `${results.failedRemoved} failed subscriptions cleaned up` : null
+    ].filter(Boolean).join(', ');
+
+    if (!summary) {
       return Response.json({ 
-        message: 'No subscriptions to clean up',
-        stats: cleanupStats 
+        message: 'No actions needed - all subscriptions are current',
+        stats: results 
       });
     }
 
-    const responseMessage = `Cleanup completed: ${cleanupStats.pendingRemoved} pending, ${cleanupStats.failedRemoved} failed subscriptions removed`;
+    const responseMessage = `Cleanup completed: ${summary}`;
     console.log(responseMessage);
     
     return Response.json({ 
       message: responseMessage,
-      stats: cleanupStats 
+      stats: results 
     });
 
   } catch (error) {
