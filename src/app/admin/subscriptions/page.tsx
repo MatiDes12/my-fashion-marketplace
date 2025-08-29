@@ -190,7 +190,7 @@ export default function AdminSubscriptionsPage() {
       const response = await fetch('/api/cron/cleanup-pending-subscriptions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'N1PMxaceyJhbGciOiJIUzHiiSfG'}`
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`
         }
       });
       
@@ -337,6 +337,32 @@ export default function AdminSubscriptionsPage() {
         />
       </div>
 
+      {/* Pending Subscriptions Warning */}
+      {stats.pending > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600" />
+              <div>
+                <h3 className="text-lg font-medium text-yellow-800">
+                  {stats.pending} Pending Subscription{stats.pending > 1 ? 's' : ''} Need Attention
+                </h3>
+                <p className="text-sm text-yellow-700">
+                  Some subscriptions have been pending for over 1 hour and may need cleanup
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowCleanupModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-yellow-800 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+            >
+              <XMarkIcon className="h-4 w-4 mr-2" />
+              Cleanup Now
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filter */}
       <div className="bg-white shadow-lg rounded-xl border border-gray-200 p-6 mb-8">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -387,15 +413,15 @@ export default function AdminSubscriptionsPage() {
               Cleanup Old Pending
             </button>
           )}
+          </div>
         </div>
-      </div>
 
       {/* Error Message */}
-      {error && (
+        {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
-        </div>
-      )}
+            {error}
+          </div>
+        )}
 
       {/* Subscriptions Grid */}
       <div className="space-y-6">
@@ -460,8 +486,8 @@ export default function AdminSubscriptionsPage() {
                         <p className="text-sm font-medium text-purple-900">
                           {group.currentSubscription.subscription_end_date ? 
                             format(new Date(group.currentSubscription.subscription_end_date), 'MMM d, yyyy') :
-                            'N/A'
-                          }
+                      'N/A'
+                    }
                         </p>
                         <p className="text-xs text-purple-600">End Date</p>
                       </div>
@@ -752,8 +778,8 @@ export default function AdminSubscriptionsPage() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+                      </div>
+                    )}
     </div>
   );
 }
