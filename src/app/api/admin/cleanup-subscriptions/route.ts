@@ -1,5 +1,26 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+
+// Simple in-memory rate limiting (for production, use Redis or similar)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+
+function checkRateLimit(identifier: string, limit: number = 5, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(identifier);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= limit) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
 
 export async function POST(request: Request) {
   const supabase = createRouteHandlerClient({ cookies });
@@ -8,7 +29,10 @@ export async function POST(request: Request) {
     // Check if user is authenticated and is an admin
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      return new Response('Unauthorized - Not authenticated', { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized - Not authenticated' }, 
+        { status: 401 }
+      );
     }
 
     // Check if user is an admin
@@ -19,7 +43,19 @@ export async function POST(request: Request) {
       .single();
 
     if (userError || !userData?.is_admin) {
-      return new Response('Unauthorized - Admin access required', { status: 403 });
+      return NextResponse.json(
+        { error: 'Unauthorized - Admin access required' }, 
+        { status: 403 }
+      );
+    }
+
+    // Rate limiting: 5 requests per minute per admin user
+    const rateLimitKey = `admin_cleanup_${session.user.id}`;
+    if (!checkRateLimit(rateLimitKey, 5, 60000)) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before trying again.' }, 
+        { status: 429 }
+      );
     }
 
     let results = {
@@ -127,7 +163,7 @@ export async function POST(request: Request) {
     ].filter(Boolean).join(', ');
 
     if (!summary) {
-      return Response.json({ 
+      return NextResponse.json({ 
         message: 'No actions needed - all subscriptions are current',
         stats: results 
       });
@@ -136,13 +172,16 @@ export async function POST(request: Request) {
     const responseMessage = `Cleanup completed: ${summary}`;
     console.log(responseMessage);
     
-    return Response.json({ 
+    return NextResponse.json({ 
       message: responseMessage,
       stats: results 
     });
 
   } catch (error) {
     console.error('Unexpected error during cleanup:', error);
-    return new Response('Error during cleanup process', { status: 500 });
+    return NextResponse.json(
+      { error: 'Error during cleanup process' }, 
+      { status: 500 }
+    );
   }
 }

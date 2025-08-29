@@ -185,8 +185,14 @@ export default function AdminSubscriptionsPage() {
   };
 
   const handleCleanupPending = async () => {
+    if (cleaningUp) return; // Prevent multiple simultaneous requests
+    
     try {
       setCleaningUp(true);
+      
+      // Add a small delay to prevent rapid clicking
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const response = await fetch('/api/admin/cleanup-subscriptions', {
         method: 'POST',
         headers: {
@@ -194,17 +200,47 @@ export default function AdminSubscriptionsPage() {
         }
       });
       
+      if (response.status === 429) {
+        toast.error('Rate limit exceeded. Please wait a moment and try again.');
+        return;
+      }
+      
       if (response.ok) {
-        const result = await response.json();
-        toast.success(result.message);
+        let result;
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          result = await response.json();
+          toast.success(result.message);
+        } else {
+          const textResult = await response.text();
+          toast.success(textResult || 'Cleanup completed successfully');
+        }
         fetchSubscriptions();
       } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || 'Failed to cleanup pending subscriptions');
+        let errorMessage = 'Failed to cleanup pending subscriptions';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, try to get text response
+          try {
+            const textError = await response.text();
+            if (textError && !textError.includes('<!DOCTYPE')) {
+              errorMessage = textError;
+            }
+          } catch (textError) {
+            console.error('Could not parse error response:', textError);
+          }
+        }
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error('Error cleaning up pending subscriptions:', error);
-      toast.error('Failed to cleanup pending subscriptions');
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        toast.error('Network error. Please check your connection and try again.');
+      } else {
+        toast.error('Failed to cleanup pending subscriptions');
+      }
     } finally {
       setCleaningUp(false);
       setShowCleanupModal(false);
