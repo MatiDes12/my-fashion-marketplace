@@ -73,6 +73,8 @@ export default function AdminSubscriptionsPage() {
   const [showStopModal, setShowStopModal] = useState(false);
   const [subscriptionToStop, setSubscriptionToStop] = useState<Subscription | null>(null);
   const [stoppingSubscription, setStoppingSubscription] = useState(false);
+  const [showCleanupModal, setShowCleanupModal] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
   const supabase = createClientComponent();
 
   useEffect(() => {
@@ -180,6 +182,32 @@ export default function AdminSubscriptionsPage() {
   const handleStopPlanCancel = () => {
     setShowStopModal(false);
     setSubscriptionToStop(null);
+  };
+
+  const handleCleanupPending = async () => {
+    try {
+      setCleaningUp(true);
+      const response = await fetch('/api/cron/cleanup-pending-subscriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'N1PMxaceyJhbGciOiJIUzHiiSfG'}`
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.text();
+        toast.success(result);
+        fetchSubscriptions();
+      } else {
+        toast.error('Failed to cleanup pending subscriptions');
+      }
+    } catch (error) {
+      console.error('Error cleaning up pending subscriptions:', error);
+      toast.error('Failed to cleanup pending subscriptions');
+    } finally {
+      setCleaningUp(false);
+      setShowCleanupModal(false);
+    }
   };
 
   const toggleSellerExpanded = (userId: string) => {
@@ -346,10 +374,19 @@ export default function AdminSubscriptionsPage() {
             >
               <option value="all">All Plans</option>
               <option value="basic">Basic</option>
-              <option value="premium">Premium</option>
+              <option value="pro">Pro</option>
               <option value="enterprise">Enterprise</option>
             </select>
           </div>
+          {statusFilter === 'pending' && (
+            <button
+              onClick={() => setShowCleanupModal(true)}
+              className="inline-flex items-center px-4 py-3 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+            >
+              <XMarkIcon className="h-4 w-4 mr-2" />
+              Cleanup Old Pending
+            </button>
+          )}
         </div>
       </div>
 
@@ -435,6 +472,23 @@ export default function AdminSubscriptionsPage() {
                       <div>
                         <p className="text-sm font-medium text-orange-900">{group.currentSubscription.period}ly</p>
                         <p className="text-xs text-orange-600">Billing Cycle</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pending Subscription Age Warning */}
+                {group.currentSubscription?.status === 'pending' && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-center space-x-2">
+                      <ClockIcon className="h-5 w-5 text-yellow-600" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800">
+                          Pending for {Math.floor((Date.now() - new Date(group.currentSubscription.created_at).getTime()) / (1000 * 60 * 60))} hours
+                        </p>
+                        <p className="text-xs text-yellow-700">
+                          This subscription will be automatically cleaned up after 1 hour of inactivity
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -615,6 +669,82 @@ export default function AdminSubscriptionsPage() {
                   type="button"
                   onClick={handleStopPlanCancel}
                   disabled={stoppingSubscription}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cleanup Modal */}
+      {showCleanupModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              onClick={() => setShowCleanupModal(false)}
+            ></div>
+
+            {/* Modal panel */}
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <XMarkIcon className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      Cleanup Pending Subscriptions
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        This will remove all pending subscriptions older than 1 hour and failed subscriptions older than 1 day.
+                      </p>
+                      <div className="mt-3 bg-orange-50 rounded-lg p-3">
+                        <div className="flex items-center space-x-2 text-sm">
+                          <ClockIcon className="h-4 w-4 text-orange-600" />
+                          <span className="text-orange-800">
+                            Pending subscriptions older than 1 hour will be deleted
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2 text-sm mt-2">
+                          <XCircleIcon className="h-4 w-4 text-orange-600" />
+                          <span className="text-orange-800">
+                            Failed subscriptions older than 1 day will be deleted
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-orange-600 mt-3">
+                        This action cannot be undone. Only abandoned transactions will be affected.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleCleanupPending}
+                  disabled={cleaningUp}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-orange-600 text-base font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cleaningUp ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Cleaning...
+                    </>
+                  ) : (
+                    'Cleanup Subscriptions'
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCleanupModal(false)}
+                  disabled={cleaningUp}
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel

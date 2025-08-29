@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/expire-subscriptions",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-pending-subscriptions",
+      "schedule": "*/30 * * * *"
     }
   ]
 } 
