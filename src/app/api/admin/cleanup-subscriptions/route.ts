@@ -1,33 +1,36 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
-// Set your CRON_SECRET in Vercel to: N1PMxaceyJhbGciOiJIUzHiiSfG
 export async function POST(request: Request) {
-  // Secure with CRON_SECRET - only for automated cron jobs
-  const authHeader = request.headers.get('Authorization');
-  const expectedSecret = process.env.CRON_SECRET;
-  
-  if (!expectedSecret) {
-    console.error('CRON_SECRET environment variable not set');
-    return new Response('Server configuration error', { status: 500 });
-  }
-  
-  if (authHeader !== `Bearer ${expectedSecret}`) {
-    console.error('Invalid authorization header for cron job');
-    return new Response('Unauthorized', { status: 401 });
-  }
-
   const supabase = createRouteHandlerClient({ cookies });
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // 1 day ago
-
-  let cleanupStats = {
-    pendingRemoved: 0,
-    failedRemoved: 0,
-    totalRemoved: 0
-  };
-
+  
   try {
+    // Check if user is authenticated and is an admin
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return new Response('Unauthorized - Not authenticated', { status: 401 });
+    }
+
+    // Check if user is an admin
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', session.user.id)
+      .single();
+
+    if (userError || !userData?.is_admin) {
+      return new Response('Unauthorized - Admin access required', { status: 403 });
+    }
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString(); // 1 hour ago
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(); // 1 day ago
+
+    let cleanupStats = {
+      pendingRemoved: 0,
+      failedRemoved: 0,
+      totalRemoved: 0
+    };
+
     // Clean up pending subscriptions older than 1 hour
     const { data: pendingSubs, error: pendingError } = await supabase
       .from('subscription_orders')
@@ -79,12 +82,19 @@ export async function POST(request: Request) {
     cleanupStats.totalRemoved = cleanupStats.pendingRemoved + cleanupStats.failedRemoved;
 
     if (cleanupStats.totalRemoved === 0) {
-      return new Response('No subscriptions to clean up', { status: 200 });
+      return Response.json({ 
+        message: 'No subscriptions to clean up',
+        stats: cleanupStats 
+      });
     }
 
     const responseMessage = `Cleanup completed: ${cleanupStats.pendingRemoved} pending, ${cleanupStats.failedRemoved} failed subscriptions removed`;
     console.log(responseMessage);
-    return new Response(responseMessage, { status: 200 });
+    
+    return Response.json({ 
+      message: responseMessage,
+      stats: cleanupStats 
+    });
 
   } catch (error) {
     console.error('Unexpected error during cleanup:', error);

@@ -26,7 +26,7 @@
     },
     {
       "path": "/api/cron/cleanup-pending-subscriptions",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 } 

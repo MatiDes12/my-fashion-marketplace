@@ -187,19 +187,20 @@ export default function AdminSubscriptionsPage() {
   const handleCleanupPending = async () => {
     try {
       setCleaningUp(true);
-      const response = await fetch('/api/cron/cleanup-pending-subscriptions', {
+      const response = await fetch('/api/admin/cleanup-subscriptions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`
+          'Content-Type': 'application/json'
         }
       });
       
       if (response.ok) {
-        const result = await response.text();
-        toast.success(result);
+        const result = await response.json();
+        toast.success(result.message);
         fetchSubscriptions();
       } else {
-        toast.error('Failed to cleanup pending subscriptions');
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to cleanup pending subscriptions');
       }
     } catch (error) {
       console.error('Error cleaning up pending subscriptions:', error);
