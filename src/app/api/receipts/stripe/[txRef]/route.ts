@@ -489,7 +489,9 @@ export async function GET(
                 <span>Subtotal:</span>
                 <span>ETB ${orders.reduce((sum, order) => {
                   const transaction = order.transaction && order.transaction.length > 0 ? order.transaction[0] : null;
-                  return sum + (transaction?.subtotal || (order.quantity * order.product.price));
+                  // Use transaction subtotal if available, otherwise calculate from product price
+                  const orderSubtotal = transaction?.subtotal || (order.quantity * order.product.price);
+                  return sum + orderSubtotal;
                 }, 0).toFixed(2)}</span>
               </div>
               <div class="total-row">

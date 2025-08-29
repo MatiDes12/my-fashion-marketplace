@@ -147,8 +147,8 @@ export async function GET(request: NextRequest) {
         .lte('flash_sales.start_time', new Date().toISOString())
         .single();
 
-      // Determine pricing
-      const originalPrice = tempOrder.total_price / tempOrder.quantity;
+      // Determine pricing - use the original product price, not the total_price which includes delivery fee
+      const originalPrice = tempOrder.total_price / tempOrder.quantity - (tempOrder.delivery_fee / tempOrder.quantity);
       const flashSalePrice = flashSaleData?.special_price ? Number(flashSaleData.special_price) : null;
       const hasFlashSale = flashSalePrice !== null && flashSalePrice < originalPrice;
       const actualPrice = hasFlashSale ? flashSalePrice : originalPrice;

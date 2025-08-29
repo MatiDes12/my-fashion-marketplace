@@ -50,6 +50,9 @@ export async function GET(request: Request) {
       return handleRedirect(tx_ref, true, isAjax);
     }
 
+    // Add to processed set immediately to prevent duplicate processing
+    processedTransactions.add(tx_ref);
+
     // Verify with Chapa
     const verifyResponse = await fetch(`https://api.chapa.co/v1/transaction/verify/${tx_ref}`, {
       headers: {
@@ -202,34 +205,50 @@ export async function GET(request: Request) {
 
           console.log('[CHAPA CALLBACK] Created order:', order);
 
-        // Update product quantity
-          let newQuantity = Math.max(0, (product.quantity || 0) - tempOrder.quantity);
-          let newVariants = product.available_variants;
-
-          // Update variant quantity if applicable
-          if (tempOrder.selected_variant_sku && Array.isArray(newVariants)) {
-            newVariants = newVariants.map((variant: any) => {
-              if (variant.sku === tempOrder.selected_variant_sku) {
-                return {
-                  ...variant,
-                  quantity: Math.max(0, (variant.quantity || 0) - tempOrder.quantity)
-                };
-              }
-              return variant;
-            });
-          }
-        
-        const { error: quantityUpdateError } = await supabase
+        // Update product quantity - only if not already updated
+        const { data: currentProduct, error: currentProductError } = await supabase
           .from('products')
-          .update({ 
-            quantity: newQuantity,
-              available_variants: newVariants,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', tempOrder.product_id);
+          .select('quantity, available_variants')
+          .eq('id', tempOrder.product_id)
+          .single();
 
-        if (quantityUpdateError) {
-          console.error('[CHAPA CALLBACK] Error updating product quantity:', quantityUpdateError);
+        if (!currentProductError && currentProduct) {
+          // Check if quantity has already been reduced (to prevent double updates)
+          const expectedQuantity = (product.quantity || 0) - tempOrder.quantity;
+          if (currentProduct.quantity === expectedQuantity) {
+            console.log('[CHAPA CALLBACK] Product quantity already updated for product:', tempOrder.product_id);
+          } else {
+            let newQuantity = Math.max(0, (currentProduct.quantity || 0) - tempOrder.quantity);
+            let newVariants = currentProduct.available_variants;
+
+            // Update variant quantity if applicable
+            if (tempOrder.selected_variant_sku && Array.isArray(newVariants)) {
+              newVariants = newVariants.map((variant: any) => {
+                if (variant.sku === tempOrder.selected_variant_sku) {
+                  return {
+                    ...variant,
+                    quantity: Math.max(0, (variant.quantity || 0) - tempOrder.quantity)
+                  };
+                }
+                return variant;
+              });
+            }
+          
+            const { error: quantityUpdateError } = await supabase
+              .from('products')
+              .update({ 
+                quantity: newQuantity,
+                available_variants: newVariants,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', tempOrder.product_id);
+
+            if (quantityUpdateError) {
+              console.error('[CHAPA CALLBACK] Error updating product quantity:', quantityUpdateError);
+            } else {
+              console.log('[CHAPA CALLBACK] Successfully updated product quantity for product:', tempOrder.product_id, 'New quantity:', newQuantity);
+            }
+          }
         }
 
         // Create transaction
@@ -343,54 +362,8 @@ export async function GET(request: Request) {
             // Don't fail the order creation if Telegram notification fails
           }
 
-          // Update product quantities manually
-          const { data: currentProduct, error: fetchError } = await supabase
-            .from('products')
-            .select('quantity, available_variants')
-            .eq('id', tempOrder.product_id)
-            .single();
-
-          if (!fetchError && currentProduct) {
-            const newQuantity = Math.max(0, (currentProduct.quantity || 0) - tempOrder.quantity);
-            let newVariants = currentProduct.available_variants;
-
-            // Update variant quantity if applicable
-            if (tempOrder.selected_variant_sku && Array.isArray(newVariants)) {
-              newVariants = newVariants.map((variant: any) => {
-                if (variant.sku === tempOrder.selected_variant_sku) {
-                  return {
-                    ...variant,
-                    quantity: Math.max(0, (variant.quantity || 0) - tempOrder.quantity)
-                  };
-                }
-                return variant;
-              });
-            }
-
-            await supabase
-              .from('products')
-              .update({
-                quantity: newQuantity,
-                available_variants: newVariants,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', tempOrder.product_id);
-
-            // Remove cart items for this product if quantity becomes 0
-            if (newQuantity === 0) {
-              console.log('[CHAPA CALLBACK] Product quantity is 0, removing cart items for product_id:', tempOrder.product_id);
-              const { error: cartDeleteError } = await supabase
-                .from('cart_items')
-                .delete()
-                .eq('product_id', tempOrder.product_id);
-
-              if (cartDeleteError) {
-                console.error('[CHAPA CALLBACK] Error removing cart items for out-of-stock product:', cartDeleteError);
-              } else {
-                console.log('[CHAPA CALLBACK] Successfully removed cart items for out-of-stock product');
-              }
-            }
-          }
+          // Note: Product quantities are already updated above in the first quantity update block
+          // No need to update again here to prevent double quantity decrease
 
           console.log('[CHAPA CALLBACK] Successfully processed order for product:', tempOrder.product_id);
         } catch (error) {
@@ -504,8 +477,6 @@ export async function GET(request: Request) {
 
       console.log('[CHAPA CALLBACK] Successfully processed all orders and transactions');
 
-      // Add transaction to processed set after successful processing
-      processedTransactions.add(tx_ref);
       return handleRedirect(tx_ref, true, isAjax);
     }
 

@@ -163,7 +163,7 @@ const paymentMethods: PaymentMethod[] = [
   {
     id: 'STRIPE',
     name: 'Credit/Debit Card (USD)',
-    logo: '/images/payment-methods/Stripe-logo.png',
+    logo: '/images/payment-methods/stripe.svg',
     isAvailable: true,
     description: 'Pay with international credit/debit cards in USD'
   },
@@ -549,6 +549,47 @@ export default function PaymentMethodModal({
               });
 
             if (transactionError) throw transactionError;
+
+            // Update product quantities for cash payment
+            try {
+              const { data: currentProduct, error: fetchError } = await supabase
+                .from('products')
+                .select('quantity, available_variants')
+                .eq('id', product.id)
+                .single();
+
+              if (!fetchError && currentProduct) {
+                const newQuantity = Math.max(0, (currentProduct.quantity || 0) - product.quantity);
+                let newVariants = currentProduct.available_variants;
+
+                // Update variant quantity if applicable
+                if (product.selected_variant_sku && Array.isArray(newVariants)) {
+                  newVariants = newVariants.map((variant: any) => {
+                    if (variant.sku === product.selected_variant_sku) {
+                      return {
+                        ...variant,
+                        quantity: Math.max(0, (variant.quantity || 0) - product.quantity)
+                      };
+                    }
+                    return variant;
+                  });
+                }
+
+                await supabase
+                  .from('products')
+                  .update({
+                    quantity: newQuantity,
+                    available_variants: newVariants,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', product.id);
+
+                console.log('[CASH PAYMENT] Updated product quantity for product:', product.id, 'New quantity:', newQuantity);
+              }
+            } catch (quantityError) {
+              console.error('[CASH PAYMENT] Error updating product quantity:', quantityError);
+              // Don't fail the order if quantity update fails
+            }
           }
         }
 
@@ -1209,43 +1250,6 @@ export default function PaymentMethodModal({
                                 alt={method.name}
                                 fill
                                 className="object-contain"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  const parent = target.parentElement;
-                                  
-                                  if (parent) {
-                                    // Special handling for Stripe logo - try original logo as fallback
-                                    if (method.id === 'STRIPE') {
-                                      // Try to load the original Stripe logo as fallback
-                                      const img = document.createElement('img') as HTMLImageElement;
-                                      img.onload = () => {
-                                        target.src = '/images/payment-methods/Stripe-logo.png';
-                                      };
-                                      img.onerror = () => {
-                                        // If original logo also fails, show generic payment icon
-                                        target.style.display = 'none';
-                                        parent.innerHTML = `
-                                          <div class="w-full h-full flex items-center justify-center bg-gray-100 rounded">
-                                            <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                                            </svg>
-                                          </div>
-                                        `;
-                                      };
-                                      img.src = '/images/payment-methods/Stripe-logo.png';
-                                    } else {
-                                      // For other payment methods, show generic payment icon
-                                      target.style.display = 'none';
-                                      parent.innerHTML = `
-                                        <div class="w-full h-full flex items-center justify-center bg-gray-100 rounded">
-                                          <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                                          </svg>
-                                        </div>
-                                      `;
-                                    }
-                                  }
-                                }}
                               />
                             </div>
                             <div className="flex-1">

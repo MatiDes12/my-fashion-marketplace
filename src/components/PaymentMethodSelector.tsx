@@ -43,43 +43,6 @@ export default function PaymentMethodSelector({ onSelect, selected, paymentSetti
                 width={40}
                 height={40}
                 className="rounded"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  const parent = target.parentElement;
-                  
-                  if (parent) {
-                    // Special handling for Stripe logo - try original logo as fallback
-                    if (method.id === 'STRIPE') {
-                      // Try to load the original Stripe logo as fallback
-                      const img = document.createElement('img') as HTMLImageElement;
-                      img.onload = () => {
-                        target.src = '/images/payment-methods/Stripe-logo.png';
-                      };
-                      img.onerror = () => {
-                        // If original logo also fails, show generic payment icon
-                        target.style.display = 'none';
-                        parent.innerHTML = `
-                          <div class="w-10 h-10 flex items-center justify-center bg-gray-100 rounded">
-                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                            </svg>
-                          </div>
-                        `;
-                      };
-                      img.src = '/images/payment-methods/Stripe-logo.png';
-                    } else {
-                      // For other payment methods, show generic payment icon
-                      target.style.display = 'none';
-                      parent.innerHTML = `
-                        <div class="w-10 h-10 flex items-center justify-center bg-gray-100 rounded">
-                          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                          </svg>
-                        </div>
-                      `;
-                    }
-                  }
-                }}
               />
               <span className="ml-3 font-medium">{method.name}</span>
             </div>
