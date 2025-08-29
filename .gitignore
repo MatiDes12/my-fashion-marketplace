@@ -259,3 +259,20 @@ credentials/
 /supabase/avrio_db/
 supabase/avrio_db/remote.sql
 supabase/avrio_db/data.sql
+
+# Sensitive documentation files (ignore sensitive .md files)
+CI_CD_SETUP_COMPLETE.md
+CI_CD_FIXES_SUMMARY.md
+check-workflows.md
+github-secrets-guide.md
+MISSING_ENV_VARS.md
+MISSING_PAYMENT_LOGOS.md
+PRODUCTION_CHECKLIST.md
+setup-stripe.md
+STRIPE_CHECKLIST.md
+STRIPE_DATABASE_FIXES.md
+STRIPE_FIXES.md
+STRIPE_RECEIPTS_ADDED.md
+STRIPE_SECURITY_RECEIPTS.md
+docs/CART_VARIANTS_FIX.sql
+docs/IMAGE_OPTIMIZATION_EMERGENCY.md
