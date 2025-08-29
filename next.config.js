@@ -35,7 +35,7 @@ const nextConfig = {
     minimumCacheTTL: 31536000, // 1 year
     // Enable format optimization
     formats: ['image/webp', 'image/avif'],
-    dangerouslyAllowSVG: false,
+    dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; frame-src 'none'; sandbox;",
   },
   poweredByHeader: false,
