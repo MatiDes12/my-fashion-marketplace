@@ -61,7 +61,7 @@ export const PAYMENT_METHODS = {
     id: 'STRIPE',
     name: 'Credit/Debit Card (USD)',
     description: 'Pay with international credit/debit cards via Stripe',
-    logo: '/images/payment-methods/stripe.svg',
+    logo: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1bxid64Mup7aczewSAYMX&t=1746435914582',
     isAvailable: true, // Stripe is always available
   },
 } as const;
