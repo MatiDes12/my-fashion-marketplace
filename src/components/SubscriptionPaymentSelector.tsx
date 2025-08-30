@@ -28,7 +28,7 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   {
     id: 'stripe',
     name: 'Stripe',
-    logo: '/images/payment-methods/stripe.svg',
+    logo: 'https://cdn.brandfetch.io/idxAg10C0L/theme/dark/logo.svg?c=1bxid64Mup7aczewSAYMX&t=1746435914582',
     description: 'Pay securely with credit/debit cards',
     isAvailable: true
   }
