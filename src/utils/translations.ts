@@ -742,6 +742,36 @@ export const translations: Translation = {
   'signup.already': { en: 'Already have an account?', am: 'መለያ አለዎት?' },
   'signup.signinInstead': { en: 'Sign in instead', am: 'በመግባት ይቀጥሉ' },
 
+  // Payment Methods
+  'paymentMethods.title': {
+    en: 'Accepted Payment Methods',
+    am: 'የምንቀበለው የክፍያ ዘዴዎች'
+  },
+  'paymentMethods.subtitle': {
+    en: 'Secure and convenient payment options from various payment service providers',
+    am: 'ደህንነታማ እና ምቹ የክፍያ አማራጮች ከተለያዩ የክፍያ አገልግሎት አቅራቢዎች'
+  },
+  'paymentMethods.primary.title': {
+    en: 'Primary Payment Methods',
+    am: 'ዋና የክፍያ ዘዴዎች'
+  },
+  'paymentMethods.secondary.title': {
+    en: 'Additional Payment Options under Chapa',
+    am: 'በቻፓ ስር ያሉ ተጨማሪ የክፍያ ዘዴዎች'
+  },
+  'paymentMethods.available': {
+    en: 'Available',
+    am: 'ይገኛል'
+  },
+  'paymentMethods.security.title': {
+    en: '100% Secure Payments',
+    am: '100% ደህንነታማ ክፍያ'
+  },
+  'paymentMethods.security.subtitle': {
+    en: 'All transactions are encrypted and protected',
+    am: 'ሁሉም ግብይቶች የተጠበቁ እና የተጠበቀ ናቸው'
+  },
+
   // Common
   'common.loading': {
     en: 'Loading...',

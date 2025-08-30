@@ -19,6 +19,7 @@ import { PRODUCT_CATEGORIES } from '@/utils/constants';
 import { Fragment } from 'react';
 import { EMAIL_CONFIG } from '@/config/email';
 import { FeaturedCollections, CategoryGrid, TestimonialsSection, NewsletterSection } from '@/components/landing';
+import PaymentMethods from '@/components/PaymentMethods';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getPlaceholderImage } from '@/utils/placeholderImages';
 import { Sparkles, ArrowRight, Users, TrendingUp, Send } from 'lucide-react';
@@ -1557,6 +1558,9 @@ export default function HomePage() {
           <div className="w-full">
             <FeaturedCollections />
             </div>
+
+          {/* Payment Methods */}
+          <PaymentMethods />
         
         {/* Flash Sales Section */}
         {activeFlashSales.length > 0 && (
