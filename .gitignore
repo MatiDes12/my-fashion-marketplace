@@ -54,6 +54,10 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .env*.local
+.env.development
+.env.test
+.env.production
+env.example
 
 # Sensitive configuration files
 src/postman/

@@ -10,6 +10,7 @@ import { formatCurrency } from '@/utils/currency';
 import { createChapaPayment } from '@/lib/chapa';
 import SubscriptionPaymentSelector from '@/components/SubscriptionPaymentSelector';
 import { toast } from 'react-hot-toast';
+import * as currencyUtils from '@/utils/currency';
 
 type SubscriptionPlan = {
   id: string;
@@ -121,6 +122,8 @@ export default function SubscriptionPage() {
     endDate: string | null;
     status: 'active' | 'cancelled' | 'expired' | null;
   } | null>(null);
+  const [subscriptionHistory, setSubscriptionHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     const checkAccessAndLoadData = async () => {
@@ -204,6 +207,9 @@ export default function SubscriptionPage() {
           setCurrentPlan('basic');
         }
         
+        // Fetch subscription history
+        await fetchSubscriptionHistory();
+        
       } catch (error) {
         console.error('Subscription page error:', error);
         setError(error instanceof Error ? error.message : t('common.error'));
@@ -273,7 +279,41 @@ export default function SubscriptionPage() {
         setLoading(false);
         return;
       }
+
+      // Handle Stripe payments
+      if (paymentMethod === 'stripe') {
+        try {
+          const response = await fetch('/api/payments/stripe/create-subscription', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              planId: plan.id,
+              period: billingPeriod
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to create Stripe checkout session');
+          }
+
+          const { url } = await response.json();
+          
+          if (url) {
+            window.location.href = url;
+          } else {
+            throw new Error('No checkout URL received from Stripe');
+          }
+        } catch (stripeError) {
+          console.error('Stripe error:', stripeError);
+          throw new Error(stripeError instanceof Error ? stripeError.message : 'Failed to process Stripe payment');
+        }
+        return;
+      }
       
+      // Handle Chapa payments (existing logic)
       // Generate unique transaction reference
       const txRef = `SUB-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -402,14 +442,52 @@ export default function SubscriptionPage() {
     const yearlyPrice = Math.round(plan.price * 10 * 100) / 100; // 10 months (2 months free) with 2 decimal precision
     const price = billingPeriod === 'year' ? yearlyPrice : plan.price;
     
+    // Get selected payment method for this plan
+    const selectedPaymentMethod = paymentMethods[plan.id];
+    const showUSDConversion = selectedPaymentMethod === 'stripe' && plan.price > 0;
+    
     return (
       <>
         <span className="text-4xl font-extrabold text-gray-900">
           {formatCurrency(price)}
         </span>
         <span className="text-base font-medium text-gray-500">/{billingPeriod === 'year' ? t('subscription.billing.suffix.year') : t('subscription.billing.suffix.month')}</span>
+        
+        {showUSDConversion && (
+          <div className="mt-2 text-sm text-gray-500">
+            <span>≈ ${currencyUtils.convertETBToUSD(price).toFixed(2)} USD</span>
+            <span className="ml-1 text-xs">(1 ETB = ${currencyUtils.EXCHANGE_RATES.ETB_TO_USD} USD)</span>
+          </div>
+        )}
       </>
     );
+  };
+
+  const fetchSubscriptionHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) return;
+
+      const { data: history, error } = await supabase
+        .from('subscription_orders')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .in('status', ['completed', 'expired', 'cancelled'])
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching subscription history:', error);
+        return;
+      }
+
+      setSubscriptionHistory(history || []);
+    } catch (error) {
+      console.error('Error fetching subscription history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   return (
@@ -501,6 +579,73 @@ export default function SubscriptionPage() {
             </div>
           </div>
         )}
+
+        {/* Subscription History */}
+        {subscriptionHistory.length > 0 && (
+          <div className="mt-8 rounded-lg bg-white shadow-sm p-6 border border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Subscription History</h3>
+            {historyLoading ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {subscriptionHistory.map((subscription, index) => (
+                  <div key={subscription.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            subscription.status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : subscription.status === 'cancelled'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : subscription.status === 'expired'
+                                  ? 'bg-gray-100 text-gray-800'
+                                  : subscription.status === 'pending'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-red-100 text-red-800'
+                          }`}>
+                            {subscription.status}
+                          </span>
+                          {subscription.status === 'completed' && (
+                            <span className="text-xs text-green-600 font-medium">Current</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 capitalize">
+                            {subscription.plan_id} Plan ({subscription.period}ly)
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatCurrency(subscription.amount)} • {subscription.payment_method?.toUpperCase() || 'Unknown'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-900">
+                        {new Date(subscription.created_at).toLocaleDateString(language === 'am' ? 'am-ET' : 'en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </p>
+                      {subscription.subscription_end_date && (
+                        <p className="text-xs text-gray-500">
+                          Ends: {new Date(subscription.subscription_end_date).toLocaleDateString(language === 'am' ? 'am-ET' : 'en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
@@ -551,9 +696,9 @@ export default function SubscriptionPage() {
                 >
                   <div className="p-6">
                     <h2 className="text-lg leading-6 font-medium text-gray-900">{plan.name}</h2>
-                    <p className="mt-4 text-sm text-gray-500">
+                    <div className="mt-4 text-sm text-gray-500">
                       {getPriceDisplay(plan)}
-                    </p>
+                    </div>
                     <p className="mt-4 text-sm text-gray-500">
                       {plan.id === 'basic' 
                         ? t('subscription.planDesc.basic') 

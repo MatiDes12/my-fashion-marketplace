@@ -3,7 +3,7 @@
 import Image from 'next/image';
 
 interface PaymentMethod {
-  id: 'telebirr' | 'chapa';
+  id: 'telebirr' | 'chapa' | 'stripe';
   name: string;
   logo: string;
   description: string;
@@ -23,6 +23,13 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     name: 'Chapa',
     logo: '/images/payment-methods/chapa-logo.png',
     description: 'Pay with bank transfer, card, or mobile money',
+    isAvailable: true
+  },
+  {
+    id: 'stripe',
+    name: 'Stripe',
+    logo: '/images/payment-methods/stripe.svg',
+    description: 'Pay securely with credit/debit cards',
     isAvailable: true
   }
 ];
