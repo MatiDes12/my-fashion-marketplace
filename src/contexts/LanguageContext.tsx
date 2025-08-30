@@ -24,8 +24,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     if (savedLang) {
       setLanguage(savedLang);
     } else {
-      // Default to Amharic for Ethiopian IPs (you can add IP detection logic)
-      setLanguage('am');
+      // Default to English for first-time users
+      setLanguage('en');
     }
   }, []);
 

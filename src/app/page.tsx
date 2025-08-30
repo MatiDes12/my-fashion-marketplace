@@ -1320,7 +1320,7 @@ export default function HomePage() {
                     transition={{ duration: 0.5, delay: 0.2 }}
                   >
                         {language === 'am'
-                          ? 'ኤሌክትሮኒክስ፣ ፋሽን፣ ቤት እና ኑሮ፣ ውበት እና ሌሎችንም ከሚታመኑ የኢትዮጵያ ሻጮች ይግዙ። ደህንነታማ ክፍያ፣ ፈጣን ማቅረብ እና እውነተኛ የደንበኛ አገልግሎት — ሁሉም በአንድ ቦታ።'
+                          ? 'ኤሌክትሮኒክስ፣ ፋሽን፣ ውበት እና ሌሎችንም ከሚታመኑ የኢትዮጵያ ሻጮች ይግዙ። ደህንነታማ ክፍያ፣ ፈጣን ማቅረብ እና እውነተኛ የደንበኛ አገልግሎት — ሁሉም በአንድ ቦታ።'
                           : 'Shop electronics, fashion, home & living, beauty and more from trusted Ethiopian sellers. Secure payments, fast delivery, and real customer support — all in one place.'}
                   </motion.p>
                     </div>
@@ -1336,7 +1336,7 @@ export default function HomePage() {
                       href="/products"
                         className="group inline-flex items-center justify-center px-8 py-3 bg-gradient-to-r from-pink-600 to-pink-500 text-white rounded-full font-semibold hover:from-pink-700 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                     >
-                        {language === 'am' ? 'ግብዣ ጀምር' : 'Start Shopping'}
+                        {language === 'am' ? 'መግዛት ጀምር' : 'Start Shopping'}
                         <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
                     </Link>
                       

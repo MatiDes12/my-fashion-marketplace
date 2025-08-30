@@ -392,7 +392,7 @@ export default function ProfilePage() {
       houseNo: '',
       landmark: '',
     },
-    preferredLanguage: 'amharic',
+    preferredLanguage: 'english',
   });
 
   // Ethiopian sub-cities (for Addis Ababa)
