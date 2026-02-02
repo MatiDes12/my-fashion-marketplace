@@ -12,21 +12,32 @@ const excludeFields = [
   "biz_content",
 ];
 
+// Dangerous keys that should never be processed (prevent prototype pollution)
+const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+
 function signRequestObject(requestObject, privateKey) {
   let fields = [];
   let fieldMap = {};
   for (let key in requestObject) {
-    if (excludeFields.indexOf(key) >= 0) {
+    // Skip inherited properties and dangerous keys
+    if (!Object.prototype.hasOwnProperty.call(requestObject, key)) {
+      continue;
+    }
+    if (excludeFields.indexOf(key) >= 0 || dangerousKeys.indexOf(key) >= 0) {
       continue;
     }
     fields.push(key);
     fieldMap[key] = requestObject[key];
   }
   // the fields in "biz_content" must Participating signature
-  if (requestObject.biz_content) {
+  if (requestObject.biz_content && typeof requestObject.biz_content === 'object') {
     let biz = requestObject.biz_content;
     for (let key in biz) {
-      if (excludeFields.indexOf(key) >= 0) {
+      // Skip inherited properties and dangerous keys
+      if (!Object.prototype.hasOwnProperty.call(biz, key)) {
+        continue;
+      }
+      if (excludeFields.indexOf(key) >= 0 || dangerousKeys.indexOf(key) >= 0) {
         continue;
       }
       fields.push(key);

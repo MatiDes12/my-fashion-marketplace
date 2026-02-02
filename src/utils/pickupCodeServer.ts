@@ -1,5 +1,6 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { sanitizeForLog, isValidIdentifier } from '@/utils/security';
 
 // Server-side verification function
 export async function verifyPickupCode(code: string, orderId: string): Promise<{
@@ -10,9 +11,14 @@ export async function verifyPickupCode(code: string, orderId: string): Promise<{
   const supabase = createRouteHandlerClient({ cookies });
   
   try {
+    // Validate inputs
+    if (!isValidIdentifier(orderId, 50)) {
+      return { success: false, error: 'Invalid order ID format' };
+    }
+
     // Normalize the code to uppercase and trim
     const normalizedCode = code.trim().toUpperCase();
-    console.log('Attempting to verify code:', normalizedCode, 'for order:', orderId);
+    console.log('Attempting to verify code:', sanitizeForLog(normalizedCode), 'for order:', sanitizeForLog(orderId));
 
     // Query the specific order and verify its pickup code
     const { data: order, error } = await supabase
@@ -44,7 +50,7 @@ export async function verifyPickupCode(code: string, orderId: string): Promise<{
       };
     }
 
-    console.log('Found order:', order);
+    console.log('Found order:', sanitizeForLog(order.id));
 
     // Verify the pickup code matches
     if (order.pickup_code !== normalizedCode) {
@@ -90,9 +96,9 @@ export async function verifyPickupCode(code: string, orderId: string): Promise<{
     }
 
     // Update transaction payment status
-    console.log('Attempting to update transaction for order:', orderId);
+    console.log('Attempting to update transaction for order:', sanitizeForLog(orderId));
     
-    const { data: transactionData, error: transactionError } = await supabase
+    const { error: transactionError } = await supabase
       .from('transactions')
       .update({
         payment_status: 'paid',
@@ -107,7 +113,7 @@ export async function verifyPickupCode(code: string, orderId: string): Promise<{
       console.error('Error updating transaction:', transactionError);
       // Don't fail the whole operation, just log the error
     } else {
-      console.log('Transaction updated successfully for order:', orderId, 'Updated rows:', transactionData);
+      console.log('Transaction updated successfully for order:', sanitizeForLog(orderId));
     }
 
     return {

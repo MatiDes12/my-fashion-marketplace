@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { escapeHtml, isValidIdentifier } from '@/utils/security';
+
+// Validate redirect URL - only allow relative paths to prevent open redirect
+function sanitizeRedirectUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const decoded = decodeURIComponent(url);
+    // Only allow relative paths starting with /
+    if (decoded.startsWith('/') && !decoded.startsWith('//')) {
+      // Remove any script injection attempts
+      const sanitized = decoded.replace(/[<>"'`]/g, '');
+      return sanitized;
+    }
+    return '/orders'; // Default safe redirect
+  } catch {
+    return '/orders';
+  }
+}
 
 export async function GET(
   request: Request,
@@ -8,17 +26,24 @@ export async function GET(
 ) {
   try {
     const { searchParams } = new URL(request.url);
-    const redirectUrl = searchParams.get('redirect');
-    
+    const rawRedirectUrl = searchParams.get('redirect');
+    const redirectUrl = sanitizeRedirectUrl(rawRedirectUrl);
+
     const resolvedParams = await params;
+    const txRef = resolvedParams.txRef;
+
+    // Validate txRef format to prevent injection
+    if (!txRef || !isValidIdentifier(txRef, 100)) {
+      return new NextResponse('Invalid transaction reference', { status: 400 });
+    }
     const supabase = createRouteHandlerClient({ cookies });
     
     // Get all orders with this tx_ref or tx_refs that start with the base tx_ref
     // Extract the base CASH reference: CASH-timestamp-random
-    const txRefParts = resolvedParams.txRef.split('-');
+    const txRefParts = txRef.split('-');
     const baseTxRef = txRefParts.length >= 3 
       ? `${txRefParts[0]}-${txRefParts[1]}-${txRefParts[2]}`
-      : resolvedParams.txRef;
+      : txRef;
     
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
@@ -39,7 +64,7 @@ export async function GET(
         user:users!orders_user_id_fkey(*),
         transaction:transactions(*)
       `)
-      .or(`tx_ref.eq.${resolvedParams.txRef},tx_ref.like.${baseTxRef}-%`);
+      .or(`tx_ref.eq.${txRef},tx_ref.like.${baseTxRef}-%`);
       
     if (ordersError) throw ordersError;
     if (!orders?.length) throw new Error('No orders found');
@@ -143,7 +168,7 @@ export async function GET(
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Receipt - ${resolvedParams.txRef}</title>
+          <title>Receipt - ${escapeHtml(txRef)}</title>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -322,7 +347,7 @@ export async function GET(
           ${redirectUrl ? `
             <script>
               setTimeout(() => {
-                window.location.href = "${decodeURIComponent(redirectUrl)}";
+                window.location.href = ${JSON.stringify(redirectUrl)};
               }, 8000);
             </script>
           ` : ''}
@@ -348,7 +373,7 @@ export async function GET(
                 hour: '2-digit', 
                 minute: '2-digit'
               })}</div>
-              <div>Transaction: ${resolvedParams.txRef}</div>
+              <div>Transaction: ${escapeHtml(txRef)}</div>
               <div>Customer: ${orders[0].user?.full_name || 'N/A'}</div>
               <div>Payment Method: CASH</div>
                 </div>

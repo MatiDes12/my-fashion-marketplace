@@ -5,6 +5,17 @@ import { cookies } from 'next/headers';
 import { headers } from 'next/headers';
 import { generateUniquePickupCode } from '@/utils/pickupCode';
 import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
+import { sanitizeForLog } from '@/utils/security';
+
+// Validate tx_ref format to prevent path traversal and injection
+function isValidTxRef(txRef: string): boolean {
+  if (!txRef || typeof txRef !== 'string') return false;
+  // Allow alphanumeric, hyphens, underscores only, max 100 chars
+  return /^[a-zA-Z0-9_-]{1,100}$/.test(txRef);
+}
+
+// Hardcoded Chapa API URL - never accept from user input
+const CHAPA_API_BASE = 'https://api.chapa.co/v1';
 
 // Create a Supabase client with service role
 const supabase = createClient(
@@ -37,11 +48,17 @@ export async function GET(request: Request) {
   const headersList = await headers();
   const isAjax = headersList.get('X-Requested-With') === 'XMLHttpRequest';
 
-  console.log('[CHAPA CALLBACK] Starting callback processing:', { tx_ref, status });
+  console.log('[CHAPA CALLBACK] Starting callback processing:', { tx_ref: sanitizeForLog(tx_ref), status });
 
   try {
     if (!tx_ref) {
       throw new Error('Missing transaction reference');
+    }
+
+    // Validate tx_ref format to prevent SSRF/injection
+    if (!isValidTxRef(tx_ref)) {
+      console.error('[CHAPA CALLBACK] Invalid tx_ref format:', sanitizeForLog(tx_ref));
+      throw new Error('Invalid transaction reference format');
     }
 
     // Check if we've already processed this transaction
@@ -53,8 +70,8 @@ export async function GET(request: Request) {
     // Add to processed set immediately to prevent duplicate processing
     processedTransactions.add(tx_ref);
 
-    // Verify with Chapa
-    const verifyResponse = await fetch(`https://api.chapa.co/v1/transaction/verify/${tx_ref}`, {
+    // Verify with Chapa using hardcoded base URL
+    const verifyResponse = await fetch(`${CHAPA_API_BASE}/transaction/verify/${encodeURIComponent(tx_ref)}`, {
       headers: {
         'Authorization': `Bearer ${process.env.CHAPA_SECRET_KEY!}`,
         'Content-Type': 'application/json'
@@ -515,9 +532,15 @@ export async function POST(request: Request) {
       return handleRedirect(tx_ref, true, isAjax);
     }
 
-    // Verify the payment with Chapa
+    // Validate tx_ref format to prevent SSRF/injection
+    if (!isValidTxRef(tx_ref)) {
+      console.error('[CHAPA CALLBACK] Invalid tx_ref format in POST:', sanitizeForLog(tx_ref));
+      throw new Error('Invalid transaction reference format');
+    }
+
+    // Verify the payment with Chapa using hardcoded base URL
     const verifyResponse = await fetch(
-      `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
+      `${CHAPA_API_BASE}/transaction/verify/${encodeURIComponent(tx_ref)}`,
       {
         headers: {
           'Authorization': `Bearer ${process.env.CHAPA_SECRET_KEY!}`,

@@ -3,31 +3,48 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { verifyPickupCode } from '@/utils/pickupCodeServer';
 import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
+import { sanitizeForLog, isValidIdentifier } from '@/utils/security';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { code, orderId } = body;
 
-    if (!code) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Pickup code is required' 
+    if (!code || typeof code !== 'string') {
+      return NextResponse.json({
+        success: false,
+        error: 'Pickup code is required'
       }, { status: 400 });
     }
 
-    if (!orderId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Order ID is required' 
+    if (!orderId || typeof orderId !== 'string') {
+      return NextResponse.json({
+        success: false,
+        error: 'Order ID is required'
+      }, { status: 400 });
+    }
+
+    // Validate orderId format to prevent injection
+    if (!isValidIdentifier(orderId, 50)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid order ID format'
+      }, { status: 400 });
+    }
+
+    // Validate code format (alphanumeric, max 20 chars)
+    if (!/^[A-Za-z0-9]{1,20}$/.test(code.trim())) {
+      return NextResponse.json({
+        success: false,
+        error: 'Invalid pickup code format'
       }, { status: 400 });
     }
 
     // Normalize the code
     const normalizedCode = code.trim().toUpperCase();
-    
+
     const result = await verifyPickupCode(normalizedCode, orderId);
-    console.log('Verification result:', result);
+    console.log('Verification result for order:', sanitizeForLog(orderId), 'success:', result.success);
 
     if (!result.success) {
       return NextResponse.json({ 
@@ -68,10 +85,10 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Error in verify-pickup API:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to verify pickup code' 
+    console.error('Error in verify-pickup API:', error instanceof Error ? error.message : 'Unknown error');
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to verify pickup code'
     }, { status: 500 });
   }
 } 

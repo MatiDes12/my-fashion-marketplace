@@ -1,4 +1,8 @@
 import { tools } from '@/utils/tools';
+import { sanitizeForLog, validateExternalUrl, ALLOWED_API_DOMAINS } from '@/utils/security';
+
+// Allowed Telebirr API domains
+const TELEBIRR_DOMAINS = ['app.ethiomobilemoney.et', 'api.ethiomobilemoney.et'];
 
 interface TelebirrResponse {
   errorCode?: string;
@@ -19,23 +23,38 @@ interface TokenResponse {
   expirationDate?: string;
 }
 
+function validateTelebirrUrl(baseUrl: string): string {
+  try {
+    const url = new URL(baseUrl);
+    if (!TELEBIRR_DOMAINS.some(domain => url.hostname === domain || url.hostname.endsWith('.' + domain))) {
+      throw new Error('Invalid Telebirr API domain');
+    }
+    if (url.protocol !== 'https:') {
+      throw new Error('Telebirr API must use HTTPS');
+    }
+    return url.toString().replace(/\/$/, ''); // Remove trailing slash
+  } catch {
+    throw new Error('Invalid Telebirr base URL');
+  }
+}
+
 export async function applyFabricToken(config: {
   baseUrl: string;
   fabricAppId: string;
   appSecret: string;
 }): Promise<TelebirrResponse> {
   try {
+    // Validate URL to prevent SSRF
+    const validatedBaseUrl = validateTelebirrUrl(config.baseUrl);
+
     console.log('\n=== FABRIC TOKEN REQUEST ===');
-    console.log('URL:', `${config.baseUrl}/payment/v1/token`);
+    console.log('URL:', sanitizeForLog(`${validatedBaseUrl}/payment/v1/token`));
     console.log('Headers:', {
       'Content-Type': 'application/json',
-      'X-APP-Key': config.fabricAppId,
-    });
-    console.log('Body:', {
-      appSecret: '******' // masked for security
+      'X-APP-Key': sanitizeForLog(config.fabricAppId),
     });
 
-    const response = await fetch(`${config.baseUrl}/payment/v1/token`, {
+    const response = await fetch(`${validatedBaseUrl}/payment/v1/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -49,10 +68,7 @@ export async function applyFabricToken(config: {
     const result = await response.json() as TelebirrResponse;
     console.log('\n=== FABRIC TOKEN RESPONSE ===');
     console.log('Status:', response.status);
-    console.log('Response:', {
-      ...result,
-      token: result.token ? `${result.token.substring(0, 10)}...` : undefined // Mask token
-    });
+    console.log('Response: token received:', result.token ? 'yes' : 'no');
 
     if (result.errorCode || result.result === 'FAIL') {
       throw new Error(`Telebirr API Error: ${result.errorMsg || 'Unknown error'}`);
@@ -61,7 +77,7 @@ export async function applyFabricToken(config: {
     return result;
   } catch (error) {
     console.error('\n=== FABRIC TOKEN ERROR ===');
-    console.error(error);
+    console.error(error instanceof Error ? error.message : 'Unknown error');
     throw error;
   }
 }
@@ -75,16 +91,15 @@ export async function createOrder(params: {
 }) {
   try {
     const { config, fabricToken, title, amount } = params;
-    
+
+    // Validate URL to prevent SSRF
+    const validatedBaseUrl = validateTelebirrUrl(config.baseUrl);
+
     console.log('\n=== CREATE ORDER REQUEST ===');
     console.log('Input Parameters:', {
-      title,
-      amount,
-      baseUrl: config.baseUrl,
-      merchantAppId: config.merchantAppId,
-      shortCode: config.shortCode,
-      notifyUrl: config.notifyUrl,
-      redirectUrl: config.redirectUrl
+      title: sanitizeForLog(title),
+      amount: sanitizeForLog(amount),
+      baseUrl: sanitizeForLog(validatedBaseUrl),
     });
 
     const reqObject = createRequestObject({
@@ -93,18 +108,10 @@ export async function createOrder(params: {
       config,
     });
 
-    console.log('\n=== REQUEST OBJECT ===');
-    console.log(JSON.stringify(reqObject, null, 2));
-
     console.log('\n=== API REQUEST ===');
-    console.log('URL:', `${config.baseUrl}/payment/v1/merchant/preOrder`);
-    console.log('Headers:', {
-      'Content-Type': 'application/json',
-      'X-APP-Key': config.fabricAppId,
-      'Authorization': `${fabricToken.substring(0, 10)}...` // Mask token
-    });
+    console.log('URL:', sanitizeForLog(`${validatedBaseUrl}/payment/v1/merchant/preOrder`));
 
-    const response = await fetch(`${config.baseUrl}/payment/v1/merchant/preOrder`, {
+    const response = await fetch(`${validatedBaseUrl}/payment/v1/merchant/preOrder`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -117,7 +124,7 @@ export async function createOrder(params: {
     const result = await response.json() as TelebirrResponse;
     console.log('\n=== CREATE ORDER RESPONSE ===');
     console.log('Status:', response.status);
-    console.log('Response:', JSON.stringify(result, null, 2));
+    console.log('Response: errorCode:', result.errorCode || 'none', 'prepay_id:', result.biz_content?.prepay_id ? 'received' : 'none');
 
     if (result.errorCode || result.result === 'FAIL') {
       throw new Error(`Telebirr API Error: ${result.errorMsg || 'Unknown error'}`);
@@ -134,13 +141,12 @@ export async function createOrder(params: {
 
     const paymentUrl = `${config.webBaseUrl}?${rawRequest}&version=1.0&trade_type=Checkout`;
     console.log('\n=== PAYMENT URL GENERATED ===');
-    console.log('URL:', paymentUrl);
-    
+
     return paymentUrl;
 
   } catch (error) {
     console.error('\n=== CREATE ORDER ERROR ===');
-    console.error(error);
+    console.error(error instanceof Error ? error.message : 'Unknown error');
     throw error;
   }
 }

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://claude.ai/schemas/claude-code-settings.json",
+  "projectName": "AVRIO - Ethiopian Marketplace",
+  "description": "Full-stack e-commerce marketplace for Ethiopia with multi-payment support, real-time features, and seller management",
+  "techStack": {
+    "framework": "Next.js 15",
+    "language": "TypeScript",
+    "styling": "Tailwind CSS",
+    "database": "Supabase (PostgreSQL)",
+    "hosting": "Vercel"
+  },
+  "conventions": {
+    "componentStyle": "React functional components with TypeScript",
+    "stateManagement": "React Context + React Query",
+    "apiPattern": "Next.js API routes with Supabase client",
+    "testingFramework": "Playwright for E2E"
+  },
+  "importantPaths": {
+    "components": "src/components",
+    "pages": "src/app",
+    "api": "src/app/api",
+    "lib": "src/lib",
+    "utils": "src/utils",
+    "types": "src/types",
+    "contexts": "src/contexts",
+    "hooks": "src/hooks",
+    "migrations": "supabase/migrations"
+  }
+}

@@ -1,1 +1,0 @@
--- Update the check_transaction_amounts function to exclude service_fee from total calculation

@@ -4,6 +4,24 @@ import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { convertUSDToETB } from '@/lib/stripe';
 import { convertETBToUSD, EXCHANGE_RATES } from '@/utils/currency';
+import { escapeHtml, isValidIdentifier } from '@/utils/security';
+
+// Validate redirect URL - only allow relative paths to prevent open redirect
+function sanitizeRedirectUrl(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const decoded = decodeURIComponent(url);
+    // Only allow relative paths starting with /
+    if (decoded.startsWith('/') && !decoded.startsWith('//')) {
+      // Remove any script injection attempts
+      const sanitized = decoded.replace(/[<>"'`]/g, '');
+      return sanitized;
+    }
+    return '/orders'; // Default safe redirect
+  } catch {
+    return '/orders';
+  }
+}
 
 // Create a Supabase client with service role for shared cart orders
 const supabaseService = createClient(
@@ -23,10 +41,18 @@ export async function GET(
 ) {
   try {
     const { searchParams } = new URL(request.url);
-    const redirectUrl = searchParams.get('redirect');
-    
+    const rawRedirectUrl = searchParams.get('redirect');
+    const redirectUrl = sanitizeRedirectUrl(rawRedirectUrl);
+
     const resolvedParams = await params;
-    console.log('Receipt API - Looking for orders with tx_ref:', resolvedParams.txRef);
+    const txRef = resolvedParams.txRef;
+
+    // Validate txRef format to prevent injection
+    if (!txRef || !isValidIdentifier(txRef, 100)) {
+      return new NextResponse('Invalid transaction reference', { status: 400 });
+    }
+
+    console.log('Receipt API - Looking for orders with tx_ref:', txRef.substring(0, 20));
     const supabase = createRouteHandlerClient({ cookies });
     
     // First, try to get orders with the regular client
@@ -49,7 +75,7 @@ export async function GET(
         user:users!orders_user_id_fkey(*),
         transaction:transactions(*)
       `)
-      .eq('tx_ref', resolvedParams.txRef);
+      .eq('tx_ref', txRef);
     
     // If no orders found, try with service role client (for shared cart orders)
     if (!orders?.length) {
@@ -73,7 +99,7 @@ export async function GET(
           user:users!orders_user_id_fkey(*),
           transaction:transactions(*)
         `)
-        .eq('tx_ref', resolvedParams.txRef);
+        .eq('tx_ref', txRef);
       
       if (serviceOrdersError) {
         console.error('Service role client error:', serviceOrdersError);
@@ -105,7 +131,7 @@ export async function GET(
             user:users!orders_user_id_fkey(*),
             transaction:transactions(*)
           `)
-          .eq('payment_reference', resolvedParams.txRef);
+          .eq('payment_reference', txRef);
         
         if (sessionOrdersError) {
           console.error('Session orders error:', sessionOrdersError);
@@ -119,11 +145,11 @@ export async function GET(
       
     if (ordersError) throw ordersError;
     if (!orders?.length) {
-      console.error('No orders found for tx_ref:', resolvedParams.txRef);
+      console.error('No orders found for tx_ref:', txRef);
       throw new Error('No orders found');
     }
     
-    console.log('Found orders:', orders.length, 'orders for tx_ref:', resolvedParams.txRef);
+    console.log('Found orders:', orders.length, 'orders for tx_ref:', txRef);
 
     // Group orders by seller with null check
     const ordersBySellerMap = orders.reduce((acc: any, order) => {
@@ -232,7 +258,7 @@ export async function GET(
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Receipt - ${resolvedParams.txRef}</title>
+          <title>Receipt - ${escapeHtml(txRef)}</title>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -427,7 +453,7 @@ export async function GET(
           ${redirectUrl ? `
             <script>
               setTimeout(() => {
-                window.location.href = "${decodeURIComponent(redirectUrl)}";
+                window.location.href = ${JSON.stringify(redirectUrl)};
               }, 8000);
             </script>
           ` : ''}
@@ -453,7 +479,7 @@ export async function GET(
                 hour: '2-digit', 
                 minute: '2-digit'
               })}</div>
-              <div>Transaction: ${resolvedParams.txRef}</div>
+              <div>Transaction: ${escapeHtml(txRef)}</div>
               <div>Customer: ${orders[0].user?.full_name || 'N/A'}</div>
               <div>Payment Method: <span class="stripe-logo">STRIPE</span> (Credit/Debit Card)</div>
               ${stripeSessionId ? `<div>Payment ID: ${stripeSessionId}</div>` : ''}

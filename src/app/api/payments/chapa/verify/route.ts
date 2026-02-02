@@ -1,7 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { sanitizeForLog } from '@/utils/security';
 
 const supabase = supabaseServer;
+
+// Hardcoded Chapa API URL - never accept from user input
+const CHAPA_API_BASE = 'https://api.chapa.co/v1';
+
+// Validate tx_ref format to prevent path traversal and injection
+function isValidTxRef(txRef: string): boolean {
+  if (!txRef || typeof txRef !== 'string') return false;
+  // Allow alphanumeric, hyphens, underscores only, max 100 chars
+  return /^[a-zA-Z0-9_-]{1,100}$/.test(txRef);
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +23,12 @@ export async function GET(request: Request) {
 
     if (!tx_ref) {
       throw new Error('Missing transaction reference');
+    }
+
+    // Validate tx_ref format to prevent SSRF/injection
+    if (!isValidTxRef(tx_ref)) {
+      console.error('[CHAPA VERIFY] Invalid tx_ref format:', sanitizeForLog(tx_ref));
+      throw new Error('Invalid transaction reference format');
     }
 
     // Check if this is a cash payment or Stripe payment
@@ -35,9 +52,9 @@ export async function GET(request: Request) {
       });
     }
 
-    // For Chapa payments, verify with Chapa API
+    // For Chapa payments, verify with Chapa API using hardcoded base URL
     const verifyResponse = await fetch(
-      `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
+      `${CHAPA_API_BASE}/transaction/verify/${encodeURIComponent(tx_ref)}`,
       {
       headers: {
           Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY!}`,
