@@ -1,0 +1,214 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20.x"
+  # Build-time env vars
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+  NEXT_PUBLIC_PUSHER_APP_KEY: ${{ secrets.NEXT_PUBLIC_PUSHER_APP_KEY }}
+  NEXT_PUBLIC_PUSHER_CLUSTER: ${{ secrets.NEXT_PUBLIC_PUSHER_CLUSTER }}
+  PUSHER_APP_ID: ${{ secrets.PUSHER_APP_ID }}
+  PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+  TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+  TELEGRAM_SUPPORT_CHAT_ID: ${{ secrets.TELEGRAM_SUPPORT_CHAT_ID }}
+  CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+  CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+  STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+  STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+  STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+  NEXT_PUBLIC_JAWG_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_JAWG_ACCESS_TOKEN }}
+  UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+  UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ── Stage 1: Fast checks (no build needed) ──────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: npm audit
+        run: npm audit --audit-level=high || true
+      - name: Check for secrets in code
+        run: |
+          echo "Scanning for hardcoded secrets..."
+          PATTERNS='(SUPABASE_SERVICE_ROLE|SECRET_KEY|PRIVATE_KEY|password\s*=\s*["\x27][^\s]+["\x27])'
+          if grep -rEn "$PATTERNS" src/ --include="*.ts" --include="*.tsx" --include="*.js" | grep -v "process\.env\." | grep -v "\.d\.ts" | grep -v "// " | head -20; then
+            echo "::warning::Potential hardcoded secrets found. Review the lines above."
+          else
+            echo "No hardcoded secrets detected."
+          fi
+      - name: Check for dangerous patterns
+        run: |
+          echo "Scanning for dangerous code patterns..."
+          FOUND=0
+          # Check for eval usage
+          if grep -rn "eval(" src/ --include="*.ts" --include="*.tsx" | grep -v "node_modules"; then
+            echo "::warning::eval() usage found"
+            FOUND=1
+          fi
+          # Check for innerHTML with dynamic content
+          if grep -rn "\.innerHTML\s*=" src/ --include="*.ts" --include="*.tsx" | grep -v "static" | head -10; then
+            echo "::warning::Dynamic innerHTML assignment found"
+            FOUND=1
+          fi
+          # Check for SQL injection patterns
+          if grep -rn "query.*\`.*\${" src/ --include="*.ts" --include="*.tsx" | head -10; then
+            echo "::warning::Potential SQL injection pattern found"
+            FOUND=1
+          fi
+          [ $FOUND -eq 0 ] && echo "No dangerous patterns detected."
+
+  # ── Stage 2: Build ──────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: .next/
+          retention-days: 1
+
+  # ── Stage 3: Post-build checks ─────────────────────────────────────
+  bundle-size:
+    name: Bundle Size
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: .next/
+      - name: Analyze bundle
+        id: bundle
+        run: |
+          echo "## Bundle Size Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          CHUNKS_SIZE=$(du -sh .next/static/chunks/ 2>/dev/null | cut -f1 || echo "N/A")
+          CSS_SIZE=$(du -sh .next/static/css/ 2>/dev/null | cut -f1 || echo "N/A")
+          TOTAL_SIZE=$(du -sh .next/ 2>/dev/null | cut -f1 || echo "N/A")
+
+          echo "| Asset | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| JS Chunks | $CHUNKS_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "| CSS | $CSS_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Build | $TOTAL_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Flag large chunks (>500KB)
+          LARGE=$(find .next/static/chunks/ -name "*.js" -size +500k 2>/dev/null)
+          if [ -n "$LARGE" ]; then
+            echo "### Large Chunks (>500KB)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            ls -lh $LARGE >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ── PR Summary ──────────────────────────────────────────────────────
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [lint, security-audit, build, bundle-size]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = {
+              'Lint & TypeScript': '${{ needs.lint.result }}',
+              'Security Audit': '${{ needs.security-audit.result }}',
+              'Build': '${{ needs.build.result }}',
+              'Bundle Size': '${{ needs.bundle-size.result }}',
+            };
+
+            let body = '## CI Results\n\n';
+            let allPassed = true;
+
+            for (const [name, result] of Object.entries(jobs)) {
+              const icon = result === 'success' ? '✅' : result === 'skipped' ? '⏭️' : '❌';
+              if (result === 'failure') allPassed = false;
+              body += `${icon} **${name}**: ${result}\n`;
+            }
+
+            body += `\n${allPassed ? '**All checks passed.**' : '**Some checks failed.** Please review before merging.'}`;
+            body += '\n\n---\n*Automated CI report*';
+
+            // Find and update existing comment or create new
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body.includes('## CI Results'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
