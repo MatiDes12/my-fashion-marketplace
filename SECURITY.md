@@ -88,4 +88,4 @@ We currently do not have a formal bug bounty program, but we appreciate responsi
 
 For security-related inquiries:
 - Email: security@avrio.com
-- GitHub Security Advisories: [Create Advisory](https://github.com/MatiDes12/my-fashion-marketplace/security/advisories/new)
+- GitHub Security Advisories: [Create Advisory](https://github.com/MatiDes12/avrio/security/advisories/new)

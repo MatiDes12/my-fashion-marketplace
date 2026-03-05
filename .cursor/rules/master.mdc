@@ -10,7 +10,7 @@ MASTER INSTRUCTION FOR CURSOR AI
 ─────────────────────────────────────────────────────────
 1. CREATE A NEW NEXT.JS PROJECT WITH TYPESCRIPT  
    - Use the following command (or equivalent in Cursor AI) to initialize the project:  
-     npx create-next-app@latest my-fashion-marketplace --ts
+     npx create-next-app@latest avrio --ts
 
 2. SET UP SUPABASE  
    a) Install the Supabase client:  

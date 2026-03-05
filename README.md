@@ -245,8 +245,8 @@ The marketplace includes a comprehensive Telegram bot integration that provides:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/my-fashion-marketplace.git
-   cd my-fashion-marketplace
+   git clone https://github.com/yourusername/avrio.git
+   cd avrio
    ```
 
 2. **Install dependencies**:
