@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createRouteClient } from '@/lib/supabase-route';
 import Stripe from 'stripe';
+import { auditLog, getClientIP } from '@/lib/audit-logger';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -22,12 +23,28 @@ export async function POST(request: NextRequest) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
+      auditLog({
+        level: 'error',
+        category: 'security',
+        action: 'stripe.webhook.signature_failed',
+        message: 'Stripe webhook signature verification failed',
+        ip_address: getClientIP(request),
+      });
       console.error('Webhook signature verification failed:', err);
       return NextResponse.json(
         { error: 'Webhook signature verification failed' },
         { status: 400 }
       );
     }
+
+    auditLog({
+      level: 'info',
+      category: 'payment',
+      action: `stripe.webhook.${event.type}`,
+      message: `Stripe webhook received: ${event.type}`,
+      ip_address: getClientIP(request),
+      metadata: { event_id: event.id, type: event.type },
+    });
 
     const supabase = await createRouteClient();
 

@@ -1,4 +1,5 @@
 import { createRouteClient } from '@/lib/supabase-route';
+import { auditLog } from '@/lib/audit-logger';
 
 export async function POST(request: Request) {
   // Secure with CRON_SECRET - only for automated cron jobs
@@ -127,10 +128,23 @@ export async function POST(request: Request) {
     }
 
     const responseMessage = `Cron job completed: ${summary}`;
+    auditLog({
+      level: 'info',
+      category: 'system',
+      action: 'cron.expire_subscriptions',
+      message: responseMessage,
+      metadata: results,
+    });
     console.log(responseMessage);
     return new Response(responseMessage, { status: 200 });
 
   } catch (error) {
+    auditLog({
+      level: 'error',
+      category: 'system',
+      action: 'cron.expire_subscriptions.failed',
+      message: `Cron job failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    });
     console.error('Unexpected error during cron job:', error);
     return new Response('Error during cron job process', { status: 500 });
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
 import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
+import { auditLog, getClientIP } from '@/lib/audit-logger';
 
 // Use centralized Supabase client (server-only)
 const supabase = supabaseServer;
@@ -205,6 +206,15 @@ export async function POST(request: NextRequest) {
         console.error('Error sending Telegram delivery update:', notifyError);
       }
     }
+
+    auditLog({
+      level: 'info',
+      category: 'delivery',
+      action: `delivery.status.${status}`,
+      message: `Delivery ${deliveryId} updated to ${status}`,
+      ip_address: getClientIP(request),
+      metadata: { delivery_id: deliveryId, status, order_id: deliveryData.order_id },
+    });
 
     return NextResponse.json({
       success: true,

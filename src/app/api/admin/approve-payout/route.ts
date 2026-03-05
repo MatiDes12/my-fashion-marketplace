@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createRouteClient } from '@/lib/supabase-route';
 import { supabaseServer } from '@/lib/supabase-server';
 import { transferToSeller } from '@/utils/telebirr-transfer';
+import { auditLog } from '@/lib/audit-logger';
 
 type TransactionRow = {
   id: string;
@@ -77,9 +78,25 @@ export async function POST(request: Request) {
       }
     });
 
+    auditLog({
+      level: 'info',
+      category: 'admin',
+      action: 'payout.approved',
+      message: `Admin approved payout of ${amount} ETB to seller ${sellerId}`,
+      user_id: user.id,
+      metadata: { transaction_id: txId, amount, seller_id: sellerId },
+    });
+
     return NextResponse.json({ success: true });
 
   } catch (error) {
+    auditLog({
+      level: 'error',
+      category: 'admin',
+      action: 'payout.approve.failed',
+      message: `Payout approval failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      metadata: { error: error instanceof Error ? error.message : String(error) },
+    });
     console.error('Payout approval error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to process payout' },
