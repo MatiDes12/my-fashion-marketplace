@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -23,7 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createRouteClient();
 
     // Get subscription order details from metadata
     const { subscription_order_id, user_id, plan_id } = session.metadata || {};

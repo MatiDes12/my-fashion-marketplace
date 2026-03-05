@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { sanitizeForLog, isValidIdentifier } from '@/utils/security';
 
 // Server-side verification function
@@ -8,7 +7,7 @@ export async function verifyPickupCode(code: string, orderId: string): Promise<{
   error?: string;
   order?: any;
 }> {
-  const supabase = createRouteHandlerClient({ cookies });
+  const supabase = await createRouteClient();
   
   try {
     // Validate inputs

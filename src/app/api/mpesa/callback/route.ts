@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { NextResponse } from 'next/server';
 
 // Add validation function at the top
@@ -16,7 +15,7 @@ const validateOrderUpdate = (order: any) => {
 export async function POST(request: Request) {
   try {
     const payload = await request.json();
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createRouteClient();
 
     // Extract relevant data from callback
     const {

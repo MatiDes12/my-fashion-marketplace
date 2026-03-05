@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { escapeHtml, isValidIdentifier } from '@/utils/security';
 
 // Validate redirect URL - only allow relative paths to prevent open redirect
@@ -36,7 +35,7 @@ export async function GET(
     if (!txRef || !isValidIdentifier(txRef, 100)) {
       return new NextResponse('Invalid transaction reference', { status: 400 });
     }
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createRouteClient();
     
     // Get all orders with this tx_ref or tx_refs that start with the base tx_ref
     // Extract the base CASH reference: CASH-timestamp-random

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, formatAmountForStripe } from '@/lib/stripe';
 import { EXCHANGE_RATES } from '@/utils/currency';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest) {
     const isSharedCart = metadata?.is_shared_cart === 'true';
     
     // Validate user authentication (skip for shared cart orders)
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createRouteClient();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session && !isSharedCart) {

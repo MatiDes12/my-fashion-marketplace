@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createRouteClient } from '@/lib/supabase-route';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { generateUniquePickupCode } from '@/utils/pickupCode';
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createRouteClient();
 
     // Verify user authentication (skip for shared cart orders)
     if (!isSharedCart) {

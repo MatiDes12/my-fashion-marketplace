@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 
 // Set your CRON_SECRET in Vercel to: N1PMxaceyJhbGciOiJIUzHiiSfG
 export async function POST(request: Request) {
@@ -17,7 +16,7 @@ export async function POST(request: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const supabase = createRouteHandlerClient({ cookies });
+  const supabase = await createRouteClient();
   
   let results = {
     expiredCount: 0,

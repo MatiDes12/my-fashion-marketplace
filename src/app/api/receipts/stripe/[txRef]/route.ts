@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createRouteClient } from '@/lib/supabase-route';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { convertUSDToETB } from '@/lib/stripe';
@@ -53,7 +53,7 @@ export async function GET(
     }
 
     console.log('Receipt API - Looking for orders with tx_ref:', txRef.substring(0, 20));
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createRouteClient();
     
     // First, try to get orders with the regular client
     let { data: orders, error: ordersError } = await supabase

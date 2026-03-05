@@ -1,13 +1,11 @@
 export const dynamic = 'force-dynamic';
 
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createRouteClient();
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();

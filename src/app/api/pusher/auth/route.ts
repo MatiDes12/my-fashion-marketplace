@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { pusherServer } from '@/lib/pusher';
 import { sanitizeForLog } from '@/utils/security';
 
@@ -38,8 +37,7 @@ function isUserAuthorizedForChannel(channel: string, userId: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createRouteClient();
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();

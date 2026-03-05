@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { verifyPickupCode } from '@/utils/pickupCodeServer';
 import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
 import { sanitizeForLog, isValidIdentifier } from '@/utils/security';
@@ -55,7 +54,7 @@ export async function POST(request: Request) {
 
     // Fire Telegram notification for store pickup (store_pickup)
     try {
-      const supabase = createRouteHandlerClient({ cookies });
+      const supabase = await createRouteClient();
       // Fetch order to get user_id and product title if not provided
       const { data: orderRow } = await supabase
         .from('orders')

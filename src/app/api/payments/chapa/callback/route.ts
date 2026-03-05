@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { headers } from 'next/headers';
 import { generateUniquePickupCode } from '@/utils/pickupCode';
 import { TelegramBot, getTelegramConfig } from '@/lib/telegram';

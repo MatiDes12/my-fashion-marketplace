@@ -1,8 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { rateLimit } from '@/utils/rate-limit';
 
 // Create a rate limiter that allows 3 requests per 5 seconds
@@ -13,8 +12,7 @@ const limiter = rateLimit({
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createRouteClient();
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();

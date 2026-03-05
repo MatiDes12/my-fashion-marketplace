@@ -1,14 +1,13 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { linkCode: string } }
+  { params }: { params: Promise<{ linkCode: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { linkCode } = params;
+    const supabase = await createRouteClient();
+    const { linkCode } = await params;
 
     if (!linkCode) {
       return NextResponse.json({ error: 'Link code is required' }, { status: 400 });
@@ -66,11 +65,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { linkCode: string } }
+  { params }: { params: Promise<{ linkCode: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { linkCode } = params;
+    const supabase = await createRouteClient();
+    const { linkCode } = await params;
 
     if (!linkCode) {
       return NextResponse.json({ error: 'Link code is required' }, { status: 400 });

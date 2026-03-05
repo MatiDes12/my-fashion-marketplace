@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
@@ -7,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createRouteClient();
     
     // Get the current user
     const { data: { session }, error: authError } = await supabase.auth.getSession();

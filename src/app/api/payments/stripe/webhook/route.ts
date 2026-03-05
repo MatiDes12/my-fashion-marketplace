@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import Stripe from 'stripe';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -30,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServerComponentClient({ cookies });
+    const supabase = await createRouteClient();
 
     switch (event.type) {
       case 'checkout.session.completed':

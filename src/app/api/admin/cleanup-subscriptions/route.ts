@@ -1,5 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import { NextResponse } from 'next/server';
 
 // Simple in-memory rate limiting (for production, use Redis or similar)
@@ -23,7 +22,7 @@ function checkRateLimit(identifier: string, limit: number = 5, windowMs: number 
 }
 
 export async function POST(request: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const supabase = await createRouteClient();
   
   try {
     // Check if user is authenticated and is an admin

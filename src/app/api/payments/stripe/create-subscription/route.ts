@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createRouteClient } from '@/lib/supabase-route';
 import Stripe from 'stripe';
 import { convertETBToUSD, EXCHANGE_RATES } from '@/utils/currency';
 
@@ -10,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = await createRouteClient();
     
     // Check authentication
     const { data: { session } } = await supabase.auth.getSession();
