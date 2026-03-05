@@ -95,7 +95,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent,
     // Find subscription order by payment intent ID
     const { data: subscriptionOrder, error: fetchError } = await supabase
       .from('subscription_orders')
-      .select('*')
+      .select('id, status, plan_id, user_id')
       .eq('transaction_reference', paymentIntent.id)
       .single();
 
@@ -142,7 +142,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent, su
     // Find subscription order by payment intent ID
     const { data: subscriptionOrder, error: fetchError } = await supabase
       .from('subscription_orders')
-      .select('*')
+      .select('id, status, plan_id')
       .eq('transaction_reference', paymentIntent.id)
       .single();
 

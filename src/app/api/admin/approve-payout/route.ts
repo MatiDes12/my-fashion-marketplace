@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     // Get transaction details
     const { data: transaction, error: txError } = await supabaseServer
       .from('transactions')
-      .select('*')
+      .select('id, seller_id, seller_payout_amount')
       .eq('id', transactionId)
       .single();
 

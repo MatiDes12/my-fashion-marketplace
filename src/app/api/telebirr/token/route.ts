@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     // Get active payment settings
     const { data: settings, error: settingsError } = await supabase
       .from('admin_payment_settings')
-      .select('*')
+      .select('base_url, fabric_app_id, app_secret')
       .eq('is_active', true)
       .single();
 

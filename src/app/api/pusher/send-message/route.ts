@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Verify user has access to this room
     const { data: room, error: roomError } = await supabase
       .from('chat_rooms')
-      .select('*')
+      .select('id, seller_id, admin_id, customer_id')
       .eq('id', roomId)
       .single();
 
@@ -50,7 +50,14 @@ export async function POST(request: NextRequest) {
         message_type: messageType
       })
       .select(`
-        *,
+        id,
+        room_id,
+        sender_id,
+        sender_type,
+        message,
+        message_type,
+        is_read,
+        created_at,
         sender:users!chat_messages_sender_id_fkey(id, email, full_name, created_at)
       `)
       .single();

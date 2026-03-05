@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Fetch payment settings
     const { data: paymentSettings, error: paymentError } = await supabase
       .from('payment_settings')
-      .select('*')
+      .select('telebirr_settings, cbe_birr_settings, amole_settings, chapa_settings, bank_settings, mpesa_settings')
       .eq('user_id', storeOwner.id)
       .single();
 

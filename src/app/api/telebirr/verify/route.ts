@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     // Get active payment settings
     const { data: settings, error: settingsError } = await supabase
       .from('admin_payment_settings')
-      .select('*')
+      .select('private_key')
       .eq('is_active', true)
       .single();
 

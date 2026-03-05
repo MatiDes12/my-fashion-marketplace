@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Get subscription order from database
     const { data: subscriptionOrder, error: orderError } = await supabase
       .from('subscription_orders')
-      .select('*')
+      .select('id, status, plan_id, user_id, tx_ref, amount, period, payment_method, transaction_reference, created_at, updated_at')
       .eq('id', subscription_order_id)
       .single();
 

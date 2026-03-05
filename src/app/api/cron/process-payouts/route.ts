@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   // Get pending transactions
   const { data: transactions } = await supabase
     .from('transactions')
-    .select('*')
+    .select('id, seller_payout_status, seller_payout_amount, seller_id, platform_payout_status, platform_revenue')
     .eq('payment_status', 'completed')
     .or('seller_payout_status.eq.pending,platform_payout_status.eq.pending');
 

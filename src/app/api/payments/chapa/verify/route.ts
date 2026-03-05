@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       // For cash/Stripe payments, just fetch the order status from our database
       const { data: order, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('payment_status, tx_ref, receipt_url')
         .eq('tx_ref', tx_ref)
         .single();
 

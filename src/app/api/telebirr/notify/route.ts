@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     // Get payment settings
     const { data: settings, error: settingsError } = await supabase
       .from('admin_payment_settings')
-      .select('*')
+      .select('private_key')
       .eq('is_active', true)
       .single();
 
@@ -93,7 +93,8 @@ export async function POST(request: Request) {
       const { data: order } = await supabase
         .from('orders')
         .select(`
-          *,
+          id,
+          user_id,
           product:products(title, owner_id),
           buyer:users!user_id(full_name)
         `)
@@ -101,13 +102,14 @@ export async function POST(request: Request) {
         .single();
 
       if (order) {
+        const product = order.product as any;
         await Promise.all([
           // Notify buyer
           supabase.from('notifications').insert({
             user_id: order.user_id,
             type: 'payment_failed',
             title: 'Payment Failed',
-            message: `Your payment for ${order.product.title} has failed. Please try again.`,
+            message: `Your payment for ${product?.title} has failed. Please try again.`,
             metadata: {
               order_id: order.id,
               amount: payload.trans_amount
@@ -115,10 +117,10 @@ export async function POST(request: Request) {
           }),
           // Notify seller
           supabase.from('notifications').insert({
-            user_id: order.product.owner_id,
+            user_id: product?.owner_id,
             type: 'payment_failed',
             title: 'Order Payment Failed',
-            message: `Payment failed for order of ${order.product.title}`,
+            message: `Payment failed for order of ${product?.title}`,
             metadata: {
               order_id: order.id,
               amount: payload.trans_amount

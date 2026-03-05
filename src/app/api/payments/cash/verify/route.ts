@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Fetch the cash order status
     const { data: order, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, tx_ref, total_price, payment_status, order_status, receipt_url, user_id, product_id, quantity, service_fee, platform_fee, delivery_fee, delivery_method, delivery_address, pickup_code, created_at')
       .eq('tx_ref', tx_ref)
       .single();
 

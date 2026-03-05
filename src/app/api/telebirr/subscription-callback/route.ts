@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     // Get payment settings for signature verification
     const { data: settings, error: settingsError } = await supabase
       .from('admin_payment_settings')
-      .select('*')
+      .select('private_key')
       .eq('is_active', true)
       .single();
 
@@ -59,7 +59,11 @@ export async function POST(request: Request) {
     const { data: subscription, error: subError } = await supabase
       .from('subscription_orders')
       .select(`
-        *,
+        id,
+        tx_ref,
+        plan_id,
+        period,
+        user_id,
         user:users(
           id,
           full_name,
@@ -73,6 +77,9 @@ export async function POST(request: Request) {
     if (subError || !subscription) {
       throw new Error('Subscription order not found');
     }
+
+    // Type assertion: Supabase returns single object for foreign key joins with .single()
+    const subUser = (subscription as any).user as { id: string; full_name: string; email: string; subscription_plan: string } | null;
 
     // Update subscription order status
     const { error: updateError } = await supabase
@@ -120,8 +127,8 @@ export async function POST(request: Request) {
           payment_type: 'subscription',
           total_amount: Number(payload.trans_amount),
           platform_revenue: Number(payload.trans_amount),
-          customer_name: subscription.user.full_name,
-          customer_email: subscription.user.email,
+          customer_name: subUser?.full_name,
+          customer_email: subUser?.email,
           payment_reference: payload.trans_id
         });
 
@@ -144,7 +151,7 @@ export async function POST(request: Request) {
           user_id: null, // Admin notification
           type: 'new_subscription',
           title: 'New Subscription',
-          message: `New ${subscription.plan_id} subscription by ${subscription.user.full_name}`,
+          message: `New ${subscription.plan_id} subscription by ${subUser?.full_name}`,
           metadata: {
             subscription_id: subscription.id,
             user_id: subscription.user_id,

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     // Check if already subscribed to this specific type
     const { data: existingSubscription, error: checkError } = await supabaseServer
       .from('email_subscribers')
-      .select('*')
+      .select('id')
       .eq('email', email)
       .eq('subscription_type', type)
       .single();
