@@ -11,6 +11,7 @@ const ALLOWED_CHANNEL_PATTERNS = [
   /^private-delivery-[a-zA-Z0-9_-]+$/,
   /^presence-chat-[a-zA-Z0-9_-]+$/,
   /^presence-room-[a-zA-Z0-9_-]+$/,
+  /^presence-users$/,
 ];
 
 function isValidChannel(channel: string): boolean {
@@ -29,7 +30,8 @@ function isUserAuthorizedForChannel(channel: string, userId: string): boolean {
       channel.startsWith('private-order-') ||
       channel.startsWith('private-delivery-') ||
       channel.startsWith('presence-chat-') ||
-      channel.startsWith('presence-room-')) {
+      channel.startsWith('presence-room-') ||
+      channel === 'presence-users') {
     return true;
   }
   return false;
