@@ -1,12 +1,10 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createRouteClient } from '@/lib/supabase-route';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ 
-    cookies: () => cookies() // Changed this line
-  });
+  const supabase = await createRouteClient();
   
   // Sign out the user
   await supabase.auth.signOut();
