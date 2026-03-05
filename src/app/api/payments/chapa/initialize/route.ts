@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sanitizeForLog, isValidEmail } from '@/utils/security';
 import { checkPaymentRateLimit } from '@/utils/rate-limit';
+import { auditLog, getClientIP } from '@/lib/audit-logger';
 
 const CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY!;
 const CHAPA_API_URL = 'https://api.chapa.co/v1/transaction/initialize';
@@ -125,15 +126,32 @@ export async function POST(request: Request) {
     }
 
     // Return the exact structure from Chapa
+    auditLog({
+      level: 'info',
+      category: 'payment',
+      action: 'chapa.initialize',
+      message: `Chapa payment initialized: ${payload.tx_ref} (${payload.amount} ETB)`,
+      ip_address: ip,
+      metadata: { tx_ref: payload.tx_ref, amount: payload.amount, email: payload.email },
+    });
     return NextResponse.json(data);
   } catch (error) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    auditLog({
+      level: 'error',
+      category: 'payment',
+      action: 'chapa.initialize.failed',
+      message: `Chapa payment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      ip_address: ip,
+      metadata: { error: error instanceof Error ? error.message : String(error) },
+    });
     console.error('Chapa payment initialization error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: error instanceof Error ? error.message : 'Payment initialization failed',
         details: error
-      }, 
+      },
       { status: 500 }
     );
   }

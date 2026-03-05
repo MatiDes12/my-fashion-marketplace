@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createRouteClient } from '@/lib/supabase-route';
 import { getSupabaseServer } from '@/lib/supabase-server';
 import { Resend } from 'resend';
+import { auditLog } from '@/lib/audit-logger';
 
 // Initialize Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -133,6 +134,15 @@ export async function POST(request: Request) {
         recipients_count: recipients.length,
         failed_count: failed
       });
+
+    auditLog({
+      level: failed > 0 ? 'warn' : 'info',
+      category: 'admin',
+      action: 'bulk_email.sent',
+      message: `Bulk email sent: ${recipients.length - failed}/${recipients.length} succeeded`,
+      user_id: user.id,
+      metadata: { subject, type, recipients_count: recipients.length, failed_count: failed },
+    });
 
     return NextResponse.json({
       success: true,

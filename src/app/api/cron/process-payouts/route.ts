@@ -1,5 +1,6 @@
 import { createRouteClient } from '@/lib/supabase-route';
 import { transferToSeller, transferToAdmin } from '@/utils/telebirr-transfer';
+import { auditLog } from '@/lib/audit-logger';
 
 export async function POST(request: Request) {
   // Secure with CRON_SECRET - only for automated cron jobs
@@ -47,5 +48,13 @@ export async function POST(request: Request) {
     }
   }
 
-  return new Response(`Processed ${(transactions || []).length} transactions`, { status: 200 });
+  const count = (transactions || []).length;
+  auditLog({
+    level: 'info',
+    category: 'system',
+    action: 'cron.process_payouts',
+    message: `Processed ${count} payout transactions`,
+    metadata: { transaction_count: count },
+  });
+  return new Response(`Processed ${count} transactions`, { status: 200 });
 } 
