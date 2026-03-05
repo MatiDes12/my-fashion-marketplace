@@ -9,8 +9,8 @@ export async function POST(request: Request) {
   try {
     const routeClient = await createRouteClient();
 
-    const { data: sessionData } = await routeClient.auth.getSession();
-    const userId = sessionData.session?.user.id || null;
+    const { data: { user } } = await routeClient.auth.getUser();
+    const userId = user?.id || null;
 
     const { message, level = 'info', data } = await request.json();
 

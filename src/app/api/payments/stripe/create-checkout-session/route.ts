@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
     
     // Validate user authentication (skip for shared cart orders)
     const supabase = await createRouteClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session && !isSharedCart) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if ((authError || !user) && !isSharedCart) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
     
     // For shared cart orders, get the user_id from temporary orders
-    let actualUserId = session?.user?.id;
+    let actualUserId = user?.id;
     if (isSharedCart && metadata?.tx_ref) {
       const { data: tempOrders } = await supabase
         .from('temporary_orders')

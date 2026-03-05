@@ -7,13 +7,23 @@ const supabase = supabaseServer;
 
 export async function POST(request: NextRequest) {
   try {
-    const { deliveryId, status, deliveryNotes, proofImages } = await request.json();
+    const { deliveryId, status, deliveryNotes, proofImages, deliveryAccountId } = await request.json();
 
     if (!deliveryId || !status) {
       return NextResponse.json({ error: 'Delivery ID and status are required' }, { status: 400 });
     }
 
-    // First verify this is a valid delivery
+    if (!deliveryAccountId) {
+      return NextResponse.json({ error: 'Delivery account ID is required for authorization' }, { status: 400 });
+    }
+
+    // Validate status against allowed values
+    const allowedStatuses = ['assigned', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'failed'];
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Invalid delivery status' }, { status: 400 });
+    }
+
+    // Verify this delivery belongs to the claimed delivery account (prevents IDOR)
     const { data: deliveryData, error: deliveryError } = await supabase
       .from('delivery_tracking')
       .select(`
@@ -26,10 +36,11 @@ export async function POST(request: NextRequest) {
         )
       `)
       .eq('id', deliveryId)
+      .eq('delivery_account_id', deliveryAccountId)
       .single();
 
     if (deliveryError || !deliveryData) {
-      return NextResponse.json({ error: 'Invalid delivery ID' }, { status: 404 });
+      return NextResponse.json({ error: 'Delivery not found for this account' }, { status: 404 });
     }
 
     if (!(deliveryData as any).delivery_accounts?.is_active) {

@@ -4,9 +4,9 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const supabase = await createRouteClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const { error: userError } = await supabase
       .from('users')
       .update({ role: 'owner' })
-      .eq('id', session.user.id);
+      .eq('id', user.id);
 
     if (userError) throw userError;
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const { error: settingsError } = await supabase
       .from('payment_settings')
       .insert({
-        user_id: session.user.id,
+        user_id: user.id,
         telebirr_settings: {
           is_active: false,
           short_code: '',

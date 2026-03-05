@@ -26,10 +26,10 @@ export async function POST(request: Request) {
   
   try {
     // Check if user is authenticated and is an admin
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json(
-        { error: 'Unauthorized - Not authenticated' }, 
+        { error: 'Unauthorized - Not authenticated' },
         { status: 401 }
       );
     }
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('is_admin')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single();
 
     if (userError || !userData?.is_admin) {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     // Rate limiting: 5 requests per minute per admin user
-    const rateLimitKey = `admin_cleanup_${session.user.id}`;
+    const rateLimitKey = `admin_cleanup_${user.id}`;
     if (!checkRateLimit(rateLimitKey, 5, 60000)) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before trying again.' }, 

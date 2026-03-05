@@ -9,9 +9,9 @@ export async function GET(
     const supabase = await createRouteClient();
     
     // Get the current user
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    
-    if (authError || !session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -35,7 +35,7 @@ export async function GET(
       );
     }
 
-    if (order.user_id !== session.user.id) {
+    if (order.user_id !== user.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createRouteClient } from '@/lib/supabase-route';
 import { getSupabaseServer } from '@/lib/supabase-server';
 import { Resend } from 'resend';
 
@@ -7,6 +8,23 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
+    // Verify admin authentication
+    const supabase = await createRouteClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
     const { type, subject, message, singleEmail } = await request.json();
 
     // Validate input

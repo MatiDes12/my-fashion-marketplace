@@ -13,20 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createRouteClient();
     
-    // Try to refresh the session first
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError) {
-      console.error('Session error in update-status:', sessionError);
-      return NextResponse.json({ error: 'Session error' }, { status: 401 });
-    }
-    
-    if (!session) {
-      console.error('No session found in update-status');
-      return NextResponse.json({ error: 'No active session' }, { status: 401 });
-    }
-    
-    // Get current user with better error handling
+    // Validate user with auth server
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError) {

@@ -1,11 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-
-// Create a Supabase client with service role for admin operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseServer } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     // First verify this is a valid delivery account
-    const { data: accountData, error: accountError } = await supabase
+    const { data: accountData, error: accountError } = await supabaseServer
       .from('delivery_accounts')
       .select('id, is_active')
       .eq('id', deliveryAccountId)
@@ -31,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch deliveries for this delivery person
-    const { data: deliveriesData, error: deliveriesError } = await supabase
+    const { data: deliveriesData, error: deliveriesError } = await supabaseServer
       .from('delivery_tracking')
       .select(`
         *,

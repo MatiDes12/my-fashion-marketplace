@@ -1,6 +1,5 @@
 import { createRouteClient } from '@/lib/supabase-route';
 
-// Set your CRON_SECRET in Vercel to: N1PMxaceyJhbGciOiJIUzHiiSfG
 export async function POST(request: Request) {
   // Secure with CRON_SECRET - only for automated cron jobs
   const authHeader = request.headers.get('Authorization');

@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
+import { createRouteClient } from '@/lib/supabase-route';
 import { TelegramBot, getTelegramConfig } from '@/lib/telegram';
 
 export async function POST(request: Request) {
   try {
+    // Verify user is authenticated
+    const supabase = await createRouteClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { type, userId, data } = await request.json();
 
     if (!type || !userId) {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createRouteClient } from '@/lib/supabase-route';
 import { supabaseServer } from '@/lib/supabase-server';
 import { transferToSeller } from '@/utils/telebirr-transfer';
 
@@ -10,6 +11,23 @@ type TransactionRow = {
 
 export async function POST(request: Request) {
   try {
+    // Verify admin authentication
+    const supabase = await createRouteClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single();
+
+    if (userError || !userData?.is_admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
     const { transactionId } = await request.json();
 
     // Get transaction details

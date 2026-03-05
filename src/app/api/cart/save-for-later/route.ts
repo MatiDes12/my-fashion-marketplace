@@ -6,8 +6,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createRouteClient();
     
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       .from('cart_items')
       .select('*')
       .eq('id', cartItemId)
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (fetchError || !cartItem) {
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       .from('cart_items')
       .update({ saved_for_later: true })
       .eq('id', cartItemId)
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (updateError) {
       throw updateError;
@@ -64,8 +64,8 @@ export async function DELETE(request: NextRequest) {
     const supabase = await createRouteClient();
     
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -80,7 +80,7 @@ export async function DELETE(request: NextRequest) {
       .from('cart_items')
       .update({ saved_for_later: false })
       .eq('id', cartItemId)
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (updateError) {
       throw updateError;

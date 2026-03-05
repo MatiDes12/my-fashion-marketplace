@@ -6,8 +6,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createRouteClient();
     
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const { data: userData } = await supabase
       .from('users')
       .select('full_name, email')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single();
 
     // Calculate gift wrapping fee
@@ -85,8 +85,8 @@ export async function POST(request: NextRequest) {
     const { data: giftPurchase, error: insertError } = await supabase
       .from('gift_purchases')
       .insert({
-        purchaser_id: session.user.id,
-        purchaser_email: userData?.email || session.user.email,
+        purchaser_id: user.id,
+        purchaser_email: userData?.email || user.email,
         purchaser_name: userData?.full_name || 'Anonymous',
         recipient_email: recipientEmail,
         recipient_name: recipientName,

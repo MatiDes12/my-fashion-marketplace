@@ -6,8 +6,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createRouteClient();
     
     // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       .from('delivery_accounts')
       .select('id, delivery_person_name, phone_number')
       .eq('id', deliveryAccountId)
-      .eq('seller_id', session.user.id)
+      .eq('seller_id', user.id)
       .eq('is_active', true)
       .single();
 

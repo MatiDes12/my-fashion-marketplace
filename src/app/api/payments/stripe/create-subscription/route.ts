@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createRouteClient();
     
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     const { data: subscriptionOrder, error: orderError } = await supabase
       .from('subscription_orders')
       .insert({
-        user_id: session.user.id,
+        user_id: user.id,
         plan_id: planId,
         amount: amountETB, // Store original ETB amount
         period: period,
@@ -100,14 +100,14 @@ export async function POST(request: NextRequest) {
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/subscription?cancelled=true`,
       metadata: {
         subscription_order_id: subscriptionOrder.id,
-        user_id: session.user.id,
+        user_id: user.id,
         plan_id: planId,
         period: period,
         tx_ref: txRef,
         original_amount_etb: amountETB.toString(),
         converted_amount_usd: amountUSD.toString()
       },
-      customer_email: session.user.email,
+      customer_email: user.email,
     };
 
     const checkoutSession = await stripe.checkout.sessions.create(sessionParams);

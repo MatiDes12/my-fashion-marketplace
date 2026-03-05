@@ -9,8 +9,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createRouteClient();
     
     // Check authentication
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
           )
         )
       `)
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .eq('saved_for_later', false);
 
     if (fetchError) {
@@ -48,14 +48,14 @@ export async function POST(request: NextRequest) {
     const { data: userData } = await supabase
       .from('users')
       .select('full_name, email')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single();
 
     // Prepare cart data
     const cartData = {
       sender: {
         name: userData?.full_name || 'Anonymous',
-        email: userData?.email || session.user.email
+        email: userData?.email || user.email
       },
       message: message || 'Check out my shopping cart!',
       items: cartItems.map(item => ({
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       .from('shared_carts')
       .insert({
         share_code: shareCode,
-        user_id: session.user.id,
+        user_id: user.id,
         recipient_email: recipientEmail || null,
         recipient_name: recipientName || null,
         message: message || 'Check out my shopping cart!',

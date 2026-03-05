@@ -1,20 +1,44 @@
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { supabaseServer } from '@/lib/supabase-server';
 
-// Create a Supabase client with service role for admin operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = supabaseServer;
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const deliveryId = formData.get('deliveryId') as string;
+    const deliveryAccountId = formData.get('deliveryAccountId') as string;
 
     if (!file || !deliveryId) {
       return NextResponse.json({ error: 'File and delivery ID are required' }, { status: 400 });
+    }
+
+    // Verify the delivery exists and the caller owns it
+    if (!deliveryAccountId) {
+      return NextResponse.json({ error: 'Delivery account ID is required' }, { status: 400 });
+    }
+
+    const { data: delivery, error: deliveryError } = await supabase
+      .from('delivery_tracking')
+      .select('id, delivery_account_id')
+      .eq('id', deliveryId)
+      .eq('delivery_account_id', deliveryAccountId)
+      .single();
+
+    if (deliveryError || !delivery) {
+      return NextResponse.json({ error: 'Unauthorized - delivery not found for this account' }, { status: 403 });
+    }
+
+    // Verify the delivery account is active
+    const { data: account, error: accountError } = await supabase
+      .from('delivery_accounts')
+      .select('is_active')
+      .eq('id', deliveryAccountId)
+      .single();
+
+    if (accountError || !account?.is_active) {
+      return NextResponse.json({ error: 'Delivery account is not active' }, { status: 403 });
     }
 
     // Validate file size (10MB limit)

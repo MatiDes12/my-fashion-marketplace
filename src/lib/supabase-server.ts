@@ -1,47 +1,60 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Validate public environment variables (available on client and server)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Lazy initialization to avoid build-time errors when env vars aren't available
+let supabaseServerInstance: ReturnType<typeof createClient> | undefined;
+let supabaseAnonInstance: ReturnType<typeof createClient> | undefined;
 
-if (!supabaseUrl) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_URL is required');
-}
-
-if (!supabaseAnonKey) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is required');
-}
-
-// Server-side client with service role key for admin operations (server only)
-let supabaseServerInternal: ReturnType<typeof createClient> | undefined;
-if (typeof window === 'undefined') {
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseServiceKey) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required');
+function getEnvOrThrow(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required`);
   }
-  supabaseServerInternal = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return value;
 }
 
-// Export as non-optional type to avoid TS noise in server-only imports.
-// Do NOT import this in client components.
-export const supabaseServer = (supabaseServerInternal as unknown as ReturnType<typeof createClient>);
+function createServerClient() {
+  if (!supabaseServerInstance) {
+    const url = getEnvOrThrow('NEXT_PUBLIC_SUPABASE_URL');
+    const serviceKey = getEnvOrThrow('SUPABASE_SERVICE_ROLE_KEY');
+    supabaseServerInstance = createClient(url, serviceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return supabaseServerInstance;
+}
+
+function createAnonClient() {
+  if (!supabaseAnonInstance) {
+    const url = getEnvOrThrow('NEXT_PUBLIC_SUPABASE_URL');
+    const anonKey = getEnvOrThrow('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    supabaseAnonInstance = createClient(url, anonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return supabaseAnonInstance;
+}
+
+// Proxy that lazily initializes on first property access
+// This prevents build-time errors when env vars aren't set
+export const supabaseServer = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, prop) {
+    return (createServerClient() as any)[prop];
+  },
+});
 
 export function getSupabaseServer() {
-  if (!supabaseServerInternal) {
-    throw new Error('supabaseServer is only available on the server');
-  }
-  return supabaseServerInternal;
+  return createServerClient();
 }
 
 // Server/client-safe anon client for regular operations
-export const supabaseServerAnon = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
+export const supabaseServerAnon = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, prop) {
+    return (createAnonClient() as any)[prop];
   },
 });
