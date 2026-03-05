@@ -1,0 +1,122 @@
+name: Security
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    - cron: "0 6 * * 1" # Weekly Monday 6am UTC
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  # ── CodeQL SAST ─────────────────────────────────────────────────────
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended,security-and-quality
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: Perform Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  # ── Dependency Vulnerability Scan ───────────────────────────────────
+  dependency-scan:
+    name: Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: npm
+      - run: npm ci
+      - name: npm audit
+        run: |
+          echo "## Dependency Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          npm audit --json > audit.json 2>/dev/null || true
+
+          CRITICAL=$(cat audit.json | jq '.metadata.vulnerabilities.critical // 0')
+          HIGH=$(cat audit.json | jq '.metadata.vulnerabilities.high // 0')
+          MODERATE=$(cat audit.json | jq '.metadata.vulnerabilities.moderate // 0')
+          LOW=$(cat audit.json | jq '.metadata.vulnerabilities.low // 0')
+
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+          echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Moderate | $MODERATE |" >> $GITHUB_STEP_SUMMARY
+          echo "| Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::Critical vulnerabilities found!"
+            exit 1
+          fi
+
+  # ── Secret Scanning ─────────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan for leaked secrets
+        run: |
+          echo "## Secret Scan Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          FOUND=0
+
+          # Check for common secret patterns in tracked files
+          PATTERNS=(
+            'sk_live_[a-zA-Z0-9]{20,}'
+            'sk_test_[a-zA-Z0-9]{20,}'
+            'AKIA[0-9A-Z]{16}'
+            'ghp_[a-zA-Z0-9]{36}'
+            'sbp_[a-zA-Z0-9]{30,}'
+            'eyJhbGciOi[a-zA-Z0-9_-]{50,}'
+          )
+
+          for pattern in "${PATTERNS[@]}"; do
+            if git grep -lE "$pattern" -- ':(exclude)*.lock' ':(exclude)node_modules' 2>/dev/null; then
+              echo "::error::Potential secret matching pattern: $pattern"
+              FOUND=1
+            fi
+          done
+
+          if [ $FOUND -eq 0 ]; then
+            echo "No leaked secrets detected." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Potential secrets found!** Review immediately." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+  # ── License Compliance ──────────────────────────────────────────────
+  license-check:
+    name: License Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: npm
+      - run: npm ci
+      - name: Check licenses
+        run: |
+          npx license-checker --production --onlyAllow "MIT;ISC;BSD-2-Clause;BSD-3-Clause;Apache-2.0;0BSD;CC0-1.0;CC-BY-3.0;CC-BY-4.0;Unlicense;Python-2.0;BlueOak-1.0.0" --excludePrivatePackages 2>&1 || {
+            echo "::warning::Some dependencies have non-standard licenses. Review above."
+          }

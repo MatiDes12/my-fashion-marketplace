@@ -45,7 +45,7 @@ export async function GET(
     // Fetch delivery statuses for the order
     const { data: deliveryStatuses, error: statusError } = await supabase
       .from('delivery_statuses')
-      .select('*')
+      .select('id, order_id, status, notes, delivery_person_name, delivery_person_phone, proof_image, created_at')
       .eq('order_id', orderId)
       .order('created_at', { ascending: true });
 

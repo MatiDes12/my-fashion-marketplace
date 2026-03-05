@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Fetch all orders created with the base transaction reference
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, tx_ref, total_price, payment_status, order_status, product_id, quantity, service_fee, delivery_fee, delivery_method, delivery_address, pickup_code, created_at')
       .like('tx_ref', `${baseTxRef}%`)
       .eq('user_id', userId);
 

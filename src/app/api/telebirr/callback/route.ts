@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     // Get the payment settings
     const { data: settings, error: settingsError } = await supabase
       .from('admin_payment_settings')
-      .select('*')
+      .select('private_key')
       .eq('is_active', true)
       .single();
 
@@ -72,7 +72,15 @@ export async function POST(request: Request) {
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(`
-        *,
+        id,
+        user_id,
+        total_price,
+        ethiopia_tax,
+        platform_fee,
+        service_fee,
+        delivery_fee,
+        quantity,
+        created_at,
         product:products(
           id,
           owner_id,

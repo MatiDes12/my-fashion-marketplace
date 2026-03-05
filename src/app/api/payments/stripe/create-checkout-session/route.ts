@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe, formatAmountForStripe } from '@/lib/stripe';
 import { EXCHANGE_RATES } from '@/utils/currency';
 import { createRouteClient } from '@/lib/supabase-route';
+import { checkPaymentRateLimit } from '@/utils/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit by user or IP
+    const supabase = await createRouteClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    const rateLimitKey = user?.id || ip;
+    if (!(await checkPaymentRateLimit(rateLimitKey))) {
+      return NextResponse.json({ success: false, message: 'Too many payment requests. Please try again later.' }, { status: 429 });
+    }
+
     const body = await request.json();
     const { 
       amount_usd, 
@@ -30,10 +40,7 @@ export async function POST(request: NextRequest) {
     const isSharedCart = metadata?.is_shared_cart === 'true';
     
     // Validate user authentication (skip for shared cart orders)
-    const supabase = await createRouteClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if ((authError || !user) && !isSharedCart) {
+    if (!user && !isSharedCart) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
         { status: 401 }

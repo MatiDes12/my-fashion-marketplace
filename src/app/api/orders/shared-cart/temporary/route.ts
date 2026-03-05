@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Get shared cart data
     const { data: sharedCart, error: fetchError } = await supabase
       .from('shared_carts')
-      .select('*')
+      .select('id, share_code, user_id, cart_data, expires_at, is_used')
       .eq('share_code', shareCode)
       .single();
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 import { sanitizeForLog, isValidEmail } from '@/utils/security';
+import { checkPaymentRateLimit } from '@/utils/rate-limit';
 
 const CHAPA_SECRET_KEY = process.env.CHAPA_SECRET_KEY!;
 const CHAPA_API_URL = 'https://api.chapa.co/v1/transaction/initialize';
@@ -11,6 +11,7 @@ const ALLOWED_CALLBACK_HOSTS = [
   '127.0.0.1',
   'avrioxshop.com',
   'www.avrioxshop.com',
+  'vercel.app',
 ];
 
 // Validate callback URL to prevent SSRF
@@ -39,6 +40,12 @@ function validateCallbackUrl(url: string | undefined): string | null {
 
 export async function POST(request: Request) {
   try {
+    // Rate limit by IP
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (!(await checkPaymentRateLimit(ip))) {
+      return NextResponse.json({ error: 'Too many payment requests. Please try again later.' }, { status: 429 });
+    }
+
     const body = await request.json();
 
     // Validate and clean email

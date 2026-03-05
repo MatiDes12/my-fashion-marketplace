@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Get the cart item
     const { data: cartItem, error: fetchError } = await supabase
       .from('cart_items')
-      .select('*')
+      .select('id, saved_for_later')
       .eq('id', cartItemId)
       .eq('user_id', user.id)
       .single();

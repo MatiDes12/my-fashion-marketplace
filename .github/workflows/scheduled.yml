@@ -1,0 +1,83 @@
+name: Scheduled Maintenance
+
+on:
+  schedule:
+    - cron: "0 8 * * 1" # Every Monday 8am UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  NODE_VERSION: "20.x"
+
+jobs:
+  # ── Dependency Updates ──────────────────────────────────────────────
+  dependency-update:
+    name: Dependency Updates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Check outdated packages
+        id: outdated
+        run: |
+          echo "## Weekly Dependency Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npm outdated 2>&1 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Security audit
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Security Audit" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          npm audit 2>&1 >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Auto-fix safe updates
+        run: |
+          npm audit fix --dry-run 2>&1 || true
+
+  # ── Unused Code Detection ───────────────────────────────────────────
+  dead-code:
+    name: Dead Code Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+
+      - name: Check unused dependencies
+        run: |
+          echo "## Unused Dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npx depcheck --ignores="@types/*,eslint*,css-loader,style-loader,autoprefixer,postcss,tailwindcss,@tailwindcss/*,playwright" 2>&1 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check unused exports
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Potentially Unused Files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          # Find TypeScript files not imported anywhere
+          for f in $(find src/utils src/lib src/hooks -name "*.ts" -o -name "*.tsx" 2>/dev/null); do
+            BASENAME=$(basename "$f" | sed 's/\.[^.]*$//')
+            if [ "$BASENAME" != "index" ]; then
+              IMPORTS=$(grep -rl "$BASENAME" src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "$f" | wc -l)
+              if [ "$IMPORTS" -eq 0 ]; then
+                echo "- \`$f\` (0 imports found)" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       // Get order data first
       const { data: order, error: fetchError } = await supabase
         .from('orders')
-        .select('*')
+        .select('quantity, total_price, service_fee, platform_fee, delivery_fee')
         .eq('tx_ref', MerchantRequestID.split('-')[1])
         .single();
 

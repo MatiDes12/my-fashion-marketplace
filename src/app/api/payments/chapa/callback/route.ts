@@ -106,7 +106,7 @@ export async function GET(request: Request) {
       // Get temporary orders
       const { data: tempOrders, error: tempOrdersError } = await supabase
         .from('temporary_orders')
-        .select('*')
+        .select('user_id, product_id, quantity, total_price, platform_fee, service_fee, ethiopia_tax, delivery_fee, delivery_method, delivery_address, selected_size, selected_color, selected_variant_sku, seller_id, customer_phone, metadata, expires_at')
         .eq('tx_ref', tx_ref)
         .gt('expires_at', new Date().toISOString());
 

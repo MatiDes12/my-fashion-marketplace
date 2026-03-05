@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
             updated_at: new Date().toISOString()
           } as Record<string, unknown>)
           .eq('order_id', String(deliveryData.order_id))
-          .select('*');
+          .select('id, order_id');
 
         if (transactionError) {
           console.error('Transaction update error:', transactionError);

@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     
     const { data: tempOrders, error: tempOrderError } = await supabaseService
       .from('temporary_orders')
-      .select('*')
+      .select('user_id, product_id, quantity, total_price, platform_fee, service_fee, ethiopia_tax, delivery_fee, delivery_method, delivery_address, selected_size, selected_color, selected_variant_sku, seller_id, customer_phone, metadata, expires_at')
       .eq('tx_ref', txRef)
       .gt('expires_at', new Date().toISOString()); // Only get non-expired orders
     
